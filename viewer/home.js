@@ -440,7 +440,7 @@ function render() {
     h += '<h2 class="section-head"><span>Up for a full read</span><span class="section-n">' + narrow.length + "</span></h2>";
     h += '<p class="section-note">Each of these was opened for one mechanism and closed again — ' +
       'the concepts below are all that was taken. Any of them could be read end to end next. ' +
-      'Ask for the one you want, or propose a paper that is not here at all.</p>';
+      '<strong>Ask for the one you want, or propose a paper that is not here at all.</strong></p>';
     h += '<ol class="narrow-list">' + narrow.map(narrowRow).join("") + "</ol>";
     h += "</section>";
   }
