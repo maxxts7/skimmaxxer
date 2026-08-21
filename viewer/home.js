@@ -142,7 +142,7 @@ function panels(pid) {
   const themes = conceptThemes(pid);
   if (themes.length) {
     tabs.push({
-      key: "themes", label: "Themes", n: themes.length,
+      key: "themes", label: "Themes",
       intro: plural(c.concepts, "concept") + ", grouped into " + plural(themes.length, "theme") +
         " that follow the paper's own order.",
       rows: themes.map((t) => ({
@@ -180,7 +180,7 @@ function panels(pid) {
   }
   if (p.insights && (p.insights.chapters || []).length) {
     tabs.push({
-      key: "insights", label: "Insights", n: p.insights.chapters.length,
+      key: "insights", label: "Insights",
       intro: firstLine(p.insights.intro, 150) ||
         "What a second pass over the paper turns up, reading across it rather than through it.",
       rows: p.insights.chapters.map((ch) => ({
@@ -198,7 +198,7 @@ function panels(pid) {
     tabs.map((t, i) => '<button type="button" class="tab" role="tab" id="tab-' + uid + "-" + t.key +
       '" aria-controls="panel-' + uid + "-" + t.key + '" aria-selected="' + (i === 0) + '"' +
       (i === 0 ? "" : ' tabindex="-1"') + ">" + esc(t.label) +
-      '<span class="tab-n">' + t.n + "</span></button>").join("") + "</div>";
+      (t.n ? '<span class="tab-n">' + t.n + "</span>" : "") + "</button>").join("") + "</div>";
 
   h += tabs.map((t, i) =>
     '<div class="panel" role="tabpanel" id="panel-' + uid + "-" + t.key +

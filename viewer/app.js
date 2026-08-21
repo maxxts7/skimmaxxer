@@ -666,8 +666,7 @@ function buildNav() {
 
   const ins = p.insights;
   if (ins) {
-    h += '<details class="nav-fold"><summary>Insights<span class="fold-n">' +
-      (ins.chapters || []).length + "</span></summary><ul class=\"nav-list\">";
+    h += '<details class="nav-fold"><summary>Insights</summary><ul class="nav-list">';
     h += navRow("#/insights", "", "The second read, whole", "sub lead");
     (ins.chapters || []).forEach((c, i) => {
       h += navRow(c.childId ? "#/n/" + c.childId : "#/insights#ch-" + c.id, c.number || String(i + 1), c.title);
@@ -677,8 +676,7 @@ function buildNav() {
 
   const themes = (p.themes || []).filter((t) => t.kind === "concept-theme");
   if (themes.length) {
-    h += '<details class="nav-fold"><summary>Themes<span class="fold-n">' + themes.length +
-      "</span></summary><ul class=\"nav-list\">" +
+    h += '<details class="nav-fold"><summary>Themes</summary><ul class="nav-list">' +
       themes.map((t) => navRow("#/theme/" + t.id, "", t.name)).join("") + "</ul></details>";
   }
 
