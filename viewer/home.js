@@ -278,7 +278,122 @@ function narrowRow(pid) {
     h += '<p class="narrow-for"><span class="for-label">read for</span> ' +
       needed.join('<span class="dot">·</span>') + "</p>";
   }
+  h += '<button type="button" class="ask" data-id="' + esc(pid) + '" data-title="' +
+    esc(r.title || pid) + '">Ask for a full read</button>';
   return h + "</li>";
+}
+
+/* ---------- asking for a paper ---------- */
+
+/* One form, two ways in: a paper already on the shelf, asked to be read in
+   full, or one nobody has touched. Requests are private — nothing about them
+   comes back to the page. */
+function proposeSection() {
+  let h = '<section class="shelf" id="propose">';
+  h += '<h2 class="section-head"><span>Propose a paper</span></h2>';
+  h += '<p class="section-note">Anything that is not on the shelf. Send the link and say what you ' +
+    'want out of it — what a read would have to explain for the paper to land.</p>';
+
+  h += '<form class="ask-form" id="ask-form" novalidate>';
+  h += '<p class="ask-target" id="ask-target" hidden></p>';
+  h += '<div class="field" id="field-paper">' +
+    '<label for="f-paper">The paper</label>' +
+    '<input id="f-paper" name="paper" type="text" autocomplete="off" ' +
+    'placeholder="arxiv.org/abs/1810.04805 — a link, an id, or just the title"></div>';
+  h += '<div class="field">' +
+    '<label for="f-note">What you want explained</label>' +
+    '<textarea id="f-note" name="note" rows="3" ' +
+    'placeholder="The part you keep bouncing off, or why it is worth the depth."></textarea></div>';
+  h += '<div class="field-row">' +
+    '<div class="field"><label for="f-name">Your name <span class="opt">optional</span></label>' +
+    '<input id="f-name" name="name" type="text" autocomplete="name"></div>' +
+    '<div class="field"><label for="f-email">Email <span class="opt">optional</span></label>' +
+    '<input id="f-email" name="email" type="email" autocomplete="email"></div></div>';
+  h += '<p class="field-note">An address is only ever used to tell you the read is up.</p>';
+  h += '<input class="hp" id="f-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">';
+  h += '<div class="ask-actions"><button class="door door-main" type="submit" id="ask-send">Send it</button>' +
+    '<p class="form-msg" id="form-msg" role="status"></p></div>';
+  h += "</form></section>";
+  return h;
+}
+
+function wireAsk(root) {
+  const form = el("ask-form");
+  if (!form) return;
+  const target = el("ask-target");
+  const paperField = el("field-paper");
+  const msg = el("form-msg");
+  const send = el("ask-send");
+  let asking = null;
+
+  const say = (text, kind) => {
+    msg.textContent = text || "";
+    msg.className = "form-msg" + (kind ? " " + kind : "");
+  };
+  const clearTarget = () => {
+    asking = null;
+    target.hidden = true;
+    target.innerHTML = "";
+    paperField.hidden = false;
+  };
+
+  root.querySelectorAll("button.ask").forEach((b) => {
+    b.addEventListener("click", () => {
+      asking = { id: b.dataset.id, title: b.dataset.title };
+      target.hidden = false;
+      target.innerHTML = '<span class="ask-label">Asking for a full read of</span>' +
+        '<strong>' + esc(asking.title) + "</strong>" +
+        '<span class="ask-id">' + esc(asking.id) + "</span>" +
+        '<button type="button" class="ask-clear">propose a different paper</button>';
+      paperField.hidden = true;
+      el("f-paper").value = "";
+      say("");
+      form.scrollIntoView({ behavior: "smooth", block: "center" });
+      el("f-note").focus({ preventScroll: true });
+    });
+  });
+
+  target.addEventListener("click", (ev) => {
+    if (ev.target.closest(".ask-clear")) { clearTarget(); el("f-paper").focus(); }
+  });
+
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const paper = el("f-paper").value.trim();
+    if (!paper && !asking) {
+      say("Name a paper first — a link, an arXiv id, or the title.", "bad");
+      el("f-paper").focus();
+      return;
+    }
+    send.disabled = true;
+    say("Sending…");
+    try {
+      const res = await fetch("/api/request-paper", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          paper: paper,
+          note: el("f-note").value,
+          name: el("f-name").value,
+          email: el("f-email").value,
+          website: el("f-website").value,
+          forPaperId: asking ? asking.id : "",
+          forPaperTitle: asking ? asking.title : "",
+        }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || "That did not go through.");
+      form.reset();
+      clearTarget();
+      say("Filed. Thank you — it goes in the queue by hand, not automatically.", "good");
+    } catch (err) {
+      say(err instanceof TypeError
+        ? "No connection to the request box. It only runs on the deployed site."
+        : (err.message || "That did not go through."), "bad");
+    } finally {
+      send.disabled = false;
+    }
+  });
 }
 
 /* ---------- page ---------- */
@@ -322,19 +437,22 @@ function render() {
 
   if (narrow.length) {
     h += '<section class="shelf">';
-    h += '<h2 class="section-head"><span>Read only where they were needed</span><span class="section-n">' + narrow.length + "</span></h2>";
-    h += '<p class="section-note">Opened for one mechanism each, then closed. These concepts belong ' +
-      'to the papers below and are reused by anything that cites them, so they open inside whichever ' +
-      'full read needed them.</p>';
+    h += '<h2 class="section-head"><span>Up for a full read</span><span class="section-n">' + narrow.length + "</span></h2>";
+    h += '<p class="section-note">Each of these was opened for one mechanism and closed again — ' +
+      'the concepts below are all that was taken. Any of them could be read end to end next. ' +
+      'Ask for the one you want, or propose a paper that is not here at all.</p>';
     h += '<ol class="narrow-list">' + narrow.map(narrowRow).join("") + "</ol>";
     h += "</section>";
   }
+
+  h += proposeSection();
 
   h += '<footer class="site-foot"><p>Generated from the PDFs in <code>papers/</code>. ' +
     'Nothing here is written by hand.</p></footer>';
 
   el("home").innerHTML = h;
   wireTabs(el("home"));
+  wireAsk(el("home"));
   mountMath(el("home"));
 }
 

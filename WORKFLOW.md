@@ -132,6 +132,20 @@ Everything is organized per paper, plus one shared index:
 - `papers/<paper-id>/` — that paper's world: `paper.pdf`, `assets/` (figure crops, page images), `data/*.json` (concepts, figures, edges, themes, pages, narrative), and `refs.json` (the cited papers this run accessed).
 - `viewer/index.html` — the library: every registered paper, and how the concepts inside each one are grouped.
 - `viewer/read.html?p=<paper-id>` — one reader shell for any paper. It loads every bundle, so a cross-paper concept link renders in place rather than sending the reader to another document.
+- `netlify/functions/` — the only server-side code: `request-paper` files a reader's request in the
+  `paper-requests` blob store, `admin-requests` reads them back for the admin page.
+- `viewer/admin.html` — the request book, behind the `ADMIN_PASSWORD` set in the Netlify site's
+  environment variables. Not linked from anywhere and marked `noindex`.
+
+## Deploying
+
+Netlify, publishing the repo root (`netlify.toml`). Nothing is built — `npm install` runs only so the
+two functions can bundle `@netlify/blobs`. `/` redirects to `/viewer/`, and `/api/*` maps to the
+functions.
+
+One setting has to be made by hand in the Netlify UI: **`ADMIN_PASSWORD`**, under Site configuration
+→ Environment variables. Without it the admin endpoint refuses every request rather than falling
+open. Requests land in Netlify Blobs, which the free tier includes; readers never see them.
 
 ## Open items
 
