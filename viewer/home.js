@@ -438,9 +438,13 @@ function render() {
   if (narrow.length) {
     h += '<section class="shelf">';
     h += '<h2 class="section-head"><span>Up for a full read</span><span class="section-n">' + narrow.length + "</span></h2>";
-    h += '<p class="section-note">Each of these was opened for one mechanism and closed again — ' +
-      'the concepts below are all that was taken. Any of them could be read end to end next. ' +
-      '<strong>Ask for the one you want, or propose a paper that is not here at all.</strong></p>';
+    h += '<div class="shelf-callout">' +
+      '<p class="sc-lead">Ask for the one you want read in full.</p>' +
+      '<p class="sc-body">Each of these was opened for one mechanism and closed again — the ' +
+      'concepts listed under it are all that was taken. Any of them could be read end to end ' +
+      'next, and what gets read next is decided by what people ask for.</p>' +
+      '<a class="door door-main sc-cta" href="#propose">Propose a paper instead →</a>' +
+      "</div>";
     h += '<ol class="narrow-list">' + narrow.map(narrowRow).join("") + "</ol>";
     h += "</section>";
   }
