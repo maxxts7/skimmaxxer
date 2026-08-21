@@ -412,7 +412,6 @@ function render() {
   let h = "";
 
   h += '<section class="hero"><div class="hero-text">';
-  h += '<p class="eyebrow">The library</p>';
   h += "<h1>Read a paper at the depth you want.</h1>";
   h += '<p class="lede">Every paper here has been taken apart into concepts, figures that stand on ' +
     'their own, and a story that reopens at higher resolution as far down as you care to go. ' +
