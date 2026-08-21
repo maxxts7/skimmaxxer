@@ -1,0 +1,44 @@
+NARRATIVE NODE: n-the-constraint-you-cannot-tune-away
+TITLE: The constraint you cannot tune away
+
+INTRO:
+The parent stated the complaint. This level takes it apart: which computation is actually blocked and which is not, what the convolutional models had already fixed and what they broke doing it, how much of the attention machinery was lying around before this paper, and what the priority sentence in Section 2 does and does not claim.
+
+--- CHAPTER id=what-is-blocked ---
+TITLE: What the constraint actually blocks
+
+The complaint is about a dependency graph, not about arithmetic. A [[recurrent-neural-network|recurrent layer]] — the established state of the art for [[language-modeling]] and [[machine-translation]] at the time of writing — factors computation along symbol positions and aligns those positions to steps in computation time. A length-$n$ sentence is then a chain of $n$ steps, and the depth of that chain is $n$ whatever hardware sits under it. Adding GPUs does not shorten a chain. That is what "precludes parallelization within training examples" means, and it holds for [[lstm|LSTMs]] and [[gated-recurrent-unit|GRUs]] alike: gates change what flows along the chain, not that there is one.
+
+The standard escape is to widen the batch instead — if one example's positions cannot run at once, run many examples at once. The paper closes that door with a single word: memory. Stored activations scale with sequence length times batch size, so longer sequences mean fewer examples fit. The escape narrows exactly where the [[sequential-computation-bottleneck|bottleneck]] bites hardest.
+
+The two patches it names attack the wrong term. [[factorization-tricks]] break an LSTM's weight matrices into smaller pieces; [[conditional-computation]] activates only part of the network per input, and the paper grants that this one also improved quality. Both make a step cheaper. Neither makes the steps fewer.
+
+One boundary is worth marking, because the paper does not mark it here. All of this concerns training. At test time the decoder still emits one token at a time; [[auto-regressive-generation]] is untouched, and the conclusion lists making generation less sequential as a separate goal for later work. What is on offer is parallel training, not parallel generation.
+
+--- CHAPTER id=the-convolutional-escape ---
+TITLE: The convolutional escape, and what it cost
+
+[[convolutional-sequence-models|Convolutional sequence models]] had already answered the parallelism complaint. The [[extended-neural-gpu|Extended Neural GPU]], [[bytenet|ByteNet]] and [[convs2s|ConvS2S]] compute hidden representations for all input and output positions at once, with no chain along the sequence. To argue against them the paper has to move to a second axis, and it does so in the first paragraph of Section 2.
+
+The mechanism behind the second axis is kernel width. One convolutional layer with kernel width $k$ can only relate positions at most $k-1$ apart. To connect positions $n$ apart you stack layers — about $n/k$ of them for contiguous kernels, which is the linear growth attributed to ConvS2S. [[dilated-convolutions|Dilation]] spaces the taps so the receptive field widens geometrically with depth, which is why ByteNet's growth is logarithmic instead. Either way the number of operations separating two signals depends on how far apart they sit. The paper's stated consequence, with a citation to the gradient-flow literature rather than an experiment of its own, is that this makes [[long-range-dependencies|dependencies between distant positions]] harder to learn.
+
+So the complaint has changed shape between Section 1 and Section 2. The first is a count of steps along the sequence; the second is a count of steps between two positions. Both are counts of operations that cannot be collapsed, and both reappear later as columns of [[table-1]] — [[minimum-sequential-operations]] and [[maximum-path-length]]. In the Transformer the second count is reduced to a constant, which is the whole reason the second axis is raised here.
+
+--- CHAPTER id=attention-was-already-there ---
+TITLE: Attention was already in the building
+
+By 2017 the paper does not have to sell [[attention-mechanism|attention]]. It describes it as an integral part of compelling [[sequence-transduction|transduction]] models, and names the property it wants: attention models dependencies without regard to their distance in the input or output sequence. That property is the thing being harvested. If distance-free access already lives in the attention, the recurrent network underneath it is the part you can consider deleting.
+
+What existed was attention in a subordinate role. In all but a few cases, the paper says, attention is used in conjunction with a recurrent network — typically as the [[encoder-decoder-attention|link between the two halves]] of an otherwise recurrent model. [[self-attention]], relating positions of a single sequence to each other, was already in use for reading comprehension, abstractive summarization, textual entailment and learning task-independent sentence representations. [[end-to-end-memory-networks]] already ran on a recurrent attention mechanism instead of sequence-aligned recurrence, and already worked on simple-language question answering and language modeling. Neither the primitive nor the intra-sequence use is being introduced.
+
+The same paragraph also prices the swap before describing any of the machinery that pays for it. Reducing the operations between two positions to a constant comes, in the paper's own words, at [[attention-averaging-resolution-cost|the cost of reduced effective resolution]] from averaging attention-weighted positions — an effect it says it counteracts with [[multi-head-attention]]. The defect is admitted in the background section, the repair arrives in Section 3.2, and the evidence that the repair does anything is [[attention-heads-ablation|one ablation row]] near the end.
+
+--- CHAPTER id=the-narrow-claim ---
+TITLE: The claim, qualifier by qualifier
+
+The priority sentence closing Section 2 is hedged in four places, and each hedge does work. "To the best of our knowledge" makes it a claim about the authors' reading of the literature. "The first transduction model relying entirely on self-attention to compute representations of its input and output" scopes the claim to how representations are computed, not to the frame: the [[encoder-decoder-architecture|encoder-decoder frame]] survives untouched, and so does attention from decoder to encoder. "Without using sequence-aligned RNNs or convolution" carries the qualifier that separates the [[transformer|Transformer]] from the memory networks named two paragraphs earlier — their recurrence runs over attention hops, not over sequence positions.
+
+Against that narrow claim the opening posts wide promises. The abstract asks for three things at once: better quality, more parallelizable, significantly less time to train. The numbers attached are 28.4 [[bleu]] on [[wmt-2014-en-de|WMT 2014 English-German]], over 2 BLEU above the existing best including ensembles; 41.8 as a single-model result on [[wmt-2014-en-fr|English-French]] after 3.5 days on [[training-hardware-and-schedule|eight GPUs]]; a state-of-the-art translation model after twelve hours in the introduction; and [[constituency-parsing|English constituency parsing]] as the check that none of it is translation-specific.
+
+Two of the three claims are things a table can hold. The third is not. Parallelizability is argued structurally, through [[layer-comparison-desiderata|the complexity criteria]] of Section 4, and never measured on its own — there is no scaling curve, no throughput against device count. It is carried entirely by wall-clock training time and by an argument about the shape of the computation.
+

@@ -1,0 +1,33 @@
+PAGE FOR: theme-the-shape-of-the-model (theme)
+
+What does the model look like if you black out every formula? That is what this theme answers: the wiring diagram of [[transformer|the Transformer]], which you can hold in your head before any attention math arrives. [[fig-1]] is the whole thing in one picture.
+
+### It keeps the old frame
+
+The paper does not propose a new way to organize a translation model. It keeps the [[encoder-decoder-architecture]] that competitive sequence models already used: an encoder maps the input symbols $(x_1,\dots,x_n)$ to continuous representations $z = (z_1,\dots,z_n)$, and a decoder reads $z$ and emits output symbols one at a time. Generation stays [[auto-regressive-generation|auto-regressive]] — each new symbol is fed back in as input for the next.
+
+That continuity is the point. [[theme-why-recurrence-had-to-go|The previous theme]] argued only that the *inside* of a layer should stop being recurrent. The outer contract is unchanged, so what follows is a swap of layer internals, not a redesign of the task.
+
+### Two stacks of one layer, repeated
+
+Each half is a stack of $N=6$ identical layers ([[n-layers]]). Identical means identical in shape, not in weights — the layers have their own parameters but the same structure, so describing one describes all six.
+
+The [[encoder-stack|encoder layer]] has two [[sub-layer|sub-layers]]: multi-head self-attention, then a [[position-wise-feed-forward-network]] applied to each position separately and identically ([[eq-ffn]]). The [[decoder-stack|decoder layer]] has the same two plus a third inserted between them, which attends over the encoder's output. That third sub-layer is where the two towers meet: [[encoder-decoder-attention]] takes its keys and values from the top of the encoder stack, which is the only channel through which input information reaches the decoder at all.
+
+The decoder also modifies its self-attention: positions may not attend to later positions ([[masked-decoder-self-attention]]). Combined with output embeddings offset by one position, this makes the prediction at position $i$ depend only on outputs before $i$ — the auto-regressive property from the frame above, enforced structurally rather than by processing order.
+
+### One wrapper around everything
+
+Every sub-layer, in both stacks, is wrapped the same way:
+
+$$\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$$
+
+The [[residual-connection]] adds each sub-layer's input to its output, so the sub-layer only has to learn a change on top of the identity. Then [[layer-normalization]] rescales each position's vector using statistics computed across that vector's own features ([[layer-normalization-statistics]]), not across the batch. The paper treats the normalization as part of the sub-layer's definition, not a tuning choice — there is no unwrapped sub-layer anywhere in the model.
+
+The wrapper is also why the model has one width. Because $x$ and $\mathrm{Sublayer}(x)$ are added, they must have the same dimension; the paper says explicitly that all sub-layers and the embedding layers output $d_{model} = 512$ ([[d-model]]) *to facilitate these residual connections*. The constant width is a consequence of the residual, not an independent design decision.
+
+### What the shape forces next
+
+Two things fall out of this picture. Nothing in it carries order information — no recurrence, no convolution — so position has to be injected once, added to the embeddings at the bottom of each stack ([[eq-posenc]]). And every layer's substance now sits inside sub-layers you have not seen yet.
+
+That is the handoff. You can now read [[theme-how-attention-is-computed|how attention is computed]] knowing exactly which three slots it fills and what each slot's inputs are. As for whether the shape works: [[table-2]] is the headline evidence, and [[table-4]] shows the same stack transferring to constituency parsing with little tuning.

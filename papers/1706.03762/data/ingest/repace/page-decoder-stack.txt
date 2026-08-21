@@ -1,0 +1,15 @@
+PAGE FOR: decoder-stack (concept)
+
+The decoder is the right-hand tower in [[fig-1]]: the half of the model that emits tokens. It exists because the encoder produces a set of representations with no output side — something has to turn $z = (z_1, \dots, z_n)$ into $(y_1, \dots, y_m)$ one symbol at a time, and do it in a way that still trains in parallel.
+
+Structurally it copies the [[encoder-stack]] — [[n-layers|$N=6$]] identical layers, every [[sub-layer]] wrapped as $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$ with a [[residual-connection]] and [[layer-normalization]], everything $[[d-model|d_{model}]] = 512$ wide — and inserts a third sub-layer. The order inside one layer is: [[masked-decoder-self-attention|masked self-attention]], then [[encoder-decoder-attention|attention over the encoder output]], then the [[position-wise-feed-forward-network|feed-forward block]] of [[eq-ffn]] (512 → 2048 → ReLU → 512, per position).
+
+The shapes are worth holding onto. Input to layer 1 is an $m \times 512$ matrix: output embeddings shifted right by one position, plus [[positional-encoding]]. The masked self-attention is ordinary [[multi-head-attention]] — $h=8$ heads, [[dk-dv-dimensions|$d_k = d_v = 64$]] — with one change inside [[eq-attention]]: scores for future positions are set to $-\infty$ before the softmax ([[causal-masking]]), so its $m \times m$ weight matrix is lower-triangular. The cross-attention sub-layer takes queries from the decoder ($m \times 64$ per head) but keys and values from the encoder's final output ($n \times 64$), giving an $m \times n$ attention matrix with no mask at all. The same encoder output feeds all six layers.
+
+### What the mask buys and what it costs
+
+Masking plus the one-position shift is what makes the prediction for position $i$ depend only on outputs before $i$ — the [[auto-regressive-generation|auto-regressive]] property the loss assumes. The payoff is that all $m$ positions are computed in one pass at training time, which is the whole point of dropping recurrence. The cost lands at inference: generation is still strictly sequential, one forward pass per token, and [[beam-search]] multiplies that. The decoder is also the more expensive tower — three sub-layers instead of two, and each layer's cross-attention adds $O(n \cdot m \cdot d)$ on top.
+
+### How well is this supported
+
+Thinly, if you want it isolated. [[fig-1]] shows the arrangement; nothing measures it. [[table-3]] varies head count, $d_k$, dropout and layer count across the whole model, never the decoder alone — no row removes the cross-attention sub-layer or gives the two stacks different depths. [[table-4]] uses a 4-layer variant for parsing, which shows $N=6$ is not sacred, not that six is right. Treat the decoder's shape as an inherited design the paper kept rather than a choice it defended with numbers.

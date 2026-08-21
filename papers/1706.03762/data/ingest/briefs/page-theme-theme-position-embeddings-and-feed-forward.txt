@@ -1,0 +1,36 @@
+PAGE FOR THEME: theme-position-embeddings-and-feed-forward
+NAME: Position, embeddings, and the feed-forward layer
+
+THEME SUMMARY (shown above your page as the lede - do not repeat verbatim):
+The parts of a layer that act on each position on its own. Every layer's second sub-layer is a small two-layer network applied identically at every position, and the input and output embedding matrices are shared with the pre-softmax projection. Because there is no recurrence or convolution, nothing so far tells the model what order the tokens are in, so a fixed sinusoidal vector is added to each input embedding. These pieces complete the layer described in the previous themes.
+
+PREVIOUS THEME: theme-where-attention-is-used | Where attention is used in the model
+NEXT THEME: theme-why-self-attention | Why self-attention, compared to the alternatives
+
+MEMBER CONCEPTS (3) - each has its own page or expandable section; your job is the connective tissue between them, not to restate each one:
+  - position-wise-feed-forward-network | Position-wise feed-forward network [minor]: A two-layer fully connected network applied to each sequence position independently and identically: expand to $d_{ff}=2048$, apply ReLU, project back to $d_{model}=512$.
+      · d-ff | d_ff = 2048 (feed-forward inner dimension): The width of the hidden layer inside the position-wise feed-forward network: 2048, four times $d_{model}$.
+      · relu | ReLU activation: The rectified linear unit, $\max(0, x)$: a standard nonlinearity that zeroes out negative values.
+  - embedding-softmax-weight-sharing | Embedding and softmax weight sharing [minor]: The two token embedding layers and the pre-softmax output projection all share a single weight matrix.
+      · sqrt-dmodel-embedding-multiplier | sqrt(d_model) embedding multiplier: In the embedding layers, the shared weights are multiplied by $\sqrt{d_{model}}$.
+  - positional-encoding | Positional encoding [major]: Vectors added to the input embeddings that inject information about each token's position, since the model itself has no recurrence or convolution to sense order.
+      · sinusoidal-positional-encoding | Sinusoidal positional encoding: The paper's fixed positional encoding: each dimension is a sine or cosine of the position, at wavelengths form
+      · relative-position-linearity | Relative positions as linear functions: For any fixed offset $k$, the sinusoidal encoding of position $pos+k$ is a linear function of the encoding of 
+      · learned-positional-embedding | Learned positional embeddings: The alternative to sinusoids: a trainable vector per position, learned like any other parameter.
+
+LOAD-BEARING EDGES LEAVING THIS THEME (use these to point forward/back):
+  positional-encoding --depends-on--> self-attention | exists because attention ignores order
+  embedding-softmax-weight-sharing --depends-on--> weight-tying | borrows tying without defining it
+  position-wise-feed-forward-network --supported-by--> eq-ffn | defines the second sub-layer
+  sinusoidal-positional-encoding --instance-of--> positional-encoding | the fixed encoding actually used
+
+EVIDENCE ITEMS RELATED TO THIS THEME (link as [[item-id]]):
+  - fig-1 | The two-stack data path: The figure shows the entire model in one picture: two towers of identical layers, each layer built only from attention and a position-wise feed-forward network, every sub-layer wrapped in a residual connection plus layer normalization. There is no recurrence and no convolution anywhere, so order information has to be injected once, at the bottom of each tower.
+  - eq-ffn | The per-position feed-forward block: Equation (2) defines the second sub-layer in every encoder and decoder layer: a two-layer MLP with a ReLU in between, applied to each position's vector on its own. It widens each 512-dimensional vector to 2048, rectifies, and projects back to 512, with weights shared across positions but not across layers.
+  - eq-posenc | Position as a bank of sinusoids: A model with no recurrence and no convolution has no idea what order its tokens are in, so the paper adds a fixed vector to each input embedding whose entries are sines and cosines of the position at geometrically spaced wavelengths. The paper says it picked this over learned position vectors because relative offsets become linear functions of the encoding, and because it may extrapolate to sequences longer than those seen in training.
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 10-3.3-position-wise-feed-forward-networks.txt
+  - 11-3.4-embeddings-and-softmax.txt
+  - 12-3.5-positional-encoding.txt
+  - 13-4-why-self-attention.txt

@@ -1,0 +1,21 @@
+ITEM: eq-attention (equation) - The scaled dot-product attention formula
+
+TAKEAWAY:
+This is the paper's whole attention function in one line: score every query against every key with a dot product, shrink the scores by $\sqrt{d_k}$, softmax them into weights, and return the weighted sum of the values. The $1/\sqrt{d_k}$ factor is the only thing separating it from ordinary dot-product attention, and the paper adds it because it suspects large dot products push the softmax into regions with very small gradients.
+
+WALKTHROUGH:
+Equation (1) defines [[scaled-dot-product-attention|the attention function]] the whole Transformer is built from. It is written for a batch of queries at once: everything is a matrix, so one call handles a full sequence.
+
+### How to read it
+
+The three inputs are [[queries-keys-values|queries, keys, and values]], packed as rows. $Q$ has one row per query, each of dimension [[dk-dv-dimensions|$d_k$]]; $K$ has one row per key, also of dimension $d_k$; $V$ has one row per value, of dimension $d_v$. $K$ and $V$ have the same number of rows, since keys and values come in pairs. If there are $n$ queries and $m$ key-value pairs, $Q$ is $n \times d_k$, $K$ is $m \times d_k$, and $V$ is $m \times d_v$.
+
+Read the formula inside out. $QK^T$ is an $n \times m$ matrix; entry $(i,j)$ is the dot product of query $i$ with key $j$ — the [[compatibility-function|compatibility score]] for that pair. So one matrix product gives all-pairs scores.
+
+Divide every score by $\sqrt{d_k}$. The paper's footnote gives the reason: if the components of $q$ and $k$ are independent with mean $0$ and variance $1$, then $q \cdot k = \sum_{i=1}^{d_k} q_i k_i$ has mean $0$ and variance $d_k$. Scores therefore spread out as $d_k$ grows. The authors suspect that large scores push [[softmax]] into regions with extremely small gradients; dividing by $\sqrt{d_k}$ brings the variance back to roughly $1$. They state this as a suspicion, not a proof.
+
+Softmax is applied per row. Each row of the $n \times m$ score matrix becomes non-negative weights summing to $1$ — one distribution over key-value pairs per query.
+
+Multiplying by $V$ turns each weight row into a weighted sum of value vectors. The output is $n \times d_v$: one vector per query.
+
+Without the scaling this is exactly [[dot-product-attention|dot-product attention]], which the paper prefers over [[additive-attention|additive attention]] because it runs as optimized matrix multiplication. In the base model this function is run eight times in parallel inside [[multi-head-attention|multi-head attention]], with $d_k = 64$, so the divisor is $8$.

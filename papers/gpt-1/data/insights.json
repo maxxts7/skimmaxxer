@@ -1,0 +1,1861 @@
+{
+ "title": "Reading Across the Paper",
+ "intro": "The tour walks the paper front to back, section by section, the way it was written. This read does something else: it puts relationships side by side and reports what only shows up when they sit together — a setting in section 4.1 that turns out to be forced by an equation in section 3.1, a claim in the conclusion whose nearest evidence measures something else, a design choice the ablation table says should have been made per dataset. Nothing here contradicts the tour. It is the same paper, cut along its dependencies instead of its page order.",
+ "chapters": [
+  {
+   "id": "scarce-labels-and-the-smallest-dataset",
+   "title": "The paper argues from scarce labels, then loses on the smallest labelled set it tries",
+   "body": "The case for the whole recipe is an asymmetry: raw text is abundant, and labelled data for any one task is not. The worst result in the paper is on [[rte]], the smallest labelled dataset in its inference family, at 2490 training examples.\n\n[[table-2]] puts one fine-tuned model against systems built for each dataset. It reports gains of 1.5 points on MNLI, 5 on SciTail, 5.8 on QNLI and 0.6 on [[snli]]. On RTE it reaches 56% accuracy where a multi-task biLSTM reports 61.7%. The paper reads that as a small-data effect, says the model would likely benefit from multi-task training, and then says it has not run that experiment. SNLI, at roughly 550k training examples, is the largest set in the same family and produces the smallest of the four wins.\n\nThe cleanest test of the size reading is [[sts-b]]. It holds roughly 5.7k training examples, which puts it in the same small band as RTE's 2490. It gains a point over the previous best. Two datasets of similar size, opposite verdicts, and size is offered as the explanation for one of them only.\n\nThe unevenness repeats in text classification. [[cola]] rises to 45.4 from a previous best of 35.0, which the paper reads as evidence of linguistic bias picked up during pre-training. [[sst-2]] reaches 91.3% and matches rather than beats what was already published. [[table-4]] carries both, together with [[semantic-similarity]], where two of three datasets are wins and [[mrpc]] is not claimed.\n\nThe headline is new best results on 9 of 12. That count appears in no single table. It is a sum of wins across Tables 2, 3 and 4, with [[table-1]] fixing the denominator at twelve. All three misses sit in those tables rather than being left out, which is what makes [[state-of-the-art-9-of-12]] auditable at all. The one summary figure spanning several datasets, a [[glue-benchmark]] score of 72.8 against 68.9, is an average, and an average can be carried by a single large win such as CoLA.\n\nSo the premise the design was built backwards from — that [[labeled-data-scarcity]] is what needs solving — is where [[two-stage-training-procedure]] has its one clear failure.",
+   "edgeIds": [
+    "e001",
+    "e047",
+    "e048",
+    "e049",
+    "e050",
+    "e054",
+    "e055",
+    "e056",
+    "e057",
+    "e114",
+    "e115",
+    "e116",
+    "e117"
+   ],
+   "number": "1",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "one-lambda-for-a-conditional-effect",
+   "title": "The auxiliary loss helps large datasets and hurts small ones, and gets a single weight for all twelve",
+   "body": "Stage two optimizes two losses at once, and the paper's own ablation says the second should not be switched on everywhere. Equation 5 fixes the combination as $L_3(C) = L_2(C) + \\lambda L_1(C)$ with $\\lambda = 0.5$ for every dataset, while [[table-5]] reports that removing $L_1$ helps on some datasets and hurts on others.\n\nStart from the parts. [[supervised-objective-l2]] is written out in [[eq-supervised-objective]] as the summed log-probability of the correct label over the labelled data — ordinary supervised training, stated plainly so that something can be added to it. What gets added by [[eq-combined-objective]] is the pre-training loss, recomputed on the task's own inputs. That addition costs no parameters, because the language modelling head is nothing but $W_e^T$, the transposed embedding table, which is still sitting there from stage one. A model with a separately trained output projection would have had to carry one along on purpose; [[output-softmax-tied-embeddings]] means this one does not.\n\nNow the tension. The two terms pull on the same weights, so gradient capacity is divided between predicting the label and predicting the next token, and $\\lambda$ is where the split is set. [[auxiliary-objective-weight]] is reported as 0.5 with no sweep, so it is a stated setting rather than a tuned finding. Against that, [[ablation-no-auxiliary-objective]] finds the sign of the effect changing with the dataset: the inference tasks and [[qqp]] benefit from keeping the term, smaller sets do not, and the paper words the trend as larger datasets benefiting. One constant is therefore being applied across cases where the paper's own evidence says the right value differs.\n\nThere is a second thing the paper states but does not join up. Its related-work section splits [[semi-supervised-learning-for-nlp]] into two branches: [[unsupervised-pretraining]], where unlabelled data only chooses where the weights start, and [[auxiliary-training-objectives]], where an unsupervised term is added to the supervised loss. The recipe sits in the first branch and borrows the second. And when it borrows, it says pre-training has already learned the linguistic aspects the auxiliary objective would otherwise supply. That sentence is an argument for [[auxiliary-lm-objective]] being redundant once stage one is large enough — which is close to the ablation's own trend, read from the other end. The paper never puts the two remarks next to each other.",
+   "edgeIds": [
+    "e018",
+    "e035",
+    "e041",
+    "e042",
+    "e043",
+    "e067",
+    "e079",
+    "e080",
+    "e108",
+    "e109",
+    "e110",
+    "e111",
+    "e119"
+   ],
+   "number": "2",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "settings-whose-mechanisms-live-elsewhere",
+   "title": "A large part of the model is settings for mechanisms defined in other papers",
+   "body": "Read the model specification as a list and it looks like a design. Read it as a set of dependencies and most of it is a value chosen for a slot that some other paper cut, with this paper supplying the number and one sentence of justification.\n\nThe stack itself is the clearest case. [[multi-layer-transformer-decoder]] is not a new architecture; it is the block of prior work, stacked twelve deep. [[decoder-only-stack]] is one cut of that design: drop the encoder half, keep a single stack attending to its own past, because a language modelling objective has no separate source to encode. [[eq-decoder-stack]] is where you can check that — three lines with no encoder and no cross-attention anywhere in them, and [[transformer-gpt1]] supplying everything inside each block.\n\nThe open slots then get filled with numbers. [[position-wise-feedforward-3072]] widens each 768-dimensional vector fourfold and projects it back. [[twelve-attention-heads]] do not each receive their own state; they divide it, so 768 over 12 leaves each head a 64-dimensional subspace, which ties [[hidden-state-dimension-768]] and the head count together as one dial with two labels. Dropout at rate 0.1 is placed at three points — residual branches, embeddings, attention — the mechanism assumed known, the placements specified.\n\nThree more are substitutions with the mechanism defined in a citation. [[learned-position-embeddings]] replace the original transformer's fixed sinusoids with a trained table; no comparison between the two is reported. [[byte-pair-encoding-gpt1]] decides what a token is, at 40,000 merges, with the merge algorithm defined in [53] — which also means the rows of $W_e$ are subword pieces, and since the output reuses $W_e^T$, the distribution the model predicts is over those same pieces. [[decoupled-weight-decay]] is used at $w = 0.01$ specifically because plain L2 inside the loss gets rescaled by Adam's per-parameter step; the variant is from [37], and the regularizer is picked because of the optimizer rather than independently. [[gelu]] replaces ReLU, defined in [18].\n\nOne borrowed piece even justifies another. [[weight-initialization]] draws every weight from $\\mathcal{N}(0, 0.02)$, and the stated reason it suffices is that [[layer-normalization-gpt1]] is used throughout, rescaling activations at each position so the initialization never has to keep magnitudes in range itself.",
+   "edgeIds": [
+    "e004",
+    "e006",
+    "e007",
+    "e012",
+    "e014",
+    "e015",
+    "e030",
+    "e037",
+    "e038",
+    "e069",
+    "e075",
+    "e076",
+    "e091",
+    "e092",
+    "e093",
+    "e122"
+   ],
+   "number": "3",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     8
+    ]
+   }
+  },
+  {
+   "id": "one-decision-three-appearances",
+   "title": "The mask, the 512-token window and the choice of books are one decision made three times",
+   "body": "These three look independent. The mask is architecture, 512 is a hyperparameter, BooksCorpus is data, and they appear in different sections. Follow the dependencies and they are one commitment restated at three levels.\n\nStart at [[eq-lm-objective]]. It defines [[language-modeling-objective]] as the summed log-probability the network assigns each token given the $k$ tokens before it, leaving $k$ as a free symbol. That conditioning is what [[masked-self-attention]] exists to realize: each position may attend to itself and earlier positions, never later ones. Without the mask a position could attend to the token it is being asked to predict, and the objective would be solved by copying. With it, one forward pass over a sequence produces one honest prediction at every position at once.\n\nNow $k$ gets a value. [[context-window-512-tokens]] fixes it at 512 contiguous tokens. That number is not only a setting in the loss — it is a row count. Because position information comes from a trained table rather than sinusoids, [[learned-position-embeddings]] has one row per slot, so 512 is a size in the parameter file and not something that can be raised at test time.\n\nA 512-token window is only worth paying for if the tokens inside it are related to each other. That is what selects the corpus. [[bookscorpus]] is over 7,000 unpublished books, and its stated selling point is [[long-range-contiguous-text]] — sentences left in their original order, so a window usually spans several paragraphs of one story. The paper names [[one-billion-word-benchmark]] as roughly the same size and rejects it because sentence-level shuffling destroys that structure. On a shuffled corpus, the same 512 slots would mostly hold unrelated neighbours, and the mask would be enforcing a conditioning that had nothing to condition on.\n\nWhat all three are for is [[long-range-dependencies-gpt1]], and the paper gives two concrete cases: [[coreference]], where a pronoun and the name it stands for can sit sentences apart, and [[race-dataset]], where a question points at a detail far back in a passage.\n\nThe same chain doubles as the architecture argument. [[lstm-short-range-limitation]] is the paper's stated reason for not using a recurrent network: pre-trained LSTMs keep their predictive ability local, capping what they can hand over. Every prediction seeing up to 512 preceding tokens is the concrete counterpoint to that claim.",
+   "edgeIds": [
+    "e003",
+    "e005",
+    "e008",
+    "e009",
+    "e010",
+    "e036",
+    "e071",
+    "e072",
+    "e073",
+    "e074",
+    "e089",
+    "e090",
+    "e103",
+    "e106",
+    "e107"
+   ],
+   "number": "4",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "the-comparisons-not-run",
+   "title": "The two things the paper argues hardest for are the two it never varies",
+   "body": "[[ablation-studies]] runs three controlled removals: drop the auxiliary loss, swap the transformer for an LSTM, skip pre-training. Neither of the two choices the paper spends the most prose defending — the corpus and the pre-training objective — is varied in any of them.\n\nThe objective first. The introduction sets out [[choice-of-pretraining-objective]] as an open question and names three candidates being tried in the field — language modelling, machine translation, discourse coherence — each ahead of the others on different tasks. The paper commits to next-token prediction and reports what happens. It does not claim the choice is best, and it runs no second objective to compare against, so the question it opened stays open. Nothing about the estimator is unusual either: [[language-modeling-objective]] is [[maximum-likelihood-training]] applied to text, so whatever stage one contributes comes from the data and the architecture rather than from the loss being special.\n\nThe corpus next. [[long-range-contiguous-text]] is argued for against the sentence-shuffled alternative, and the evidence offered is downstream. [[table-3]] reports the paper's two largest margins, 8.9 points on the Story Cloze Test and 5.7 overall on [[race-dataset]], and these are read as showing the model handles long context. [[cnn-and-squad-contrast]] appears only to argue that RACE has more reasoning-type questions than earlier reading comprehension sets. But no table separates long-range items from short-range ones, and no pre-training corpus was swapped and rerun. The corpus argument therefore rests on scores from a model trained on one corpus, which is one inferential step weaker than the claim it carries.\n\nTwo more places where the measurement sits beside the claim rather than under it. [[token-level-perplexity]] of 18.4 is offered as evidence that stage one worked; it is the pre-training loss restated per token, so it reports fit to BooksCorpus and nothing about transfer. [[world-knowledge]] appears in the conclusion as \"significant world knowledge\" acquired from pre-training, and the nearest evidence is the zero-shot panel plus the downstream tables, neither of which measures facts about the world.\n\nAnd [[domain-mismatch-tolerance]] — the assumption that the unlabelled corpus need not match the target domain — is stated in the introduction and then relied on throughout, with fiction books pre-training a model evaluated on science exams, news paraphrase and Quora question pairs. It is never tested directly.",
+   "edgeIds": [
+    "e011",
+    "e013",
+    "e051",
+    "e052",
+    "e053",
+    "e062",
+    "e063",
+    "e068",
+    "e096",
+    "e126",
+    "e128"
+   ],
+   "number": "5",
+   "childId": "i-the-comparisons-not-run",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "task-work-moved-into-the-input",
+   "title": "The single-model claim is paid for in the input format, and one format needs a repair",
+   "body": "[[task-agnostic-model]] is true of the architecture and not of the pipeline. The per-task work still exists; it has been moved out of the network and into a serialization step, and one of the four serializations then needs a fix for a defect the readout introduces.\n\nThe comparison the paper draws is with [[task-specific-architectures]], the prevailing practice of hand-designing a network around each task's structure, often stacked on transferred representations. Both approaches accept that tasks differ. They disagree about where the difference is absorbed. Here it is absorbed by [[task-specific-input-transformations]]: premise-hypothesis pairs and document-question-answer triplets are each rewritten as one ordered token sequence before the model sees anything. [[fig-1]] is the concrete content of that idea, with the repeated block on the left and four task shapes feeding the same stack on the right, and [[multi-layer-transformer-decoder]] is what actually fills the task-agnostic role for all twelve datasets.\n\nThe payoff is measured in [[per-task-parameter-cost]]. [[eq-task-head]] introduces exactly one matrix, $W_y$, applied to a single vector and softmaxed, which is why [[minimal-extra-parameters]] can be checked by counting rather than believed. Adding [[delimiter-token]] embeddings completes the list. The systems this single matrix is measured against are mostly task-built biLSTMs, sometimes with attention, ELMo features or ensembling.\n\nThat one-matrix head is only possible because the sequence has already been collapsed. [[final-token-activation]] is the final block's output at the last input position, and for that position to mean the same thing across examples, every transformed input is bracketed by [[start-and-end-tokens]].\n\n### The defect and its repair\n\nA left-to-right stack summarizing at the last token is order-sensitive by construction: whichever part comes second sits closer to the readout. [[entailment-input-transformation]] does not mind, because a premise and a hypothesis have an inherent direction, and one traversal with a delimiter between them is faithful. [[similarity-input-transformation]] does mind, because two sentences being compared have no natural order and a single traversal would impose one arbitrarily. The repair is to build both orderings, run each through the stack independently, and add the two final activations element-wise before the linear layer — at twice the compute per example. [[qa-and-commonsense-input-transformation]] handles variable structure the same way, building one sequence per candidate answer and normalizing scores across candidates, so [[traversal-style-approach]] absorbs a changing number of parts by running a fixed model several times.",
+   "edgeIds": [
+    "e016",
+    "e017",
+    "e019",
+    "e020",
+    "e021",
+    "e039",
+    "e040",
+    "e044",
+    "e045",
+    "e046",
+    "e070",
+    "e077",
+    "e078",
+    "e081",
+    "e082",
+    "e083",
+    "e084",
+    "e097",
+    "e098",
+    "e100",
+    "e127",
+    "e130"
+   ],
+   "number": "6",
+   "childId": "i-task-work-moved-into-the-input",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "everything-is-carried-in-the-weights",
+   "title": "Every setting in stage two is arranged around not disturbing the weights, and none of it is argued",
+   "body": "What stage one hands over is a parameter vector and nothing else. [[unsupervised-pretraining]] is the branch of semi-supervised learning where unlabelled data chooses where the weights start, and here the language model's outputs are discarded entirely — only $\\Theta$ survives. Every number in the fine-tuning setup then reads as protection for that vector, though the paper reports them as settings and argues the point nowhere.\n\nThe two stages train the same weights against opposite targets. [[generative-pretraining]] maximizes the probability of the next token over unlabelled text; [[supervised-fine-tuning]] maximizes the probability of the correct label given the input. The second does not initialize a fresh network. It continues the exact parameters the first produced.\n\nNow read the settings. The peak learning rate falls from 2.5e-4 to 6.25e-5, four times smaller, with batches of 32 instead of 64 — [[fine-tuning-lr-and-batch]] against [[pre-training-optimization]]. Three passes over a task's training set replace 100 over BooksCorpus. [[three-epochs-fine-tuning]] would be an absurd budget from random initialization; the paper simply says the model fine-tunes quickly. The only regularizer stage two adds is [[classifier-dropout]] at 0.1, applied to the head — the newest and smallest part, and the part most able to overfit a small labelled set. Everything else is inherited. Small steps, few of them, one new thing regularized: an arrangement for adjusting weights that already encode something worth keeping.\n\nThe contrasts sharpen what \"carried in the weights\" means. [[feature-based-transfer]] freezes the pre-trained model and feeds its hidden states into a separate task network as extra inputs; [[elmo-deep-contextualized-word-representations]] is the best-known case, and its task model is trained from scratch. Here there is no second network and every pre-trained weight is updated. The price is visible in [[masked-self-attention]]: because each position must predict the next token, it may never see the right context, while ELMo's bidirectional language model can — one approach gives up the right context, the other gives up a single stack that can be fine-tuned as it stands.\n\n[[word-embedding-transfer]] is the same distinction at word level, moving one vector per word and nothing above it, and [[layers-transferred]] shows what stopping there costs: full transfer is worth up to 9% on MultiNLI over embeddings alone. And within [[lm-pretraining-then-finetuning-predecessors]], [[ulmfit]]'s staged schedule is grouped with the intricate learning schemes the introduction names as an obstacle. This one is three epochs at a single rate, warmup over 0.2% of updates, then linear decay.",
+   "edgeIds": [
+    "e002",
+    "e023",
+    "e024",
+    "e064",
+    "e065",
+    "e066",
+    "e094",
+    "e095",
+    "e099",
+    "e101",
+    "e102",
+    "e118",
+    "e120",
+    "e121",
+    "e125",
+    "e129"
+   ],
+   "number": "7",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "ablations-rank-the-paper-s-own-claims",
+   "title": "The paper's own ablations put the pre-training three times ahead of the transformer",
+   "body": "The title leads with two things: generative pre-training, and the transformer that does it. [[table-5]] measures both, and they are not close. Removing pre-training costs 14.8% across the board; replacing the transformer costs 5.6 average points. Roughly a factor of three, in favour of the data.\n\n[[ablation-no-pretraining]] is one row. It trains the identical architecture directly on the supervised tasks, so the only thing it removes is [[generative-pretraining]], and performance drops on every task measured. That single number is the strongest direct evidence for [[two-stage-training-procedure]] anywhere in the paper — the whole recipe rests on it, and it is the largest of the three ablation effects.\n\n[[ablation-lstm-substitution]] is the other end. It swaps the twelve-block stack for a single-layer 2048-unit [[lstm-gpt1]] and holds everything else fixed: the same serialized inputs, the same last-token readout, the same two objectives. That control is only available because [[task-specific-input-transformations]] are architecture-independent — the transformations do not know what is between the input and the readout. Because nothing else moves, the 5.6-point drop can be attributed to the sequence model itself.\n\nTwo things follow that the average hides. First, [[multi-layer-transformer-decoder]] wins on eleven of the twelve datasets in that comparison and loses on one: [[mrpc]]. The architecture claim is an average with a counterexample, and the paper reports the counterexample rather than dropping it. Second, the ranking cuts against how the method is usually summarized. If the ablations are taken at face value, the recipe would survive a considerably worse architecture and would not survive losing stage one.\n\nWhat the third row of the same table shows is different in kind. Dropping the auxiliary language modelling loss does not degrade the model uniformly; it helps in some places and hurts in others. So of the three removals in [[ablation-studies]], two produce a single signed number and one produces a pattern that depends on the dataset. Only the first two can be read as a ranking at all.",
+   "edgeIds": [
+    "e022",
+    "e031",
+    "e032",
+    "e033",
+    "e034",
+    "e104",
+    "e105",
+    "e112",
+    "e113"
+   ],
+   "number": "8",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "the-explanation-is-a-scoring-rule",
+   "title": "The account of why pre-training works reads the training loss back out",
+   "body": "Section 5 is the paper's attempt to say why the recipe works rather than that it works, and its main device is a scoring rule. Three of the four zero-shot heuristics rank a candidate string by the mean log-probability the model assigns its tokens — which is the same quantity [[language-modeling-objective]] maximizes, averaged over one candidate instead of summed over a corpus.\n\nThat matters for how the curves should be read. A generative model does not emit labels, so getting task answers out of it without fine-tuning requires turning it into a scorer, and [[average-token-log-probability-scoring]] is that converter. [[cola-zero-shot-heuristic]] is the score plus a threshold. [[race-zero-shot-heuristic]] conditions on document and question and takes the highest-scoring answer. [[dprd-winograd-heuristic]] substitutes each possible referent for a definite pronoun and keeps whichever substitution leaves the remainder scoring higher, which is [[coreference]] posed as a comparison between two rewritten sentences. Only [[sst2-zero-shot-heuristic]] works differently, appending the token \"very\" and restricting the output distribution to \"positive\" and \"negative\" — available only because the model already produces a distribution over the whole vocabulary at every position.\n\nThe right panel of [[fig-2]] then shows these scores rising steadily across pre-training updates. The paper words the reading as a hypothesis, and it is right to. The heuristics read out exactly the quantity training is pushing on, so a rise is close to what optimizing $L_1$ means, and the curves are relative trends rather than absolute task scores. [[zero-shot-behaviors]] shows the ability growing; it does not show it competitive, and the section presents it as a weaker way of getting answers used as a diagnostic for [[supervised-fine-tuning]].\n\nThe left panel is a different kind of evidence. [[layers-transferred]] carries a variable number of pre-trained layers into fine-tuning and finds accuracy climbing with each one, up to 9% on [[multinli]] for full transfer. That is a measurement rather than a restatement — but it is a dial with twelve positions only because [[twelve-layer-depth]] made it one, and a shallower stack would leave less room for the effect to appear.\n\nThe weakest link in the section is [[transformer-inductive-bias]]. The claim that attention gives a more structured memory than [[lstm-gpt1]] rests on one observation: the LSTM's zero-shot performance varies more across pre-training. No variance figure is quoted. It is a qualitative reading of a plot, offered as a hypothesis, and the paper says so.",
+   "edgeIds": [
+    "e025",
+    "e026",
+    "e027",
+    "e028",
+    "e029",
+    "e058",
+    "e059",
+    "e060",
+    "e061",
+    "e085",
+    "e086",
+    "e087",
+    "e088",
+    "e123",
+    "e124"
+   ],
+   "number": "9",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  }
+ ],
+ "nodes": {
+  "i-the-comparisons-not-run": {
+   "id": "i-the-comparisons-not-run",
+   "parentId": "insights-root",
+   "parentChapterId": "the-comparisons-not-run",
+   "depth": 1,
+   "title": "Three removals, three different questions, one schedule tuned for the full model",
+   "intro": "The parent said what the ablations do not vary. This level goes the other way and takes the three rows that were run, one at a time: what each holds fixed, what it changes, and how far the number it produces reaches. Two of the three answer narrower questions than their headline sizes suggest.",
+   "chapters": [
+    {
+     "id": "the-shared-frame",
+     "title": "Four rows, eight datasets, one mixed scale",
+     "body": "[[table-5]] is four training recipes run over the same eight datasets. The top row is the full system. The three below it each change exactly one thing, so a column can be read straight down. The four averages are 74.7 for the full model, 59.9 with pre-training removed, 69.1 with the transformer replaced, and 75.0 with the auxiliary loss switched off.\n\nEight, not twelve. [[evaluation-task-families]] covers twelve datasets in [[table-1]], and the ablation table drops four of them: [[snli]], [[scitail]], [[race-dataset]] and [[story-cloze-test]]. The last two are where the paper's largest margins live. [[table-3]] reports 8.9 on Story Cloze and 5.7 on RACE, and those are the two numbers the abstract leads with. No row of [[ablation-studies]] says what pre-training or the architecture was worth on either of them.\n\nThe Avg. Score column is an unweighted mean of the eight cells in its row. The cells are not on one scale. [[cola]] is scored by Matthews correlation, [[sst-2]] and the NLI sets by accuracy, [[mrpc]] and [[qqp]] by F1, [[sts-b]] by Pearson correlation. Nothing is rescaled before averaging. So the 14.8 and the 5.6 that follow are 14.8 and 5.6 points on a scale assembled by adding four different metrics together and dividing by eight. They are comparable to each other, because they come from the same column. They are not percentage points of anything.",
+     "edgeIds": [
+      "e031",
+      "e033",
+      "e034",
+      "e035",
+      "e051"
+     ],
+     "childId": null,
+     "number": "5.1",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Related Work",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3",
+        "title": "Framework",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.2",
+        "title": "Supervised fine-tuning",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6",
+        "title": "Conclusion",
+        "start": 8,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    },
+    {
+     "id": "the-pre-training-row",
+     "title": "Removing pre-training changes the initialization and nothing else",
+     "body": "The [[ablation-no-pretraining]] row keeps the same twelve-block decoder, the same serialized inputs, the same linear head, the same two losses. One thing moves: the starting weights. Instead of the parameters [[generative-pretraining]] produced, the run begins from the [[weight-initialization]] the paper uses everywhere, draws from $\\mathcal{N}(0, 0.02)$.\n\nThe average falls from 74.7 to 59.9. Every column drops. [[cola]] falls hardest, from 45.4 to 18.9, and the paper reads that as the linguistic bias coming from stage one rather than from the labels.\n\nWhat the row cannot tell you is what the same architecture would do if it were given a schedule of its own. Section 4.1 says the [[fine-tuning-hyperparameters]] reuse the pre-training settings unless stated, with [[fine-tuning-lr-and-batch]] at $6.25\\times10^{-5}$ and batch 32, a warmup over the first 0.2% of updates, and [[three-epochs-fine-tuning]]. Three epochs is a budget chosen because, in the paper's words, the model fine-tunes quickly — a property of the pre-trained start. Run it on [[rte]], which has 2,490 training examples, and three epochs at batch 32 is about 234 gradient updates. A network starting from random weights gets 234 updates on that task.\n\nSo the row measures a pre-trained start against a random start under a recipe built for the first. It is a lower bound on what [[two-stage-training-procedure]] buys inside this setup, and the paper does not claim otherwise. It is not a measurement of what the transformer can reach when trained directly.",
+     "edgeIds": [
+      "e031",
+      "e033",
+      "e113",
+      "e024",
+      "e112"
+     ],
+     "childId": null,
+     "number": "5.2",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "3",
+        "title": "Framework",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.1",
+        "title": "Unsupervised pre-training",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6",
+        "title": "Conclusion",
+        "start": 8,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    },
+    {
+     "id": "the-lstm-row",
+     "title": "The LSTM swap moves depth, width and family together",
+     "body": "[[ablation-lstm-substitution]] is the cleanest of the three in one respect. The swap is possible at all because everything around the sequence model is architecture-independent: [[task-specific-input-transformations]] turn every task into one token stream, the readout takes the last position's activation, and both losses are unchanged. Whatever changes in the scores is the sequence model.\n\nBut a lot of the sequence model changes at once. The paper's [[model-specification]] is [[twelve-layer-depth]] of blocks at [[hidden-state-dimension-768]] with [[position-wise-feedforward-3072]]. The replacement is one layer of 2048 units. Take the shapes the paper gives: a block's four attention projections are $4\\times768^2\\approx2.4$M parameters, its feed-forward pair is $768\\times3072$ twice, about 4.7M, so roughly 7M a block and about 85M across twelve. A single LSTM layer's four gates over a 2048-unit state are $4\\times2048^2$, about 17M, plus its input projections. No parameter counts are reported for either. Depth, width and architecture family all differ, and the 5.6 points cover all three differences together.\n\n[[mrpc]] is the exception, 83.2 for the [[lstm-gpt1]] against 82.3 for the full model. The paper reports it. The architecture claim is an average over eight datasets with one loss inside it, not a sweep.\n\nAnd the row does not test the argument the architecture was chosen for. [[lstm-short-range-limitation]] says pre-trained recurrent models keep their predictions local, with [[context-window-512-tokens]] as the answer. Eight end-to-end scores do not separate range from anything else. The nearest support for [[transformer-inductive-bias]] is a variance remark, worded as a hypothesis.",
+     "edgeIds": [
+      "e032",
+      "e034",
+      "e104",
+      "e105",
+      "e022",
+      "e005",
+      "e107"
+     ],
+     "childId": null,
+     "number": "5.3",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Related Work",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.1",
+        "title": "Unsupervised pre-training",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.3",
+        "title": "Task-specific input transformations",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    },
+    {
+     "id": "the-auxiliary-row",
+     "title": "The third removal gains, and cannot separate the term from its weight",
+     "body": "[[ablation-no-auxiliary-objective]] does not cost anything on average. Fine-tuning with the supervised loss alone scores 75.0 against the full model's 74.7, three tenths of a point ahead, and takes the best cell in five of the eight columns. The paper keeps the term anyway and reports where it earns its place: [[qqp]], [[multinli]] and [[qnli]].\n\nWhat the row isolates is the second term of [[eq-combined-objective]] — the [[auxiliary-lm-objective]] computed on the labelled task's own text and added to [[supervised-objective-l2]]. What it cannot isolate is the term apart from its size. [[auxiliary-objective-weight]] is fixed at $\\lambda = 0.5$ for every dataset in the table, and no other value is run. So the row does not read \"the auxiliary loss is worth $-0.3$ on average\". It reads \"the auxiliary loss at $\\lambda = 0.5$ is worth $-0.3$ on average\". Whether a smaller weight would keep the gains on the three large datasets and remove the losses on [[sts-b]] and the rest is not addressed either way.\n\nThat makes it a different kind of experiment from the other two. Removing pre-training removes something with no dial; there is no partial pre-training in the table. Replacing the transformer removes something with no dial either. Removing the auxiliary loss sets one continuous knob to zero from a single other setting, and calls the difference the effect of the knob. The two losses are also competing for the same gradient during fine-tuning, so the removal is not a subtraction of capability.",
+     "edgeIds": [
+      "e035",
+      "e108",
+      "e109",
+      "e110",
+      "e111"
+     ],
+     "childId": null,
+     "number": "5.4",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Related Work",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.2",
+        "title": "Supervised fine-tuning",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    },
+    {
+     "id": "one-run-per-row",
+     "title": "Every cell is one run, and only the largest number survives that",
+     "body": "Each cell in [[table-5]] is a single number. No seeds, no repeats, no spread. Nothing in [[ablation-studies]] says how much a rerun would move.\n\nThe same section does rely on run-to-run spread elsewhere. In the right panel of [[fig-2]], the paper's reading of [[zero-shot-behaviors]] notes that the [[lstm-gpt1]] shows higher variance across pre-training updates than the transformer, and that observation carries most of the case for [[transformer-inductive-bias]]. No variance figure is quoted there either. So spread is invoked where it supports an argument and left unreported where it would qualify one.\n\nThat matters unevenly across the three removals. [[sts-b]] has roughly 5,700 training examples and [[rte]] has 2,490; at batch 32 and [[three-epochs-fine-tuning]], the RTE run is a few hundred updates. Cells that small move under a different seed. A $0.3$-point difference in an eight-way unweighted mean sits well inside the range a rerun could plausibly produce, and $0.3$ is the whole result of [[ablation-no-auxiliary-objective]] — the row a size-dependent trend is then read from.\n\nThe 5.6 is harder to explain away. The 14.8 of [[ablation-no-pretraining]] is not in reach of seed noise at all, and every column moves the same way, which is a consistency check the average alone does not give. The reliability of the three ablations tracks their size, and only the largest is clearly out of reach of the error bars the table does not carry.",
+     "edgeIds": [
+      "e035",
+      "e061",
+      "e124",
+      "e028",
+      "e109"
+     ],
+     "childId": null,
+     "number": "5.5",
+     "sources": {
+      "sections": [
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Related Work",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.2",
+        "title": "Supervised fine-tuning",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    }
+   ],
+   "number": "5",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  "i-task-work-moved-into-the-input": {
+   "id": "i-task-work-moved-into-the-input",
+   "parentId": "insights-root",
+   "parentChapterId": "task-work-moved-into-the-input",
+   "depth": 1,
+   "title": "Four Formats, One Readout",
+   "intro": "The parent treated the four serializations as a set. Taken one at a time they are not four instances of one idea: one of them is not a transformation at all, one gets the readout's asymmetry for free, and two pay for it in forward passes rather than in parameters. This level walks each format, says what the last-token readout does to it, and ends on what the paper's cost accounting does not count.",
+   "chapters": [
+    {
+     "id": "classification-no-transformation",
+     "title": "The task that already fits",
+     "body": "Section 3.3 opens by conceding that one of the four cases needs nothing. For [[text-classification]], the paper says, the model can be fine-tuned directly as described in the previous section. So of the four columns in [[fig-1]]'s right panel, only three are answers to the problem of [[structured-inputs]]; the first is the shape the pre-trained model already reads.\n\nWhat still happens to a classification example is the bracketing. The sentence is wrapped in [[start-and-end-tokens]] and handed over. No [[delimiter-token]] appears anywhere in the sequence, because there are no parts to separate.\n\nThe readout costs this case almost nothing, and the reason is worth spelling out. [[masked-self-attention]] lets a position attend to itself and everything before it, never to anything after. In a sequence of $m$ tokens, position $m$ is therefore the only position that has had all $m$ tokens in view. When [[eq-task-head]] reads [[final-token-activation]] at that last position, it is reading the one slot where the whole input has been seen. For a single sentence, the direction the stack summarizes in and the direction the sentence is written in are the same direction.\n\nThe two datasets are [[cola]] and [[sst-2]], and their results in [[table-4]] pull apart: 45.4 on CoLA against a previous best of 35.0, and 91.3% on SST-2, which the paper calls competitive rather than best. Both went through the identical, unmodified [[supervised-fine-tuning]] path. Whatever separates them, it is not the input format.",
+     "edgeIds": [
+      "e044",
+      "e046",
+      "e016",
+      "e077",
+      "e039"
+     ],
+     "childId": null,
+     "number": "6.1",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Related Work",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3",
+        "title": "Framework",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.1",
+        "title": "Unsupervised pre-training",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.2",
+        "title": "Supervised fine-tuning",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "3.3",
+        "title": "Task-specific input transformations",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6",
+        "title": "Conclusion",
+        "start": 8,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    },
+    {
+     "id": "entailment-one-delimiter",
+     "title": "Entailment: one delimiter, one pass",
+     "body": "[[entailment-input-transformation]] is the smallest real case of the [[traversal-style-approach]]: concatenate the premise tokens, then a `$`, then the hypothesis tokens. One sequence, one pass through the stack.\n\nThe parent said the order-sensitivity does not hurt here. The mechanism behind that is more specific than the readout. Under [[masked-self-attention]], every hypothesis token can attend back across the entire premise, while no premise token can attend forward to any hypothesis token. The comparison between the two sentences is therefore computed only in the second half of the sequence, in the hypothesis positions and the end token. Putting the hypothesis second is not a neutral choice about which vector ends up nearer the readout; it decides which sentence gets read in light of the other. For a task that asks whether the premise supports the hypothesis, that is the direction the question runs in.\n\nThe boundary itself is carried by one symbol. The [[delimiter-token]] is a randomly initialized embedding, trained during fine-tuning, and the model is never told anything else about where one sentence ended. Nothing in the architecture partitions the sequence.\n\nOne format then serves all five datasets of [[natural-language-inference]] without adjustment: [[snli]] at roughly 550k training examples, [[multinli]], [[qnli]], [[scitail]], and [[rte]] at 2490. [[table-2]] reports gains on four and a loss on the smallest. The serialization does not vary with dataset size, and the paper does not suggest it should.",
+     "edgeIds": [
+      "e082",
+      "e127",
+      "e016",
+      "e019"
+     ],
+     "childId": null,
+     "number": "6.2",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Related Work",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.1",
+        "title": "Unsupervised pre-training",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.2",
+        "title": "Supervised fine-tuning",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "3.3",
+        "title": "Task-specific input transformations",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6",
+        "title": "Conclusion",
+        "start": 8,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    },
+    {
+     "id": "similarity-two-passes",
+     "title": "Similarity: why the two vectors are added",
+     "body": "The parent gave the repair. The detail worth pausing on is that [[similarity-input-transformation]] adds the two [[final-token-activation]] vectors rather than concatenating them.\n\nWalk what each option would do to the head. Each pass returns one 768-dimensional vector, since the states are [[hidden-state-dimension-768]] throughout. Concatenating the two would give a 1536-dimensional input, so [[linear-output-layer-wy]] would need twice as many rows, and — more to the point — those two halves would be free to be weighted differently. The asymmetry the repair was meant to remove would come back inside the head. Element-wise addition is commutative, so swapping the two sentences leaves the summed vector bit-for-bit unchanged, and $W_y$ stays a single 768-row matrix. The invariance is exact, and it is bought at the readout rather than trained for.\n\nIt is also only at the readout. The two passes are independent; neither ordering's forward computation sees the other. The single channel between them is the sum. Anything that would require holding both readings at once is not representable here, and the price of even this much is two forward passes per example, at training time and at test time, which [[fig-1]] draws as two stacks.\n\nAmong the three [[semantic-similarity]] datasets, [[table-4]] claims a 1 point gain on [[sts-b]] and 4.2% on [[qqp]], and claims nothing on [[mrpc]]. MRPC is also the single dataset where [[ablation-lstm-substitution]] beats the transformer. The paper reports both facts and connects neither to the doubled-pass format.",
+     "edgeIds": [
+      "e021",
+      "e045",
+      "e083",
+      "e127",
+      "e017"
+     ],
+     "childId": null,
+     "number": "6.3",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "3.2",
+        "title": "Supervised fine-tuning",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "3.3",
+        "title": "Task-specific input transformations",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6",
+        "title": "Conclusion",
+        "start": 8,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    },
+    {
+     "id": "multiple-choice-per-candidate",
+     "title": "Multiple choice: one pass per candidate",
+     "body": "[[qa-and-commonsense-input-transformation]] writes each sequence as $[z; q; \\$; a_k]$ — document, question, delimiter, one candidate answer. Read that notation literally and only one [[delimiter-token]] appears in it. The answer is marked off; the join between document and question is not.\n\nThe normalization changes shape here too. In classification, softmax runs across the columns of [[linear-output-layer-wy]] for a single sequence. Here it runs across sequences: each candidate's pass produces its own score, and [[eq-task-head]] is applied once per candidate before the scores are compared. Same matrix, same last-token vector, a different axis to normalize over. This is how [[structured-inputs]] with a variable number of parts get handled without touching the model — the [[traversal-style-approach]] absorbs the variation by running the fixed stack several times.\n\nThe cost is that the document is re-encoded from scratch for every candidate. On [[race-dataset]], passages are middle- and high-school exam texts and the input is capped by the [[context-window-512-tokens]], so for a four-option question the great majority of four full forward passes is the same document processed four times over. [[story-cloze-test]] has two options and so costs two.\n\n[[table-3]] reports the paper's largest margins on exactly these two datasets of [[question-answering-and-commonsense-reasoning]]: 8.9% on Story Cloze and 5.7% overall on RACE. The format that repeats the most computation is the one the biggest gains come from, and the paper does not read anything into that.",
+     "edgeIds": [
+      "e084",
+      "e082",
+      "e040",
+      "e044"
+     ],
+     "childId": null,
+     "number": "6.4",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Related Work",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.1",
+        "title": "Unsupervised pre-training",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.2",
+        "title": "Supervised fine-tuning",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "3.3",
+        "title": "Task-specific input transformations",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "5",
+        "title": "Analysis",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6",
+        "title": "Conclusion",
+        "start": 8,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    },
+    {
+     "id": "what-the-count-leaves-out",
+     "title": "What the parameter count does not count",
+     "body": "[[per-task-parameter-cost]] is the axis the paper chooses for its comparison with [[task-specific-architectures]], and on that axis the four formats are nearly identical. Each adds [[linear-output-layer-wy]]: 768 rows, and as many columns as the task has labels — or a single column, for the multiple-choice case that softmaxes across sequences. [[minimal-extra-parameters]] then lists one further item, embeddings for the delimiter tokens.\n\nThe bookkeeping has a small gap. Section 3.2 names $W_y$ and delimiter embeddings as the only extra parameters; Section 3.3 says every transformation adds randomly initialized [[start-and-end-tokens]]. Those are embeddings as well, so the true addition is three vocabulary rows rather than one. Three rows of 768 numbers against twelve blocks of a 768-dimensional stack does not change the argument, but the stated list is short by two.\n\nThe larger omission is the other axis. Counting parameters, the four formats cost the same. Counting forward passes per example, they are one, one, two, and one per candidate. The [[traversal-style-approach]] pays for structure in compute, and no figure in the paper reports that. When the head is measured against [[baseline-comparisons]] — task-built biLSTMs, sometimes with attention or ELMo features, sometimes ensembled — the comparison being drawn is parameters added per task, not work done per example. That is the sense in which [[task-agnostic-model]] is cheap.",
+     "edgeIds": [
+      "e020",
+      "e040",
+      "e081",
+      "e100",
+      "e130",
+      "e097",
+      "e098",
+      "e019"
+     ],
+     "childId": null,
+     "number": "6.5",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 1
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Related Work",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.2",
+        "title": "Supervised fine-tuning",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "3.3",
+        "title": "Task-specific input transformations",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "4.1",
+        "title": "Setup",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4.2",
+        "title": "Supervised fine-tuning",
+        "start": 5,
+        "end": 7
+       },
+       {
+        "id": "6",
+        "title": "Conclusion",
+        "start": 8,
+        "end": 8
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8
+      ]
+     }
+    }
+   ],
+   "number": "6",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  }
+ },
+ "unusedNote": "All 130 edges are assigned to exactly one chapter, and every [load-bearing] edge appears. That is not the same as every edge doing equal work, so here is the honest breakdown.\n\nEdges that drive an argument and are named or quantified in the prose: roughly two thirds of the set — the ablation numbers (e031-e034, e104, e105, e112, e113), the scoreboard and its misses (e047-e057, e114-e117), the mask/window/corpus chain (e003, e008-e010, e071-e074, e103), the auxiliary-objective tension (e035, e042, e043, e080, e108-e111), the serialization chapter's transformations (e016-e021, e082-e084, e127), and the diagnostics (e025-e029, e058-e061, e085-e088).\n\nEdges present as supporting detail rather than as the point of a paragraph: e006, e038, e075, e076 (the tied-embedding and layer-zero definitions appear inside the borrowed-mechanisms chapter as one clause each); e030, e091, e092, e093 (the head/width/dropout settings are listed to make the \"filled slots\" case, not examined individually); e077, e078, e079, e041 (equation-defines-symbol edges, which mostly confirm that a claim is checkable rather than adding an insight); e013 and e096 (both restate that a quantity is ordinary, which one sentence covers).\n\nEdges I could have given more room and did not: e005 and e106-e107, the LSTM short-range argument, appear at the end of the chain chapter but deserve a fuller reckoning against the ablation result in the ablation chapter, where the same architecture claim is measured; splitting them across two chapters weakens both slightly. e102, the left-to-right versus bidirectional trade-off, is a genuine two-sided tension compressed into two sentences.\n\nThe relationship type I deliberately did not organize around is instance-of: 33 of the 130 edges are \"this setting is a case of that general thing\", and taken as a group they are a filing system. They are distributed across chapters as the concrete values that make each argument checkable.\n\nNo use was made of the edge-theme groupings as chapter boundaries. Every chapter here cuts across at least two of them.",
+ "sources": {
+  "sections": [
+   {
+    "id": "abstract",
+    "title": "Abstract",
+    "start": 1,
+    "end": 1
+   },
+   {
+    "id": "1",
+    "title": "Introduction",
+    "start": 1,
+    "end": 2
+   },
+   {
+    "id": "2",
+    "title": "Related Work",
+    "start": 2,
+    "end": 3
+   },
+   {
+    "id": "3",
+    "title": "Framework",
+    "start": 3,
+    "end": 3
+   },
+   {
+    "id": "3.1",
+    "title": "Unsupervised pre-training",
+    "start": 3,
+    "end": 3
+   },
+   {
+    "id": "3.2",
+    "title": "Supervised fine-tuning",
+    "start": 3,
+    "end": 4
+   },
+   {
+    "id": "3.3",
+    "title": "Task-specific input transformations",
+    "start": 4,
+    "end": 4
+   },
+   {
+    "id": "4.1",
+    "title": "Setup",
+    "start": 4,
+    "end": 5
+   },
+   {
+    "id": "4.2",
+    "title": "Supervised fine-tuning",
+    "start": 5,
+    "end": 7
+   },
+   {
+    "id": "5",
+    "title": "Analysis",
+    "start": 7,
+    "end": 8
+   },
+   {
+    "id": "6",
+    "title": "Conclusion",
+    "start": 8,
+    "end": 8
+   }
+  ],
+  "pages": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ]
+ }
+}

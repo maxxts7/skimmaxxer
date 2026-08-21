@@ -1,0 +1,19 @@
+PAGE FOR: transformer-training-recipe (concept)
+
+Section 5 is where the paper stops describing an architecture and starts describing a run: the exact data, batch shape, hardware, optimizer schedule, and regularizers behind every number in [[table-2]]. It is here because the paper's headline claim is not only quality but quality per unit of compute, and both halves of that ratio are set by these choices.
+
+### The run, concretely
+
+Two tasks: [[wmt-2014-en-de|4.5M English-German pairs]] with a shared ~37000-token [[byte-pair-encoding|BPE]] vocabulary, and [[wmt-2014-en-fr|36M English-French pairs]] with a 32000-token [[word-piece-encoding|word-piece]] vocabulary. A batch is not a fixed number of sentences — it is roughly 25000 source and 25000 target tokens, with pairs [[length-based-batching|grouped by similar length]] so padding does not eat the budget. At typical sentence lengths that is on the order of a thousand pairs per step. [[training-hardware-and-schedule|Eight P100s on one machine]]: 0.4 s/step for the base model, 100k steps, 12 hours; 1.0 s/step for the [[base-vs-big-transformer|big model]], 300k steps, 3.5 days.
+
+[[adam-optimizer|Adam]] runs with [[transformer-adam-settings|$\beta_2 = 0.98$]] instead of the usual 0.999, which the paper states without justifying. The learning rate is not a constant but [[eq-lrate|Equation (3)]]:
+
+$$lrate = d_{model}^{-0.5} \cdot \min\left(step^{-0.5},\ step \cdot warmup\_steps^{-1.5}\right)$$
+
+[[learning-rate-warmup-schedule|Linear ramp, then inverse-square-root decay]], peaking at [[warmup-steps-4000|step 4000]] at about $7 \times 10^{-4}$ for $d_{model}=512$. Two things follow from the form. The rate is tied to [[d-model|model width]], so base and big share one schedule without retuning. And the warmup exists because the early steps of a residual stack with [[layer-normalization|layer norm]] are the fragile ones — the paper does not argue this, it just picks the shape.
+
+Regularization is announced as three types but written up as two: [[residual-dropout|dropout on each sub-layer output and on the embedding-plus-position sums]] at $P_{drop}=0.1$ base, 0.3 for big EN-DE, and [[label-smoothing|label smoothing]] at $\epsilon_{ls}=0.1$. [[attention-dropout|Attention dropout]] is the third, surfacing only in [[constituency-parsing|the parsing section]]. Label smoothing is the one cost the paper names outright: it hurts [[perplexity|perplexity]] because the model learns to be less sure, and improves [[bleu|BLEU]] anyway.
+
+### How much of this is actually tested
+
+Less than the recipe's confidence suggests. [[transformer-ablations|Table 3]] sweeps architecture knobs and [[size-and-dropout-ablation|dropout rate]], so "dropout is very helpful" has support. Warmup length, $\beta_2$, batch composition, and label smoothing are never varied — they are one point in a space, reported not defended. The compute comparison rests on a [[training-flops-estimate|FLOPs estimate]] (time × GPUs × assumed 9.5 TFLOPS), not measurement. What makes the recipe reproducible is less the ablations than [[tensor2tensor|the released code]], plus [[checkpoint-averaging|checkpoint averaging]] and [[beam-search|beam search]] at decode time.

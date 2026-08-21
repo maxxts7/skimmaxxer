@@ -1,0 +1,54 @@
+NARRATIVE NODE: n-three-wirings-of-the-same-block--all-pairs-six-times
+TITLE: The encoder: an all-pairs mixer, six times over
+
+INTRO:
+One level up gave the shape of the layer. This one gives the tensors and the bill: what an encoder layer actually multiplies, what kind of claim Table 1's path-length row is, how a representation differs between layer 1 and layer 5, and how much the three appendix pictures establish.
+
+--- CHAPTER id=one-layer-in-tensors ---
+TITLE: One layer, in tensors
+
+One layer, one head. The input is the previous layer's output: $n$ rows of width [[d-model|512]]. Three learned matrices $W^Q, W^K, W^V \in \mathbb{R}^{512 \times 64}$ project every row down to [[dk-dv-dimensions|64]] — [[queries-keys-values|queries, keys and values]], all three read off the same rows, which is what makes it [[encoder-self-attention|self-attention]]. $QK^{T}$ is the $n \times n$ block. Divide by $\sqrt{d_k} = 8$ ([[sqrt-dk-scaling]]), [[softmax]] each row, multiply by $V$, and $n \times 64$ comes back out.
+
+[[num-heads-h|Eight]] of those run at once on their own projections, concatenate to $n \times 512$, and pass through one more matrix $W^O \in \mathbb{R}^{512 \times 512}$ ([[eq-multihead]]). The head width is not chosen independently: $d_k = d_v = d_{model}/h$, set so that eight narrow heads cost about what one full-width head would. There is no mask, no truncation, no sub-sampling anywhere in the encoder — every row of every score matrix runs across the whole source.
+
+Concretely: the sentence drawn in [[fig-3]] is padded out to 33 positions. That is 1089 scores per head, 8712 per layer, and across [[n-layers|six]] layers roughly 52,000 query-key products for one short sentence, one direction, one training step. [[fig-2]] is the same path as a block diagram.
+
+Worth noticing what the arithmetic is actually dominated by at that size. The $O(n^{2} \cdot d)$ figure the paper quotes for a self-attention layer counts the scoring and the blending. The projections that produce $Q$, $K$, $V$ and the output projection are per-position matrix multiplies of shape $O(n \cdot d^{2})$ — the same shape as a recurrent layer's — and at $n = 33$, $d = 512$ they are the larger term. The table does not break them out.
+
+--- CHAPTER id=what-constant-path-costs ---
+TITLE: What the constant path buys, and what it costs
+
+[[table-1]]'s path-length row is why this wiring is in the paper at all, so read what kind of claim it is. It gives [[maximum-path-length|maximum path length]] $O(1)$ for a self-attention layer against $O(n)$ for a [[recurrent-neural-network|recurrent]] one, and [[minimum-sequential-operations|sequential operations]] $O(1)$ against $O(n)$. Those are hop counts in a computation graph, not measurements. The step from short paths to easier learning of [[long-range-dependencies]] is asserted with a citation rather than tested: nothing in the paper swaps a self-attention encoder layer for a recurrent one and reports the difference. [[layer-comparison-desiderata|The three criteria]] are an argument, not an experiment.
+
+The bill is the other column. [[complexity-per-layer]] is $O(n^{2} \cdot d)$ against a recurrent layer's $O(n \cdot d^{2})$, so self-attention is the cheaper of the two exactly when $n < d$. With $d = 512$ and sentences cut into [[word-piece-encoding|word-piece]] or [[byte-pair-encoding|byte-pair]] units, the paper says this is most often the case. That is a claim scoped to sentence-length inputs. Past a few hundred tokens the inequality turns over.
+
+Section 4 names its own escape hatch and then declines to use it. [[restricted-self-attention]] would let each position attend only to a neighborhood of size $r$, cutting the quadratic term but pushing path length back up to $O(n/r)$. The paper reports no model built this way; it plans to investigate it in future work.
+
+There is also a cost the background section admits that no column shows. Collapsing many positions into one weighted average reduces effective resolution ([[attention-averaging-resolution-cost]]). [[multi-head-attention|Running eight heads]] is the stated counter to it — which makes the head count a repair for a known weakness rather than a free extra.
+
+--- CHAPTER id=six-rounds ---
+TITLE: Six rounds, and what the stack carries forward
+
+What keeps six identical rounds from being mere repetition is the wrapping. Every [[sub-layer]] outputs $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$ — a [[residual-connection]], then [[layer-normalization]] — so an attention sub-layer never replaces position 7's vector. It adds an increment to it. At the top of layer 3, that vector is the embedding plus six sub-layer increments, normalized six times.
+
+The attention sub-layers are the only place anything crosses between positions. The other one, [[position-wise-feed-forward-network|the feed-forward network]], is [[eq-ffn|$\max(0, xW_1 + b_1)W_2 + b_2$]]: 512 up to $d_{ff} = 2048$, ReLU, back down to 512, applied to each position separately and identically, with its own weights per layer. The paper's alternative description is two convolutions of kernel size 1. So the [[encoder-stack]] alternates — mix across positions, transform each position, six times ([[fig-1]]).
+
+That alternation is what makes attending over the layer below different in kind at depth. In layer 1 the keys are projections of embeddings plus positional signal. In layer 5 they are projections of vectors that have already been mixed across the whole sentence four times and pushed through four ReLU expansions. The dot product is scoring those, not words.
+
+One thing enters exactly once. [[positional-encoding|Position]] is added at the bottom, to the embeddings, and never re-injected, so whatever order information reaches layer 5 has survived six rounds of weighted averaging on the residual path. The paper does not check that it does. Nor does it say what any individual layer contributes: the layers are identical in shape and described as identical, and the only one it ever opens is the fifth.
+
+--- CHAPTER id=the-layer-it-opens ---
+TITLE: The only layer the paper opens
+
+All three appendix pictures come from the same place: layer 5 of [[n-layers|six]], [[encoder-self-attention|encoder self-attention]], in a trained translation model, drawn as lines from a querying copy of the sentence to an attended copy, with line opacity standing in for weight.
+
+[[fig-3]] draws one query row out of 33 — the verb "making" — with lines colored by [[attention-head|head]]. Blue, orange, green and gray pile onto "more"; blue, green, red and brown onto "difficult", two heads appearing in both groups. Those words sit six and seven tokens later, with "the registration or voting process" in between. A purple head attends to "making" itself, a pink one to "2009" and "laws". The other 32 query rows are not shown.
+
+[[fig-4]] holds the sentence fixed and varies the head. Its top panel is head 5's full map, mostly faint lines. Its bottom panel keeps only what leaves the word "its": head 5 sends nearly all of it to "Law", head 6 nearly all to "application". The caption's operative word is "apparently".
+
+[[fig-5]] is one more sentence, two heads, whole maps. One spreads a haze across nearly every pair with heavy fans converging on a few words; the other is sparse and short-range. Its caption splits in two: that the heads "clearly learned to perform different tasks" is stated flat, while the tie to sentence structure only "seems" to hold.
+
+So: two sentences, one layer, chosen heads, no axes, no printed numbers, no counts over a corpus, opacity as the only quantitative channel. Section 4 files [[attention-interpretability|interpretability]] as a side benefit and hedges to heads that "appear to exhibit" such behavior.
+
+The measured claim about heads sits elsewhere and says less. [[table-3]] varies $h$ with computation held constant: single-head attention comes in [[attention-heads-ablation|0.9 BLEU below the best setting]], and too many heads is worse again. Several heads help. What any one of them does is not in that number, and [[multi-head-attention]] is not otherwise probed.
+

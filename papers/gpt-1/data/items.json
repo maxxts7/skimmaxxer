@@ -1,0 +1,2128 @@
+{
+ "items": [
+  {
+   "id": "fig-1",
+   "kind": "figure",
+   "number": 1,
+   "caption": "Figure 1: (left) Transformer architecture and training objectives used in this work. (right) Input transformations for fine-tuning on different tasks. We convert all structured inputs into token sequences to be processed by our pre-trained model, followed by a linear+softmax layer.",
+   "page": 4,
+   "asset": "assets/fig-1.png",
+   "title": "One Stack, Four Input Shapes",
+   "takeaway": "The figure shows that a single decoder-only transformer, pre-trained once, serves every task in the paper: the left panel draws the block that is repeated twelve times and the two heads that sit on it, and the right panel shows that adapting to a new task means rewriting its input as one token sequence rather than redesigning the network. The only task-specific machinery is the added linear layer and the special tokens marking where the parts of an input begin and end.",
+   "walkthrough": "Two diagrams sit side by side. The left one is the network and its training objectives. The right one is how four different kinds of task input are rewritten so that same network can read them.\n\n### Reading the left panel\n\nStart at the bottom. **Text & Position Embed** is the layer-zero input [[input-representation-h0]]: each token's embedding added to a vector for its slot in the sequence, where those slot vectors are trained rather than fixed sinusoids [[learned-position-embeddings]].\n\nThe arrow goes up into the blue box. Inside, **Masked Multi Self Attention** [[masked-self-attention]] lets each position attend to itself and earlier positions only, never later ones. The circled plus is the residual add, and **Layer Norm** [[layer-normalization-gpt1]] follows it. Then **Feed Forward** [[position-wise-feedforward-3072]], another add, another norm.\n\nThe **12x** bracket on the far left says this whole block is stacked twelve times [[twelve-layer-depth]], one feeding the next. That stack is the [[multi-layer-transformer-decoder]] — a [[decoder-only-stack]], with no encoder half.\n\nTwo arrows leave the top into two heads. **Text Prediction** is the next-token objective used for pre-training [[language-modeling-objective]] and kept during fine-tuning as an auxiliary term [[auxiliary-lm-objective]]. **Task Classifier** is the added output layer [[linear-output-layer-wy]]. Both draw on the same stack.\n\n### Reading the right panel\n\nEach row is one task family. The coloured boxes left of the bracket are a token sequence built by walking a structured input into one ordered line [[traversal-style-approach]]. **Start** and **Extract** are the randomly initialized bracketing tokens [[start-and-end-tokens]]; **Delim** is a `$` marking where one part ends [[delimiter-token]]. Extract is named for its job: its final-layer activation is what the classifier reads [[final-token-activation]].\n\nClassification is one span. Entailment concatenates premise and hypothesis [[entailment-input-transformation]].\n\nSimilarity draws **two** rows because the pair has no natural order [[similarity-input-transformation]]. Both orderings are run separately, and the circled plus adds the two representations element-wise before one **Linear** layer sees them.\n\nMultiple Choice builds one row per candidate answer [[qa-and-commonsense-input-transformation]]. Each row gets its own Linear head producing one score, and the small bar box on the right is the softmax over those scores.\n\nNothing in the blue stack changes across rows — that is the claim of a [[task-agnostic-model]].",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Text & Position Embed",
+     "definition": "The orange box at the bottom of the left panel: the input to layer zero, formed by adding each token's embedding to a learned vector for its position in the sequence. The paper writes this as $h_0 = UW_e + W_p$.",
+     "conceptId": "input-representation-h0"
+    },
+    {
+     "term": "Masked Multi Self Attention",
+     "definition": "The pink box: multi-head self-attention restricted so each position may attend only to itself and to earlier positions. The mask is what makes the stack usable as a left-to-right language model.",
+     "conceptId": "masked-self-attention"
+    },
+    {
+     "term": "⊕ (circled plus, inside the block)",
+     "definition": "The residual add: the sublayer's output is summed with the input that entered it, before normalization. Two appear per block, one after attention and one after the feed-forward.",
+     "conceptId": null
+    },
+    {
+     "term": "Layer Norm",
+     "definition": "The purple boxes: per-position normalization of activations to zero mean and unit variance with a learned gain and bias. It appears twice per block, after each residual add.",
+     "conceptId": "layer-normalization-gpt1"
+    },
+    {
+     "term": "Feed Forward",
+     "definition": "The yellow box: the position-wise feed-forward sublayer, applied to each position independently. In the trained model it expands 768 dimensions to 3072 and projects back down, with GELU in between.",
+     "conceptId": "position-wise-feedforward-3072"
+    },
+    {
+     "term": "12x",
+     "definition": "The bracket label on the far left of the blue box: the whole block drawn inside it is repeated twelve times, each layer's output feeding the next. It is not twelve parallel copies.",
+     "conceptId": "twelve-layer-depth"
+    },
+    {
+     "term": "Blue box (the transformer block)",
+     "definition": "The repeated unit of the stack: masked self-attention, residual add, layer norm, feed-forward, residual add, layer norm. Drawn once and multiplied by the 12x bracket.",
+     "conceptId": "multi-layer-transformer-decoder"
+    },
+    {
+     "term": "Text Prediction",
+     "definition": "The green head on the left: the next-token language modelling objective $L_1$. It is the only objective during pre-training, and stays on as a weighted auxiliary term during fine-tuning.",
+     "conceptId": "language-modeling-objective"
+    },
+    {
+     "term": "Task Classifier",
+     "definition": "The green head on the right: the supervised objective $L_2$, computed from a linear layer over the final activation. Both heads are drawn on the same stack because the paper trains them together during fine-tuning.",
+     "conceptId": "supervised-fine-tuning"
+    },
+    {
+     "term": "Classification",
+     "definition": "The first row on the right: a task whose input is a single span of text, such as sentiment or grammatical acceptability. It needs no restructuring beyond the bracketing tokens.",
+     "conceptId": "text-classification"
+    },
+    {
+     "term": "Entailment",
+     "definition": "The second row: given a premise and a hypothesis, decide whether the premise entails it, contradicts it, or leaves it open. The two parts are concatenated with a delimiter between them.",
+     "conceptId": "entailment-input-transformation"
+    },
+    {
+     "term": "Similarity",
+     "definition": "The third row: decide whether two sentences mean the same thing. Because neither sentence is naturally first, both orderings are built and processed.",
+     "conceptId": "similarity-input-transformation"
+    },
+    {
+     "term": "Multiple Choice",
+     "definition": "The fourth row: reading comprehension and commonsense tasks, where a context and question come with several candidate answers. One sequence is built per candidate.",
+     "conceptId": "qa-and-commonsense-input-transformation"
+    },
+    {
+     "term": "Start",
+     "definition": "The randomly initialized start token, written $\\langle s\\rangle$ in the text, placed at the front of every transformed sequence. Its embedding is one of the few parameters added at fine-tuning time.",
+     "conceptId": "start-and-end-tokens"
+    },
+    {
+     "term": "Delim",
+     "definition": "The delimiter token, written `$` in the text, inserted between the parts of a structured input to mark where one part ends and the next begins.",
+     "conceptId": "delimiter-token"
+    },
+    {
+     "term": "Extract",
+     "definition": "The end token $\\langle e\\rangle$ closing every sequence. It is labelled Extract because the final block's activation at this last position is the vector handed to the linear classifier.",
+     "conceptId": "final-token-activation"
+    },
+    {
+     "term": "Text",
+     "definition": "The single input span in the Classification row: the sentence or document being labelled.",
+     "conceptId": null
+    },
+    {
+     "term": "Premise",
+     "definition": "In the Entailment row, the statement assumed true. It is placed first in the sequence.",
+     "conceptId": "natural-language-inference"
+    },
+    {
+     "term": "Hypothesis",
+     "definition": "In the Entailment row, the statement whose status relative to the premise is being judged. It follows the delimiter.",
+     "conceptId": null
+    },
+    {
+     "term": "Text 1 / Text 2",
+     "definition": "The two sentences of a similarity pair. They appear in both orders across the two rows, so the model never sees only one arrangement.",
+     "conceptId": null
+    },
+    {
+     "term": "Context",
+     "definition": "In the Multiple Choice row, the document and question concatenated together, written $[z; q]$ in the text. It is repeated identically in every row of that block.",
+     "conceptId": "structured-inputs"
+    },
+    {
+     "term": "Answer 1 / Answer 2 / Answer N",
+     "definition": "The candidate answers, one per row. Each is appended after the delimiter to the same context.",
+     "conceptId": null
+    },
+    {
+     "term": "Transformer (green box, right panel)",
+     "definition": "A stand-in for the entire twelve-layer stack drawn in the left panel. Every green box in the right panel is the same pre-trained weights, not a separate model.",
+     "conceptId": "task-agnostic-model"
+    },
+    {
+     "term": "Linear (orange box, right panel)",
+     "definition": "The added output layer $W_y$ mapping the extracted activation to label scores, followed by a softmax. It is one of only two things added per task, the other being delimiter embeddings.",
+     "conceptId": "linear-output-layer-wy"
+    },
+    {
+     "term": "⊕ (circled plus, Similarity row)",
+     "definition": "Element-wise addition of the two sequence representations produced by the two orderings, before the single linear layer. Adding makes the result the same whichever sentence was called first.",
+     "conceptId": null
+    },
+    {
+     "term": "Bar box (right of the Multiple Choice Linear heads)",
+     "definition": "The small box with bars of different lengths: the output distribution over candidate answers, obtained by softmaxing the per-answer scores against each other.",
+     "conceptId": null
+    },
+    {
+     "term": "Bracket (between the token row and the Transformer box)",
+     "definition": "The tall brace on each row, grouping the token sequence as the single input handed to the stack. It carries no computation of its own.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "12x",
+     "meaning": "The number of times the drawn transformer block is stacked. The paper's model specification states a 12-layer decoder-only transformer; the analysis section then treats that depth as a dial, transferring varying numbers of these layers into fine-tuning."
+    },
+    {
+     "value": "2 (rows in Similarity)",
+     "meaning": "Two rows because a similarity pair has no inherent ordering. The paper builds both orderings, processes each independently, and adds the results, so the prediction does not depend on which sentence was placed first."
+    },
+    {
+     "value": "1, 2, N (answer indices in Multiple Choice)",
+     "meaning": "One row per candidate answer, with N standing for however many the dataset provides. RACE questions come with four options and the Story Cloze Test with two, so the figure leaves the count open."
+    },
+    {
+     "value": "3 (rows drawn for Multiple Choice)",
+     "meaning": "Three rows are drawn only to show the pattern — first, second, and Nth. The vertical spacing implies the omitted middle rows."
+    },
+    {
+     "value": "768",
+     "meaning": "The width of every token representation at every layer, from the embedding box to the top of the stack. Named in the model specification, not printed in the figure."
+    },
+    {
+     "value": "12 (attention heads)",
+     "meaning": "The Masked Multi Self Attention box splits into twelve parallel heads, each attending in a 64-dimensional subspace since 768 divided by 12 is 64. Coincidentally equal to the layer count, but a separate setting."
+    },
+    {
+     "value": "3072",
+     "meaning": "The inner width of the Feed Forward box: 768 in, 3072 in the middle, 768 out. Four times the state size, following the original transformer."
+    },
+    {
+     "value": "λ = 0.5",
+     "meaning": "The weight on the Text Prediction head during fine-tuning, in $L_3 = L_2 + \\lambda L_1$. At 0.5 the language modelling term counts half as much as the task loss; the paper reports it helped generalization and convergence."
+    },
+    {
+     "value": "512",
+     "meaning": "The context window in tokens, so the widest input any row of the right panel can present to the stack. Pre-training used contiguous sequences of this length."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     4
+    ]
+   }
+  },
+  {
+   "id": "table-1",
+   "kind": "table",
+   "number": 1,
+   "caption": "Table 1: A list of the different tasks and datasets used in our experiments.",
+   "page": 5,
+   "asset": "assets/table-1.png",
+   "title": "The Twelve Evaluation Datasets",
+   "takeaway": "This table is the paper's full evaluation menu: four families of supervised language understanding tasks covering twelve datasets in total. It establishes the breadth the paper is claiming for one pre-trained model, since the same weights are fine-tuned for every row rather than a different architecture being built per task.",
+   "walkthrough": "You are looking at a two-column list, not a results table. The left column, \"Task\", names a family of supervised problems. The right column, \"Datasets\", names the specific benchmarks the paper fine-tunes and evaluates on inside that family. The bracketed numbers are citations to the papers that released each dataset, nothing more. Read it as an inventory: four rows, twelve datasets, and this is the complete set behind every number reported later. The paper calls this the [[evaluation-task-families]] set, and draws several entries from the [[glue-benchmark]], a then-recent bundle of language understanding datasets.\n\nRow one is [[natural-language-inference]]: read a premise and a hypothesis, then judge whether the premise entails it, contradicts it, or leaves it undecided. Five datasets stress that same task over different source text. [[snli]] is built from image captions. [[multinli]] mixes transcribed speech, popular fiction and government reports. [[qnli]] comes from Wikipedia articles. [[scitail]] is derived from science exam questions. [[rte]] is drawn from news.\n\nRow two is question answering, which the paper pairs with commonsense reasoning. [[race-dataset]] gives English exam passages from middle and high school with multiple-choice questions attached; the paper picks it because it says the questions demand more reasoning than other reading comprehension sets. [[story-cloze-test]] gives a short multi-sentence story and two candidate endings, and asks which one actually finishes it.\n\nRow three is sentence similarity, also called paraphrase detection: decide whether two sentences mean the same thing. [[mrpc]] pairs sentences from news sources. [[qqp]] pairs Quora questions and asks whether they ask the same thing. [[sts-b]] scores sentence pairs for degree of similarity.\n\nRow four is [[text-classification]], where the input is a single sentence. [[sst-2]] asks for binary sentiment. [[cola]] asks whether a sentence is grammatically acceptable, judged by experts.\n\nNotice the structural variety across rows: sentence pairs, document-question-answer triplets, single sentences. Handling all of it with one unchanged network is exactly what the [[task-specific-input-transformations]] are for, and what the paper means by a [[task-agnostic-model]]. Against these twelve, it reports [[state-of-the-art-9-of-12]].",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Task",
+     "definition": "The left column header. Each entry under it names a family of supervised problems that share a common input shape and a common notion of a correct answer.",
+     "conceptId": "evaluation-task-families"
+    },
+    {
+     "term": "Datasets",
+     "definition": "The right column header. Each entry under it is a specific labelled benchmark the paper fine-tunes on and reports a score for.",
+     "conceptId": null
+    },
+    {
+     "term": "Natural language inference",
+     "definition": "The first task family: given a premise sentence and a hypothesis sentence, decide whether the premise entails the hypothesis, contradicts it, or is neutral toward it. Also called recognizing textual entailment.",
+     "conceptId": "natural-language-inference"
+    },
+    {
+     "term": "SNLI",
+     "definition": "Stanford Natural Language Inference. An NLI dataset whose premises come from image captions; the paper describes it as the largest dataset in the whole evaluation.",
+     "conceptId": "snli"
+    },
+    {
+     "term": "MultiNLI",
+     "definition": "A multi-genre NLI dataset, spanning transcribed speech, popular fiction and government reports, so a model cannot rely on one text style. Also written MNLI in the results tables.",
+     "conceptId": "multinli"
+    },
+    {
+     "term": "Question NLI",
+     "definition": "QNLI, an NLI dataset built over Wikipedia articles in which a question and a sentence are paired and the model decides whether the sentence answers the question. The paper reports its largest NLI gain here.",
+     "conceptId": "qnli"
+    },
+    {
+     "term": "RTE",
+     "definition": "Recognizing Textual Entailment, an NLI dataset over news articles from the PASCAL challenge series. It is small, and it is the one NLI dataset where the paper does not beat the previous best.",
+     "conceptId": "rte"
+    },
+    {
+     "term": "SciTail",
+     "definition": "An entailment dataset constructed from science exam questions, so the premises and hypotheses carry science-domain content rather than everyday description.",
+     "conceptId": "scitail"
+    },
+    {
+     "term": "Question Answering",
+     "definition": "The second task family, which the paper elsewhere widens to question answering and commonsense reasoning. It asks the model to reason across one or several sentences of a passage to select an answer.",
+     "conceptId": "question-answering-and-commonsense-reasoning"
+    },
+    {
+     "term": "RACE",
+     "definition": "A reading comprehension dataset of English passages and multiple-choice questions taken from Chinese middle and high school exams. The paper chooses it on the grounds that it contains more reasoning-type questions than earlier comprehension sets.",
+     "conceptId": "race-dataset"
+    },
+    {
+     "term": "Story Cloze",
+     "definition": "The Story Cloze Test: given a multi-sentence story, pick which of two candidate final sentences is the correct ending. It tests commonsense expectations about how situations resolve.",
+     "conceptId": "story-cloze-test"
+    },
+    {
+     "term": "Sentence similarity",
+     "definition": "The third task family, also called paraphrase detection: decide whether two sentences are semantically equivalent, which requires handling rephrasing, negation and syntactic ambiguity.",
+     "conceptId": "semantic-similarity"
+    },
+    {
+     "term": "MSR Paraphrase Corpus",
+     "definition": "MRPC, a paraphrase detection dataset of sentence pairs collected from news sources and labelled for whether each pair says the same thing.",
+     "conceptId": "mrpc"
+    },
+    {
+     "term": "Quora Question Pairs",
+     "definition": "QQP, a dataset of pairs of questions posted to Quora, each labelled for whether the two questions are asking the same thing.",
+     "conceptId": "qqp"
+    },
+    {
+     "term": "STS Benchmark",
+     "definition": "STS-B, the Semantic Textual Similarity benchmark from a SemEval shared task, where sentence pairs carry a graded similarity score rather than a binary same/different label. It is the smallest training set in the evaluation.",
+     "conceptId": "sts-b"
+    },
+    {
+     "term": "Classification",
+     "definition": "The fourth task family. Here the input is a single sentence with no second part, and the model assigns it one label.",
+     "conceptId": "text-classification"
+    },
+    {
+     "term": "Stanford Sentiment Treebank-2",
+     "definition": "SST-2, the two-class version of the Stanford Sentiment Treebank: label a sentence as positive or negative sentiment.",
+     "conceptId": "sst-2"
+    },
+    {
+     "term": "CoLA",
+     "definition": "The Corpus of Linguistic Acceptability: expert judgements on whether a sentence is grammatical. The paper uses it as a probe of what it calls a model's innate linguistic bias.",
+     "conceptId": "cola"
+    },
+    {
+     "term": "Bracketed numbers, e.g. [5]",
+     "definition": "Reference markers pointing into the paper's bibliography, identifying the work that released each dataset. They carry no experimental meaning.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "4",
+     "meaning": "The number of rows, and so the number of task families the paper groups its evaluation into: natural language inference, question answering, sentence similarity, and classification. Section 4.2 lists the same four."
+    },
+    {
+     "value": "12",
+     "meaning": "The total dataset count across the four rows: 5 + 2 + 3 + 2. The paper's headline claim is stated against this denominator."
+    },
+    {
+     "value": "5",
+     "meaning": "Datasets in the natural language inference row (SNLI, MultiNLI, Question NLI, RTE, SciTail). The paper says it beats the previous best on four of these five, RTE being the exception."
+    },
+    {
+     "value": "2 (question answering row)",
+     "meaning": "Datasets in the question answering row: RACE and Story Cloze. It is the shortest row, but the paper leans on it for the claim about handling long-range context."
+    },
+    {
+     "value": "3",
+     "meaning": "Datasets in the sentence similarity row (MRPC, QQP, STS Benchmark). The paper reports state-of-the-art results on two of these three."
+    },
+    {
+     "value": "2 (classification row)",
+     "meaning": "Datasets in the classification row: SST-2 and CoLA. Both take a single sentence as input rather than a pair."
+    },
+    {
+     "value": "-2 in Stanford Sentiment Treebank-2",
+     "meaning": "Not a citation. It marks the two-class variant of the Sentiment Treebank, positive versus negative, as opposed to the finer-grained five-way version of the same corpus."
+    },
+    {
+     "value": "[5]",
+     "meaning": "Cites Bowman et al., 2015, the paper that released SNLI."
+    },
+    {
+     "value": "[66]",
+     "meaning": "Cites Williams et al., 2018, the paper that released MultiNLI."
+    },
+    {
+     "value": "[64]",
+     "meaning": "Cites Wang et al., 2018, the GLUE benchmark paper. Question NLI is attributed to GLUE because it is packaged and distributed there rather than as a standalone release."
+    },
+    {
+     "value": "[4]",
+     "meaning": "Cites Bentivogli et al., 2009, the fifth PASCAL recognizing textual entailment challenge, the source of RTE."
+    },
+    {
+     "value": "[25]",
+     "meaning": "Cites Khot et al., 2018, the paper that released SciTail."
+    },
+    {
+     "value": "[30]",
+     "meaning": "Cites Lai et al., 2017, the paper that released RACE."
+    },
+    {
+     "value": "[40]",
+     "meaning": "Cites Mostafazadeh et al., 2017, the LSDSem shared task paper defining the Story Cloze Test."
+    },
+    {
+     "value": "[14]",
+     "meaning": "Cites Dolan and Brockett, 2005, the paper that released the MSR Paraphrase Corpus."
+    },
+    {
+     "value": "[9]",
+     "meaning": "Cites Chen et al., 2018, the Quora data release for the Question Pairs dataset."
+    },
+    {
+     "value": "[6]",
+     "meaning": "Cites Cer et al., 2017, the SemEval-2017 Task 1 paper behind the STS Benchmark."
+    },
+    {
+     "value": "[54]",
+     "meaning": "Cites Socher et al., 2013, the paper that released the Stanford Sentiment Treebank."
+    },
+    {
+     "value": "[65]",
+     "meaning": "Cites Warstadt et al., 2018, the CoLA release."
+    },
+    {
+     "value": "9 of 12",
+     "meaning": "Not printed in the table, but the count it underwrites: Section 4.2 reports new state-of-the-art results on nine of these twelve datasets, in many cases against ensembles."
+    },
+    {
+     "value": "≈550k / ≈5.7k",
+     "meaning": "Training-example counts the paper gives for the largest and smallest datasets in this list, SNLI and STS-B respectively, used to argue the method works across dataset sizes."
+    },
+    {
+     "value": "2490",
+     "meaning": "Training examples in RTE, the figure the paper offers to explain why it underperforms there (56% accuracy against a prior 61.7%)."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     5
+    ]
+   }
+  },
+  {
+   "id": "table-2",
+   "kind": "table",
+   "number": 2,
+   "caption": "Table 2: Experimental results on natural language inference tasks, comparing our model with current state-of-the-art methods. 5x indicates an ensemble of 5 models. All datasets use accuracy as the evaluation metric.",
+   "page": 6,
+   "asset": "assets/table-2.png",
+   "title": "NLI Benchmark Scoreboard",
+   "takeaway": "Table 2 compares one fine-tuned general model against task-built baselines on five natural language inference datasets, and reports it ahead on four of them — by 1.5 points on MNLI, 5 on SciTail, 5.8 on QNLI and 0.6 on SNLI — while losing on RTE, the smallest dataset, where a multi-task biLSTM scores 61.7 against this model's 56.0.",
+   "walkthrough": "Table 2 is the scoreboard for one of the four task families in the paper's evaluation: [[natural-language-inference]]. The task is to read a premise and a hypothesis and judge the relationship between them as entailment, contradiction, or neutral. Rows are systems; columns are the five datasets those systems are measured on.\n\nEvery cell is accuracy in percent. The caption says all datasets here use accuracy, so numbers are comparable down a column. They are not comparable across columns, since each dataset has its own difficulty and its own label set.\n\nA dash means that system reported no number there. Most baselines are built for one or two datasets, so most of the grid is empty.\n\n### The columns\n\n[[multinli]] is split in two. MNLI-m is the matched development set, whose text genres also appear in training; MNLI-mm is the mismatched set, drawn from genres held out. [[snli]] is the largest dataset in the whole evaluation, roughly 550k training pairs from image captions. [[scitail]] comes from science exams, [[qnli]] from Wikipedia, and [[rte]] from news articles with only 2,490 training examples.\n\n### The row blocks\n\nThree horizontal rules cut the rows into four blocks. The top block is ensembles: `5x` means five separately trained copies whose predictions are combined, `3x` means three. The second block is CAFE again as a single model, which is why every score sits a point or so below its own `5x` row. The third block is two multi-task baselines from the [[glue-benchmark]] paper, each trained on many tasks at once — which is why they, alone among the [[baseline-comparisons]], can fill the QNLI and RTE columns. The bottom block is this paper's model: one [[task-agnostic-model]], fine-tuned per task, not an ensemble.\n\nBold marks the best number in a column. Underline marks the best prior result in columns where the bold belongs to this paper.\n\n### What it shows\n\nTake MNLI-m: the underlined 80.6 is the ensemble Stochastic Answer Network, and 82.1 beats it by 1.5 points. The same subtraction gives 5.0 on SciTail, 5.8 on QNLI, and 0.6 on SNLI — the [[absolute-improvement]] figures quoted in the text.\n\nRTE is the exception. At 56.0 the model falls 5.7 points short of 61.7. The paper attributes this to RTE's size and suggests multi-task training would likely help, while noting it did not try that.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Method",
+     "definition": "The first column, listing the systems being compared. Each row is one system, identified by name, citation number, and ensemble size if it is an ensemble.",
+     "conceptId": null
+    },
+    {
+     "term": "MNLI-m",
+     "definition": "The matched development set of MultiNLI, where the test text comes from the same genres seen during training. Higher accuracy is better.",
+     "conceptId": "multinli"
+    },
+    {
+     "term": "MNLI-mm",
+     "definition": "The mismatched development set of MultiNLI, drawn from genres held out of training, so it measures how well a system transfers across text genres. It is the harder of the two MNLI columns for almost every row here.",
+     "conceptId": "multinli"
+    },
+    {
+     "term": "SNLI",
+     "definition": "The Stanford Natural Language Inference dataset, built from image captions and the largest dataset in the paper's whole evaluation at roughly 550k training pairs.",
+     "conceptId": "snli"
+    },
+    {
+     "term": "SciTail",
+     "definition": "An entailment dataset constructed from science exam questions. It is the column where the paper reports its largest absolute gain alongside QNLI.",
+     "conceptId": "scitail"
+    },
+    {
+     "term": "QNLI",
+     "definition": "A natural language inference dataset built over Wikipedia articles, part of the GLUE bundle. Only the multi-task baselines and this paper's model report numbers in this column.",
+     "conceptId": "qnli"
+    },
+    {
+     "term": "RTE",
+     "definition": "Recognizing Textual Entailment, a small NLI dataset over news articles with 2,490 training examples. It is the one column here where this paper's model does not win.",
+     "conceptId": "rte"
+    },
+    {
+     "term": "ESIM + ELMo [44] (5x)",
+     "definition": "An Enhanced Sequential Inference Model — a task-specific biLSTM architecture for NLI — with ELMo representations added as input features, run as a five-model ensemble. It reports only an SNLI number.",
+     "conceptId": "elmo-deep-contextualized-word-representations"
+    },
+    {
+     "term": "ELMo",
+     "definition": "Deep contextualized word representations from a pre-trained bidirectional language model, fed into a separate task model as extra features rather than fine-tuned. It is the feature-based transfer approach this paper contrasts itself with.",
+     "conceptId": "elmo-deep-contextualized-word-representations"
+    },
+    {
+     "term": "CAFE [58]",
+     "definition": "A compare-propagate architecture with alignment factorization, a task-specific NLI model of Tay et al. It appears twice in the table, once as a five-model ensemble and once as a single model.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "Stochastic Answer Network [35] (3x)",
+     "definition": "An NLI model of Liu et al. that makes its prediction through multiple stochastic inference steps, run here as a three-model ensemble. It holds the previous best on both MNLI columns.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "GenSen [64]",
+     "definition": "A multi-task sentence representation baseline reported in the GLUE paper. Because it is trained across tasks, it can report QNLI and RTE numbers that the single-dataset NLI systems cannot.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "Multi-task BiLSTM + Attn [64]",
+     "definition": "A bidirectional LSTM with attention trained on multiple GLUE tasks at once. It is the system that beats this paper's model on RTE.",
+     "conceptId": "lstm-gpt1"
+    },
+    {
+     "term": "Finetuned Transformer LM (ours)",
+     "definition": "This paper's system: the transformer language model pre-trained on BooksCorpus, then fine-tuned on each dataset with the entailment input transformation. It is a single model, not an ensemble.",
+     "conceptId": "two-stage-training-procedure"
+    },
+    {
+     "term": "5x",
+     "definition": "Marks a row as an ensemble of five separately trained models whose predictions are combined. The caption defines it explicitly.",
+     "conceptId": null
+    },
+    {
+     "term": "3x",
+     "definition": "The same convention for an ensemble of three models. It appears only on the Stochastic Answer Network row.",
+     "conceptId": null
+    },
+    {
+     "term": "accuracy",
+     "definition": "The evaluation metric for every cell: the fraction of pairs whose relationship label the system predicts correctly, expressed as a percentage.",
+     "conceptId": null
+    },
+    {
+     "term": "dash (-)",
+     "definition": "A cell where that system reports no result for that dataset, usually because it was never evaluated on it. It is not a score of zero and should not be read as a failure.",
+     "conceptId": null
+    },
+    {
+     "term": "bold",
+     "definition": "Marks the highest accuracy in a column. It falls on this paper's model in five of six columns and on Multi-task BiLSTM + Attn in the RTE column.",
+     "conceptId": null
+    },
+    {
+     "term": "underline",
+     "definition": "Marks the best previous published result in a column, in the columns where the bold has gone to this paper's model. The gap between an underline and the bold below it is the paper's claimed absolute improvement.",
+     "conceptId": "absolute-improvement"
+    },
+    {
+     "term": "horizontal rules",
+     "definition": "The three interior rules group rows into ensembles, single-model task-specific systems, multi-task GLUE baselines, and this paper's model. They mark what kind of comparison each block is, not a ranking.",
+     "conceptId": null
+    },
+    {
+     "term": "[44], [58], [35], [64]",
+     "definition": "Bracketed citation numbers into the paper's reference list: [44] Peters et al. (ELMo), [58] Tay et al. (CAFE), [35] Liu et al. (Stochastic Answer Network), [64] Wang et al. (GLUE benchmark).",
+     "conceptId": null
+    },
+    {
+     "term": "natural language inference",
+     "definition": "Also called recognizing textual entailment: read a premise and a hypothesis, then choose entailment, contradiction, or neutral. All six columns are instances of this task.",
+     "conceptId": "natural-language-inference"
+    },
+    {
+     "term": "multi-task training",
+     "definition": "Training one model on several labelled tasks simultaneously, which is what the two [64] baselines do. The paper suggests this is why they hold up on the tiny RTE dataset.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "state-of-the-art methods",
+     "definition": "The caption's term for the baseline rows: the best published systems on each dataset at the time of writing, most of them architectures designed for NLI specifically.",
+     "conceptId": "task-specific-architectures"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "89.3 (ESIM + ELMo 5x, SNLI)",
+     "meaning": "The five-model ESIM+ELMo ensemble's SNLI accuracy, and the joint previous best on that dataset. It is underlined because this paper's 89.9 overtakes it."
+    },
+    {
+     "value": "80.2 (CAFE 5x, MNLI-m)",
+     "meaning": "The five-model CAFE ensemble on matched MNLI. Not underlined, because the Stochastic Answer Network's 80.6 is higher."
+    },
+    {
+     "value": "79.0 (CAFE 5x, MNLI-mm)",
+     "meaning": "The same ensemble on mismatched MNLI, 1.2 points below its own matched score — the usual pattern, since mismatched genres are unseen in training."
+    },
+    {
+     "value": "89.3 (CAFE 5x, SNLI)",
+     "meaning": "CAFE's ensemble ties ESIM+ELMo's ensemble exactly on SNLI. Both are underlined as joint previous best."
+    },
+    {
+     "value": "80.6 (Stochastic Answer Network 3x, MNLI-m)",
+     "meaning": "The previous best on matched MNLI, from a three-model ensemble, hence underlined. This paper's 1.5-point MNLI claim is measured against it."
+    },
+    {
+     "value": "80.1 (Stochastic Answer Network 3x, MNLI-mm)",
+     "meaning": "The previous best on mismatched MNLI. This paper's 81.4 exceeds it by 1.3 points."
+    },
+    {
+     "value": "78.7 (CAFE single, MNLI-m)",
+     "meaning": "Single-model CAFE on matched MNLI, 1.5 points below its own 5x ensemble row. The gap is the price of dropping the ensemble."
+    },
+    {
+     "value": "77.9 (CAFE single, MNLI-mm)",
+     "meaning": "Single-model CAFE on mismatched MNLI, 1.1 points below its 5x version."
+    },
+    {
+     "value": "88.5 (CAFE single, SNLI)",
+     "meaning": "Single-model CAFE on SNLI, 0.8 below its ensemble's 89.3 and 1.4 below this paper's 89.9."
+    },
+    {
+     "value": "83.3 (CAFE single, SciTail)",
+     "meaning": "The only reported SciTail baseline in the table, and therefore the underlined previous best. This paper's 88.3 is 5.0 points above it."
+    },
+    {
+     "value": "71.4 / 71.3 (GenSen, MNLI-m / MNLI-mm)",
+     "meaning": "GenSen's MNLI scores, roughly nine points below the dedicated NLI systems. A multi-task sentence encoder gives up accuracy on any one task in exchange for covering many."
+    },
+    {
+     "value": "82.3 (GenSen, QNLI)",
+     "meaning": "The best baseline QNLI number, hence underlined. This paper's 88.1 clears it by 5.8 points, its largest NLI gain."
+    },
+    {
+     "value": "59.2 (GenSen, RTE)",
+     "meaning": "GenSen's RTE accuracy. It is above this paper's 56.0 but below the 61.7 that takes the bold."
+    },
+    {
+     "value": "72.2 / 72.1 (Multi-task BiLSTM + Attn, MNLI-m / MNLI-mm)",
+     "meaning": "This baseline's MNLI scores, slightly ahead of GenSen but roughly ten points behind this paper's model."
+    },
+    {
+     "value": "82.1 (Multi-task BiLSTM + Attn, QNLI)",
+     "meaning": "Its QNLI accuracy, 0.2 below GenSen's underlined 82.3. Note this cell shares its value with the paper's MNLI-m result — the same digits in a different column."
+    },
+    {
+     "value": "61.7 (Multi-task BiLSTM + Attn, RTE)",
+     "meaning": "The only bold number not on the paper's own row. It is the best RTE result in the table and beats this paper's model by 5.7 points."
+    },
+    {
+     "value": "82.1 (ours, MNLI-m)",
+     "meaning": "This paper's matched MNLI accuracy: 80.6 + 1.5, the source of the abstract's 1.5% textual entailment claim."
+    },
+    {
+     "value": "81.4 (ours, MNLI-mm)",
+     "meaning": "Mismatched MNLI, 1.3 points over the previous best 80.1. The model loses only 0.7 points moving from matched to mismatched genres."
+    },
+    {
+     "value": "89.9 (ours, SNLI)",
+     "meaning": "SNLI accuracy, 0.6 above the two underlined 89.3 ensembles. The smallest of the paper's four NLI wins, on the largest dataset."
+    },
+    {
+     "value": "88.3 (ours, SciTail)",
+     "meaning": "SciTail accuracy, 5.0 points above CAFE's 83.3."
+    },
+    {
+     "value": "88.1 (ours, QNLI)",
+     "meaning": "QNLI accuracy, 5.8 points above GenSen's 82.3."
+    },
+    {
+     "value": "56.0 (ours, RTE)",
+     "meaning": "The paper's RTE accuracy and its one loss in this table — below both [64] baselines. The text attributes it to RTE's small training set."
+    },
+    {
+     "value": "5 and 3 (in 5x, 3x)",
+     "meaning": "The number of separately trained models combined in an ensemble row. The paper notes its single model still beats several of these ensembles."
+    },
+    {
+     "value": "2490",
+     "meaning": "RTE's training set size, quoted in the text as the reason for the loss: too few labelled examples for fine-tuning alone to carry the model."
+    },
+    {
+     "value": "550k",
+     "meaning": "SNLI's approximate training set size, quoted elsewhere in the paper as the largest of the twelve datasets. It sits at the opposite end of the size range from RTE."
+    },
+    {
+     "value": "1.5, 5, 5.8, 0.6",
+     "meaning": "The four absolute improvements the text quotes, on MNLI, SciTail, QNLI and SNLI. Each is a bold cell minus the underlined cell above it in the same column."
+    },
+    {
+     "value": "5.7",
+     "meaning": "The RTE shortfall: 61.7 minus 56.0. The paper states the loss rather than the difference, but this is its size."
+    },
+    {
+     "value": "4 of 5",
+     "meaning": "How many of the five NLI datasets the paper claims to win, counting MNLI-m and MNLI-mm as one dataset. RTE is the fifth."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     6
+    ]
+   }
+  },
+  {
+   "id": "table-3",
+   "kind": "table",
+   "number": 3,
+   "caption": "Table 3: Results on question answering and commonsense reasoning, comparing our model with current state-of-the-art methods.. 9x means an ensemble of 9 models.",
+   "page": 6,
+   "asset": "assets/table-3.png",
+   "title": "RACE and Story Cloze Results",
+   "takeaway": "On the paper's two reading-and-reasoning benchmarks, a single fine-tuned transformer language model beats every previously published system, by 8.9 accuracy points on the Story Cloze Test and 5.7 points on RACE overall. The RACE baselines it passes are 9-model ensembles, while the paper's entry is one model.",
+   "walkthrough": "This is the results table for the paper's [[question-answering-and-commonsense-reasoning]] family: two datasets, four score columns, five systems.\n\nEach row is a system and each column is a test set. Higher is better, and every number is an accuracy percentage. A dash means that system never reported a result on that dataset, so the row is simply blank there rather than scoring zero. The underlined number in each column is the best previously published result; the bold bottom row is this paper's model.\n\nThe datasets. [[story-cloze-test]] gives a multi-sentence story and two candidate endings, and asks which one is correct. [[race-dataset]] is reading comprehension built from English middle-school and high-school exam passages. RACE-m is the middle-school split, RACE-h the high-school split, and RACE the combined figure. Note that the combined score is not the average of the two splits: for the paper's model, 62.9 and 57.4 combine to 59.0, which sits nearer the high-school number, consistent with the high-school portion contributing more test questions. The same pattern holds for the baseline rows.\n\nThe \"(9x)\" annotation. Both RACE baselines are ensembles of nine separately trained models whose predictions are pooled — a standard way to buy a point or two of accuracy at nine times the compute. The paper's row carries no such annotation. It is one model, fine-tuned once per dataset from the same pre-trained weights ([[supervised-fine-tuning]]), with each candidate answer scored by appending it to the passage and question ([[qa-and-commonsense-input-transformation]]).\n\nThe margins. On Story Cloze, $86.5 - 77.6 = 8.9$. On RACE overall, $59.0 - 53.3 = 5.7$. Both are the [[absolute-improvement]] figures quoted in Section 4.2. The split columns show the gap is uneven: RACE-m improves by $62.9 - 60.2 = 2.7$, while RACE-h improves by $57.4 - 50.3 = 7.1$, so most of the RACE gain comes from the harder high-school questions.\n\nThe paper reads these margins as evidence that pre-training on long stretches of contiguous text lets the model use [[long-range-dependencies-gpt1]] — the passage detail several sentences away that answers the question. That is an interpretation, not something the table measures directly.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Method",
+     "definition": "The first column, listing the system being scored. Four prior published systems on top, the paper's own model on the bottom row.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "Story Cloze",
+     "definition": "Column for the Story Cloze Test: given a multi-sentence story, pick the correct ending out of two candidates. Scores are accuracy, so 50 would be chance.",
+     "conceptId": "story-cloze-test"
+    },
+    {
+     "term": "RACE-m",
+     "definition": "The middle-school split of RACE — exam reading-comprehension questions written for younger students, and the easier of the two splits for every system in the table.",
+     "conceptId": "race-dataset"
+    },
+    {
+     "term": "RACE-h",
+     "definition": "The high-school split of RACE. Every system scores lower here than on RACE-m, which is where the paper's largest RACE gain comes from.",
+     "conceptId": "race-dataset"
+    },
+    {
+     "term": "RACE",
+     "definition": "The combined score over both RACE splits. It is not the plain average of RACE-m and RACE-h; it lands closer to RACE-h, consistent with the high-school portion being the larger share of the test questions.",
+     "conceptId": "race-dataset"
+    },
+    {
+     "term": "val-LS-skip [55]",
+     "definition": "A prior Story Cloze system (Srinivasan, Arora and Riedl, 2018), cited in the paper as reference 55. Included as a Story Cloze baseline only; it reports nothing on RACE.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "Hidden Coherence Model [7]",
+     "definition": "A prior Story Cloze system (Chaturvedi, Peng and Roth, 2017), reference 7. Its 77.6 is the underlined previous best on Story Cloze.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "Dynamic Fusion Net [67] (9x)",
+     "definition": "A prior RACE system (Xu et al., 2017), reference 67, evaluated as a 9-model ensemble. It reports no Story Cloze result.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "BiAttention MRU [59] (9x)",
+     "definition": "A prior RACE system (Tay, Tuan and Hui, 2018), reference 59, also a 9-model ensemble. It holds the underlined previous best in all three RACE columns.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "(9x)",
+     "definition": "The caption's shorthand: this row is an ensemble of 9 separately trained models whose predictions are pooled. It marks the baseline as costing roughly nine times the compute of a single model.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "Finetuned Transformer LM (ours)",
+     "definition": "The paper's own system: the pre-trained decoder-only transformer language model, fine-tuned on each task's labelled data. One model per task, not an ensemble.",
+     "conceptId": "two-stage-training-procedure"
+    },
+    {
+     "term": "Bold (bottom row)",
+     "definition": "Typographic marker for the paper's own results. Here bold also happens to mark the best score in every column.",
+     "conceptId": null
+    },
+    {
+     "term": "Underline",
+     "definition": "Marks the best previously published result in each column — the number the paper's margin is measured against.",
+     "conceptId": "absolute-improvement"
+    },
+    {
+     "term": "Dash (-)",
+     "definition": "No result reported by that system on that dataset. It signals a missing entry, not a score of zero, so those cells carry no information about the system's ability.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "76.5",
+     "meaning": "val-LS-skip's Story Cloze accuracy. The weaker of the two Story Cloze baselines, and not the underlined best."
+    },
+    {
+     "value": "77.6",
+     "meaning": "Hidden Coherence Model's Story Cloze accuracy, underlined as the previous best on this dataset. It is the number the paper's 8.9-point gain is computed against."
+    },
+    {
+     "value": "55.6",
+     "meaning": "Dynamic Fusion Net (9x) on RACE-m. Beaten by the other ensemble, so not underlined."
+    },
+    {
+     "value": "49.4",
+     "meaning": "Dynamic Fusion Net (9x) on RACE-h. Below its own middle-school score, showing the high-school split is harder for this system too."
+    },
+    {
+     "value": "51.2",
+     "meaning": "Dynamic Fusion Net (9x) on RACE overall. It sits between 49.4 and 55.6 and nearer the high-school figure, the same weighting pattern seen in every row."
+    },
+    {
+     "value": "60.2",
+     "meaning": "BiAttention MRU (9x) on RACE-m, underlined as the previous best middle-school score."
+    },
+    {
+     "value": "50.3",
+     "meaning": "BiAttention MRU (9x) on RACE-h, underlined as the previous best high-school score."
+    },
+    {
+     "value": "53.3",
+     "meaning": "BiAttention MRU (9x) on RACE overall, underlined as the previous best. The reference point for the paper's 5.7-point RACE gain."
+    },
+    {
+     "value": "86.5",
+     "meaning": "The paper's Story Cloze accuracy. The largest single-column margin in the table, and the paper's best absolute score here."
+    },
+    {
+     "value": "62.9",
+     "meaning": "The paper's RACE-m accuracy, above the 60.2 ensemble baseline."
+    },
+    {
+     "value": "57.4",
+     "meaning": "The paper's RACE-h accuracy. Notably, it is higher than any baseline's middle-school score except 60.2, despite being the harder split."
+    },
+    {
+     "value": "59.0",
+     "meaning": "The paper's RACE overall accuracy, combining 62.9 and 57.4 with the high-school split weighted more heavily."
+    },
+    {
+     "value": "9 / 9x",
+     "meaning": "The number of models pooled in each RACE baseline ensemble. The paper's row uses one model, so the comparison is single model against 9-model ensembles."
+    },
+    {
+     "value": "8.9",
+     "meaning": "The Story Cloze margin, 86.5 minus 77.6. Section 4.2 quotes it as the paper's largest gain in this task family."
+    },
+    {
+     "value": "5.7",
+     "meaning": "The RACE overall margin, 59.0 minus 53.3, quoted in Section 4.2 as the improvement 'on RACE'."
+    },
+    {
+     "value": "2.7",
+     "meaning": "The RACE-m margin, 62.9 minus 60.2. The smallest gain in the table; the paper does not quote this number separately."
+    },
+    {
+     "value": "7.1",
+     "meaning": "The RACE-h margin, 57.4 minus 50.3. Larger than the middle-school gain, so most of the RACE improvement comes from the harder split."
+    },
+    {
+     "value": "[55], [7], [67], [59]",
+     "meaning": "Bracketed citation keys into the paper's reference list: Srinivasan et al. 2018, Chaturvedi et al. 2017, Xu et al. 2017, and Tay et al. 2018 respectively."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     6
+    ]
+   }
+  },
+  {
+   "id": "table-4",
+   "kind": "table",
+   "number": 4,
+   "caption": "Table 4: Semantic similarity and classification results, comparing our model with current state-of-the- art methods. All task evaluations in this table were done using the GLUE benchmark. (mc= Mathews correlation, acc=Accuracy, pc=Pearson correlation)",
+   "page": 7,
+   "asset": "assets/table-4.png",
+   "title": "Classification and Similarity Results",
+   "takeaway": "On the five GLUE tasks outside natural language inference, one fine-tuned transformer beats the previous best published number on CoLA, STS-B and QQP, and raises the overall GLUE score from 68.9 to 72.8. It does not win everywhere: on SST-2 and MRPC it stays below specialist systems that were built for those single datasets.",
+   "walkthrough": "Six systems run down the left, five datasets run across the top, and one aggregate score sits in the last column.\n\nThe bottom row is the paper's model: the pre-trained transformer with a single linear layer trained on each task ([[two-stage-training-procedure]], [[supervised-fine-tuning]]). Every row above it is a previously published result ([[baseline-comparisons]]). The top three rows carry one number each, because those systems were built and evaluated for one dataset only. A dash means the paper has no comparable published number to cite, not a score of zero.\n\nThe column header has two levels. The upper level groups the datasets into task families: [[text-classification]] and [[semantic-similarity]]. The lower level names the dataset and, in parentheses, the metric it is scored with.\n\nThe metrics differ because the tasks differ. On [[cola]] the label is grammatical or not, and the two classes are unbalanced, so plain accuracy would flatter a model that always guesses the majority. *mc* is Matthews correlation instead — a correlation between prediction and truth where 0 is chance and 100 is perfect, printed here on a 0–100 scale. (The caption spells it \"Mathews\".) *acc* on [[sst-2]] is ordinary accuracy on a balanced binary sentiment label. *F1* on [[mrpc]] and [[qqp]] is the harmonic mean of precision and recall on the positive class — the pairs that really are paraphrases or duplicates — again because the positive class is the minority. *pc* on [[sts-b]] is Pearson correlation, used because that dataset's label is a graded similarity rating rather than a yes/no, so predictions are compared to human ratings by how well they track.\n\nThe final column is the [[glue-benchmark]] score: one number for the whole benchmark, so it folds in the inference datasets reported elsewhere in the paper, not only the five columns shown here.\n\nNo formatting key is given. In practice bold marks the highest number in a column, and underline marks the best prior number in the columns where the paper's model takes the top spot.\n\nReading the wins: CoLA moves 35.0 to 45.4, STS-B 81.0 to 82.0, QQP 66.1 to 70.3, and the GLUE total 68.9 to 72.8 ([[absolute-improvement]]).\n\nReading the losses: on SST-2 the model's 91.3 sits below both 93.2 and 91.6, and on MRPC its 82.3 sits below both 86.0 and 83.5. MRPC is also the one dataset where the paper's LSTM ablation beats its transformer ([[ablation-lstm-substitution]]). These are single reported runs, with no variance given.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Method",
+     "definition": "The left-hand column, listing one system per row. The rows are ordered with prior published systems first and the paper's own model last.",
+     "conceptId": null
+    },
+    {
+     "term": "Classification",
+     "definition": "The upper-level header grouping the two single-sentence labelling datasets, CoLA and SST-2, where the model reads one sentence and emits one label.",
+     "conceptId": "text-classification"
+    },
+    {
+     "term": "Semantic Similarity",
+     "definition": "The upper-level header grouping the three sentence-pair datasets, MRPC, STS-B and QQP, where the model judges whether two sentences mean the same thing.",
+     "conceptId": "semantic-similarity"
+    },
+    {
+     "term": "GLUE",
+     "definition": "The rightmost column: a single score for the whole GLUE benchmark, which bundles these datasets together with the inference datasets the paper reports in its other tables.",
+     "conceptId": "glue-benchmark"
+    },
+    {
+     "term": "CoLA",
+     "definition": "Corpus of Linguistic Acceptability: expert judgements on whether a sentence is grammatical. The paper treats it as a probe of a model's implicit grasp of syntax.",
+     "conceptId": "cola"
+    },
+    {
+     "term": "mc",
+     "definition": "Matthews correlation, the metric for CoLA. It correlates predicted labels with true labels so that a majority-class guesser scores 0 rather than something high, and it is printed here scaled to 0-100.",
+     "conceptId": null
+    },
+    {
+     "term": "SST2",
+     "definition": "Stanford Sentiment Treebank, binary version: label each sentence as positive or negative sentiment.",
+     "conceptId": "sst-2"
+    },
+    {
+     "term": "acc",
+     "definition": "Accuracy, the metric for SST-2: the percentage of test sentences whose sentiment label the model gets right.",
+     "conceptId": null
+    },
+    {
+     "term": "MRPC",
+     "definition": "Microsoft Research Paraphrase Corpus: sentence pairs drawn from news sources, labelled for whether the two sentences are paraphrases.",
+     "conceptId": "mrpc"
+    },
+    {
+     "term": "F1",
+     "definition": "The harmonic mean of precision and recall on the positive class, used for MRPC and QQP. It is chosen over accuracy because the positive (paraphrase or duplicate) pairs are the minority class.",
+     "conceptId": null
+    },
+    {
+     "term": "STSB",
+     "definition": "Semantic Textual Similarity Benchmark: sentence pairs annotated with a graded similarity rating rather than a binary label. The paper calls it the smallest dataset in its evaluation, about 5.7k training examples.",
+     "conceptId": "sts-b"
+    },
+    {
+     "term": "pc",
+     "definition": "Pearson correlation, the metric for STS-B. Because the label is a graded score, the system is judged on how well its predicted similarities track the human ratings across the test set.",
+     "conceptId": null
+    },
+    {
+     "term": "QQP",
+     "definition": "Quora Question Pairs: pairs of questions labelled for whether they are asking the same thing.",
+     "conceptId": "qqp"
+    },
+    {
+     "term": "Sparse byte mLSTM [16]",
+     "definition": "The prior best on SST-2: a byte-level multiplicative LSTM language model trained with block-sparse GPU kernels, whose learned features are used for sentiment. Reference 16 is Gray, Radford and Kingma, GPU kernels for block-sparse weights, 2017.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "TF-KLD [23]",
+     "definition": "The prior best on MRPC: a feature-engineered paraphrase system that reweights and factorizes a sentence-pair feature matrix. Reference 23 is Ji and Eisenstein, Discriminative improvements to distributional sentence similarity, 2013.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "ECNU (mixed ensemble) [60]",
+     "definition": "The prior best on STS-B: a SemEval-2017 shared-task system combining hand-built kernel features with neural models in an ensemble. Reference 60 is Tian et al., 2017.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "Single-task BiLSTM + ELMo + Attn [64]",
+     "definition": "A GLUE baseline: a bidirectional LSTM sentence encoder with attention, fed ELMo representations, trained separately on each task. Reference 64 is the GLUE benchmark paper, Wang et al., 2018.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "Multi-task BiLSTM + ELMo + Attn [64]",
+     "definition": "The same GLUE baseline architecture, but trained jointly across the benchmark's tasks so that one model shares parameters over all of them.",
+     "conceptId": "baseline-comparisons"
+    },
+    {
+     "term": "BiLSTM",
+     "definition": "A bidirectional LSTM: two recurrent passes over the sentence, one left to right and one right to left, whose states are combined. It is the sentence encoder in both GLUE baseline rows.",
+     "conceptId": "lstm-gpt1"
+    },
+    {
+     "term": "ELMo",
+     "definition": "Deep contextualized word representations: hidden states taken from a pre-trained bidirectional language model and fed as extra input features into a separate task model, with the language model itself left frozen.",
+     "conceptId": "elmo-deep-contextualized-word-representations"
+    },
+    {
+     "term": "Attn",
+     "definition": "An attention mechanism added on top of the BiLSTM encoder in the GLUE baselines, letting the sentence-pair model align words across the two sentences.",
+     "conceptId": null
+    },
+    {
+     "term": "Finetuned Transformer LM (ours)",
+     "definition": "The paper's system: the transformer decoder pre-trained as a language model on BooksCorpus, then fine-tuned end to end on each labelled dataset with one added linear output layer.",
+     "conceptId": "two-stage-training-procedure"
+    },
+    {
+     "term": "Dash (-)",
+     "definition": "Marks a cell where the paper has no published number for that system on that dataset, usually because the system was only ever evaluated on one task. It is an absence, not a score of zero.",
+     "conceptId": null
+    },
+    {
+     "term": "Bold",
+     "definition": "Unexplained in the caption, but in practice bold marks the highest score in each column, whether that is the paper's model or a prior system.",
+     "conceptId": null
+    },
+    {
+     "term": "Underline",
+     "definition": "Marks the best prior published number in the columns where the paper's model takes the top score, so the reader can see what was beaten and by how much.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "93.2",
+     "meaning": "Sparse byte mLSTM accuracy on SST-2, the highest number in that column and the state of the art the paper does not beat. The paper describes its own 91.3 as competitive with this rather than better."
+    },
+    {
+     "value": "86.0",
+     "meaning": "TF-KLD F1 on MRPC, the highest number in that column. It is a hand-engineered paraphrase system from 2013, and the paper's transformer stays 3.7 points below it."
+    },
+    {
+     "value": "81.0",
+     "meaning": "ECNU ensemble Pearson correlation on STS-B, underlined as the prior best. The paper's 82.0 clears it, which is the '1 point absolute gain on STS-B' the text claims."
+    },
+    {
+     "value": "35.0",
+     "meaning": "Single-task BiLSTM + ELMo + Attn Matthews correlation on CoLA, underlined as the prior best. The text calls the model's 45.4 'an especially big jump over the previous best result of 35.0'."
+    },
+    {
+     "value": "90.2",
+     "meaning": "Single-task GLUE baseline accuracy on SST-2, about a point below both the multi-task version and the paper's model."
+    },
+    {
+     "value": "80.2",
+     "meaning": "Single-task GLUE baseline F1 on MRPC. This is the one baseline number on MRPC that the paper's 82.3 does beat."
+    },
+    {
+     "value": "55.5",
+     "meaning": "Single-task GLUE baseline Pearson correlation on STS-B, the weakest similarity score in the table. STS-B has roughly 5.7k training examples, and training on it alone leaves this baseline far behind the multi-task version's 72.8."
+    },
+    {
+     "value": "66.1",
+     "meaning": "Single-task GLUE baseline F1 on QQP, underlined as the prior best. The paper reports a 4.2 point absolute improvement over it."
+    },
+    {
+     "value": "64.8",
+     "meaning": "Single-task GLUE baseline overall benchmark score, the lowest GLUE total shown."
+    },
+    {
+     "value": "18.9",
+     "meaning": "Multi-task GLUE baseline Matthews correlation on CoLA, far below the same architecture's 35.0 when trained on CoLA alone. Grammatical acceptability appears not to benefit from sharing parameters with the other GLUE tasks."
+    },
+    {
+     "value": "91.6",
+     "meaning": "Multi-task GLUE baseline accuracy on SST-2. It sits above the paper's 91.3, so SST-2 is a column where the transformer trails a baseline as well as the specialist system."
+    },
+    {
+     "value": "83.5",
+     "meaning": "Multi-task GLUE baseline F1 on MRPC, above the paper's 82.3. Together with TF-KLD's 86.0 this makes MRPC the clearest loss in the table."
+    },
+    {
+     "value": "72.8 (STS-B column)",
+     "meaning": "Multi-task GLUE baseline Pearson correlation on STS-B, a 17.3 point gain over the same architecture trained single-task. It is numerically identical to the paper's GLUE total in the last column, which is coincidence, not a shared quantity."
+    },
+    {
+     "value": "63.3",
+     "meaning": "Multi-task GLUE baseline F1 on QQP, below the single-task 66.1, so multi-task training helps STS-B and MRPC here but hurts QQP."
+    },
+    {
+     "value": "68.9",
+     "meaning": "Multi-task GLUE baseline overall benchmark score, underlined as the prior best GLUE total. The paper's 72.8 is 3.9 points above it."
+    },
+    {
+     "value": "45.4",
+     "meaning": "The paper's Matthews correlation on CoLA, the largest margin in the table at 10.4 points over the prior 35.0. The paper reads it as evidence that language model pre-training leaves the network with an implicit sense of what is grammatical."
+    },
+    {
+     "value": "91.3",
+     "meaning": "The paper's accuracy on SST-2. It is below 93.2 and below 91.6, so it is neither bolded nor a win; the text only calls it competitive with the state of the art."
+    },
+    {
+     "value": "82.3",
+     "meaning": "The paper's F1 on MRPC, above the single-task baseline's 80.2 but below the multi-task 83.5 and TF-KLD's 86.0. MRPC is also the single dataset where the paper's LSTM ablation outperforms its transformer."
+    },
+    {
+     "value": "82.0",
+     "meaning": "The paper's Pearson correlation on STS-B, the top score in that column by one point over the ECNU ensemble."
+    },
+    {
+     "value": "70.3",
+     "meaning": "The paper's F1 on QQP, the top score in that column and 4.2 points above the underlined 66.1."
+    },
+    {
+     "value": "72.8 (GLUE column)",
+     "meaning": "The paper's overall GLUE score, the top score in that column. It aggregates across the benchmark's tasks, so it reflects the inference datasets too, not only the five columns printed here."
+    },
+    {
+     "value": "10.4 / 1.0 / 4.2 / 3.9",
+     "meaning": "The four margins the paper wins by, in points: CoLA (45.4 minus 35.0), STS-B (82.0 minus 81.0), QQP (70.3 minus 66.1) and GLUE (72.8 minus 68.9). The paper states the last three of these in the text."
+    },
+    {
+     "value": "1.9 / 0.3 / 3.7 / 1.2",
+     "meaning": "The margins the paper loses by, in points: SST-2 against 93.2 and against 91.6, MRPC against 86.0 and against 83.5. The paper does not itemize these; it simply calls SST-2 competitive and reports two of three similarity tasks as state of the art."
+    },
+    {
+     "value": "[16] [23] [60] [64]",
+     "meaning": "Bracketed citation keys into the paper's reference list: 16 is the block-sparse GPU kernels work behind Sparse byte mLSTM, 23 is Ji and Eisenstein's TF-KLD, 60 is the ECNU SemEval-2017 system, and 64 is the GLUE benchmark paper that supplies both BiLSTM baselines."
+    },
+    {
+     "value": "0-100",
+     "meaning": "The common scale of every cell. Accuracy and F1 are percentages; Matthews and Pearson correlations naturally run from -1 to 1 but are printed multiplied by 100, so all six columns can be scanned as if they were percentages."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     7
+    ]
+   }
+  },
+  {
+   "id": "fig-2",
+   "kind": "figure",
+   "number": 2,
+   "caption": "Figure 2: (left) Effect of transferring increasing number of layers from the pre-trained language model on RACE and MultiNLI. (right) Plot showing the evolution of zero-shot performance on different tasks as a function of LM pre-training updates. Performance per task is normalized between a random guess baseline and the current state-of-the-art with a single model.",
+   "page": 7,
+   "asset": "assets/fig-2.png",
+   "title": "Layer Transfer and Zero-Shot Growth",
+   "takeaway": "Two diagnostics for why the recipe works. The left panel says every pre-trained layer carries transferable value: dev accuracy on RACE and MultiNLI rises steadily as more of the twelve-layer stack is carried into fine-tuning, up to about 9% on MultiNLI for full transfer. The right panel says the pre-trained language model is already learning task-relevant behaviour before any fine-tuning: heuristic zero-shot scores on four tasks climb steadily across pre-training, and do so more smoothly for the transformer than for an LSTM trained the same way.",
+   "walkthrough": "Two separate experiments, printed side by side. They share no axes and no data. The left is about [[layers-transferred]]; the right is about [[zero-shot-behaviors]].\n\n### Left panel\n\nThe x-axis counts how many layers of the pre-trained model are carried into [[supervised-fine-tuning]], from 0 to 13. The stack is [[twelve-layer-depth]] deep on top of an embedding layer, so the right edge is full transfer and the left edge is close to none. The paper's text describes the sweep as transferring embeddings first, then each transformer layer in turn.\n\nTwo datasets are drawn at once, each on its own vertical scale. Blue reads off the left axis, \"RACE Dev Accuracy\", spanning 30 to 100. Orange reads off the right axis, \"MultiNLI Matched Dev Accuracy\", spanning 70 to 100. That is a narrower window over the same plot height, so an orange rise looks about $2.5\\times$ steeper than the same number of accuracy points in blue. Read the colour first, then pick the axis.\n\nSolid lines are held-out dev accuracy. Dashed lines are training accuracy from the same runs.\n\nBoth dev curves climb roughly monotonically. [[race-dataset]] dev goes from about 39.7 to about 60; [[multinli]] dev from about 72.5 to about 82. The train curves climb further and sit well above dev, so more transferred layers fit the task data harder as well as generalizing better.\n\n### Right panel\n\nNo fine-tuning happens here at all. Each task is solved by a hand-written heuristic reading the generative model's probabilities directly, mostly by [[average-token-log-probability-scoring]].\n\nThe x-axis is pre-training updates on a log scale, $10^3$ to $10^6$. The y-axis, \"Relative Task Performance\", rescales each task so 0 is a random-guess baseline and 1 is the current state of the art with a single model. So 0.68 means the heuristic closes 68% of that gap. The rescaling is what lets four differently-scored tasks share one axis; it says nothing about absolute accuracy.\n\nColour is the task: sentiment analysis is [[sst-2]], linguistic acceptability is [[cola]], question answering is RACE, winograd schema resolution is DPRD ([[dprd-winograd-heuristic]]). Line style is the architecture: solid for the transformer, dashed for an LSTM language model ([[ablation-lstm-substitution]]).\n\nAll four solid curves rise and largely stay risen. The dashed LSTM curves reach lower and wobble more — its sentiment curve falls from 0.42 to 0.30 before recovering. The paper reads that as support for [[transformer-inductive-bias]]. That is a hypothesis drawn from one pair of runs, not a controlled measurement.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "# of layers transferred (left x-axis)",
+     "definition": "How many layers of the pre-trained language model are copied into the fine-tuned model instead of being freshly initialized. It runs 0 to 13, covering the embedding layer plus the twelve transformer blocks.",
+     "conceptId": "layers-transferred"
+    },
+    {
+     "term": "RACE Dev Accuracy (left y-axis, blue)",
+     "definition": "Multiple-choice accuracy on the development split of RACE, a reading-comprehension dataset built from English exam passages and questions. Only the blue curves are read against this axis.",
+     "conceptId": "race-dataset"
+    },
+    {
+     "term": "MultiNLI Matched Dev Accuracy (right y-axis, orange)",
+     "definition": "Three-way entailment accuracy on the MultiNLI development split. Only the orange curves are read against this axis.",
+     "conceptId": "multinli"
+    },
+    {
+     "term": "Matched",
+     "definition": "MultiNLI ships two dev splits: 'matched' draws from the same text genres as training, 'mismatched' from held-out genres. This panel uses the matched split, the easier of the two.",
+     "conceptId": null
+    },
+    {
+     "term": "RACE Dev (solid blue)",
+     "definition": "Held-out RACE accuracy at each transfer setting. This is the generalization number for RACE.",
+     "conceptId": null
+    },
+    {
+     "term": "RACE Train (dashed light blue)",
+     "definition": "Accuracy on RACE's own training data after fine-tuning at each transfer setting. It measures fit, not generalization.",
+     "conceptId": null
+    },
+    {
+     "term": "MultiNLI Dev (solid orange)",
+     "definition": "Held-out MultiNLI matched accuracy at each transfer setting, read on the right-hand axis.",
+     "conceptId": null
+    },
+    {
+     "term": "MultiNLI Train (dashed light orange)",
+     "definition": "Accuracy on MultiNLI's training data after fine-tuning, read on the right-hand axis.",
+     "conceptId": null
+    },
+    {
+     "term": "Solid versus dashed (left panel)",
+     "definition": "In the left panel the line style separates evaluation splits, not architectures: solid is dev, dashed is train. The right panel reuses the same styles for a different distinction, so the convention does not carry across.",
+     "conceptId": null
+    },
+    {
+     "term": "Transferring embeddings",
+     "definition": "The weakest transfer setting on this axis: only the token embedding table is carried over from pre-training, with the transformer blocks left randomly initialized. The paper calls its benefit 'the standard result'.",
+     "conceptId": "word-embedding-transfer"
+    },
+    {
+     "term": "Pre-trained language model",
+     "definition": "The decoder-only transformer trained to predict next tokens on BooksCorpus. Both panels vary something about it: how much of it is reused, or how long it was trained.",
+     "conceptId": "generative-pretraining"
+    },
+    {
+     "term": "Fine-tuning",
+     "definition": "The second stage, where the transferred weights plus one added linear layer are trained on a task's labelled data. The left panel's dev and train curves are all measured after fine-tuning.",
+     "conceptId": "supervised-fine-tuning"
+    },
+    {
+     "term": "Relative Task Performance (right y-axis)",
+     "definition": "A per-task rescaling of the raw score so that all four tasks fit one axis. It is not accuracy; it is a fraction of a gap.",
+     "conceptId": null
+    },
+    {
+     "term": "Random guess baseline",
+     "definition": "The lower anchor of that rescaling, mapped to 0.0: what a model with no knowledge would score. For a two-way choice like sentiment or winograd that is 50% accuracy; for four-way RACE it is 25%; for CoLA's correlation-based metric it is 0.",
+     "conceptId": null
+    },
+    {
+     "term": "Current state-of-the-art with a single model",
+     "definition": "The upper anchor, mapped to 1.0: the best published result at the time using one model rather than an ensemble. A value of 0.5 on the axis therefore means the heuristic covers half the distance from chance to that best system.",
+     "conceptId": null
+    },
+    {
+     "term": "# of pre-training updates (right x-axis)",
+     "definition": "How many gradient updates of language-model pre-training the checkpoint had received when the zero-shot heuristics were run against it. Plotted on a log scale.",
+     "conceptId": "pre-training-optimization"
+    },
+    {
+     "term": "Zero-shot",
+     "definition": "Performing an evaluation task with no supervised fine-tuning and no labelled examples, using only hand-written heuristics over the generative model's probabilities.",
+     "conceptId": "zero-shot-behaviors"
+    },
+    {
+     "term": "sentiment analysis (blue, right panel)",
+     "definition": "The SST-2 heuristic: append the token 'very' to the example, restrict the model's output distribution to the words 'positive' and 'negative', and take whichever is more probable.",
+     "conceptId": "sst2-zero-shot-heuristic"
+    },
+    {
+     "term": "winograd schema resolution (orange, right panel)",
+     "definition": "The DPRD heuristic: substitute each candidate referent for the definite pronoun, then pick the substitution under which the rest of the sentence scores higher.",
+     "conceptId": "dprd-winograd-heuristic"
+    },
+    {
+     "term": "linguistic acceptability (green, right panel)",
+     "definition": "The CoLA heuristic: score a sentence by the model's average token log-probability and threshold that score to call it grammatical or not.",
+     "conceptId": "cola-zero-shot-heuristic"
+    },
+    {
+     "term": "question answering (red, right panel)",
+     "definition": "The RACE heuristic: condition on the document and question, then pick the candidate answer with the highest average token log-probability.",
+     "conceptId": "race-zero-shot-heuristic"
+    },
+    {
+     "term": "SST-2",
+     "definition": "Stanford Sentiment Treebank, binary sentiment classification on single sentences. It appears in the right panel under the plain name 'sentiment analysis'.",
+     "conceptId": "sst-2"
+    },
+    {
+     "term": "CoLA",
+     "definition": "Corpus of Linguistic Acceptability, expert judgements of whether a sentence is grammatical. It appears in the right panel as 'linguistic acceptability'.",
+     "conceptId": "cola"
+    },
+    {
+     "term": "DPRD",
+     "definition": "The Definite Pronoun Resolution Dataset of winograd schemas: sentences where a pronoun's referent can only be settled by commonsense reasoning. It appears as 'winograd schema resolution'.",
+     "conceptId": null
+    },
+    {
+     "term": "Transformer (solid, right legend)",
+     "definition": "The paper's 12-layer decoder-only transformer language model. Solid lines in the right panel track its zero-shot scores.",
+     "conceptId": "multi-layer-transformer-decoder"
+    },
+    {
+     "term": "LSTM (dashed, right legend)",
+     "definition": "A recurrent language model pre-trained the same way, used as the architecture control. The corresponding ablation elsewhere in the paper uses a single-layer 2048-unit LSTM.",
+     "conceptId": "ablation-lstm-substitution"
+    },
+    {
+     "term": "Average token log-probability",
+     "definition": "The mean log-probability the language model assigns to the tokens of a candidate string. Three of the four heuristics rank options by this quantity, which normalizes away length.",
+     "conceptId": "average-token-log-probability-scoring"
+    },
+    {
+     "term": "Inductive bias",
+     "definition": "The paper's proposed reading of the right panel: the transformer's attention gives it a more structured memory than an LSTM's hidden state, which it suggests is why its zero-shot curves are smoother.",
+     "conceptId": "transformer-inductive-bias"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "0 to 13",
+     "meaning": "The left panel's x-range. The model has 12 transformer blocks plus an embedding layer, so 14 tick positions cover transferring nothing, then embeddings, then blocks one at a time up to the whole stack. The paper's text describes the sweep this way but does not spell out the indexing."
+    },
+    {
+     "value": "12",
+     "meaning": "Layers in the pre-trained stack, fixed by the model specification. It is what makes the left panel's x-axis end where it does."
+    },
+    {
+     "value": "30 to 100, ticks every 10",
+     "meaning": "The left y-axis range (RACE Dev Accuracy). RACE is four-way multiple choice, so chance is 25% and the axis starts just above it."
+    },
+    {
+     "value": "70 to 100, ticks every 5",
+     "meaning": "The right y-axis range (MultiNLI Matched Dev Accuracy). MultiNLI accuracies never fall below about 72 in this sweep, so the axis is zoomed in on that band."
+    },
+    {
+     "value": "2.5",
+     "meaning": "The ratio between the two left-panel scales: the left axis spans 70 accuracy points over the same plot height as the right axis spans 30, so one orange point of accuracy occupies 2.5 times the vertical distance of one blue point. Ignoring this makes the MultiNLI gains look larger than the RACE ones."
+    },
+    {
+     "value": "about 39.7",
+     "meaning": "RACE dev accuracy at 0 layers transferred, read off the plot. It is the floor of the blue solid curve."
+    },
+    {
+     "value": "about 60",
+     "meaning": "RACE dev accuracy at full transfer, read off the plot. Roughly 20 points above the 0-layer setting, and consistent with the 59.0 overall RACE test accuracy the paper reports for its full model."
+    },
+    {
+     "value": "about 54, dipping to about 51.7",
+     "meaning": "RACE train accuracy at 0 and at 2 layers transferred. The dashed blue curve is the only one that goes down before it goes up, so the earliest transfer settings do not immediately help RACE fit its own training data."
+    },
+    {
+     "value": "about 92",
+     "meaning": "RACE train accuracy at full transfer. It sits roughly 32 points above the dev curve, so the fine-tuned model fits RACE's training set far better than it generalizes."
+    },
+    {
+     "value": "about 72.5",
+     "meaning": "MultiNLI matched dev accuracy at 0 layers transferred, read on the right axis. This is the baseline the transfer gains are measured against."
+    },
+    {
+     "value": "about 82",
+     "meaning": "MultiNLI matched dev accuracy at full transfer, read on the right axis. It lines up with the 82.1 MNLI-matched figure the paper reports for the full model in its results table."
+    },
+    {
+     "value": "9%",
+     "meaning": "The paper's stated gain on MultiNLI from full transfer, and roughly the distance between the 72.5 and 82 endpoints of the orange dev curve. The paper offers it as evidence that every layer holds useful function, not just the embeddings."
+    },
+    {
+     "value": "about 79.5 rising to about 97",
+     "meaning": "MultiNLI train accuracy at 0 and at full transfer. It climbs faster and saturates earlier than the dev curve, flattening after roughly 11 layers."
+    },
+    {
+     "value": "1.5% and 5.7%",
+     "meaning": "The absolute improvements the paper reports over prior best results on MultiNLI and RACE. These two datasets are chosen for the left panel because they are the entailment and question-answering headline results."
+    },
+    {
+     "value": "0.0 to 1.0, ticks every 0.2",
+     "meaning": "The right y-axis range. It is a normalized scale, so 0.0 is chance for that task and 1.0 is the best single-model result then published; no curve reaches 0.7."
+    },
+    {
+     "value": "10^3 to 10^6",
+     "meaning": "The right panel's x-range in pre-training updates, on a log axis so early training gets as much horizontal room as late training. Pre-training ran 100 epochs of 64-sequence minibatches, which lands the full run at the order of 10^6 updates."
+    },
+    {
+     "value": "about 0.68",
+     "meaning": "Where the solid sentiment-analysis curve plateaus, from roughly 3x10^5 updates onward. The highest value any curve reaches: the SST-2 heuristic closes about two-thirds of the gap from chance to the state of the art without a single labelled example."
+    },
+    {
+     "value": "about 0.10 then back to about 0.07",
+     "meaning": "A blip in the solid sentiment curve around 8x10^3 updates before it drops again. The heuristic is near-worthless until roughly 10^4 updates, after which it climbs sharply."
+    },
+    {
+     "value": "about 0.47 at 2x10^4",
+     "meaning": "The solid sentiment curve after its steep rise. Between 10^4 and 4x10^4 updates it goes from near zero to about 0.59, the fastest climb in the panel."
+    },
+    {
+     "value": "0.08, dipping to 0.05, then 0.45 and 0.54",
+     "meaning": "The solid winograd curve at 10^3, at 2x10^3, at about 4x10^4, and at 10^6 updates. It plateaus near 0.44 through the middle of training and then rises again in the last decade of updates."
+    },
+    {
+     "value": "0.03 rising to about 0.40, then flat near 0.43",
+     "meaning": "The solid linguistic-acceptability curve at 10^3, at about 8x10^3, and thereafter. It is the earliest riser and the flattest afterwards: grammaticality scoring is close to what the language modelling objective directly optimizes."
+    },
+    {
+     "value": "0 until about 4x10^3, peaking about 0.27, ending about 0.25",
+     "meaning": "The solid question-answering curve. RACE stays the hardest of the four throughout, never closing more than about a quarter of the chance-to-state-of-the-art gap."
+    },
+    {
+     "value": "about 0.37",
+     "meaning": "Where the dashed green LSTM acceptability curve plateaus, roughly 0.06 below its transformer counterpart. This is the LSTM's closest approach to matching the transformer."
+    },
+    {
+     "value": "about 0.20, spiking to 0.33, falling to 0.22, ending about 0.26",
+     "meaning": "The dashed orange LSTM winograd curve. Its non-monotonic swings are the clearest instance of the higher variance the paper attributes to the LSTM."
+    },
+    {
+     "value": "0 until 10^4, then 0.42, 0.30, 0.49",
+     "meaning": "The dashed blue LSTM sentiment curve at its start, at about 1.5x10^5, at about 3x10^5, and at 10^6 updates. It both starts later and drops mid-training, unlike the smooth solid transformer curve."
+    },
+    {
+     "value": "at most about 0.03",
+     "meaning": "The dashed red LSTM question-answering curve across the whole run. The LSTM essentially never performs the RACE heuristic above chance, while the transformer reaches about 0.27."
+    },
+    {
+     "value": "5.6",
+     "meaning": "The average score drop the paper reports elsewhere when the transformer is swapped for a single-layer 2048-unit LSTM in the full fine-tuning pipeline. It is the supervised counterpart to the architecture gap this panel shows without fine-tuning."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     7
+    ]
+   }
+  },
+  {
+   "id": "table-5",
+   "kind": "table",
+   "number": 5,
+   "caption": "Table 5: Analysis of various model ablations on different tasks. Avg. score is a unweighted average of all the results. (mc= Mathews correlation, acc=Accuracy, pc=Pearson correlation)",
+   "page": 8,
+   "asset": "assets/table-5.png",
+   "title": "Three Ablations Against the Full Model",
+   "takeaway": "Removing pre-training costs the most by far (14.8 average points), swapping the transformer for an LSTM costs 5.6, and dropping the auxiliary language modelling loss during fine-tuning actually gains 0.3 on average — helping only on the larger datasets (QQP and the two NLI sets) and hurting on the smaller ones.",
+   "walkthrough": "### What you are looking at\n\nFour training recipes, each evaluated on the same eight datasets. This is the paper's [[ablation-studies]]: take the finished system apart one piece at a time and see what each piece was worth.\n\nThe top row, separated by a rule, is the full system — a pre-trained transformer fine-tuned with the [[auxiliary-lm-objective]] switched on. The three rows below each remove exactly one thing. Read down a column to compare recipes; read the leftmost number to compare them overall.\n\n### How to read it\n\nEach task column carries its own metric in the sub-header, because these datasets do not share one. $mc$ is Matthews correlation, $acc$ is accuracy, $F1$ is the harmonic mean of precision and recall, $pc$ is Pearson correlation. Higher is better in all four, but they are not on a common scale — a Matthews correlation of 45.4 and an accuracy of 91.3 are not comparable quantities.\n\nThe **Avg. Score** column simply averages the eight numbers in the row, unweighted. Nothing is rescaled and no dataset counts more than another, so a small dataset with a harsh metric — [[cola]], scored by correlation — pulls the average as hard as a large one. Bold marks the best value in each column.\n\n### What it shows\n\nDeleting [[generative-pretraining]] is the largest single loss: $74.7 - 59.9 = 14.8$ points, and every column drops. [[cola]] collapses from 45.4 to 18.9, which the paper reads as the linguistic bias coming from pre-training rather than from the labels.\n\nReplacing the [[multi-layer-transformer-decoder]] with a single-layer 2048-unit [[lstm-gpt1]] costs $74.7 - 69.1 = 5.6$ points. The LSTM beats the full transformer on exactly one dataset, [[mrpc]], at 83.2 against 82.3.\n\nThe third ablation cuts the other way. Fine-tuning *without* the auxiliary loss scores 75.0, three tenths of a point **above** the full model, and takes the best cell in five of eight columns. The loss earns its place only on [[qqp]], [[multinli]] and [[qnli]] — the larger datasets. The paper states the trend that way and does not claim more.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Method",
+     "definition": "The leftmost column, naming which of the four training recipes a row reports. All four are trained and evaluated identically apart from the one component named in the row.",
+     "conceptId": "ablation-studies"
+    },
+    {
+     "term": "Transformer w/ aux LM (full)",
+     "definition": "The paper's complete system: a 12-layer decoder-only transformer pre-trained as a language model on BooksCorpus, then fine-tuned on each task with the language modelling loss kept on alongside the classification loss. This is the reference row the other three are subtracted from.",
+     "conceptId": "two-stage-training-procedure"
+    },
+    {
+     "term": "Transformer w/o pre-training",
+     "definition": "The same transformer architecture, same fine-tuning setup, but with weights initialized randomly instead of from the pre-trained language model. It isolates what stage one of the recipe contributed.",
+     "conceptId": "ablation-no-pretraining"
+    },
+    {
+     "term": "Transformer w/o aux LM",
+     "definition": "The full pre-trained transformer, fine-tuned with the supervised loss alone — the auxiliary language modelling term is dropped from the fine-tuning objective. It isolates what that extra loss term contributed.",
+     "conceptId": "ablation-no-auxiliary-objective"
+    },
+    {
+     "term": "LSTM w/ aux LM",
+     "definition": "Everything about the full recipe kept, except the transformer stack is swapped for a single-layer 2048-unit LSTM: pre-trained the same way, fine-tuned the same way, auxiliary loss on. It isolates the architecture choice.",
+     "conceptId": "ablation-lstm-substitution"
+    },
+    {
+     "term": "aux LM",
+     "definition": "The auxiliary language modelling objective used during fine-tuning: the model keeps predicting next tokens on the task's own text while it learns the labels, with the two losses combined as $L_3 = L_2 + \\lambda L_1$ at $\\lambda = 0.5$.",
+     "conceptId": "auxiliary-lm-objective"
+    },
+    {
+     "term": "pre-training",
+     "definition": "Stage one of the paper's recipe: train the network to predict the next token over a large unlabelled corpus, then carry those weights into the supervised task as the starting point.",
+     "conceptId": "generative-pretraining"
+    },
+    {
+     "term": "Avg. Score",
+     "definition": "The unweighted mean of that row's eight task scores. Every dataset contributes equally and no metric is rescaled first, so the column is a rough summary rather than a calibrated benchmark number.",
+     "conceptId": null
+    },
+    {
+     "term": "CoLA",
+     "definition": "Corpus of Linguistic Acceptability: expert judgements on whether a single sentence is grammatical. The paper treats it as a probe of linguistic bias picked up during pre-training.",
+     "conceptId": "cola"
+    },
+    {
+     "term": "SST2",
+     "definition": "Stanford Sentiment Treebank, binary version: label a sentence as positive or negative sentiment.",
+     "conceptId": "sst-2"
+    },
+    {
+     "term": "MRPC",
+     "definition": "Microsoft Paraphrase Corpus: given two sentences drawn from news sources, decide whether they mean the same thing. The one dataset in this table where the LSTM beats the full transformer.",
+     "conceptId": "mrpc"
+    },
+    {
+     "term": "STSB",
+     "definition": "Semantic Textual Similarity Benchmark: rate how similar two sentences are on a continuous scale, rather than making a binary paraphrase call. The smallest dataset in the paper's evaluation at roughly 5.7k training examples.",
+     "conceptId": "sts-b"
+    },
+    {
+     "term": "QQP",
+     "definition": "Quora Question Pairs: decide whether two questions are asking the same thing. One of the larger datasets here, and one of the three where the auxiliary objective helps.",
+     "conceptId": "qqp"
+    },
+    {
+     "term": "MNLI",
+     "definition": "MultiNLI: natural language inference across several genres of text, labelling a premise-hypothesis pair as entailment, contradiction or neutral.",
+     "conceptId": "multinli"
+    },
+    {
+     "term": "QNLI",
+     "definition": "An inference dataset built over Wikipedia articles, framed as deciding whether a sentence contains the answer to a question.",
+     "conceptId": "qnli"
+    },
+    {
+     "term": "RTE",
+     "definition": "Recognizing Textual Entailment: a small natural language inference dataset over news articles, about 2490 training examples. Its size makes its column the noisiest in the table.",
+     "conceptId": "rte"
+    },
+    {
+     "term": "mc (Mathews correlation)",
+     "definition": "Matthews correlation coefficient, the metric for CoLA. It scores a binary classifier on a scale where 0 is chance and 100 is perfect, and it stays low when a model just predicts the majority class — which is why CoLA's numbers look small next to the accuracy columns.",
+     "conceptId": null
+    },
+    {
+     "term": "acc (Accuracy)",
+     "definition": "Plain percentage of test examples labelled correctly, used for SST2, MNLI, QNLI and RTE.",
+     "conceptId": null
+    },
+    {
+     "term": "F1",
+     "definition": "The harmonic mean of precision and recall on the positive class, used for MRPC and QQP because both have imbalanced labels where raw accuracy would flatter a lazy classifier.",
+     "conceptId": null
+    },
+    {
+     "term": "pc (Pearson correlation)",
+     "definition": "Pearson correlation between predicted and human similarity ratings, used for STSB because its target is a continuous score rather than a class.",
+     "conceptId": null
+    },
+    {
+     "term": "Bold",
+     "definition": "Marks the best value in each column across the four rows. The full model takes bold in four columns and the no-auxiliary-objective row takes it in five, including the average.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "74.7",
+     "meaning": "Average score of the full model, the reference every ablation is compared against. It is the unweighted mean of that row's eight cells: $(45.4+91.3+82.3+82.0+70.3+81.8+88.1+56.0)/8 = 597.2/8 = 74.65$, printed to one decimal."
+    },
+    {
+     "value": "45.4 / 91.3 / 82.3 / 82.0 / 70.3 / 81.8 / 88.1 / 56.0",
+     "meaning": "The full model's per-task scores in column order (CoLA, SST2, MRPC, STSB, QQP, MNLI, QNLI, RTE). These are the same headline numbers the paper reports in its main results tables; 45.4 on CoLA is called a large jump over a previous best of 35.0, and 56.0 on RTE is the one NLI dataset where the paper does not beat prior work (61.7)."
+    },
+    {
+     "value": "59.9",
+     "meaning": "Average score with no pre-training. Mean of $(18.9+84.0+79.4+30.9+65.5+75.7+71.2+53.8)/8 = 479.4/8 = 59.925$."
+    },
+    {
+     "value": "14.8",
+     "meaning": "The cost of removing pre-training: $74.7 - 59.9 = 14.8$ average points. The paper calls this a 14.8% decrease and notes that no task escapes — every one of the eight columns drops."
+    },
+    {
+     "value": "18.9",
+     "meaning": "CoLA without pre-training, down from 45.4. The largest single-cell collapse in the table, and the paper's evidence that grammatical acceptability judgements come from the unlabelled text rather than from CoLA's own labels."
+    },
+    {
+     "value": "30.9",
+     "meaning": "STSB without pre-training, down from 82.0. The second-largest collapse; STSB is the smallest training set in the evaluation, so a randomly initialized model has very little labelled data to learn from."
+    },
+    {
+     "value": "84.0 / 79.4 / 65.5 / 75.7 / 71.2 / 53.8",
+     "meaning": "The remaining no-pre-training cells (SST2, MRPC, QQP, MNLI, QNLI, RTE). Each is below the full model's value in the same column; the smallest gap is RTE at $56.0 - 53.8 = 2.2$, which is also the smallest dataset and therefore the noisiest comparison."
+    },
+    {
+     "value": "75.0",
+     "meaning": "Average score with the auxiliary language modelling objective removed during fine-tuning. Mean of $(47.9+92.0+84.9+83.2+69.8+81.1+86.9+54.4)/8 = 600.2/8 = 75.025$. It is the best average in the table."
+    },
+    {
+     "value": "+0.3",
+     "meaning": "The amount removing the auxiliary objective helps on average: $75.0 - 74.7$. The full recipe keeps the objective anyway, and the paper justifies that on the pattern across datasets rather than on the average."
+    },
+    {
+     "value": "47.9 / 92.0 / 84.9 / 83.2",
+     "meaning": "CoLA, SST2, MRPC and STSB without the auxiliary objective — all four beat the full model (45.4, 91.3, 82.3, 82.0) and take the bold. These are the paper's smaller datasets, which it says do not benefit from the extra loss term."
+    },
+    {
+     "value": "69.8 / 81.1 / 86.9",
+     "meaning": "QQP, MNLI and QNLI without the auxiliary objective, each below the full model's 70.3, 81.8 and 88.1. These three are the larger datasets, and this is the whole basis for the paper's claim that the auxiliary objective helps on NLI tasks and QQP."
+    },
+    {
+     "value": "54.4",
+     "meaning": "RTE without the auxiliary objective, below the full model's 56.0. RTE is an NLI task but a very small one, so it does not fit cleanly on either side of the size trend."
+    },
+    {
+     "value": "69.1",
+     "meaning": "Average score for the LSTM. Mean of $(30.3+90.5+83.2+71.8+68.1+73.7+81.1+54.6)/8 = 553.3/8 = 69.16$, which the table prints as 69.1."
+    },
+    {
+     "value": "5.6",
+     "meaning": "The cost of using an LSTM instead of the transformer: $74.7 - 69.1 = 5.6$ average points. The paper cites this figure directly as the architecture's contribution, holding pre-training and fine-tuning fixed."
+    },
+    {
+     "value": "83.2 (LSTM, MRPC)",
+     "meaning": "The only cell where the LSTM beats the full transformer, 83.2 against 82.3. The paper states this exception explicitly rather than claiming a clean sweep. Note the bold on MRPC goes to 84.9 in the no-auxiliary-objective row, not to the LSTM."
+    },
+    {
+     "value": "30.3 / 90.5 / 71.8 / 68.1 / 73.7 / 81.1 / 54.6",
+     "meaning": "The LSTM's remaining cells (CoLA, SST2, STSB, QQP, MNLI, QNLI, RTE), all below the full model. CoLA at 30.3 and STSB at 71.8 are the widest gaps, so most of the 5.6-point average drop comes from those two."
+    },
+    {
+     "value": "2048",
+     "meaning": "The hidden unit count of the LSTM used in the substitution ablation, described in the analysis text as a single-layer 2048-unit LSTM. It is stated once in prose and does not appear in the table itself."
+    },
+    {
+     "value": "8",
+     "meaning": "The number of task columns averaged into Avg. Score. Note the paper evaluates on twelve datasets overall; this table covers only the eight it reports here, so Avg. Score is not the paper's GLUE score of 72.8."
+    },
+    {
+     "value": "0.5",
+     "meaning": "The weight $\\lambda$ on the auxiliary language modelling term during fine-tuning, from the setup section. The rows that keep the auxiliary objective use this value; the w/o aux LM row is the case $\\lambda = 0$."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     8
+    ]
+   }
+  },
+  {
+   "id": "eq-lm-objective",
+   "kind": "equation",
+   "number": null,
+   "caption": "The language modelling objective L1",
+   "page": 3,
+   "asset": null,
+   "section": "3.1",
+   "title": "The Pre-Training Likelihood $L_1$",
+   "takeaway": "This is the entire training signal for stage one: over a corpus of unlabelled tokens, sum the log-probability the network assigns to each token given the $k$ tokens immediately before it, and adjust the network's parameters $\\Theta$ to make that sum as large as possible. No labels, no task, and one training term per token position.",
+   "walkthrough": "This is Equation 1, the objective for the first half of the paper's [[two-stage-training-procedure]]. Everything the model learns before it ever sees a labelled example comes from this one line.\n\nStart with the corpus. $\\mathcal{U} = \\{u_1, \\dots, u_n\\}$ is the unlabelled text after tokenization: one long run of $n$ tokens, each $u_i$ a subword unit from the [[byte-pair-encoding-gpt1]] vocabulary. Nothing is annotated. The subscript in $L_1$ marks this as the first of three losses the paper defines; $L_2$ and $L_3$ appear later, in [[supervised-fine-tuning]].\n\nNow read the equation from the inside out. The term $P(u_i \\mid u_{i-k}, \\dots, u_{i-1}; \\Theta)$ is the probability the network assigns to the token that actually sits at position $i$, given the $k$ tokens immediately before it. The semicolon separates what is conditioned on from what is being fitted: $\\Theta$ is every weight in the network, and it is not data.\n\nTake the logarithm of that probability, then sum over $i$. Every position in the corpus contributes one term, so a corpus of $n$ tokens yields roughly $n$ terms. Maximizing the sum is ordinary [[maximum-likelihood-training]], done here with stochastic gradient descent on $\\Theta$.\n\nNote what the equation does not say. It fixes no architecture — Equation 2 supplies the [[multi-layer-transformer-decoder]] that computes $P$. The objective would read the same for an n-gram model or an LSTM.\n\nThat leaves $k$, the context window. It is the number of preceding tokens a single prediction is allowed to see, and it bounds the reach of what the model can learn: nothing further back than $k$ tokens can inform the prediction at position $i$. The paper sets it to 512 tokens in the trained model, so a prediction can condition on the previous several paragraphs rather than the current sentence ([[context-window-512-tokens]]).\n\nA large $k$ only helps if the tokens inside the window are genuinely related, which is why the paper chooses [[bookscorpus]] for its [[long-range-contiguous-text]] over the sentence-shuffled [[one-billion-word-benchmark]]. That is the paper's stated route to [[long-range-dependencies-gpt1]]: make the objective's window wide, then feed it text that fills the window with something worth conditioning on. It reports [[token-level-perplexity]] of 18.4 as evidence the model fit that corpus.",
+   "latex": "L_1(\\mathcal{U}) = \\sum_i \\log P(u_i \\mid u_{i-k}, \\dots, u_{i-1}; \\Theta)",
+   "terms": [
+    {
+     "term": "$L_1(\\mathcal{U})$",
+     "definition": "The pre-training objective: a single scalar score for how well the model's parameters explain the whole unlabelled corpus. Training maximizes it.",
+     "conceptId": "language-modeling-objective"
+    },
+    {
+     "term": "$\\mathcal{U}$",
+     "definition": "The unsupervised corpus, written as an ordered set of tokens $\\{u_1,\\dots,u_n\\}$. In the experiments it is BooksCorpus after cleaning and byte-pair encoding.",
+     "conceptId": "bookscorpus"
+    },
+    {
+     "term": "$u_i$",
+     "definition": "The token at position $i$ in the corpus, and the prediction target of the $i$-th term in the sum. Each token also serves as context for the up-to-$k$ predictions that follow it.",
+     "conceptId": null
+    },
+    {
+     "term": "$n$",
+     "definition": "The number of tokens in the corpus, so the last token is $u_n$. Reused later in Equation 2 with a different meaning (number of transformer layers).",
+     "conceptId": null
+    },
+    {
+     "term": "$i$",
+     "definition": "The position index being predicted; also the variable the sum runs over. The paper leaves its exact range implicit.",
+     "conceptId": null
+    },
+    {
+     "term": "$k$",
+     "definition": "The size of the context window: how many immediately preceding tokens a prediction may condition on. It is a fixed hyperparameter, not something learned.",
+     "conceptId": "context-window-512-tokens"
+    },
+    {
+     "term": "$u_{i-k}, \\dots, u_{i-1}$",
+     "definition": "The window of context: the $k$ tokens directly before position $i$, in order. This is the entire input to the prediction of $u_i$.",
+     "conceptId": null
+    },
+    {
+     "term": "$P(\\cdot \\mid \\cdot\\,;\\Theta)$",
+     "definition": "The conditional next-token distribution the network computes over the whole vocabulary. Here only the probability mass on the observed token $u_i$ is read off.",
+     "conceptId": "output-softmax-tied-embeddings"
+    },
+    {
+     "term": "$\\Theta$",
+     "definition": "All parameters of the neural network that models $P$ — embeddings, attention and feed-forward weights. These are the quantities the maximization adjusts, and the thing carried into fine-tuning.",
+     "conceptId": "generative-pretraining"
+    },
+    {
+     "term": "$\\sum_i$",
+     "definition": "Summation over token positions, so every position in the corpus contributes one training term. This is what makes the supervision dense and free of annotation.",
+     "conceptId": null
+    },
+    {
+     "term": "$\\log$",
+     "definition": "Natural logarithm of the probability. Summing logs rather than multiplying probabilities keeps the objective numerically stable and turns the corpus likelihood into a sum.",
+     "conceptId": "maximum-likelihood-training"
+    },
+    {
+     "term": "likelihood",
+     "definition": "The probability the model assigns to the observed data. The paper says it maximizes this likelihood, which in practice means gradient descent on its negative.",
+     "conceptId": "maximum-likelihood-training"
+    },
+    {
+     "term": "context window",
+     "definition": "The paper's name for the span $k$ of preceding tokens visible to a prediction. It caps how far back any learned dependency can reach.",
+     "conceptId": "context-window-512-tokens"
+    },
+    {
+     "term": "stochastic gradient descent",
+     "definition": "The optimizer family the paper names for fitting $\\Theta$; the setup section specifies Adam with a warmup-then-cosine learning-rate schedule.",
+     "conceptId": "pre-training-optimization"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "1 (subscript of $L_1$)",
+     "meaning": "Labels this as the paper's first objective. It is numbered because two more follow: $L_2$ for the supervised task and $L_3$ combining the two during fine-tuning."
+    },
+    {
+     "value": "1 (in $u_1$)",
+     "meaning": "The first token of the corpus; the corpus is indexed from 1 to $n$."
+    },
+    {
+     "value": "$i-1$",
+     "meaning": "The token immediately before the prediction target — the nearest edge of the context window."
+    },
+    {
+     "value": "$i-k$",
+     "meaning": "The furthest-back token the prediction may use, $k$ positions before $i$. Anything earlier is invisible to this term of the sum."
+    },
+    {
+     "value": "$k$",
+     "meaning": "The window size, left symbolic in Equation 1 because the objective does not depend on any particular value."
+    },
+    {
+     "value": "512",
+     "meaning": "The value of $k$ in the trained model, given in the setup section: minibatches are 64 contiguous sequences of 512 tokens, so each prediction can look back up to 512 byte-pair tokens."
+    },
+    {
+     "value": "18.4",
+     "meaning": "Token-level perplexity reached on BooksCorpus, reported as evidence the pre-training objective was fit well. Roughly, the model is on average about as uncertain as if choosing uniformly among 18.4 tokens."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     3
+    ]
+   }
+  },
+  {
+   "id": "eq-decoder-stack",
+   "kind": "equation",
+   "number": null,
+   "caption": "From tokens to a next-token distribution",
+   "page": 3,
+   "asset": null,
+   "section": "3.1",
+   "title": "The Decoder Stack, Input to Output Distribution",
+   "takeaway": "Equation 2 spells out the whole pre-training network in three lines: embed the context tokens and their positions, push the result through $n$ identical transformer blocks, then project the top layer back through the transposed token embedding matrix and softmax it into a distribution over the next token. The same matrix $W_e$ does the work at both ends, so no separate output vocabulary matrix is introduced.",
+   "walkthrough": "This is the definition of the network that Equation 1's language modelling loss is computed over. Equation 1 says *what* to maximize; Equation 2 says what the [[multi-layer-transformer-decoder]] actually computes. Read it top to bottom as three stages: get in, go through, get out.\n\n### Line one: getting in\n\n$h_0 = UW_e + W_p$ builds the layer-zero representation, the [[input-representation-h0]].\n\n$U = (u_{-k}, \\dots, u_{-1})$ is the context vector: the $k$ tokens immediately before the one being predicted, indexed backwards from the prediction point. Treat it as a stack of one-hot rows, one per position.\n\nMultiplying by the [[token-embedding-matrix]] $W_e$ therefore selects one embedding row per token. Adding $W_p$ adds a vector that depends only on the slot a token sits in, not on its identity. Those are [[learned-position-embeddings]] — trained parameters, not fixed sinusoids.\n\n### Line two: going through\n\n$h_l = \\texttt{transformer\\_block}(h_{l-1})$ is a recurrence over depth, not over time. Layer $l$ reads only the previous layer's output. Each block is a masked multi-head self-attention sublayer followed by a position-wise feed-forward sublayer, which is where the [[decoder-only-stack]] and its [[masked-self-attention]] live. Iterating from $l=1$ to $l=n$ gives $h_n$, the top layer.\n\nOne notational wrinkle: as printed, the quantifier reads $\\forall i \\in [1,n]$ while the subscript being varied is $l$. The index intended is $l$.\n\n### Line three: getting out\n\n$P(u) = \\texttt{softmax}(h_n W_e^T)$ turns the top-layer state into a distribution.\n\n$W_e$ maps a vocabulary index to a vector, so $W_e^T$ maps a vector back to one score per vocabulary entry. Concretely, the score for a candidate token is the dot product of $h_n$ with that token's embedding. Softmax normalizes those scores.\n\nSo $W_e$ appears twice — as the input lookup and, transposed, as the output scoring matrix. The paper states this without arguing for it, and it is the point at which the [[output-softmax-tied-embeddings]] is defined.\n\nNothing here is task-specific. That is what lets [[supervised-fine-tuning]] reuse the same stack unchanged.",
+   "latex": "\\begin{aligned}\nh_0 &= UW_e + W_p \\\\\nh_l &= \\texttt{transformer\\_block}(h_{l-1}) \\,\\forall i \\in [1, n] \\\\\nP(u) &= \\texttt{softmax}(h_n W_e^T)\n\\end{aligned}",
+   "terms": [
+    {
+     "term": "$U$",
+     "definition": "The context vector of tokens, $U = (u_{-k}, \\dots, u_{-1})$: the $k$ tokens preceding the position being predicted. In the matrix product $UW_e$ it acts as a stack of one-hot row vectors, one row per context position.",
+     "conceptId": null
+    },
+    {
+     "term": "$u$",
+     "definition": "A single token from the corpus. In $P(u)$ it stands for the next token whose probability the model is producing.",
+     "conceptId": null
+    },
+    {
+     "term": "$W_e$",
+     "definition": "The token embedding matrix: one learned row vector per vocabulary entry. It is used once on the input side as a lookup, and again transposed on the output side to score candidate next tokens.",
+     "conceptId": "token-embedding-matrix"
+    },
+    {
+     "term": "$W_e^T$",
+     "definition": "The transpose of the token embedding matrix, used as the output projection. Multiplying $h_n$ by it produces one score per vocabulary entry, each score being the dot product of the hidden state with that token's embedding.",
+     "conceptId": "output-softmax-tied-embeddings"
+    },
+    {
+     "term": "$W_p$",
+     "definition": "The position embedding matrix: one learned vector per slot in the context window, added to the token embeddings so the model can tell positions apart. The paper says these are learned rather than the sinusoidal encodings of the original transformer.",
+     "conceptId": "learned-position-embeddings"
+    },
+    {
+     "term": "$h_0$",
+     "definition": "The layer-zero representation, formed as token embeddings plus position embeddings. It is the input handed to the first transformer block.",
+     "conceptId": "input-representation-h0"
+    },
+    {
+     "term": "$h_l$",
+     "definition": "The hidden state after transformer block $l$: one vector per context position. Each $h_l$ depends only on $h_{l-1}$.",
+     "conceptId": null
+    },
+    {
+     "term": "$h_n$",
+     "definition": "The hidden state after the last of the $n$ blocks. It is the representation fed into the output softmax.",
+     "conceptId": null
+    },
+    {
+     "term": "$l$",
+     "definition": "The layer index, running from $1$ to $n$. The recurrence is over depth in the stack, not over time steps in the sequence.",
+     "conceptId": null
+    },
+    {
+     "term": "$n$",
+     "definition": "The number of layers in the stack. Note that Equation 1 on the same page uses $n$ for the number of tokens in the corpus $\\mathcal{U}$; here it means depth.",
+     "conceptId": "twelve-layer-depth"
+    },
+    {
+     "term": "$i$",
+     "definition": "The index appearing in the printed quantifier $\\forall i \\in [1, n]$. The variable actually being ranged over in the recurrence is $l$, so this reads as a typographical slip in the paper.",
+     "conceptId": null
+    },
+    {
+     "term": "transformer_block",
+     "definition": "One decoder block: masked multi-head self-attention over the context positions, followed by a position-wise feed-forward network. The paper leaves the internals to the transformer reference and only names the function here.",
+     "conceptId": "multi-layer-transformer-decoder"
+    },
+    {
+     "term": "softmax",
+     "definition": "The normalization applied to the vocabulary scores $h_n W_e^T$, turning them into a probability distribution over the next token.",
+     "conceptId": null
+    },
+    {
+     "term": "$P(u)$",
+     "definition": "The model's output distribution over target tokens given the context $U$. It is the quantity that the pre-training likelihood in Equation 1 maximizes.",
+     "conceptId": "language-modeling-objective"
+    },
+    {
+     "term": "$k$",
+     "definition": "The size of the context window, defined in the text above Equation 1 and reused here through the index range of $U$. It sets how many preceding tokens a prediction may condition on.",
+     "conceptId": "context-window-512-tokens"
+    },
+    {
+     "term": "Transformer decoder",
+     "definition": "The architecture family the paper picks: the encoder half of the original encoder-decoder transformer is dropped, leaving a single stack that attends only to its own earlier positions.",
+     "conceptId": "decoder-only-stack"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "0",
+     "meaning": "The layer index of $h_0$. It marks the embedding output as the input to the stack rather than the product of any block, so block $1$ is the first thing that transforms it."
+    },
+    {
+     "value": "$l-1$",
+     "meaning": "The layer feeding block $l$. Written this way, the line says each block reads exactly one thing: the layer directly below it."
+    },
+    {
+     "value": "$[1, n]$",
+     "meaning": "The range of the layer index: the recurrence is applied $n$ times, once for each block, starting at block 1 and ending at block $n$. The lower bound is 1, not 0, because $h_0$ is produced by the embedding line instead."
+    },
+    {
+     "value": "$-k$ to $-1$",
+     "meaning": "The index range of the context vector $U$. Positions are numbered backwards from the token being predicted, so $u_{-1}$ is the immediately preceding token and $u_{-k}$ is the furthest one still inside the window."
+    },
+    {
+     "value": "12",
+     "meaning": "The value the paper gives $n$ when it trains the model: a 12-layer decoder-only transformer. The analysis section then treats this depth as a dial, transferring varying numbers of these layers into fine-tuning."
+    },
+    {
+     "value": "768",
+     "meaning": "The dimension of each $h_l$ vector in the trained model, so $W_e$ has 768 columns and $W_e^T$ has 768 rows. Reported in the model specification, not in the equation itself."
+    },
+    {
+     "value": "3072",
+     "meaning": "The inner dimension of the position-wise feed-forward network inside each transformer_block: it expands from 768 to 3072 and projects back down."
+    },
+    {
+     "value": "512",
+     "meaning": "The value of $k$ in the trained model: predictions condition on up to 512 contiguous preceding tokens. This also fixes the number of rows $W_p$ needs."
+    },
+    {
+     "value": "40,000",
+     "meaning": "The number of byte-pair-encoding merges used to build the vocabulary. It determines how many rows $W_e$ has, and therefore the width of the softmax in the third line."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     3
+    ]
+   }
+  },
+  {
+   "id": "eq-task-head",
+   "kind": "equation",
+   "number": null,
+   "caption": "The task prediction head",
+   "page": 3,
+   "asset": null,
+   "section": "3.2",
+   "title": "The Linear Task Head on the Last Token",
+   "takeaway": "Equation 3 is the entire task-specific classifier: take the final transformer block's activation at the last input token, multiply it by one matrix $W_y$, and softmax the result into a distribution over the task's labels. The paper states that $W_y$ (plus delimiter-token embeddings) is the only new parameter it adds when moving the pre-trained model to a new task.",
+   "walkthrough": "### What you are looking at\n\nThis is Equation 3 in Section 3.2, the point where the pre-trained language model becomes a classifier. Everything to the right of the equals sign is one matrix multiply and one softmax.\n\n### Reading it left to right\n\n$x^1, \\dots, x^m$ is one labelled example: a sequence of $m$ input tokens, taken from the [[labeled-dataset-c]], paired with a label $y$. The superscripts index positions in the sequence, not powers.\n\nThat sequence is run through the [[multi-layer-transformer-decoder]] exactly as it was during [[generative-pretraining]]. No layer is removed and nothing is bolted on inside the stack.\n\n$h_l^m$ is the one number-vector pulled out of that forward pass. Read the two indices separately. The subscript $l$ picks the layer: the final transformer block, the top of the stack. The superscript $m$ picks the position: the last token in the input.\n\nSo the classifier does not see the whole sequence of hidden states. It sees a single vector — the [[final-token-activation]] — and that vector has to carry whatever the model noticed about the example. Because attention here is [[masked-self-attention]], the last position is the only one that has attended to every earlier token, which is what makes it the natural place to read from.\n\n$W_y$ is then the [[linear-output-layer-wy]]: a single matrix mapping that vector to one score per label. Softmax turns those scores into $P(y \\mid x^1, \\dots, x^m)$.\n\n### What it establishes\n\nThe claim being set up is about size, not accuracy. $W_y$ is freshly initialized; every other weight in the equation is a pre-trained weight being fine-tuned. Section 3.2 closes by saying the only extra parameters needed are $W_y$ and embeddings for delimiter tokens — the [[minimal-extra-parameters]] point.\n\nThat is the contrast the paper draws with [[feature-based-transfer]], which freezes the pre-trained model and trains a new [[task-specific-architectures|task-specific architecture]] on top of it, paying a much larger [[per-task-parameter-cost]] per task.\n\nOne notational wrinkle: Equation 2 called the top layer $h_n$ with $n$ layers, and here the final block is indexed $l$. Same layer, different letter.",
+   "latex": "P(y|x^1,\\dots,x^m) = \\texttt{softmax}(h_l^m W_y).",
+   "terms": [
+    {
+     "term": "$P(y \\mid x^1, \\dots, x^m)$",
+     "definition": "The model's predicted probability distribution over the target task's labels, conditioned on the whole input token sequence. This is what the fine-tuning objective in Equation 4 maximizes on the correct label.",
+     "conceptId": "supervised-objective-l2"
+    },
+    {
+     "term": "$y$",
+     "definition": "The label attached to one training instance, for example the entailment class of a premise-hypothesis pair or the sentiment of a sentence. Its possible values are fixed per task.",
+     "conceptId": null
+    },
+    {
+     "term": "$x^1, \\dots, x^m$",
+     "definition": "The sequence of input tokens for one labelled instance; superscripts are position indices, not exponents. For structured tasks these are the tokens after the input has been flattened into one sequence.",
+     "conceptId": "task-specific-input-transformations"
+    },
+    {
+     "term": "$m$",
+     "definition": "The number of tokens in the input sequence, so also the index of its last token. It varies from example to example.",
+     "conceptId": null
+    },
+    {
+     "term": "$h_l^m$",
+     "definition": "The activation the pre-trained transformer produces at layer $l$ (the final block) and position $m$ (the last token). It is the single vector handed to the classifier.",
+     "conceptId": "final-token-activation"
+    },
+    {
+     "term": "$l$ (subscript)",
+     "definition": "The layer index, here denoting the final transformer block in the stack. Equation 2 wrote the same top layer as $h_n$ with $n$ layers, so this is a change of letter, not of meaning.",
+     "conceptId": "multi-layer-transformer-decoder"
+    },
+    {
+     "term": "$m$ (superscript on $h$)",
+     "definition": "The position index into the sequence, selecting the last token's hidden state rather than the whole sequence of states.",
+     "conceptId": null
+    },
+    {
+     "term": "$W_y$",
+     "definition": "The one weight matrix added on top of the pre-trained model, mapping the final activation to one unnormalized score per label. It is randomly initialized at the start of fine-tuning.",
+     "conceptId": "linear-output-layer-wy"
+    },
+    {
+     "term": "softmax",
+     "definition": "Here it normalizes the label scores $h_l^m W_y$ into a probability distribution over the task's label set. It is the same operation used at the output of pre-training, but over labels instead of over the vocabulary.",
+     "conceptId": "output-softmax-tied-embeddings"
+    },
+    {
+     "term": "$\\mathcal{C}$",
+     "definition": "The labelled dataset for a target task, defined just above the equation: a set of instances, each an input token sequence paired with one label.",
+     "conceptId": "labeled-dataset-c"
+    },
+    {
+     "term": "linear output layer",
+     "definition": "The paper's name for the $W_y$ multiply: a plain linear map with no hidden layer and no nonlinearity before the softmax.",
+     "conceptId": "minimal-extra-parameters"
+    },
+    {
+     "term": "final transformer block's activation",
+     "definition": "The paper's phrase for $h_l^m$ in the running text. It names the top of the pre-trained stack as the read-out point, as opposed to any intermediate layer.",
+     "conceptId": "final-token-activation"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "(3)",
+     "meaning": "The equation number. Equation 3 defines the prediction; Equation 4 turns it into the objective $L_2$; Equation 5 adds the auxiliary language modelling term."
+    },
+    {
+     "value": "1",
+     "meaning": "The first position index in $x^1$. Sequences are indexed from the first token, which in practice is the randomly initialized start token $\\langle s \\rangle$ added by the input transformations."
+    },
+    {
+     "value": "$m$",
+     "meaning": "Length of the input sequence and index of its last token. It is a variable, not a fixed constant: each labelled instance has its own $m$, and the read-out always tracks whatever the last position happens to be."
+    },
+    {
+     "value": "$l$",
+     "meaning": "Index of the final transformer block. In the model the paper actually trains this is 12, since Section 4.1 specifies a 12-layer decoder-only transformer, so $h_l^m$ is the output of block 12."
+    },
+    {
+     "value": "768",
+     "meaning": "Not printed in this equation, but the length of $h_l^m$: Section 4.1 fixes 768-dimensional states at every layer. This is what makes $W_y$ a $768 \\times (\\text{number of labels})$ matrix."
+    },
+    {
+     "value": "2 (added representations)",
+     "meaning": "For similarity tasks, Section 3.3 builds both sentence orderings and produces two vectors $h_l^m$, which are added element-wise before this equation is applied. The equation itself is unchanged; only its input is a sum of two activations."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     3
+    ]
+   }
+  },
+  {
+   "id": "eq-supervised-objective",
+   "kind": "equation",
+   "number": null,
+   "caption": "The supervised objective L2",
+   "page": 3,
+   "asset": null,
+   "section": "3.2",
+   "title": "Supervised Fine-Tuning Objective $L_2$",
+   "takeaway": "Equation 4 is the loss used in the second training stage: over a target task's labelled dataset $\\mathcal{C}$, sum the log-probability the model assigns to each instance's correct label. It is ordinary maximum-likelihood classification training, written so that the only thing separating one task from another is which labelled set $\\mathcal{C}$ you plug in.",
+   "walkthrough": "What you are looking at is the objective the paper maximizes during [[supervised-fine-tuning]], the second of its two training stages. It is one line, and every symbol in it has already been fixed by the two sentences above it on the page.\n\n### How to read it\n\nStart on the left. $L_2(\\mathcal{C})$ is a score attached to a dataset, not to a single example — the subscript 2 marks it as the second objective the paper defines, after the pre-training objective $L_1$.\n\n$\\mathcal{C}$ is the [[labeled-dataset-c]] of one target task. The paper describes each of its instances as a sequence of input tokens $x^1,\\dots,x^m$ together with a label $y$. So $\\mathcal{C}$ is a bag of (token sequence, label) pairs, and $m$ is the length of one particular sequence, which changes from instance to instance.\n\nThe sum runs over $(x,y)$, meaning one term per labelled instance in $\\mathcal{C}$.\n\nEach term is $\\log P(y \\mid x^1,\\dots,x^m)$: the log of the probability the model puts on that instance's correct label, given its tokens. Nothing here scores the wrong labels directly; pushing probability onto the right one drains it from the others, because the label distribution sums to one.\n\nThat distribution comes from the line just above, Equation 3: $P(y \\mid x^1,\\dots,x^m) = \\mathrm{softmax}(h_l^m W_y)$. The tokens are run through the pre-trained network, the [[final-token-activation]] $h_l^m$ is read off, and the [[linear-output-layer-wy]] turns it into one score per label.\n\n### What it shows\n\nMaximizing $L_2$ is [[maximum-likelihood-training]] of a classifier — the familiar cross-entropy setup, with a sign flip, since maximizing summed log-probability is minimizing summed negative log-probability.\n\nThe point is what is *not* in the equation. There is no task-specific term, no per-task architecture, and no per-task loss shape. Everything a task contributes enters through $\\mathcal{C}$, which is why the paper can claim that [[minimal-extra-parameters]] are needed to adapt: only $W_y$ and the delimiter embeddings introduced by the [[task-specific-input-transformations]].\n\nThe paper does not use $L_2$ alone. It reports better generalization and faster convergence when the pre-training loss is kept alongside it, giving the [[auxiliary-lm-objective]] of Equation 5.",
+   "latex": "L_2(\\mathcal{C}) = \\sum_{(x,y)} \\log P(y|x^1, \\ldots, x^m).",
+   "terms": [
+    {
+     "term": "$L_2(\\mathcal{C})$",
+     "definition": "The supervised fine-tuning objective: a single number scoring how well the model's label predictions fit the whole labelled dataset $\\mathcal{C}$. The paper maximizes it.",
+     "conceptId": "supervised-objective-l2"
+    },
+    {
+     "term": "$\\mathcal{C}$",
+     "definition": "The labelled dataset of one target task. Each instance in it is a sequence of input tokens paired with a single correct label.",
+     "conceptId": "labeled-dataset-c"
+    },
+    {
+     "term": "$\\sum_{(x,y)}$",
+     "definition": "Sum over every labelled instance in $\\mathcal{C}$, one term per (token sequence, label) pair. Written as a plain sum with no normalization by dataset size.",
+     "conceptId": null
+    },
+    {
+     "term": "$x$",
+     "definition": "Shorthand for one instance's whole input token sequence, used as the summation index alongside its label.",
+     "conceptId": null
+    },
+    {
+     "term": "$y$",
+     "definition": "The correct label for that instance — the class the task asks the model to predict, such as an entailment decision or a sentiment tag.",
+     "conceptId": null
+    },
+    {
+     "term": "$x^1, \\ldots, x^m$",
+     "definition": "The individual input tokens of one instance, written out in order. Superscripts index position within the sequence, not exponentiation.",
+     "conceptId": null
+    },
+    {
+     "term": "$m$",
+     "definition": "The number of tokens in this instance's input sequence, so $x^m$ is its last token. It varies from instance to instance.",
+     "conceptId": null
+    },
+    {
+     "term": "$\\log$",
+     "definition": "Natural log of the label probability. Turning probabilities into logs makes the per-instance scores add rather than multiply, and maximizing the sum is maximum-likelihood fitting.",
+     "conceptId": "maximum-likelihood-training"
+    },
+    {
+     "term": "$P(y|x^1,\\ldots,x^m)$",
+     "definition": "The model's probability for label $y$ given the input tokens. Defined one line earlier in Equation 3 as a softmax over the label scores.",
+     "conceptId": null
+    },
+    {
+     "term": "$\\mathrm{softmax}(h_l^m W_y)$",
+     "definition": "From Equation 3: the label scores are exponentiated and normalized to sum to one, producing the label distribution that $L_2$ reads off.",
+     "conceptId": null
+    },
+    {
+     "term": "$h_l^m$",
+     "definition": "The final transformer block's activation at the last input token, position $m$ of layer $l$. This one vector is the model's summary of the input that the classifier sees.",
+     "conceptId": "final-token-activation"
+    },
+    {
+     "term": "$W_y$",
+     "definition": "The added linear output layer's parameter matrix, mapping the final activation to one score per label. It is the only weight matrix fine-tuning introduces.",
+     "conceptId": "linear-output-layer-wy"
+    },
+    {
+     "term": "$L_1$",
+     "definition": "The pre-training language modelling objective from Equation 1, referenced here because fine-tuning follows it and later re-uses it as an auxiliary term.",
+     "conceptId": "language-modeling-objective"
+    },
+    {
+     "term": "$L_3(\\mathcal{C}) = L_2(\\mathcal{C}) + \\lambda * L_1(\\mathcal{C})$",
+     "definition": "The objective actually optimized during fine-tuning, in the next equation: $L_2$ plus a weighted language modelling term computed on the same labelled data.",
+     "conceptId": "auxiliary-lm-objective"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "2 (in $L_2$)",
+     "meaning": "An identifying subscript, not a quantity. The paper numbers its three objectives in the order it introduces them: $L_1$ for pre-training, $L_2$ for supervised fine-tuning, $L_3$ for their weighted combination."
+    },
+    {
+     "value": "(4)",
+     "meaning": "The equation number printed in the right margin. It is the fourth numbered equation in the paper and the second one in Section 3.2, following Equation 3, which defines the $P(y \\mid x^1,\\dots,x^m)$ that this equation takes the log of."
+    },
+    {
+     "value": "3 (Equation 3)",
+     "meaning": "The equation immediately above, $P(y|x^1,\\dots,x^m) = \\mathrm{softmax}(h_l^m W_y)$. It supplies the probability term inside the sum, so Equation 4 cannot be read without it."
+    },
+    {
+     "value": "1 (in $x^1$)",
+     "meaning": "The position index of the first input token of an instance. Token positions are numbered from 1 up to $m$."
+    },
+    {
+     "value": "$m$",
+     "meaning": "The index of the last token, i.e. the input length. It is a per-instance quantity with no fixed value here; the pre-trained model's context window caps how large it can be."
+    },
+    {
+     "value": "$l$ (in $h_l^m$)",
+     "meaning": "The index of the final transformer block, so $h_l$ is the top layer's output. In the trained model this stack is 12 blocks deep."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     3
+    ]
+   }
+  },
+  {
+   "id": "eq-combined-objective",
+   "kind": "equation",
+   "number": null,
+   "caption": "The combined objective L3 = L2 + lambda L1",
+   "page": 3,
+   "asset": null,
+   "section": "3.2",
+   "title": "The Combined Fine-Tuning Objective",
+   "takeaway": "During fine-tuning the paper does not drop the language modelling loss; it keeps optimizing it alongside the classification loss, scaled by a weight $\\lambda$, and computes it on the labelled task data rather than on the pre-training corpus. The paper reports this helped by improving generalization and speeding convergence, and its own ablation later qualifies that: the gain shows up on larger datasets, not on smaller ones.",
+   "walkthrough": "Equation 5 is the loss actually optimized in stage two, [[supervised-fine-tuning]]. It is a sum of two terms the paper has already defined separately, plus a knob that trades one against the other.\n\nRead the pieces right to left. $L_1$ is the [[language-modeling-objective]] from Equation 1: the summed log-probability the model assigns to each token given the tokens before it. $L_2$ is the [[supervised-objective-l2]] from Equation 4: the summed log-probability of the correct label $y$ given the input sequence $x^1,\\dots,x^m$. Both are quantities to *maximize*, so Equation 5 is a likelihood, not an error being driven down.\n\nNow the argument. Every term in Equation 5 takes $\\mathcal{C}$, the [[labeled-dataset-c]]. That is the detail worth pausing on. In stage one, $L_1$ ran over the unlabelled corpus — [[bookscorpus]] during [[generative-pretraining]]. Here it runs over the labelled examples themselves. The model is asked to predict the next token *of the task's own input sentences* while it is learning to predict their labels. No unlabelled data is streamed in during fine-tuning; the same text serves both losses.\n\n$\\lambda$ sets how loudly the language modelling term speaks. At $\\lambda = 0$ you recover plain fine-tuning on $L_2$. Larger $\\lambda$ pulls the weights toward staying good at next-token prediction while they specialize. The paper fixes it at 0.5, so the auxiliary term carries half the weight of the task term. See [[auxiliary-objective-weight]] and the surrounding [[fine-tuning-hyperparameters]].\n\nWhat this is claimed to buy: the paper says it found the [[auxiliary-lm-objective]] \"helped learning\" by (a) improving generalization of the supervised model and (b) accelerating convergence. It places this in line with prior work that added a language modelling loss to a target-task loss — the [[auxiliary-training-objectives]] branch of semi-supervised learning.\n\nThe claim is stated as a found result, without a number attached at this point in the paper. The evidence arrives later in [[ablation-no-auxiliary-objective]], and it is mixed: removing the term helps on some datasets and hurts on others, with the trend that larger datasets benefit and smaller ones do not. So (a) and (b) as written here are broader than the ablation supports.",
+   "latex": "L_3(\\mathcal{C}) = L_2(\\mathcal{C}) + \\lambda * L_1(\\mathcal{C})",
+   "terms": [
+    {
+     "term": "$L_3(\\mathcal{C})$",
+     "definition": "The combined objective optimized during fine-tuning: the task loss plus a weighted language modelling loss, both evaluated on the labelled data. It is maximized, like its two components.",
+     "conceptId": "auxiliary-lm-objective"
+    },
+    {
+     "term": "$L_2(\\mathcal{C})$",
+     "definition": "The supervised term, defined in Equation 4 as $\\sum_{(x,y)} \\log P(y \\mid x^1,\\dots,x^m)$: the summed log-probability the model gives the correct label for each labelled example.",
+     "conceptId": "supervised-objective-l2"
+    },
+    {
+     "term": "$L_1(\\mathcal{C})$",
+     "definition": "The language modelling term, defined in Equation 1 as $\\sum_i \\log P(u_i \\mid u_{i-k},\\dots,u_{i-1};\\Theta)$. Written with argument $\\mathcal{C}$ here, it is computed on the labelled task text, not on the pre-training corpus.",
+     "conceptId": "language-modeling-objective"
+    },
+    {
+     "term": "$\\mathcal{C}$",
+     "definition": "The labelled dataset for one target task. Each instance is a sequence of input tokens $x^1,\\dots,x^m$ paired with a label $y$.",
+     "conceptId": "labeled-dataset-c"
+    },
+    {
+     "term": "$\\lambda$",
+     "definition": "The scalar weight on the auxiliary language modelling term. It controls how much next-token prediction on the task's text pulls on the parameters relative to label prediction.",
+     "conceptId": "auxiliary-objective-weight"
+    },
+    {
+     "term": "$*$",
+     "definition": "Ordinary scalar multiplication, printed as an asterisk in the paper rather than as juxtaposition or a centred dot. It carries no special meaning here.",
+     "conceptId": null
+    },
+    {
+     "term": "$x^1,\\dots,x^m$",
+     "definition": "The input token sequence of one labelled example, $m$ tokens long. Structured inputs such as sentence pairs are first flattened into one such sequence.",
+     "conceptId": "task-specific-input-transformations"
+    },
+    {
+     "term": "$y$",
+     "definition": "The label of a labelled example, predicted by a softmax over the added linear output layer applied to the final block's activation at the last token.",
+     "conceptId": "linear-output-layer-wy"
+    },
+    {
+     "term": "$u_i$",
+     "definition": "The $i$-th token of a text sequence as seen by the language modelling term. During fine-tuning these tokens come from the task's own inputs.",
+     "conceptId": null
+    },
+    {
+     "term": "$\\Theta$",
+     "definition": "The parameters of the neural network computing the next-token distribution. In stage two these are the pre-trained transformer weights, now being updated by both terms at once.",
+     "conceptId": "generative-pretraining"
+    },
+    {
+     "term": "$k$",
+     "definition": "The context window inside $L_1$: how many preceding tokens a next-token prediction may condition on.",
+     "conceptId": "context-window-512-tokens"
+    },
+    {
+     "term": "auxiliary objective",
+     "definition": "A second loss added beside the task loss to shape learning, rather than to be scored. Here the language modelling loss plays that role during fine-tuning.",
+     "conceptId": "auxiliary-training-objectives"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "0.5",
+     "meaning": "The value of $\\lambda$. Section 4.1's fine-tuning details state simply that $\\lambda$ was set to 0.5, giving the auxiliary language modelling term half the weight of the classification term. The paper reports no sweep or sensitivity analysis behind that choice."
+    },
+    {
+     "value": "1, 2, 3",
+     "meaning": "The subscripts on $L$ are index labels, not quantities. $L_1$ is the pre-training objective introduced first (Equation 1), $L_2$ the supervised objective (Equation 4), and $L_3$ their combination. The numbering follows the order the paper introduces them, not any ordering of importance."
+    },
+    {
+     "value": "5",
+     "meaning": "The equation number on page 3. It is the last numbered equation of Section 3.2, and the text immediately after it notes that the only extra parameters fine-tuning needs are $W_y$ and the delimiter-token embeddings."
+    },
+    {
+     "value": "512",
+     "meaning": "The context window $k$ used when the language modelling objective was trained in stage one, in tokens. Fine-tuning reuses the pre-training hyperparameters unless stated otherwise, and the paper does not separately specify a window for $L_1(\\mathcal{C})$; labelled examples are typically far shorter than 512 tokens anyway."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     3
+    ]
+   }
+  }
+ ]
+}

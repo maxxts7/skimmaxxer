@@ -1,0 +1,59 @@
+PAGE FOR THEME: theme-how-attention-is-computed
+NAME: How attention is computed
+
+THEME SUMMARY (shown above your page as the lede - do not repeat verbatim):
+The one operation the model is built from. Attention maps a query and a set of key-value pairs to a weighted sum of the values, with the weights coming from how well the query matches each key. The paper's version scores with a dot product, divides by the square root of the key dimension, and softmaxes; it then runs eight of these in parallel on lower-dimensional projections and concatenates the results. This is the mechanical core, so it comes before the places it gets used.
+
+PREVIOUS THEME: theme-the-shape-of-the-model | The shape of the model
+NEXT THEME: theme-where-attention-is-used | Where attention is used in the model
+
+MEMBER CONCEPTS (3) - each has its own page or expandable section; your job is the connective tissue between them, not to restate each one:
+  - attention-mechanism | Attention mechanism (query, key, value) [major]: A function that maps a query vector and a set of key-value vector pairs to an output: a weighted sum of the values, with weights set by how well the query matches each key.
+      · queries-keys-values | Queries, keys, and values: The three roles vectors play in attention: a query asks for information, keys advertise what each position hol
+      · compatibility-function | Compatibility function: The scoring function that measures how well a query matches a key; its scores become the attention weights aft
+      · scaled-dot-product-attention | Scaled dot-product attention: The Transformer's attention: dot the query with every key, divide by $\sqrt{d_k}$, softmax the scores, and use
+      · dk-dv-dimensions | d_k and d_v (key and value dimensions): The dimensions of the key/query vectors ($d_k$) and value vectors ($d_v$) inside attention; in the base model 
+      · sqrt-dk-scaling | The 1/sqrt(d_k) scaling factor: Dividing the query-key dot products by $\sqrt{d_k}$ so their magnitude stays controlled as the dimension grows
+      · dot-product-attention | Dot-product (multiplicative) attention: An attention variant that scores each query-key pair by their plain dot product; identical to the Transformer'
+  - scaled-dot-product-attention | Scaled dot-product attention [major]: The Transformer's attention: dot the query with every key, divide by $\sqrt{d_k}$, softmax the scores, and use them to weight the values.
+      · dk-dv-dimensions | d_k and d_v (key and value dimensions): The dimensions of the key/query vectors ($d_k$) and value vectors ($d_v$) inside attention; in the base model 
+      · sqrt-dk-scaling | The 1/sqrt(d_k) scaling factor: Dividing the query-key dot products by $\sqrt{d_k}$ so their magnitude stays controlled as the dimension grows
+  - multi-head-attention | Multi-head attention [major]: Running $h$ attention functions in parallel on different learned linear projections of the queries, keys, and values, then concatenating and projecting the results.
+      · attention-head | Attention head: One of the parallel attention functions inside multi-head attention, operating on its own learned low-dimensio
+      · num-heads-h | h = 8 (number of heads): The number of parallel attention heads in the base model: eight.
+      · attention-projection-matrices | Attention projection matrices (W^Q, W^K, W^V, W^O): The learned linear maps that create each head's queries, keys, and values, and the final matrix that mixes the
+      · attention-averaging-resolution-cost | Averaging cost of single-head attention: A single attention operation blends many positions into one weighted average, which can blur position-specific
+      · attention-interpretability | Interpretability of attention: The paper's observation that inspecting attention distributions suggests individual heads learn distinct, some
+
+EDGES BETWEEN MEMBERS OF THIS THEME:
+  [load-bearing] multi-head-attention --depends-on--> scaled-dot-product-attention | provides the per-head unit: Each of the h heads is one call to the scaled dot-product attention function of Equation (1). Multi-head attention only adds the projections around it and the concatenation after it, so the inner function has to be understood first.
+
+LOAD-BEARING EDGES LEAVING THIS THEME (use these to point forward/back):
+  scaled-dot-product-attention --supported-by--> eq-attention | states the mechanism in one line
+  multi-head-attention --supported-by--> eq-multihead | defines heads, concat, and W^O
+  encoder-self-attention --instance-of--> multi-head-attention | first of three attention uses
+  masked-decoder-self-attention --instance-of--> multi-head-attention | second of three attention uses
+  encoder-decoder-attention --instance-of--> multi-head-attention | third of three attention uses
+  scaled-dot-product-attention --instance-of--> eq-attention | defined by Equation (1)
+  multi-head-attention --instance-of--> eq-multihead | defined by the MultiHead equation
+  scaled-dot-product-attention --contrasts-with--> dot-product-attention | one scaling factor apart
+  attention-head --contrasts-with--> multi-head-attention | single head vs h subspaces
+
+EVIDENCE ITEMS RELATED TO THIS THEME (link as [[item-id]]):
+  - fig-1 | The two-stack data path: The figure shows the entire model in one picture: two towers of identical layers, each layer built only from attention and a position-wise feed-forward network, every sub-layer wrapped in a residual connection plus layer normalization. There is no recurrence and no convolution anywhere, so order information has to be injected once, at the bottom of each tower.
+  - fig-2 | Attention as a wiring diagram: The figure draws the paper's attention math as data flow: on the left, Equation (1) box by box (dot queries against keys, scale, optionally mask, softmax, weight the values); on the right, that whole block used as a reusable unit, run $h$ times in parallel on separately projected copies of Q, K and V, then concatenated and projected once more.
+  - fig-3 | Heads tracking "making … more difficult": This is one query word's attention pattern in a single encoder self-attention layer, drawn as lines from the word to the positions it attends to, colored by head. Several of the eight heads put most of their weight on "more" and "difficult", six and seven tokens away from "making" — the paper's illustration that self-attention can link distant, grammatically related words in a single step.
+  - fig-4 | Two heads that resolve "its": Two different attention heads in the same encoder layer put almost all of the word "its" attention on two different words — head 5 on "Law", head 6 on "application". The paper offers this as a sign that individual heads pick up distinct, sentence-structure-related jobs (here, apparently anaphora resolution) that nobody supervised or programmed.
+  - fig-5 | Two heads, one sentence: Two attention heads from the same encoder self-attention layer, run on the same sentence, produce visibly different attention patterns: one fans many positions into a few words, the other makes sparse, short, word-to-word links. The paper offers this as a qualitative illustration that heads specialize, and says only that the patterns "seem related" to sentence structure — nothing here is measured.
+  - eq-attention | The scaled dot-product attention formula: This is the paper's whole attention function in one line: score every query against every key with a dot product, shrink the scores by $\sqrt{d_k}$, softmax them into weights, and return the weighted sum of the values. The $1/\sqrt{d_k}$ factor is the only thing separating it from ordinary dot-product attention, and the paper adds it because it suspects large dot products push the softmax into regions with very small gradients.
+  - eq-multihead | Attention in h parallel subspaces: Instead of one attention function over full-width 512-dimensional vectors, the Transformer runs $h=8$ attention functions in parallel, each on its own learned 64-dimensional projection of the queries, keys, and values, then concatenates the results and projects them once more. Because each head is narrower by a factor of $h$, the paper says the total computational cost stays similar to one full-width head.
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 02-1-introduction.txt
+  - 03-2-background.txt
+  - 06-3.2-attention.txt
+  - 07-3.2.1-scaled-dot-product-attention.txt
+  - 08-3.2.2-multi-head-attention.txt
+  - 13-4-why-self-attention.txt
+  - 23-7-conclusion.txt
+  - 01-abstract-abstract.txt

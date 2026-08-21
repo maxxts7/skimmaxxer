@@ -1,0 +1,17 @@
+PAGE FOR: layer-comparison-desiderata (concept)
+
+Section 4 sets up the paper's case for [[self-attention]] before any experiment runs. It fixes a common task — map a sequence $(x_1,\dots,x_n)$ to another sequence $(z_1,\dots,z_n)$ of the same length, with $x_i, z_i \in \mathbb{R}^d$, the job of one hidden layer in an encoder or decoder — and scores candidate layers on three axes: [[complexity-per-layer|arithmetic per layer]], [[minimum-sequential-operations|how much of that arithmetic must run in order]], and [[maximum-path-length|how far a signal travels between any two positions]].
+
+The third axis carries the argument. The paper's claim is that [[long-range-dependencies]] are easier to learn when forward and backward signals cross fewer steps, citing Hochreiter et al. for that link. Self-attention makes every position a direct neighbour of every other, so the path is length 1 regardless of $n$. A [[recurrent-neural-network|recurrent]] layer needs $O(n)$ steps and $O(n)$ sequential operations — the [[sequential-computation-bottleneck|same dependency chain]] that blocks parallelism also stretches the gradient path.
+
+### The numbers
+
+[[table-1]] is where the framework becomes concrete; without it Section 4 is three assertions. Per layer: self-attention costs $O(n^2 \cdot d)$, recurrence $O(n \cdot d^2)$, convolution $O(k \cdot n \cdot d^2)$ for kernel width $k$. So self-attention is cheaper exactly when $n < d$, and the paper argues this is the usual case for sentence-level translation with [[word-piece-encoding|word-piece]] or [[byte-pair-encoding|byte-pair]] tokens against $d = 512$ ([[d-model]]). Sequential operations: $O(1)$ for self-attention and convolution, $O(n)$ for recurrence.
+
+[[convolutional-sequence-models|Convolutional]] layers lose differently. One layer with $k < n$ does not connect all pairs at all; you need a stack of $O(n/k)$ layers, or $O(\log_k n)$ with [[dilated-convolutions]]. [[separable-convolutions]] cut the cost to $O(k \cdot n \cdot d + n \cdot d^2)$, which even at $k = n$ only matches self-attention plus a [[position-wise-feed-forward-network|point-wise feed-forward layer]] — the paper's own combination.
+
+### What it costs, and how strong the evidence is
+
+The $n^2$ term is the price. For long sequences self-attention is the expensive option, and the paper's answer is a sketch: [[restricted-self-attention|attend only to a neighbourhood of size $r$]], accepting path length $O(n/r)$. It says it plans to investigate this in future work, so no result backs it.
+
+Table 1 is asymptotic analysis, not measurement — no wall-clock timings, no experiment isolating path length from everything else that changed. The BLEU numbers in [[table-2]] show the architecture works; they do not show that short paths are why. The interpretability point at the end of the section ([[fig-3]], [[fig-4]], [[fig-5]]) is offered as a side benefit and is qualitative.

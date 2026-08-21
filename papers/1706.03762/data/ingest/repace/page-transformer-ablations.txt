@@ -1,0 +1,17 @@
+PAGE FOR: transformer-ablations (concept)
+
+Section 6.2 takes one fixed starting point — the [[base-vs-big-transformer|base configuration]] ($N=6$, $d_{model}=512$, $d_{ff}=2048$, $h=8$, $d_k=d_v=64$, $P_{drop}=0.1$, 100K steps, 65M parameters) — and changes one number at a time. Everything unlisted stays identical, so [[table-3]] is a set of controlled single-variable edits, and it is the paper's only direct evidence that the specific settings matter rather than just the general shape of the model.
+
+### What each row reports
+
+Every row is a fresh training run on [[wmt-2014-en-de]], scored on the newstest2013 *development* set with three columns: per-wordpiece [[perplexity]], [[bleu]], and parameter count. Decoding uses [[beam-search]] as in Section 6.1 but without [[checkpoint-averaging]]. Two things follow. The BLEU here (base = 25.8) is dev-set BLEU and does not line up with the test-set numbers in [[table-2]] (27.3 for the same model). And perplexity is per-wordpiece under the paper's [[byte-pair-encoding|BPE]] vocabulary, so it is not comparable to per-word perplexities reported elsewhere.
+
+### Reading the sweeps
+
+Rows (A) vary $h$ holding total computation constant, which means [[dk-dv-dimensions|$d_k$ and $d_v$]] move inversely: $h=1$ uses $d_k=512$, $h=32$ uses $d_k=16$. So [[attention-heads-ablation|the quality curve peaking in the middle]] is not clean evidence about head count alone — head count and per-head width are confounded in this sweep. Rows (B) separate them, shrinking $d_k$ on its own (64 → 32 → 16) and watching quality fall; the paper reads that as a hint that the dot product is a weak [[compatibility-function]] ([[key-size-ablation]]).
+
+Rows (C) and (D) [[size-and-dropout-ablation|scale the model and change the regularization]]. Row (E) swaps [[sinusoidal-positional-encoding|sinusoids]] ([[eq-posenc]]) for [[learned-positional-embedding|learned position vectors]] and lands on 4.92 / 25.7 against the base 4.92 / 25.8 — no measurable difference. The paper keeps sinusoids anyway, arguing they may extrapolate to sequences longer than any seen in training. Table 3 does not test that; dev sentences are within training length. On the evidence in this table the choice is a coin flip.
+
+### How strong the evidence is
+
+Each cell is a single run with no seed variance and no error bars, so differences of a few tenths of a BLEU carry little weight. The one gap the table does open up cleanly is single-head attention, 0.9 BLEU below the best row, and the no-dropout and $N=2$ rows, which fall by more than a point. Note also that the two metrics disagree in row (D): removing [[label-smoothing]] gives *better* perplexity than the base model but worse BLEU. The paper says this directly — smoothing hurts perplexity by making the model less sure of itself, and improves BLEU regardless.

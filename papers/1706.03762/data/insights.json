@@ -1,0 +1,2210 @@
+{
+ "title": "What Holds What Up",
+ "intro": "The main tour walks the paper from problem to verdict, in the order the paper tells it. This read goes sideways. It takes the 116 relationships a separate pass pulled out of the paper — what depends on what, which claims have a table under them, what trades against what — and looks only at the things that appear when several of those relationships sit side by side. Some of it is the paper's own reasoning, stated in one place for the first time; some of it is the distance between what the paper asserts and what it measures.",
+ "chapters": [
+  {
+   "id": "numbers-that-were-never-chosen",
+   "title": "Most of the model's numbers are consequences, not choices",
+   "body": "The base model reads like a list of settings: $d_{model}=512$, $h=8$, $d_k=d_v=64$, $N=6$, 4000 warmup steps, a 37000-token vocabulary. Put the dependency edges next to each other and most of those numbers stop being settings. They are outputs of two or three decisions taken earlier and elsewhere.\n\nStart with the width. Every sub-layer's output is added to that sub-layer's input before it is normalized. Addition needs both sides to have the same number of dimensions. So one width has to hold across the whole model — attention outputs, feed-forward outputs, embedding layers alike.\n\nSection 3.1 gives that as the reason directly. [[d-model|The shared width of 512]] is downstream of the [[residual-connection|residual wrapper]], not an independent decision.\n\nHead width follows from the width. The paper never picks 64. It sets $d_k = d_v = d_{model}/h$, and 512 divided by 8 is 64 [[dk-dv-dimensions]]. Eight heads at 64 dimensions is the same total width as one head at 512, which is what lets the paper say the multi-head layer costs about what one full-width attention costs [[eq-multihead]] [[num-heads-h]].\n\nThat same division is what makes the head sweep readable at all. Rows (A) of [[table-3]] hold total computation fixed while varying $h$, and they can only do that because raising the head count shrinks each head by the same factor [[attention-heads-ablation]].\n\nThe divisor inside attention is derived too. [[sqrt-dk-scaling|The scaling factor]] is $1/\\sqrt{d_k}$ because $d_k$ is the quantity that makes the dot products grow as a head gets wider.\n\nSo is the learning rate. [[eq-lrate|Equation (3)]] multiplies the whole [[learning-rate-warmup-schedule|schedule]] by $d_{model}^{-0.5}$, so widening the model shrinks the steps with no constant retuned by hand.\n\nTwo more numbers are outputs of procedures. 37000 is whatever the [[byte-pair-encoding|BPE]] merge loop leaves after its fixed number of merges. The training-cost column is time times GPU count times an assumed throughput, so it moves whenever the schedule moves [[training-flops-estimate]].\n\nWhat is actually free, then, is short: [[n-layers|N = 6]], 512 itself, [[warmup-steps-4000|4000]], the dropout rate, and $h$. And $h$ was settled by a sweep on one development set — which raises the question of what else in the paper has a measurement under it.",
+   "edgeIds": [
+    "e012",
+    "e069",
+    "e003",
+    "e067",
+    "e059",
+    "e028",
+    "e004",
+    "e018",
+    "e088",
+    "e070",
+    "e021",
+    "e032",
+    "e068",
+    "e066",
+    "e042"
+   ],
+   "number": "1",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Encoder and Decoder Stacks",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Attention",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.2.1",
+      "title": "Scaled Dot-Product Attention",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "3.2.2",
+      "title": "Multi-Head Attention",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.3",
+      "title": "Position-wise Feed-Forward Networks",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.4",
+      "title": "Embeddings and Softmax",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "3.5",
+      "title": "Positional Encoding",
+      "start": 6,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Training Data and Batching",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.2",
+      "title": "Hardware and Schedule",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Optimizer",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "6.1",
+      "title": "Machine Translation",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6.2",
+      "title": "Model Variations",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ]
+   }
+  },
+  {
+   "id": "what-has-a-table-under-it",
+   "title": "A few design claims are measured, several rest on one hand-picked example, and some are only asserted",
+   "body": "Sort the paper's design claims by what sits under them and they fall into three piles of very different weight. The sorting is not something the paper does anywhere; it only appears once you look at which claims have an evidence edge and which do not.\n\nThe measured pile is [[table-3]], and it is one table on one task's development set. Rows (A) sweep the head count: single-head attention lands 0.9 BLEU below the best setting, and quality falls off again when there are too many heads [[attention-heads-ablation]]. Rows (B) shrink the key dimension on its own and quality drops [[key-size-ablation]]. Rows (C) and (D) vary size and dropout, though the paper does not walk them line by line — it compresses both blocks into one sentence about bigger models being better and dropout helping [[size-and-dropout-ablation]] [[residual-dropout]]. Row (E) swaps sinusoids for [[learned-positional-embedding|learned position vectors]] and finds nearly identical results.\n\nThe illustrated pile is the appendix figures. [[fig-3]] shows heads carrying one long-distance dependency, for one word in one sentence. [[fig-4]] shows two heads splitting the attention of the word \"its\", which is the paper's picture of why averaging costs something. [[fig-5]] shows two heads behaving differently on the same input. All three are selected examples with no counts behind them, and the paper hedges — the heads are \"apparently\" doing anaphora resolution, the behaviour \"seems related\" to syntax [[attention-interpretability]].\n\nThe asserted pile has nothing under it. [[sqrt-dk-scaling|The $1/\\sqrt{d_k}$ factor]] is never ablated; the reason given is a suspicion about softmax gradients. [[eq-lrate|The warmup schedule]] is never ablated either. [[restricted-self-attention|Restricted attention]] gets a row in [[table-1]] and is never trained. The hope that sinusoids extrapolate past training lengths is not tested here.\n\nOne claim sits awkwardly between piles. [[label-smoothing|Label smoothing]] is said to hurt perplexity while helping BLEU, and Table 3 is the only place both quantities appear per configuration — but the prose about that table discusses dropout instead.\n\nWhich leaves the question of why several of these parts are in the model at all.",
+   "edgeIds": [
+    "e041",
+    "e042",
+    "e043",
+    "e044",
+    "e045",
+    "e046",
+    "e047",
+    "e058",
+    "e062",
+    "e036",
+    "e096",
+    "e054",
+    "e055",
+    "e056",
+    "e102"
+   ],
+   "number": "2",
+   "childId": "i-what-has-a-table-under-it",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.2.1",
+      "title": "Scaled Dot-Product Attention",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "3.2.2",
+      "title": "Multi-Head Attention",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2.3",
+      "title": "Applications of Attention in our Model",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.5",
+      "title": "Positional Encoding",
+      "start": 6,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Optimizer",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.4",
+      "title": "Regularization",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6.1",
+      "title": "Machine Translation",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6.2",
+      "title": "Model Variations",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "6.3",
+      "title": "English Constituency Parsing",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     13,
+     14,
+     15
+    ]
+   }
+  },
+  {
+   "id": "repairs-for-its-own-damage",
+   "title": "Three parts of the model exist only to undo damage the design did to itself",
+   "body": "Removing recurrence removed things that came with it for free. Three of the model's components are repairs for that, and in each case the defect and the fix are introduced in different sections, so the pairing never appears in one place.\n\nThe first loss is order. [[self-attention|Self-attention]] treats the sequence as a set: every position attends to every other, and nothing in the computation records which came first. A [[recurrent-neural-network|recurrent model]] never has this problem, because it consumes positions one after another and word order falls out of the processing order.\n\nSo position has to be put back by hand. [[positional-encoding|A positional encoding]] is added to the input embeddings, and the version used is [[sinusoidal-positional-encoding|a bank of sines and cosines]] whose wavelengths run from $2\\pi$ up to $10000 \\cdot 2\\pi$ [[eq-posenc]]. Nothing in it is trained. The paper also tried [[learned-positional-embedding|a trainable vector per position]] and reports nearly identical results, keeping the sinusoids on the hope that a fixed periodic function extends to lengths never seen.\n\nThe second loss is resolution. Connecting any two positions in one step is bought by averaging over attention-weighted positions, and the background section names the price directly: effective resolution goes down, because the layer blurs those positions together [[attention-averaging-resolution-cost]]. [[multi-head-attention|Multi-head attention]] is introduced as the counteraction. That is the whole reason for the head split — and it is sized so the split costs almost nothing, since eight heads at 64 dimensions is one head at 512. [[fig-4]] is the picture of what would be lost: two heads with almost all their weight on different words, which a single head would return as one blurred average.\n\nThe third loss is auto-regression. Unmasked self-attention would let position $i$ read positions after it, which breaks generation outright. [[causal-masking|The mask]] sets those scores to $-\\infty$ before the [[softmax]], and exponentiating $-\\infty$ gives zero weight. The fix works only because of that property.\n\nAnd it is not a new layer. The mask is an optional stage inside the attention block that already exists, which makes [[masked-decoder-self-attention|masked decoder self-attention]] the same operation as the encoder's, differing only in what each position may see [[auto-regressive-generation]].",
+   "edgeIds": [
+    "e011",
+    "e103",
+    "e072",
+    "e061",
+    "e087",
+    "e073",
+    "e101",
+    "e100",
+    "e001",
+    "e055",
+    "e008",
+    "e007",
+    "e009",
+    "e104",
+    "e064"
+   ],
+   "number": "3",
+   "childId": "i-repairs-for-its-own-damage",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Encoder and Decoder Stacks",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2.1",
+      "title": "Scaled Dot-Product Attention",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "3.2.2",
+      "title": "Multi-Head Attention",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2.3",
+      "title": "Applications of Attention in our Model",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.4",
+      "title": "Embeddings and Softmax",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "3.5",
+      "title": "Positional Encoding",
+      "start": 6,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "6.2",
+      "title": "Model Variations",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     14
+    ]
+   }
+  },
+  {
+   "id": "three-places-information-moves",
+   "title": "Positions mix in exactly three places; everything else touches one position at a time",
+   "body": "Go through the model part by part and ask of each one whether it can see any position but its own. Almost nothing can. All cross-position routing in the Transformer happens in three sub-layers, and the rest of the architecture is per-position machinery wrapped around them.\n\n[[eq-ffn|Equation (2)]] is the clearest case. [[position-wise-feed-forward-network|The feed-forward sub-layer]] is $\\max(0, xW_1 + b_1)W_2 + b_2$, where $x$ is one position's vector. No term in it reaches for another position. It is half of every layer in both stacks and it does no mixing at all.\n\nThe wrapper does none either. [[layer-normalization|Layer normalization]] takes its mean and standard deviation across the hidden units of a single position [[layer-normalization-statistics]], so one token's statistics do not depend on how many other tokens are present — the difference from batch normalization, which pools across examples instead [[layer-norm-vs-batch-norm]]. The residual addition adds a position to itself. Both are inside the definition of a [[sub-layer]], not extras.\n\nThat leaves three channels, and the paper lists them together in Section 3.2.3. [[encoder-self-attention|Encoder self-attention]] takes queries, keys and values from the previous encoder layer, with nothing masked. [[masked-decoder-self-attention|Masked decoder self-attention]] does the same inside the decoder, with each position limited to itself and what precedes it. [[encoder-decoder-attention|Encoder-decoder attention]] takes queries from the decoder and keys and values from the [[encoder-stack|encoder stack's]] output.\n\nThe third is the only link between the two towers. Nothing in the decoder has anything to attend to until the encoder has finished, which is the one hard ordering constraint in an architecture otherwise built to avoid them.\n\nThe two drawings split this work between them. [[fig-1]] settles the wiring — which arrow goes where, and that the encoder output feeds every decoder layer's second attention sub-layer. [[fig-2]] settles the block, drawing the same attention function as a sequence of boxes and showing where the mask sits.\n\nSo the question of what the model can do is mostly a question about that one function.",
+   "edgeIds": [
+    "e060",
+    "e086",
+    "e013",
+    "e014",
+    "e114",
+    "e063",
+    "e064",
+    "e065",
+    "e010",
+    "e051",
+    "e052",
+    "e053"
+   ],
+   "number": "4",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Encoder and Decoder Stacks",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2.1",
+      "title": "Scaled Dot-Product Attention",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "3.2.2",
+      "title": "Multi-Head Attention",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2.3",
+      "title": "Applications of Attention in our Model",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.3",
+      "title": "Position-wise Feed-Forward Networks",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     10
+    ]
+   }
+  },
+  {
+   "id": "the-thin-scoring-function",
+   "title": "The paper picks the faster scoring rule, patches it with one divisor, and then reports a number that questions the rule",
+   "body": "The compatibility function is chosen for speed, defended with a hedge, and then quietly undercut by one of the paper's own ablation rows. The three moves are in Section 3.2.1, a footnote, and Section 6.2 respectively, and nothing joins them up.\n\nThe choice comes first. [[dot-product-attention|Dot-product attention]] and [[additive-attention|additive attention]] are the two common options, similar in theoretical complexity. Dot-product is much faster and more space-efficient in practice, because it is matrix multiplication and matrix multiplication is what the hardware is good at. The comparison runs the other way on quality: additive attention outperforms unscaled dot-product attention at larger values of $d_k$.\n\nSo the paper takes the fast one and adds one factor. [[scaled-dot-product-attention|Its attention]] is plain dot-product attention in every respect but the $1/\\sqrt{d_k}$ divisor [[sqrt-dk-scaling]]. The footnote's argument assumes query and key components are independent with mean 0 and variance 1; summing $d_k$ of those products gives a dot product with variance $d_k$, so the scale grows with the width of the head.\n\nFrom there the paper says it *suspects* large dot products push the [[softmax]] into a region of very small gradients. Suspects. There is no ablation on the factor, and the regime it names is exactly where the unscaled version was losing.\n\n[[eq-attention|Equation (1)]] is the whole definition, in four steps, and nothing later replaces it — the multi-head line just calls it inside its own argument list [[eq-multihead]] [[multi-head-attention]]. So whatever is true of the scoring rule is true everywhere attention appears.\n\nThen rows (B) of [[table-3]] shrink $d_k$ on its own and quality drops [[key-size-ablation]]. The paper's reading is that determining compatibility is not an easy function to compute, and that something more sophisticated than a dot product may be beneficial [[compatibility-function]].\n\nRead as a chain, that is the paper filing a caveat against its own choice. Rows (B) do not test any alternative scoring function, so the caveat stays a suggestion — as does the argument that got the dot product chosen in the first place.",
+   "edgeIds": [
+    "e097",
+    "e098",
+    "e006",
+    "e004",
+    "e005",
+    "e058",
+    "e057",
+    "e084",
+    "e002",
+    "e085",
+    "e029",
+    "e043",
+    "e099"
+   ],
+   "number": "5",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3.2",
+      "title": "Attention",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.2.1",
+      "title": "Scaled Dot-Product Attention",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "3.2.2",
+      "title": "Multi-Head Attention",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2.3",
+      "title": "Applications of Attention in our Model",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.4",
+      "title": "Embeddings and Softmax",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "6.2",
+      "title": "Model Variations",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ]
+   }
+  },
+  {
+   "id": "one-criterion-wide",
+   "title": "Of the three criteria the paper sets up, only one gives self-attention an unconditional win",
+   "body": "Section 4 names three criteria and [[table-1]] prices them, which reads as a clean sweep. Follow each column separately and it is not one. Two of the three come with a condition or a concession attached, and the paper states both openly.\n\nThe outright win is parallelism. Position $t$ of a [[recurrent-neural-network|recurrent layer]] cannot be computed until position $t-1$ is done, so the layer needs $O(n)$ operations that must run in order, against a constant number for [[self-attention|self-attention]] [[minimum-sequential-operations]] [[sequential-computation-bottleneck]]. That column counts operations in the abstract rather than wall-clock time, but no condition attaches to it.\n\nPer-layer cost is conditional. Self-attention costs $O(n^2 \\cdot d)$, a recurrent layer $O(n \\cdot d^2)$ [[complexity-per-layer]]. Recurrence is cheaper whenever $n$ exceeds $d$. The paper's answer is that $n < d$ normally holds for sentence-length subword representations — so the cost argument rests on the tokenization [[byte-pair-encoding]], and the cited subword work's own trade-off runs the other way: finer vocabularies split sentences into more tokens, lengthening $n$ [[vocabulary-vs-sequence-length-tradeoff]].\n\nAgainst convolutions the paper concedes the cost column outright. [[convolutional-sequence-models|Convolutional layers]] are more expensive than recurrent ones by a factor of the kernel width $k$, but [[separable-convolutions|separable convolutions]] cut that, and at $k = n$ they equal a self-attention layer plus a point-wise feed-forward layer — exactly the combination the Transformer uses. So the case against convolutions rests on [[maximum-path-length|path length]] and parallelism, not on cost: a single kernel of width $k < n$ does not connect all pairs, and covering them takes $O(n/k)$ layers, or $O(\\log_k n)$ dilated ones [[bytenet]] [[convs2s]].\n\nAnd path length proves less than it sounds. Table 1 establishes that the path is short. That short paths make [[long-range-dependencies|distant dependencies]] easier to learn is the paper's stated motivation, carried by a citation, not measured here.\n\nThe last two criteria also pull against each other. A shorter path means each layer looks at more pairs and costs more; a cheaper layer means a longer path. Table 1 is a comparison across that trade-off rather than a ranking — which is why the [[restricted-self-attention|restricted-attention]] row can sit in it as a trade rather than a loss.",
+   "edgeIds": [
+    "e033",
+    "e034",
+    "e035",
+    "e089",
+    "e090",
+    "e095",
+    "e025",
+    "e116",
+    "e093",
+    "e091",
+    "e092",
+    "e037",
+    "e094",
+    "e027",
+    "e026"
+   ],
+   "number": "6",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.2.3",
+      "title": "Applications of Attention in our Model",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Training Data and Batching",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     7,
+     10
+    ]
+   }
+  },
+  {
+   "id": "settings-not-mechanisms",
+   "title": "Much of the training recipe is a set of numbers whose mechanisms live in other papers",
+   "body": "Read Section 5 for what it defines and it defines almost nothing. What it contributes is values — $\\epsilon = 0.1$, $\\alpha = 0.6$, 37000, 32000 — each of which means nothing without a procedure the paper does not restate. Collect the citation edges and the pattern is hard to miss.\n\n[[embedding-softmax-weight-sharing|Weight sharing]] is one sentence and a citation. One matrix fills the encoder input embedding, the decoder input embedding, and the pre-softmax projection [[three-way-weight-tying]] — which is possible only because source and target share a vocabulary. Neither how [[weight-tying|the tying]] works nor why it should help is in this paper; the usual alternative is two separate matrices [[input-and-output-embeddings]]. On top of it the paper multiplies the shared weights by $\\sqrt{d_{model}}$ in the embedding layers, and gives no reason at all [[sqrt-dmodel-embedding-multiplier]].\n\n[[label-smoothing|Label smoothing]] is the same shape. The mechanism is the cited target mixture: replace the one-hot target with a blend that gives the correct token $1 - \\epsilon$ and spreads $\\epsilon$ over the rest [[label-smoothing-regularization]]. At $\\epsilon = 0.1$ the model is trained toward 0.9 on the right token rather than 1. The paper supplies the 0.1.\n\nThe vocabularies are outputs of cited procedures. English-German uses [[byte-pair-encoding|BPE]] merges learned over both languages at once, which is what makes one shared vocabulary — and shareable embeddings — possible [[joint-bpe-shared-vocabulary]]. English-French uses a 32000-token [[word-piece-encoding|word-piece vocabulary]] from the cited translation system, chosen so any string can be covered [[wordpiece-model]].\n\nDecoding is the sharpest case. The paper reports [[beam-search|beam size 4]] and $\\alpha = 0.6$ [[length-penalty]] without ever saying what $\\alpha$ does. In the cited work it is the exponent in a divisor applied to a hypothesis's log-probability, so long candidates are not ranked below short ones merely for accumulating more terms [[length-normalization-penalty]].\n\nEven the optimizer is a stack of borrowed pieces: the schedule sets the global rate that [[adam-optimizer|Adam]] then scales per parameter, with $\\beta_2 = 0.98$ rather than the usual default.\n\nThis is what [[etheme-borrowed-recipe|the borrowed recipe]] amounts to. The architecture is the paper's; the training is a configuration of other people's machinery.",
+   "edgeIds": [
+    "e015",
+    "e016",
+    "e078",
+    "e115",
+    "e017",
+    "e020",
+    "e079",
+    "e022",
+    "e080",
+    "e023",
+    "e024",
+    "e083",
+    "e019"
+   ],
+   "number": "7",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "3.4",
+      "title": "Embeddings and Softmax",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Training Data and Batching",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Optimizer",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.4",
+      "title": "Regularization",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6.1",
+      "title": "Machine Translation",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6.3",
+      "title": "English Constituency Parsing",
+      "start": 9,
+      "end": 10
+     }
+    ],
+    "pages": [
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ]
+   }
+  },
+  {
+   "id": "three-scales-that-disagree",
+   "title": "The paper reports on three scales that disagree, and accepts losing on one of them",
+   "body": "Nothing in the results is a single number improving. Every headline is a pair, and in two of the three pairings the paper takes a loss on one side deliberately. Seeing that requires putting the contrast edges between metrics next to the edges under Table 2.\n\nThe clearest case is the training target. [[label-smoothing|Label smoothing]] teaches the model to hold back probability mass rather than committing fully to the correct token. [[perplexity|Perplexity]] measures how much probability the model puts on the true tokens, so a model trained not to commit scores worse on it. The paper says so, and accepts the cost.\n\nThe same change improves accuracy and [[bleu|BLEU]]. That is not a contradiction, because the two metrics grade different things. Perplexity grades confidence on the reference token; BLEU grades the tokens decoding actually selects. A less confident model can rank candidates better, and ranking is what beam search acts on.\n\nSo the paper is choosing which scale to be judged on. It reports translation quality in BLEU rather than in likelihood, and the divergence under label smoothing is the case that makes the choice consequential.\n\nThe third scale is cost, and it is the axis [[table-2]] adds. Beside every BLEU score sits a training-cost figure, so the claim being made is a win on two axes at once [[training-flops-estimate]]. On English-to-German [[transformer|the big model]] reports 28.4 BLEU, more than 2.0 above the best previously reported result — a field that includes [[model-ensembling|ensembles]], not only single systems. Listing [[base-vs-big-transformer|base and big]] as separate rows supports a second claim as well: even the base model surpasses all previously published models and ensembles, at a fraction of their cost.\n\nThe cost column is worth reading carefully. It is not measured. It is training time times number of GPUs times an assumed sustained throughput, taken as 2.8, 3.7, 6.0 and 9.5 TFLOPS for K80, K40, M40 and P100 [[training-hardware-and-schedule]].\n\nOne number to check against the table rather than the prose: Section 6.1 gives English-to-French as 41.0, while the abstract and the table say 41.8. [[convs2s|ConvS2S]] is among the baselines on both.\n\nThat is the translation case. The generalization case is a different table.",
+   "edgeIds": [
+    "e105",
+    "e106",
+    "e107",
+    "e109",
+    "e039",
+    "e032",
+    "e038",
+    "e040",
+    "e108",
+    "e110",
+    "e071"
+   ],
+   "number": "8",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Encoder and Decoder Stacks",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Attention",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.3",
+      "title": "Position-wise Feed-Forward Networks",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.4",
+      "title": "Embeddings and Softmax",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "3.5",
+      "title": "Positional Encoding",
+      "start": 6,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.2",
+      "title": "Hardware and Schedule",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.4",
+      "title": "Regularization",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6.1",
+      "title": "Machine Translation",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6.2",
+      "title": "Model Variations",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ]
+   }
+  },
+  {
+   "id": "the-second-task-and-its-fine-print",
+   "title": "The generalization claim rests on one task where everything except the model is borrowed",
+   "body": "[[constituency-parsing|Constituency parsing]] is the paper's only evidence that the architecture works outside translation, since [[machine-translation|translation]] — on [[wmt-2014-en-de|English-German]] and [[wmt-2014-en-fr|English-French]] — is the whole of the rest. Trace what the parsing experiment is made of and the model is the only part the paper supplies.\n\nIt is a [[sequence-transduction|sequence transduction]] problem only by construction. The decoder emits one token at a time into a flat sequence and cannot produce a tree. So the tree is first written out as a string of bracket and label tokens, using the cited linearization scheme, and the model is trained to produce that string [[parse-tree-linearization]]. The paper does not restate the encoding. The output is also structurally constrained and longer than the input, which it notes.\n\nThe evaluation is borrowed too. Training on the [[penn-treebank-wsj|WSJ portion]] of the Penn Treebank, tuning on Section 22 and reporting Section 23 is the cited protocol, and following it is what makes [[table-4]] comparable to prior parsers [[wsj-parsing-protocol]].\n\nThe second regime is borrowed data. [[semi-supervised-parsing|The semi-supervised setting]] adds roughly 17M sentences from the high-confidence and BerkeleyParser corpora — parses produced automatically over web news in the cited work, not annotations written by hand [[semi-supervised-parsing-corpora]]. The vocabulary changes with them, from 16K tokens to 32K.\n\nWhat the paper does supply is the result. A 4-layer Transformer trained on about 40K hand-parsed sentences, with almost no task-specific tuning, reaches 91.3 F1 on Section 23. In that small-data regime it beats the classical grammar-based [[berkeley-parser|BerkeleyParser]], which is where the result gets its force, since sequence-to-sequence models had not managed that before.\n\nTwo qualifications sit in the same table. Each setting is a single run, with dropout, learning rate and beam size tuned on Section 22. And the claim is not that the Transformer beats everything: [[recurrent-neural-network-grammar|the Recurrent Neural Network Grammar]], which builds trees with explicit tree-structured operations rather than emitting them as a sequence, scores higher.\n\nThe paper's own wording carries that exception. The abstract does not. It is the sharpest single instance of the gap this whole read is about.",
+   "edgeIds": [
+    "e030",
+    "e048",
+    "e075",
+    "e074",
+    "e076",
+    "e077",
+    "e081",
+    "e082",
+    "e031",
+    "e049",
+    "e050",
+    "e111",
+    "e112",
+    "e113"
+   ],
+   "number": "9",
+   "childId": null,
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Encoder and Decoder Stacks",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Attention",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.3",
+      "title": "Position-wise Feed-Forward Networks",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.4",
+      "title": "Embeddings and Softmax",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "3.5",
+      "title": "Positional Encoding",
+      "start": 6,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Training Data and Batching",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "6.1",
+      "title": "Machine Translation",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6.2",
+      "title": "Model Variations",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "6.3",
+      "title": "English Constituency Parsing",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ]
+   }
+  }
+ ],
+ "nodes": {
+  "i-what-has-a-table-under-it": {
+   "id": "i-what-has-a-table-under-it",
+   "parentId": "insights-root",
+   "parentChapterId": "what-has-a-table-under-it",
+   "depth": 1,
+   "title": "What Has a Table Under It",
+   "intro": "The summary sorted the paper's design claims into three piles. This level goes inside each pile: how the ablation table is built and what its construction lets it say, what the appendix figures put on the page and what they leave uncounted, and what exactly stands under the choices that were never run at all.",
+   "chapters": [
+    {
+     "id": "rows-a",
+     "title": "The one block built as an experiment",
+     "body": "Every row of [[table-3]] is the same procedure repeated. Take the base configuration, change one thing, train it, and report a development-set score on [[wmt-2014-en-de|WMT 2014 English-to-German]]. The rows come in lettered blocks, and each block is one knob [[transformer-ablations]].\n\nThe (A) block is the one with design work in it.\n\nVarying [[num-heads-h|the head count]] on its own would not be a clean comparison, because heads are how the model's width gets divided up. Give a model more heads and leave everything else alone and you have changed two things at once. So the sweep holds the amount of computation constant instead. As $h$ rises, [[dk-dv-dimensions|the per-head key and value dimensions]] come down to compensate.\n\nWith [[d-model|$d_{model} = 512$]], eight heads get 64 dimensions each. Sixteen heads get 32. The single-head entry is not a narrow head — it is one head at the full 512.\n\nEvery row in the block is therefore about the same size and does about the same amount of arithmetic. What differs across them is only how that fixed width is partitioned [[multi-head-attention]].\n\nThat construction is what lets the 0.9 BLEU gap at $h = 1$ be read as a claim about splitting rather than about capacity [[attention-heads-ablation]] [[bleu]]. A single [[attention-head|head]] with all 512 dimensions available still loses to eight heads of 64.\n\nIt is also the only place the number eight comes from. No argument in the paper derives a head count from anything in the architecture; the value is whatever the sweep peaked at.\n\nAnd a peak among tried settings is what it stays. One score per setting, no repeated runs, no spread reported. On one language pair, on the development set.",
+     "edgeIds": [
+      "e041",
+      "e042"
+     ],
+     "childId": null,
+     "number": "2.1",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Background",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "3.1",
+        "title": "Encoder and Decoder Stacks",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.2.1",
+        "title": "Scaled Dot-Product Attention",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "3.2.2",
+        "title": "Multi-Head Attention",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "3.3",
+        "title": "Position-wise Feed-Forward Networks",
+        "start": 5,
+        "end": 5
+       },
+       {
+        "id": "3.4",
+        "title": "Embeddings and Softmax",
+        "start": 5,
+        "end": 6
+       },
+       {
+        "id": "3.5",
+        "title": "Positional Encoding",
+        "start": 6,
+        "end": 6
+       },
+       {
+        "id": "4",
+        "title": "Why Self-Attention",
+        "start": 6,
+        "end": 7
+       },
+       {
+        "id": "5.1",
+        "title": "Training Data and Batching",
+        "start": 7,
+        "end": 7
+       },
+       {
+        "id": "5.4",
+        "title": "Regularization",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6.1",
+        "title": "Machine Translation",
+        "start": 8,
+        "end": 8
+       },
+       {
+        "id": "6.2",
+        "title": "Model Variations",
+        "start": 8,
+        "end": 9
+       },
+       {
+        "id": "7",
+        "title": "Conclusion",
+        "start": 10,
+        "end": 10
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10
+      ]
+     }
+    },
+    {
+     "id": "rows-b-to-e",
+     "title": "Where the reading runs ahead of the row",
+     "body": "The remaining blocks are read faster than they are measured.\n\nRows (B) shrink the attention key dimension and leave the rest of the model alone, and quality drops [[key-size-ablation]]. The paper's sentence about that drop moves somewhere the rows do not go: it suggests determining compatibility is not easy, and that a more sophisticated compatibility function than the dot product may help.\n\nThe measurement concerns the width of the key. The reading concerns the scoring function [[dot-product-attention]]. Nothing in the block trains an alternative — [[additive-attention]] is discussed back in Section 3.2.1 and never run against this model. The paper hedges the step with \"suggests\" and \"may be\", and the hedge is doing real work.\n\nRows (C) and (D) get one sentence between them, and its first two words are \"as expected\" [[size-and-dropout-ablation]]. Bigger models are better; [[dropout]] is very helpful in avoiding over-fitting. The block is standing in the argument as confirmation of something already believed, not as a finding [[base-vs-big-transformer]].\n\nThe (D) rows also move a single rate for the whole model. So they cannot separate [[residual-dropout|dropout on the sub-layer outputs]] from [[attention-dropout|dropout inside attention]]; they show that $P_{drop} = 0.1$ beat the other values tried, at all the places dropout is applied at once.\n\nThen row (E) swaps the sinusoids for [[learned-positional-embedding|learned position vectors]] and finds nearly identical results.\n\nThat is a null result, and the paper reports it as one. But it also empties out the quality case for [[sinusoidal-positional-encoding|the sinusoids]], which the paper keeps anyway. The reasons it gives are two hypotheses: that a fixed periodic function may extrapolate to sequences longer than any seen in training, and that [[relative-position-linearity|offsets are linear in the encoding]] so relative attention should be easy to learn.\n\nNeither is tested. The measured pile hands one of its own rows straight to the asserted one.",
+     "edgeIds": [
+      "e043",
+      "e044",
+      "e045",
+      "e047",
+      "e102"
+     ],
+     "childId": null,
+     "number": "2.2",
+     "sources": {
+      "sections": [
+       {
+        "id": "3.2.1",
+        "title": "Scaled Dot-Product Attention",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "3.5",
+        "title": "Positional Encoding",
+        "start": 6,
+        "end": 6
+       },
+       {
+        "id": "5.2",
+        "title": "Hardware and Schedule",
+        "start": 7,
+        "end": 7
+       },
+       {
+        "id": "5.4",
+        "title": "Regularization",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6.1",
+        "title": "Machine Translation",
+        "start": 8,
+        "end": 8
+       },
+       {
+        "id": "6.2",
+        "title": "Model Variations",
+        "start": 8,
+        "end": 9
+       },
+       {
+        "id": "6.3",
+        "title": "English Constituency Parsing",
+        "start": 9,
+        "end": 10
+       }
+      ],
+      "pages": [
+       4,
+       6,
+       7,
+       8,
+       9,
+       10
+      ]
+     }
+    },
+    {
+     "id": "the-smoothing-gap",
+     "title": "The claim that could have been checked here",
+     "body": "Section 5.4 makes a two-sided claim in one sentence. [[label-smoothing|Label smoothing]] at $\\epsilon_{ls} = 0.1$ hurts perplexity, because the model learns to be more unsure, but improves accuracy and BLEU [[label-smoothing-regularization]] [[smoothing-parameter-epsilon]].\n\nThe mechanism is not in dispute. The training target no longer puts all its mass on the correct token, so the model is never rewarded for full confidence in it [[transformer-training-recipe]]. [[perplexity]] is built directly out of the probability assigned to the true token, so a model trained away from confidence scores worse on it, by construction.\n\nBLEU is computed from a decoded string. What reaches it is whatever sequence comes out of [[beam-search]], and that depends on the ranking of candidates rather than on how much probability mass the top one holds.\n\nSo the two metrics can move apart. The claim is that here they do.\n\nChecking a trade-off like that needs both numbers side by side for the same configuration, with and without smoothing. Table 3 is the only place in the paper where perplexity and BLEU are both reported per row.\n\nThe prose that walks the table never reads that comparison out. It comments on head count, key size, model size, dropout, and positional encoding — dropout is what the (D) sentence talks about.\n\nSo the smoothing claim sits between two piles. It is not asserted with nothing nearby, the way the divisor is. It is asserted in the training section, in a table's worth of vicinity, and left un-joined.\n\nWorth being exact about the strength: the paper does not say the comparison fails, and the reader cannot say it succeeds. The sentence in 5.4 is firmer than anything the paper demonstrates about it.",
+     "edgeIds": [
+      "e046"
+     ],
+     "childId": null,
+     "number": "2.3",
+     "sources": {
+      "sections": [
+       {
+        "id": "5",
+        "title": "Training",
+        "start": 7,
+        "end": 7
+       },
+       {
+        "id": "5.4",
+        "title": "Regularization",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6.1",
+        "title": "Machine Translation",
+        "start": 8,
+        "end": 8
+       },
+       {
+        "id": "6.2",
+        "title": "Model Variations",
+        "start": 8,
+        "end": 9
+       },
+       {
+        "id": "6.3",
+        "title": "English Constituency Parsing",
+        "start": 9,
+        "end": 10
+       }
+      ],
+      "pages": [
+       7,
+       8,
+       9,
+       10
+      ]
+     }
+    },
+    {
+     "id": "what-the-figures-show",
+     "title": "Three pictures, three sentences of hedge",
+     "body": "The appendix figures are all drawn from [[encoder-self-attention|encoder self-attention]], mostly from layer 5, and each shows one sentence.\n\n[[fig-3]] takes the word \"making\" and draws where its attention goes. Many heads run a line across a long stretch of the sentence to the words that complete \"making … more difficult\" [[long-range-dependencies]]. The dependency is far, and the attention crosses it in one step [[self-attention]].\n\nWhat that establishes is that this happens — for this word, in this sentence, in this layer. There is no count behind it. How often heads do this, on how many sentences, for which constructions: none of that is in the paper.\n\n[[fig-4]] is the picture with the most weight resting on it. For the word \"its\", head 5 puts almost all its mass on \"Law\" and head 6 puts almost all of its own on \"application\". Two sharp distributions, pointing at different places.\n\nNow collapse them. One head produces one distribution, so the merged version is something like the average of those two — a single blurred pattern leaning weakly toward both words, with the sharpness gone. That is the [[attention-averaging-resolution-cost|averaging cost]] the paper gives as its reason for splitting into heads.\n\nThe figure shows two heads that are sharp and disagree. It does not show a trained single-head model producing the blur — that model exists, in row (A) of Table 3, and its attention maps are not printed. Reading the blur into the gap is the paper's inference and mine; the figure alone does not carry it.\n\n[[fig-5]] is the cleanest of the three. Two heads, same sentence, visibly different patterns, so the difference is in the heads and not the input [[attention-interpretability]].\n\nThe hedging shifts between places. Section 4 says heads clearly learn to perform different tasks, and many appear to exhibit behaviour related to sentence structure. The captions are softer: the heads are \"apparently\" doing anaphora resolution, the behaviour \"seems related\" to syntax. Same evidence, two registers.",
+     "edgeIds": [
+      "e054",
+      "e055",
+      "e056"
+     ],
+     "childId": null,
+     "number": "2.4",
+     "sources": {
+      "sections": [
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Background",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "3",
+        "title": "Model Architecture",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.2.3",
+        "title": "Applications of Attention in our Model",
+        "start": 5,
+        "end": 5
+       },
+       {
+        "id": "4",
+        "title": "Why Self-Attention",
+        "start": 6,
+        "end": 7
+       },
+       {
+        "id": "7",
+        "title": "Conclusion",
+        "start": 10,
+        "end": 10
+       }
+      ],
+      "pages": [
+       2,
+       3,
+       5,
+       6,
+       7,
+       10,
+       13,
+       14,
+       15
+      ]
+     }
+    },
+    {
+     "id": "never-run",
+     "title": "What stands under the untested pile",
+     "body": "The asserted pile is not empty of reasoning. It is empty of runs.\n\n[[sqrt-dk-scaling|The $1/\\sqrt{d_k}$ divisor]] sits inside [[eq-attention|Equation (1)]] itself, and a footnote argues for it. Assume the query and key components are independent with zero mean and unit variance. The dot product sums $d_k$ such products; each has mean 0 and variance 1; variances add, so the sum has variance $d_k$ and standard deviation $\\sqrt{d_k}$. Divide by $\\sqrt{d_k}$ and you are back at unit scale.\n\nThat much is arithmetic. It holds under an assumption about components at initialization, not about the queries and keys a trained model produces — my reading, not something the paper claims either way.\n\nThe next step is where the paper marks its own uncertainty: it suspects large dot products push the softmax into a flat-gradient region. No run compares [[scaled-dot-product-attention|the scaled version]] against the unscaled one at fixed $d_k$. The nearest evidence is a cited result from another paper.\n\n[[learning-rate-warmup-schedule|The warmup schedule]] is given the same way. [[eq-lrate|Equation (3)]] takes the smaller of $step^{-0.5}$ and $step \\cdot warmup^{-1.5}$; the two are equal exactly at $step = warmup$, so with [[warmup-steps-4000|$warmup\\_steps = 4000$]] the rate climbs linearly to a peak of $1/\\sqrt{512 \\cdot 4000}$, about $7 \\times 10^{-4}$, then decays. No comparison to a constant rate, no sweep over the warmup length, and [[transformer-adam-settings|$\\beta_2 = 0.98$]] rides alongside untested.\n\n[[restricted-self-attention|Restricted attention]] is the odd one. It gets a full row in [[table-1]]: [[complexity-per-layer|cost]] falls to $O(r \\cdot n \\cdot d)$, [[maximum-path-length|path length]] rises to $O(n/r)$. Both halves of the trade priced in the same units as every other layer type, which makes the row look like the others.\n\nIt was never trained. The paper says it plans to investigate the approach in future work.\n\nNothing in the paper marks which of its rows are results and which are arithmetic. That sorting is left to the reader.",
+     "edgeIds": [
+      "e058",
+      "e062",
+      "e036",
+      "e096"
+     ],
+     "childId": null,
+     "number": "2.5",
+     "sources": {
+      "sections": [
+       {
+        "id": "2",
+        "title": "Background",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "3",
+        "title": "Model Architecture",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.2.1",
+        "title": "Scaled Dot-Product Attention",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "3.2.3",
+        "title": "Applications of Attention in our Model",
+        "start": 5,
+        "end": 5
+       },
+       {
+        "id": "4",
+        "title": "Why Self-Attention",
+        "start": 6,
+        "end": 7
+       },
+       {
+        "id": "5.3",
+        "title": "Optimizer",
+        "start": 7,
+        "end": 7
+       },
+       {
+        "id": "7",
+        "title": "Conclusion",
+        "start": 10,
+        "end": 10
+       }
+      ],
+      "pages": [
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       10
+      ]
+     }
+    }
+   ],
+   "number": "2",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Encoder and Decoder Stacks",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2.1",
+      "title": "Scaled Dot-Product Attention",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "3.2.2",
+      "title": "Multi-Head Attention",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2.3",
+      "title": "Applications of Attention in our Model",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.3",
+      "title": "Position-wise Feed-Forward Networks",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.4",
+      "title": "Embeddings and Softmax",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "3.5",
+      "title": "Positional Encoding",
+      "start": 6,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Training",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Training Data and Batching",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.2",
+      "title": "Hardware and Schedule",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Optimizer",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.4",
+      "title": "Regularization",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6.1",
+      "title": "Machine Translation",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6.2",
+      "title": "Model Variations",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "6.3",
+      "title": "English Constituency Parsing",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     13,
+     14,
+     15
+    ]
+   }
+  },
+  "i-repairs-for-its-own-damage": {
+   "id": "i-repairs-for-its-own-damage",
+   "parentId": "insights-root",
+   "parentChapterId": "repairs-for-its-own-damage",
+   "depth": 1,
+   "title": "Repairs for Its Own Damage",
+   "intro": "The parent named the three repairs and paired each with the loss it answers. This level takes them one at a time: the arithmetic inside each fix, what the paper actually measured about it, and what it only asserted.",
+   "chapters": [
+    {
+     "id": "order-put-back-by-hand",
+     "title": "Order, put back by hand",
+     "body": "Section 3.5 names the loss before it names the fix: since the model contains no [[recurrent-neural-network|recurrence]] and no convolution, order has to be injected. So the pairing is at least visible in one clause here. What the section does not spell out is how the numbers inside the added vector are set.\n\nEach entry is a sine or cosine of $pos$ divided by $10000^{2i/d_{model}}$, where $i$ indexes the entry [[eq-posenc]].\n\nWork the two ends of that range. At $i = 0$ the exponent is zero, so the divisor is 1 and the wavelength is $2\\pi$ — that entry completes a cycle every few tokens. As $i$ climbs toward $d_{model}/2$ the exponent approaches 1, the divisor approaches 10000, and the wavelength stretches to $10000 \\cdot 2\\pi$. Low entries carry fine positional detail; high entries barely move across a whole sentence.\n\nEven slots take the sine and odd slots the cosine, so the entries pair off into couples sharing one frequency [[sinusoidal-positional-encoding]].\n\nThat pairing carries the paper's first stated reason for the choice. For a fixed offset $k$, the encoding at $pos+k$ is a linear function of the encoding at $pos$ — one rotation per couple, the same rotation wherever in the sequence you are [[relative-position-linearity]]. The paper's word is \"hypothesized\". No experiment follows it.\n\nThe vector is summed with the [[token-embeddings|token embedding]], not concatenated. That is why it has to be exactly [[d-model|512]] wide, and it enters once at the bottom of each stack rather than at every layer [[encoder-stack]] [[decoder-stack]].\n\nThen the one measurement. Row (E) of [[table-3]] swaps in [[learned-positional-embedding|a trainable vector per position]]: 4.92 perplexity and 25.7 BLEU, against the base row's 4.92 and 25.8 [[transformer-ablations]]. One training run each. Nothing in the numbers separates the two schemes.\n\nWhich leaves the second stated reason — extrapolation to longer sequences — doing the deciding. It is hedged (\"may allow\"), and no result in the paper tests it. No sequence longer than those seen in training appears anywhere.\n\nOne structural point. Of the three repairs, this is the only one that adds a component. [[positional-encoding|The encoding]] is a new term in the input; the other two modify [[self-attention|self-attention]] itself.",
+     "edgeIds": [
+      "e011",
+      "e103",
+      "e072",
+      "e061",
+      "e087",
+      "e073"
+     ],
+     "childId": null,
+     "number": "3.1",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "1",
+        "title": "Introduction",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Background",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "3",
+        "title": "Model Architecture",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.1",
+        "title": "Encoder and Decoder Stacks",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.2.2",
+        "title": "Multi-Head Attention",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "3.2.3",
+        "title": "Applications of Attention in our Model",
+        "start": 5,
+        "end": 5
+       },
+       {
+        "id": "3.3",
+        "title": "Position-wise Feed-Forward Networks",
+        "start": 5,
+        "end": 5
+       },
+       {
+        "id": "3.4",
+        "title": "Embeddings and Softmax",
+        "start": 5,
+        "end": 6
+       },
+       {
+        "id": "3.5",
+        "title": "Positional Encoding",
+        "start": 6,
+        "end": 6
+       },
+       {
+        "id": "4",
+        "title": "Why Self-Attention",
+        "start": 6,
+        "end": 7
+       },
+       {
+        "id": "6.2",
+        "title": "Model Variations",
+        "start": 8,
+        "end": 9
+       },
+       {
+        "id": "7",
+        "title": "Conclusion",
+        "start": 10,
+        "end": 10
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10
+      ]
+     }
+    },
+    {
+     "id": "price-of-the-constant-path",
+     "title": "The price of the constant-length path",
+     "body": "The averaging is not a side effect of attention. It is what attention returns. The output at a position is a weighted sum of value vectors, the weights coming from a [[softmax]] and therefore summing to one [[queries-keys-values]].\n\nOnce that sum is formed, what each position contributed to it is no longer separable. That is the blur.\n\nThe paper prices it against something specific. Relating two arbitrary positions costs a constant number of operations in the Transformer, however far apart they sit — that is [[maximum-path-length|maximum path length]], one of the three criteria set up for comparing layer types [[layer-comparison-desiderata]]. Convolutional stacks pay for distance in operations instead: linearly for [[convs2s]], logarithmically for [[bytenet]].\n\nThe blur is what buys the constant. Section 2's sentence is built as a concession — the reduction to constant operations holds \"albeit at the cost of reduced effective resolution\" [[attention-averaging-resolution-cost]].\n\n[[fig-4]] is the picture of what a single head would give back. For the word \"its\", head 5 puts nearly all its weight on \"Law\" and head 6 nearly all on \"application\", both in layer 5 of the encoder [[encoder-self-attention]] [[attention-head]]. Collapse the two and one distribution comes out split between the two words — pointing weakly at each, sharply at neither.\n\nBe exact about what that figure is. One sentence, one layer, one word, chosen by the authors. The paper's own claim about it is hedged: the heads are \"apparently\" involved in anaphora resolution [[attention-interpretability]].\n\nAnd note what is missing beside it. The figure shows two heads differing. It does not show a single head failing, because no single-head attention map is printed for comparison — the collapse is inferred, not displayed.\n\nThis loss also differs from the other two in kind. It is a matter of degree. A one-head model still translates, at 24.9 [[bleu|BLEU]]. Remove the mask and generation does not degrade; it stops being generation.",
+     "edgeIds": [
+      "e101",
+      "e055"
+     ],
+     "childId": null,
+     "number": "3.2",
+     "sources": {
+      "sections": [
+       {
+        "id": "abstract",
+        "title": "Abstract",
+        "start": 1,
+        "end": 2
+       },
+       {
+        "id": "2",
+        "title": "Background",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "3.2",
+        "title": "Attention",
+        "start": 3,
+        "end": 4
+       },
+       {
+        "id": "3.2.1",
+        "title": "Scaled Dot-Product Attention",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "3.2.2",
+        "title": "Multi-Head Attention",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "3.2.3",
+        "title": "Applications of Attention in our Model",
+        "start": 5,
+        "end": 5
+       },
+       {
+        "id": "3.4",
+        "title": "Embeddings and Softmax",
+        "start": 5,
+        "end": 6
+       },
+       {
+        "id": "4",
+        "title": "Why Self-Attention",
+        "start": 6,
+        "end": 7
+       },
+       {
+        "id": "5.4",
+        "title": "Regularization",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6.1",
+        "title": "Machine Translation",
+        "start": 8,
+        "end": 8
+       },
+       {
+        "id": "6.2",
+        "title": "Model Variations",
+        "start": 8,
+        "end": 9
+       },
+       {
+        "id": "7",
+        "title": "Conclusion",
+        "start": 10,
+        "end": 10
+       }
+      ],
+      "pages": [
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       14
+      ]
+     }
+    },
+    {
+     "id": "eight-heads-at-sixty-four",
+     "title": "Eight heads at sixty-four",
+     "body": "[[multi-head-attention|The counteraction]] is a split, and everything it adds sits outside the attention function rather than inside it. Queries, keys and values are projected $h$ times by learned matrices; each head makes one call to [[scaled-dot-product-attention|the same scaled dot-product attention]] of Equation (1) on its own projections; the outputs are concatenated; and $W^O$ maps that concatenation back to model width [[eq-multihead]] [[attention-projection-matrices]].\n\nThe inner function never changes. Only the projected inputs differ.\n\nNow the sizing. The rule is $d_k = d_v = d_{model}/h$, so with [[num-heads-h|$h = 8$]] and $d_{model} = 512$, each head gets $512/8 = 64$ [[dk-dv-dimensions]].\n\nBecause the width falls exactly as fast as the count rises, the product $h \\cdot d_k$ is 512 in every configuration. The concatenation is always 512 wide, $W^O$ is always $512 \\times 512$, and the parameter count does not move. \"Similar total computational cost\" is an identity built into the rule, not an estimate.\n\nThat identity is also what makes the ablation fair. Rows (A) of [[table-3]] sweep $h$ under it, so only the partition of a fixed budget changes.\n\nOne head at $d_k = 512$ gives 5.29 [[perplexity|PPL]] and 24.9 BLEU. Eight at 64 gives 4.92 and 25.8. Sixteen at 32 gives 4.91 and 25.8. Thirty-two at 16 gives 5.01 and 25.4.\n\nSo the 0.9 the paper quotes is one head against the best setting [[attention-heads-ablation]]. Eight does not win its own sweep — sixteen ties it on BLEU and posts the lower perplexity.\n\nWhat the sweep licenses is narrow: at fixed compute, several heads beat one. That is a measured number attached to the averaging argument, and it is the only measured number any of the three repairs has in its favour.\n\nWhat it does not test is the reason the paper gives for splitting. Nothing in the sweep shows heads attending to different representation subspaces. That claim rests on the attention pictures, and no picture is scored.",
+     "edgeIds": [
+      "e100",
+      "e001"
+     ],
+     "childId": null,
+     "number": "3.3",
+     "sources": {
+      "sections": [
+       {
+        "id": "2",
+        "title": "Background",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "3.2.1",
+        "title": "Scaled Dot-Product Attention",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "3.2.2",
+        "title": "Multi-Head Attention",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "4",
+        "title": "Why Self-Attention",
+        "start": 6,
+        "end": 7
+       },
+       {
+        "id": "5.4",
+        "title": "Regularization",
+        "start": 7,
+        "end": 8
+       },
+       {
+        "id": "6.2",
+        "title": "Model Variations",
+        "start": 8,
+        "end": 9
+       },
+       {
+        "id": "7",
+        "title": "Conclusion",
+        "start": 10,
+        "end": 10
+       }
+      ],
+      "pages": [
+       2,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10
+      ]
+     }
+    },
+    {
+     "id": "minus-infinity-then-softmax",
+     "title": "Minus infinity, then softmax",
+     "body": "The mask sets the scores for forbidden positions to $-\\infty$ in the input of the [[softmax]] [[causal-masking]]. The softmax exponentiates every score, and exponentiating $-\\infty$ gives zero. Those positions come out with no weight at all — not small weight, zero.\n\nThat is a property of the normalizer, not of attention. Replace the softmax with something that does not exponentiate and the same $-\\infty$ no longer produces a clean zero. The third repair is welded to a choice made in the subsection before it.\n\nWhere it sits is equally specific. Section 3.2.3 places the masking inside [[scaled-dot-product-attention|the attention function]] itself, on the input to the softmax of [[eq-attention|Equation (1)]] — the optional Mask box in [[fig-2]]. Nothing is stacked on top of attention. The same block runs with one stage switched on.\n\nThen a half of the guarantee that is easy to miss, because the two halves are stated in different subsections.\n\nSection 3.2.3 says a decoder position may attend \"up to and including that position\". Taken alone, that lets position $i$ read whatever sits in slot $i$. Section 3.1 states the guarantee more strongly: predictions for position $i$ depend only on outputs at positions less than $i$.\n\nThe gap between \"including\" and \"less than\" is closed by the offset. The output embeddings are shifted one position [[token-embeddings]], so the vector in slot $i$ is the token produced at step $i-1$. Attending to your own slot is attending to the previous output, not to the answer.\n\nMasking and the offset together are what preserve [[auto-regressive-generation|auto-regression]] in [[masked-decoder-self-attention|the decoder's self-attention]] [[decoder-stack]]. Section 3.1 does say both in one sentence. Only the masking half is repeated in 3.2.3, which is where a reader looking for the mechanism goes.",
+     "edgeIds": [
+      "e007",
+      "e009",
+      "e008"
+     ],
+     "childId": null,
+     "number": "3.4",
+     "sources": {
+      "sections": [
+       {
+        "id": "3",
+        "title": "Model Architecture",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.1",
+        "title": "Encoder and Decoder Stacks",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.2.1",
+        "title": "Scaled Dot-Product Attention",
+        "start": 4,
+        "end": 4
+       },
+       {
+        "id": "3.2.3",
+        "title": "Applications of Attention in our Model",
+        "start": 5,
+        "end": 5
+       },
+       {
+        "id": "3.4",
+        "title": "Embeddings and Softmax",
+        "start": 5,
+        "end": 6
+       }
+      ],
+      "pages": [
+       2,
+       3,
+       4,
+       5,
+       6
+      ]
+     }
+    },
+    {
+     "id": "three-kinds-of-evidence",
+     "title": "Three repairs, three kinds of evidence",
+     "body": "The mask does not create a new kind of layer. Decoder self-attention runs the same [[multi-head-attention]] over the output of its own previous layer, exactly as the encoder's runs over the encoder's. Same operation, same kind of input, same three projections.\n\nThey differ in one thing: what each position is allowed to see. [[encoder-self-attention]] lets every position attend to all positions. [[masked-decoder-self-attention]] lets a position see itself and what precedes it, and nothing else.\n\nRead that as an asymmetry rather than a symmetry and something follows that the paper does not state. The decoder works with less context than the encoder, permanently. A position early in the output has almost none of its own sequence to attend to, and no later layer gives it back, because every layer of the [[decoder-stack]] is masked the same way. The encoder's [[self-attention|full-context]] version is unavailable to the decoder at any depth.\n\nThat is a real cost, and it is never priced. It cannot be priced by ablation either: there is no unmasked decoder that still generates left to right, so no row of [[table-3]] can exist for it.\n\nWhich leaves the three repairs sitting at three different evidence strengths.\n\nThe head split has a measurement that supports it — 0.9 BLEU at fixed compute, one head against the best [[attention-heads-ablation]].\n\n[[positional-encoding|The positional encoding]] has a measurement that declines to choose. [[learned-positional-embedding|Learned embeddings]] score 25.7 against 25.8, and the reason given for keeping the sinusoids sits outside anything the paper measures.\n\n[[causal-masking|The mask]] has no measurement and needs none. It is not a knob with a better and a worse setting. Without it the model does not do the task at all.\n\nReading the three as one family is this narrative's move, not the paper's. Sections 2, 3.5 and 3.2.3 each name their own loss and its own answer, and none of them refers to the other two.",
+     "edgeIds": [
+      "e064",
+      "e104"
+     ],
+     "childId": null,
+     "number": "3.5",
+     "sources": {
+      "sections": [
+       {
+        "id": "2",
+        "title": "Background",
+        "start": 2,
+        "end": 2
+       },
+       {
+        "id": "3",
+        "title": "Model Architecture",
+        "start": 2,
+        "end": 3
+       },
+       {
+        "id": "3.1",
+        "title": "Encoder and Decoder Stacks",
+        "start": 3,
+        "end": 3
+       },
+       {
+        "id": "3.2.2",
+        "title": "Multi-Head Attention",
+        "start": 4,
+        "end": 5
+       },
+       {
+        "id": "3.2.3",
+        "title": "Applications of Attention in our Model",
+        "start": 5,
+        "end": 5
+       },
+       {
+        "id": "3.5",
+        "title": "Positional Encoding",
+        "start": 6,
+        "end": 6
+       },
+       {
+        "id": "4",
+        "title": "Why Self-Attention",
+        "start": 6,
+        "end": 7
+       },
+       {
+        "id": "6.2",
+        "title": "Model Variations",
+        "start": 8,
+        "end": 9
+       },
+       {
+        "id": "7",
+        "title": "Conclusion",
+        "start": 10,
+        "end": 10
+       }
+      ],
+      "pages": [
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10
+      ]
+     }
+    }
+   ],
+   "number": "3",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Background",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Model Architecture",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Encoder and Decoder Stacks",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Attention",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.2.1",
+      "title": "Scaled Dot-Product Attention",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "3.2.2",
+      "title": "Multi-Head Attention",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2.3",
+      "title": "Applications of Attention in our Model",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.3",
+      "title": "Position-wise Feed-Forward Networks",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "3.4",
+      "title": "Embeddings and Softmax",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "3.5",
+      "title": "Positional Encoding",
+      "start": 6,
+      "end": 6
+     },
+     {
+      "id": "4",
+      "title": "Why Self-Attention",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.4",
+      "title": "Regularization",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6.1",
+      "title": "Machine Translation",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6.2",
+      "title": "Model Variations",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "7",
+      "title": "Conclusion",
+      "start": 10,
+      "end": 10
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     14
+    ]
+   }
+  }
+ },
+ "unusedNote": "All 116 edges appear in some chapter's edgeIds, and all 39 load-bearing edges are covered. But coverage is not the same as depth, so the honest accounting is this. Some edges are listed because they support a sentence rather than because the chapter turns on them: e068 (N = 6), e066 (h fills the slot), e074/e076/e077 (the two WMT datasets as instances of translation), e112 (BerkeleyParser), e115 (untied embeddings) and e044 (rows C and D) are each named in one clause and not developed. e052 and e053 (the two panels of Figure 2) are used as a pointer at the end of the routing chapter rather than analysed. The pieces I deliberately did not build a chapter around: the internal structure of the two stacks and the three-wirings story, because the main tour's chapters 2 and 4 already own it, so those edges (e063, e064, e065, e010, e051) appear here only in service of the counting argument about where positions mix; and the sinusoids' relative-offset property (e087), which I mention but do not unpack, since the linear-function claim would need its own arithmetic to be worth stating. I also chose not to write a chapter organised around the interpretability figures alone — e054, e055 and e056 are split between the evidence audit and the multi-head repair, which is where they do more work than they would on their own.",
+ "sources": {
+  "sections": [
+   {
+    "id": "abstract",
+    "title": "Abstract",
+    "start": 1,
+    "end": 2
+   },
+   {
+    "id": "1",
+    "title": "Introduction",
+    "start": 2,
+    "end": 2
+   },
+   {
+    "id": "2",
+    "title": "Background",
+    "start": 2,
+    "end": 2
+   },
+   {
+    "id": "3",
+    "title": "Model Architecture",
+    "start": 2,
+    "end": 3
+   },
+   {
+    "id": "3.1",
+    "title": "Encoder and Decoder Stacks",
+    "start": 3,
+    "end": 3
+   },
+   {
+    "id": "3.2",
+    "title": "Attention",
+    "start": 3,
+    "end": 4
+   },
+   {
+    "id": "3.2.1",
+    "title": "Scaled Dot-Product Attention",
+    "start": 4,
+    "end": 4
+   },
+   {
+    "id": "3.2.2",
+    "title": "Multi-Head Attention",
+    "start": 4,
+    "end": 5
+   },
+   {
+    "id": "3.2.3",
+    "title": "Applications of Attention in our Model",
+    "start": 5,
+    "end": 5
+   },
+   {
+    "id": "3.3",
+    "title": "Position-wise Feed-Forward Networks",
+    "start": 5,
+    "end": 5
+   },
+   {
+    "id": "3.4",
+    "title": "Embeddings and Softmax",
+    "start": 5,
+    "end": 6
+   },
+   {
+    "id": "3.5",
+    "title": "Positional Encoding",
+    "start": 6,
+    "end": 6
+   },
+   {
+    "id": "4",
+    "title": "Why Self-Attention",
+    "start": 6,
+    "end": 7
+   },
+   {
+    "id": "5.1",
+    "title": "Training Data and Batching",
+    "start": 7,
+    "end": 7
+   },
+   {
+    "id": "5.2",
+    "title": "Hardware and Schedule",
+    "start": 7,
+    "end": 7
+   },
+   {
+    "id": "5.3",
+    "title": "Optimizer",
+    "start": 7,
+    "end": 7
+   },
+   {
+    "id": "5.4",
+    "title": "Regularization",
+    "start": 7,
+    "end": 8
+   },
+   {
+    "id": "6.1",
+    "title": "Machine Translation",
+    "start": 8,
+    "end": 8
+   },
+   {
+    "id": "6.2",
+    "title": "Model Variations",
+    "start": 8,
+    "end": 9
+   },
+   {
+    "id": "6.3",
+    "title": "English Constituency Parsing",
+    "start": 9,
+    "end": 10
+   },
+   {
+    "id": "7",
+    "title": "Conclusion",
+    "start": 10,
+    "end": 10
+   }
+  ],
+  "pages": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   13,
+   14,
+   15
+  ]
+ }
+}

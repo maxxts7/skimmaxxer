@@ -1,0 +1,19 @@
+PAGE FOR: bleu (concept)
+
+BLEU is the number every quality claim in this paper is stated in — 28.4 on WMT 2014 English-to-German, 41.8 English-to-French, every row of [[table-2]] and every delta in [[table-3]]. It scores a [[machine-translation|translation]] by how much of its n-gram content shows up in human reference translations, so it grades the tokens the decoder actually emitted, not the probabilities the model assigned.
+
+### The computation
+
+For each $n$ from 1 to 4, count the n-grams in the candidate output that also occur in a reference, clipping each n-gram's count at the most times it appears in any one reference — so emitting "the" fifteen times cannot buy fifteen matches. Divide by the total number of n-grams of that size in the candidate. That is the modified precision $p_n$. Clipped counts and totals are summed over the whole test corpus before dividing, so BLEU is a corpus statistic, not an average of sentence scores. Then
+
+$$\mathrm{BLEU} = \mathrm{BP}\cdot\exp\!\Big(\sum_{n=1}^{4}\tfrac{1}{4}\log p_n\Big),\qquad \mathrm{BP}=\min\!\big(1,\;e^{\,1-r/c}\big)$$
+
+where $c$ is total candidate length and $r$ the matched reference length. Precision alone would reward emitting one word you are sure of; the brevity penalty stands in for recall. Multiply by 100 to get the reported scale. Because the mean is geometric, a $p_4$ of zero zeroes the whole score — another reason it is only computed corpus-wide.
+
+The score is a function of the decoded string, so it moves with decoding choices as much as with the model: the paper's numbers use [[beam-search]] with beam 4, [[length-penalty|length penalty $\alpha = 0.6$]], [[checkpoint-averaging|averaged checkpoints]], and a [[word-piece-encoding|word-piece]] vocabulary that has to be reassembled into words first.
+
+### Why the paper reports it, and what it hides
+
+Being a metric on emitted text rather than on likelihood is exactly what makes it disagree with [[perplexity]]. [[label-smoothing|Label smoothing]] with $\epsilon_{ls}=0.1$ makes the model less confident on the reference token, so perplexity gets worse, while accuracy and BLEU improve — the paper states this flatly and does not explain it. The reading that fits: a smoothed model ranks candidates better even though it is worse calibrated on the single gold token. BLEU is also one of the two axes of [[table-2]], plotted against the [[training-flops-estimate|estimated training FLOPs]]; the claim is winning on both at once.
+
+Evidence strength: the +2.0 English-to-German margin over prior work, ensembles included, is well outside typical rerun noise. The [[transformer-ablations|Table 3]] deltas are not — [[attention-heads-ablation|0.9 BLEU for single-head]] down to 0.1 for [[learned-positional-embedding|learned positions]], single runs, dev set, no seeds or variance reported. And the paper is internally inconsistent on English-to-French: 41.0 in Section 6.1, 41.8 in the abstract and [[table-2]].

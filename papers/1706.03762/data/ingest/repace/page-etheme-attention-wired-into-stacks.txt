@@ -1,0 +1,21 @@
+PAGE FOR: etheme-attention-wired-into-stacks (edge-theme)
+
+The architecture section makes one structural claim: there is only one attention block in the model, and the [[transformer|Transformer]] gets three different behaviours out of it by changing where the queries, keys and values are read from, plus one mask. Everything else inside a layer is a fixed wrapper, so what distinguishes the encoder from the decoder is wiring, not machinery.
+
+### One block, three wirings
+
+Section 3.2.3 lists the three uses of [[multi-head-attention]] and nothing more. In [[encoder-self-attention]], queries, keys and values all come from the previous encoder layer, so every position sees every position. In [[masked-decoder-self-attention]], the same three come from the previous decoder layer, but the visible range stops at the current position. In [[encoder-decoder-attention]], the queries come from the decoder and the keys and values come from the output of the [[encoder-stack]] — which is why the encoder has to finish before this sub-layer has anything to attend over, and why the paper says it "mimics" the attention of earlier sequence-to-sequence models. [[fig-1]] draws all three at once. Treat it as a wiring diagram: it fixes what connects to what, not sizes.
+
+### The mask is the whole difference
+
+The gap between the first two uses is one operation. [[causal-masking]] sets the scores of forbidden positions to $-\infty$ on the input to the [[softmax]], inside [[scaled-dot-product-attention|the attention function itself]] — the optional Mask box in [[fig-2]], not a separate layer. It works only because $e^{-\infty} = 0$: those positions get exactly zero weight, not small weight. The paper's stated reason is that leftward information flow has to be prevented to preserve [[auto-regressive-generation|the auto-regressive property]], and it is careful to say the mask does this combined with the one-position offset of the output embeddings. Neither alone is enough. The cost is by construction: the decoder gives up the encoder's full context.
+
+### The wrapper that forces one width
+
+Every [[sub-layer]] — all three attention variants and the feed-forward network — is wrapped identically as $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$. [[residual-connection|The residual]] is what makes the widths line up, and Section 3.1 gives the causal direction explicitly: to facilitate these residual connections, all sub-layers and the embedding layers output dimension [[d-model|$d_{model} = 512$]]. The uniform width is a consequence of the wrapper, not an independent choice. [[layer-normalization]] is used by citation only; the paper never writes the formula. From the cited work, [[layer-normalization-statistics|the mean and variance are taken across the hidden units of one position]], which is what lets it apply unchanged to variable-length sequences — [[layer-norm-vs-batch-norm|unlike batch normalization]], nothing depends on batch composition.
+
+The second sub-layer is [[eq-ffn|Equation (2)]], $\max(0, xW_1+b_1)W_2+b_2$, with inner width $d_{ff}=2048$. This [[position-wise-feed-forward-network]] touches one position at a time. That matters for the argument: every cross-position interaction in the model happens in an attention sub-layer, and nowhere else. [[n-layers|$N = 6$]] then stacks the pair, in both towers, and the [[encoder-decoder-architecture]] is complete.
+
+### What is argued, not measured
+
+The chain above is the paper's own reasoning, and it is mostly definitional — it says what the model is. What it does not do is test the wiring. [[table-3]] varies head count, $d_k$, model size, dropout and positional encoding. It does not vary $N$, does not remove the residual or the normalization, does not try an unmasked decoder, and does not test alternative placements. The claim that masking preserves auto-regression is a correctness argument, not a result. The claim that the residual is why the width is shared is the paper's stated motivation; no ablation separates it from the simpler possibility that one width is just convenient. Read this cluster as a specification, not as evidence.

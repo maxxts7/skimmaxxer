@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=sqrt-dk-scaling ---
+NAME: The 1/sqrt(d_k) scaling factor
+OWNER: 1706.03762
+SUMMARY (leave alone): Dividing the query-key dot products by $\sqrt{d_k}$ so their magnitude stays controlled as the dimension grows, keeping the softmax out of its flat, tiny-gradient regions.
+
+EXPLANATION:
+Prior work found that additive attention beats plain dot-product attention when $d_k$ is large, though the two are similar for small $d_k$. The paper's suspected reason: if the components of $q$ and $k$ are independent with mean 0 and variance 1, their dot product $q \cdot k = \sum_{i=1}^{d_k} q_i k_i$ has mean 0 and variance $d_k$ — so raw scores grow in magnitude with dimension. Large scores push the softmax into saturated regions where its gradients are extremely small, which hurts learning. Dividing every dot product by $\sqrt{d_k}$ brings the variance back to 1 and counteracts the effect. This is presented as a hypothesis ('we suspect'), backed by the empirical comparison in [3].
+
+--- CONCEPT id=dot-product-attention ---
+NAME: Dot-product (multiplicative) attention
+OWNER: 1706.03762
+SUMMARY (leave alone): An attention variant that scores each query-key pair by their plain dot product; identical to the Transformer's attention except for the $1/\sqrt{d_k}$ factor.
+
+EXPLANATION:
+One of the two most common attention functions before this paper. The compatibility score is simply $q \cdot k$, so a whole batch of scores is one matrix multiplication $QK^T$. This makes it much faster and more space-efficient than additive attention in practice, because it rides on highly optimized matrix multiplication code. Its weakness, per cited experiments, is that without scaling it underperforms additive attention for large $d_k$ — the problem the $1/\sqrt{d_k}$ factor fixes.
+
+--- CONCEPT id=additive-attention ---
+NAME: Additive attention
+OWNER: 1706.03762
+SUMMARY (leave alone): An attention variant that scores each query-key pair with a small feed-forward network with one hidden layer, instead of a dot product.
+
+EXPLANATION:
+The other common attention function. The query and key are fed into a single-hidden-layer feed-forward network whose output is the compatibility score. It has similar theoretical complexity to dot-product attention but is slower and less memory-efficient in practice, since it cannot be expressed as one big matrix multiplication. Cited experiments found it outperforms unscaled dot-product attention when $d_k$ is large, which motivated the Transformer's scaling factor.
+
+--- CONCEPT id=multi-head-attention ---
+NAME: Multi-head attention
+OWNER: 1706.03762
+SUMMARY (leave alone): Running $h$ attention functions in parallel on different learned linear projections of the queries, keys, and values, then concatenating and projecting the results.
+
+EXPLANATION:
+Instead of one attention function over full $d_{model}$-dimensional vectors, the model linearly projects the queries, keys, and values $h$ times, with different learned projections, down to $d_k$, $d_k$, and $d_v$ dimensions. Attention runs in parallel on each projected set, giving $h$ outputs of dimension $d_v$; these are concatenated and projected once more: $\mathrm{MultiHead}(Q,K,V) = \mathrm{Concat}(\mathrm{head}_1, ..., \mathrm{head}_h)W^O$ with $\mathrm{head}_i = \mathrm{Attention}(QW^Q_i, KW^K_i, VW^V_i)$. The stated motivation: a single attention operation averages over attention-weighted positions, which reduces effective resolution; multiple heads let the model jointly attend to information from different representation subspaces at different positions. Because each head works in reduced dimensions ($d_k = d_v = d_{model}/h$), the total compute is similar to one full-dimensional head. Section 4 adds an observed side effect: individual heads appear to learn different tasks, some related to syntactic and semantic sentence structure.
+
+--- CONCEPT id=attention-head ---
+NAME: Attention head
+OWNER: 1706.03762
+SUMMARY (leave alone): One of the parallel attention functions inside multi-head attention, operating on its own learned low-dimensional projection of the queries, keys, and values.
+
+EXPLANATION:
+Each head $i$ has its own projection matrices $W^Q_i$, $W^K_i$, $W^V_i$ and computes scaled dot-product attention in a reduced space of dimension $d_k = d_v = 64$. Different heads can learn to look at different things — different positions, or different aspects (subspaces) of the representations. The heads' outputs are concatenated and mixed by the output projection $W^O$.
+
+--- CONCEPT id=num-heads-h ---
+NAME: h = 8 (number of heads)
+OWNER: 1706.03762
+SUMMARY (leave alone): The number of parallel attention heads in the base model: eight.
+
+EXPLANATION:
+The base model uses $h = 8$ parallel attention layers (heads). Each head's dimensions are set to $d_k = d_v = d_{model}/h = 512/8 = 64$, so splitting into more heads does not increase total compute — the per-head dimension shrinks to compensate.
+
+--- CONCEPT id=attention-projection-matrices ---
+NAME: Attention projection matrices (W^Q, W^K, W^V, W^O)
+OWNER: 1706.03762
+SUMMARY (leave alone): The learned linear maps that create each head's queries, keys, and values, and the final matrix that mixes the concatenated head outputs back to $d_{model}$.
+
+EXPLANATION:
+Per head $i$: $W^Q_i \in \mathbb{R}^{d_{model} \times d_k}$ and $W^K_i \in \mathbb{R}^{d_{model} \times d_k}$ project the inputs into the head's query and key spaces, and $W^V_i \in \mathbb{R}^{d_{model} \times d_v}$ produces its values. After the $h$ head outputs are concatenated (giving a vector of size $h \cdot d_v$), the output projection $W^O \in \mathbb{R}^{h d_v \times d_{model}}$ maps the result back to $d_{model}$. All of these are ordinary learned parameter matrices.
+
+--- CONCEPT id=attention-averaging-resolution-cost ---
+NAME: Averaging cost of single-head attention
+OWNER: 1706.03762
+SUMMARY (leave alone): A single attention operation blends many positions into one weighted average, which can blur position-specific information.
+
+EXPLANATION:
+The Transformer relates any two positions in a constant number of operations, but the paper says this comes at a cost: the output is an average over attention-weighted positions, which reduces effective resolution — distinct signals from different positions get mixed together. The paper counteracts this with multi-head attention, where separate heads can each focus differently.
+
+--- CONCEPT id=attention-interpretability ---
+NAME: Interpretability of attention
+OWNER: 1706.03762
+SUMMARY (leave alone): The paper's observation that inspecting attention distributions suggests individual heads learn distinct, sometimes linguistically meaningful, roles.
+
+EXPLANATION:
+Section 4 offers this as a side benefit: because attention weights are explicit numbers over positions, they can be inspected. The paper reports that individual attention heads clearly learn to perform different tasks, and that many appear to exhibit behavior related to the syntactic and semantic structure of sentences, with examples in the appendix. The paper hedges this as a possibility ('could yield more interpretable models') rather than a proven property.
+
+--- CONCEPT id=self-attention ---
+NAME: Self-attention (intra-attention)
+OWNER: 1706.03762
+SUMMARY (leave alone): Attention where the queries, keys, and values all come from the same sequence, so every position can gather information from every other position in that sequence.
+
+EXPLANATION:
+In a self-attention layer, all of the keys, values, and queries come from the same place — in the Transformer, the output of the previous layer of the same stack. Each position issues a query and attends over all positions of that previous layer's output, so information can flow between any pair of positions in one layer. This is the mechanism that replaces recurrence and convolution as the Transformer's way of relating positions within a sequence; the encoder uses it unrestricted, the decoder uses a masked version. Section 2 notes prior uses in reading comprehension, abstractive summarization, textual entailment, and sentence representations. The paper's claim to priority is specific: the Transformer is, to the authors' knowledge, the first transduction model that relies entirely on self-attention to compute representations of its input and output, without sequence-aligned RNNs or convolution. Section 4 argues for it on three grounds: per-layer complexity, parallelism, and short paths between distant positions.
+
+--- CONCEPT id=encoder-self-attention ---
+NAME: Encoder self-attention
+OWNER: 1706.03762
+SUMMARY (leave alone): The self-attention layers in the encoder, where each position can attend to all positions in the previous encoder layer, with no masking.
+
+EXPLANATION:
+In the encoder's self-attention layers, the queries, keys, and values all come from the output of the previous encoder layer. Each position attends to every position — earlier and later — because the whole input sentence is available at once and there is nothing to hide. This is the first of the three ways the Transformer uses multi-head attention.
+
+--- CONCEPT id=masked-decoder-self-attention ---
+NAME: Masked decoder self-attention
+OWNER: 1706.03762
+SUMMARY (leave alone): The decoder's self-attention, restricted by a mask so each position can only attend to itself and earlier positions.
+
+EXPLANATION:
+Self-attention layers in the decoder let each position attend to all positions up to and including itself — but not beyond. Leftward-only information flow is required to preserve the auto-regressive property: at generation time, position $i$ genuinely does not know what comes after it, so training must not let it peek. The restriction is implemented with causal masking inside scaled dot-product attention. Together with the one-position offset of the output embeddings, it ensures predictions for position $i$ depend only on outputs at positions before $i$.
+

@@ -1,0 +1,51 @@
+NARRATIVE NODE: n-what-the-numbers-show--one-knob-at-a-time
+TITLE: The one place the design is tested
+
+INTRO:
+The parent gave you the rows that matter and what the paper concluded from them. This level reads the grid as an experiment: what each block holds fixed, what it quietly changes alongside the knob in its name, and how much of the base configuration the table actually justifies.
+
+--- CHAPTER id=reading-the-grid ---
+TITLE: What the columns hold fixed
+
+[[table-3]] has twelve columns. Nine describe the run — [[n-layers|$N$]], [[d-model|$d_{model}$]], [[d-ff|$d_{ff}$]], [[num-heads-h|$h$]], [[dk-dv-dimensions|$d_k$ and $d_v$]], $P_{drop}$, $\epsilon_{ls}$, train steps — and three report the outcome: dev [[perplexity|PPL]], dev [[bleu|BLEU]], parameters in millions. Every ablation row inherits 100K steps and the base data and decoding setup, so the training budget is constant across the block.
+
+The params column is where the blanks say the most. Across all four rows of (A) it is empty, and that is a claim, not an omission: $h\,d_k = h\,d_v = 512$ is pinned in every row — $1\times512$, $4\times128$, $16\times32$, $32\times16$ — so the [[attention-projection-matrices|four projection matrices]] still total $d_{model}\times d_{model}$ and nothing is added or removed. Rows (B) are not like that. They print 58 and 60 against the base's 65, because narrowing $d_k$ with $d_v$ fixed genuinely deletes weights from $W^Q$ and $W^K$. A knob-name and a controlled comparison are not the same thing here.
+
+The last row is not an ablation at all. It is the [[base-vs-big-transformer|big model]] — 1024 wide, $d_{ff}$ 4096, sixteen heads, $P_{drop}=0.3$, 300K steps, 4.33 PPL and 26.4 BLEU at 213M parameters. It takes the winning end of every (C) knob it touches. So the table is doing two jobs at once: diagnosing the base model, and showing where the configuration behind [[table-2]] came from.
+
+--- CHAPTER id=the-head-sweep ---
+TITLE: Four head counts, read with the perplexity column
+
+The parent gave the BLEU column. The perplexity column runs alongside it and orders the sweep the same way: 5.29 at one head, 5.00 at four, 4.92 at eight, 4.91 at sixteen, 5.01 at thirty-two. Two metrics agreeing is worth something, but note where the minimum sits — sixteen heads post the lowest perplexity of any row in the ablation block, and the base row does not win its own sweep on either metric.
+
+The single-head row also carries a second change. With $h=1$, [[dk-dv-dimensions|$d_k = d_v = 512$]]: the worst row in (A) is also the one with the widest keys and values in the entire table. That is the shape the paper wants, since its argument for [[multi-head-attention|multi-head attention]] in [[eq-multihead|Equation (2)]] is not about dimension but about [[attention-averaging-resolution-cost|a single attention operation averaging positions together]] and losing what the parts were. Rows (A) are consistent with that story. They do not test it — nothing here shows heads occupying different subspaces, which is left to the hand-picked patterns in [[fig-5]] and the hedged claim about [[attention-interpretability|individual heads learning distinct roles]].
+
+So [[attention-heads-ablation|the sweep]] licenses one thing cleanly: at fixed compute, one head is worse than several, by 0.9 BLEU against the best. It does not license $h=8$ over $h=16$. That gap is 0.1 BLEU on one run each, with no seeds and no variance reported anywhere in the paper.
+
+--- CHAPTER id=key-width ---
+TITLE: What rows (B) actually shrank
+
+[[key-size-ablation|Rows (B)]] hold $h=8$ and $d_v=64$ and cut only $d_k$: 5.01 PPL and 25.4 BLEU at 32, 5.16 and 25.1 at 16. Both directions of the metric agree that it hurts.
+
+Two things move under that label. Parameters fall to 60M and 58M, since [[attention-projection-matrices|$W^Q$ and $W^K$]] narrow while $W^V$ and $W^O$ do not — a small capacity loss riding along with the knob. And total key width across the layer, $h\,d_k$, drops from 512 to 256 and then 128, whereas every row of (A) kept it at 512. That matters for how far the finding generalizes: the table already contains another configuration with per-head $d_k = 32$ — the sixteen-head row of (A) — and it scores 25.8. Per-head key size of 32 is not damaging on its own. What (B) removes is the layer's total budget for computing matches.
+
+The paper's own gloss goes elsewhere: determining compatibility is not easy, and a more sophisticated [[compatibility-function]] than [[dot-product-attention|a dot product]] may be beneficial. That is a hypothesis stated once and dropped. [[additive-attention]] is the obvious candidate, and Section 3.2.1 had already set it aside on speed rather than quality. There is also a small tension with [[sqrt-dk-scaling|the $1/\sqrt{d_k}$ factor]] in [[eq-attention|Equation (1)]], which exists because dot products grow unmanageable as $d_k$ grows — [[scaled-dot-product-attention]] is patched at the large end and underperforms at the small one.
+
+--- CHAPTER id=capacity-and-regularizers ---
+TITLE: Rows (C) and (D): where the BLEU is bought
+
+[[size-and-dropout-ablation|Rows (C)]] are seven rows, not one finding. Depth: [[n-layers|$N$]] of 2 gives 23.7 BLEU at 36M, 4 gives 25.3 at 50M, 8 gives 25.5 at 80M — and 4.88 PPL, better than the base, while BLEU sits 0.3 below it. "Bigger is better" holds in aggregate and breaks at the margin.
+
+Width is the more useful half. [[d-model|$d_{model}$]] at 256 costs 1.3 BLEU and saves 37M parameters; at 1024 it buys 26.0 BLEU for 168M. But widening only [[d-ff|the feed-forward inner layer]] to 4096 gives 26.2 — the best ablation row in the table — at 90M. Nearly half the parameters, slightly more BLEU. If the table says anything about where to spend, it says the [[position-wise-feed-forward-network]] is the cheaper axis, and the paper does not comment on it.
+
+Rows (D) vary two regularizers. [[residual-dropout|Dropout]] at 0.0 gives 5.77 PPL and 24.6 BLEU; at 0.2, 4.95 and 25.5. The base 0.1 is an interior optimum on both sides. [[label-smoothing]] is stranger. At $\epsilon_{ls}=0.0$ the model records 4.67 [[perplexity|PPL]], the best of any ablation row, with [[bleu|BLEU]] down at 25.3; at 0.2, perplexity degrades to 5.47 while BLEU holds at 25.7. This is Section 5.4's claim printed as data — [[label-smoothing-regularization|smoothing]] makes the model less sure and scores better anyway — and it means the two result columns cannot be read as one axis.
+
+--- CHAPTER id=the-tie-and-the-caveats ---
+TITLE: Row (E), and how much any of this weighs
+
+Row (E) is the only one whose cells are a sentence rather than numbers: positional embedding instead of sinusoids, 4.92 PPL and 25.7 BLEU. The perplexity matches the base row to two decimals and BLEU is 0.1 under it. The paper calls the two nearly identical and then keeps [[sinusoidal-positional-encoding|the sinusoids]] of [[eq-posenc|Equation (4)]] anyway, on the untested argument that fixed encodings may extrapolate past training lengths and that [[relative-position-linearity|offsets stay linear]]. So the choice of [[positional-encoding]] is settled somewhere other than here; row (E) only establishes that [[learned-positional-embedding|the alternative]] costs nothing measurable at these lengths.
+
+That is the right note to end on, because the caption limits what any row can carry. Perplexities are per word-piece under the paper's [[byte-pair-encoding|BPE]] vocabulary — the caption uses the word-piece term for a BPE segmentation, and either way the figures index against a 37000-token subword inventory, so they are an internal ordering within this table and nothing else. See [[word-piece-encoding]] for the other scheme in play. All numbers are newstest2013, the development set on which [[beam-search|beam size and $\alpha$]] were themselves chosen. [[checkpoint-averaging]] is off, so every row sits below the setup that produced [[table-2]] by construction.
+
+And each row is one training run. Under that, the differences the table can actually support are the large ones — one head, two layers, no dropout, $d_{model}=256$. The 0.1s and 0.3s are not readable.
+

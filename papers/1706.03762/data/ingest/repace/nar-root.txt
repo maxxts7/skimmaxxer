@@ -1,0 +1,140 @@
+NARRATIVE NODE: root
+TITLE: The Transformer, Start to Finish
+
+--- CHAPTER id=the-constraint-you-cannot-tune-away ---
+TITLE: The constraint you cannot tune away
+
+The best models for [[sequence-transduction|turning one sequence into another]] — [[machine-translation]] above all, but also [[language-modeling]] — are encoder-decoder networks built from [[recurrent-neural-network|recurrent layers]], usually [[lstm|LSTMs]] or [[gated-recurrent-unit|GRUs]], with an [[attention-mechanism|attention mechanism]] linking the two halves. The paper does not claim these score badly. It claims they have a defect that no amount of tuning removes.
+
+The defect is structural. A recurrent model computes hidden state $h_t$ from $h_{t-1}$ and the input at position $t$. Positions inside one training example therefore cannot be computed at the same time, and at long sequence lengths you cannot batch your way out either, because memory caps how many examples you hold at once. That is the [[sequential-computation-bottleneck]]. Recent work — [[factorization-tricks]], [[conditional-computation]] — cuts the constant factor. The paper's line about it is flat: the fundamental constraint of sequential computation remains.
+
+There are already attempts to route around recurrence. [[convolutional-sequence-models|Convolutional sequence models]] — [[extended-neural-gpu|the Extended Neural GPU]], [[bytenet|ByteNet]], [[convs2s|ConvS2S]] — compute all positions in parallel, but the number of operations needed to relate two positions grows with the distance between them: linearly for ConvS2S, logarithmically for ByteNet. [[end-to-end-memory-networks|End-to-end memory networks]] are built on a recurrent attention mechanism rather than sequence-aligned recurrence. And attention itself is everywhere by now — but in all but a few cases it sits on top of a recurrent network rather than replacing it.
+
+The proposal is to remove the recurrent network and keep the attention. The [[transformer|Transformer]] is, the authors say, the first transduction model that computes representations of its input and output using self-attention alone, with no sequence-aligned recurrence and no convolution. The claims attached to it are concrete: 28.4 BLEU on WMT 2014 English-to-German, more than 2 BLEU above every previously reported model including ensembles, after 3.5 days on eight GPUs — and a competitive English-to-German model after twelve hours.
+
+The full setup of the problem, and what the earlier attempts got and did not get, is in [[theme-why-recurrence-had-to-go]].
+
+--- CHAPTER id=the-shape-of-the-model ---
+TITLE: The shape of the model
+
+Before any math, the wiring. The Transformer keeps the [[encoder-decoder-architecture|encoder-decoder frame]] unchanged: an encoder maps the input token sequence to a sequence of continuous representations, and a decoder emits output tokens one at a time, consuming what it has already produced. That last part is [[auto-regressive-generation|auto-regressive generation]], and it is the one thing about the old design the paper does not touch. [[fig-1]] is the whole model in one picture.
+
+The [[encoder-stack]] is [[n-layers|six identical layers]]. Each layer has two sub-layers: multi-head self-attention, then a small feed-forward network applied to each position separately. The [[decoder-stack]] is six identical layers too, but each has three sub-layers — masked self-attention over what the decoder has produced, attention over the encoder's output, then the same feed-forward network.
+
+Every [[sub-layer]] is wrapped the same way. The output is $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$: a [[residual-connection]] around the sub-layer, then [[layer-normalization]]. The normalization is part of the sub-layer's definition here, not a tuning extra. The paper uses it by citation and never writes the formula; what it does is standardize each position's activation vector using [[layer-normalization-statistics|a mean and variance computed across that position's own hidden units]], which is what lets it work on variable-length sequences without touching the batch.
+
+One consequence falls straight out of the residual connections: because you add a sub-layer's input to its output everywhere, everything has to be the same width. So all sub-layers and both embedding layers produce vectors of [[d-model|$d_{model} = 512$]]. The uniform width is not a hyperparameter choice so much as a bookkeeping requirement.
+
+That is the frame. [[theme-the-shape-of-the-model]] walks the two stacks layer by layer if you want the map before the parts arrive.
+
+--- CHAPTER id=one-operation ---
+TITLE: One operation, run eight times
+
+The model is built from a single primitive. [[attention-mechanism|Attention]] maps a query and a set of key-value pairs to an output, where the output is a weighted sum of the values and the weights come from a [[compatibility-function]] scoring the query against each key. [[queries-keys-values|Queries, keys, and values]] are just roles: the query asks, the keys advertise, the values carry the content. [[fig-2]] draws the whole thing as data flow.
+
+The paper's version, [[scaled-dot-product-attention]], is [[eq-attention|one line]]:
+
+$$\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^{T}}{\sqrt{d_k}}\right)V$$
+
+Two choices are worth pulling out. First, the score is a dot product rather than a small feed-forward net. [[additive-attention]] and [[dot-product-attention|plain dot-product attention]] are similar in theoretical complexity, but the dot product compiles down to a matrix multiply, so it is faster and more space-efficient in practice. Second, the [[sqrt-dk-scaling|division by $\sqrt{d_k}$]] — the only difference between this and plain dot-product attention. The stated reason is a suspicion, and the paper says so: for large $d_k$ the authors *suspect* the dot products grow large enough to push the [[softmax]] into a region of very small gradients. The divisor is there to counteract that.
+
+Then the same function is run [[num-heads-h|eight times]] instead of once. [[multi-head-attention|Multi-head attention]] projects the queries, keys, and values through [[attention-projection-matrices|per-head learned matrices]], applies the equation above inside each subspace, concatenates the results, and maps them back to $d_{model}$ with a final projection — that is all [[eq-multihead|the multi-head equation]] says. Each [[attention-head]] works at [[dk-dv-dimensions|$d_k = d_v = d_{model}/h = 64$]], so the width falls out of the head count rather than being chosen on its own, and eight narrow heads cost about what one full-width head costs.
+
+The motive is stated as a repair. A single attention operation blends many positions into one weighted average, which costs [[attention-averaging-resolution-cost|effective resolution]]; multiple heads let the model attend to different representation subspaces at different positions instead of averaging everything into one blur.
+
+[[theme-how-attention-is-computed]] goes through the primitive itself; [[etheme-dot-product-to-eight-heads]] follows the chain from one dot product up to the eight-head wrapper.
+
+--- CHAPTER id=three-wirings-of-the-same-block ---
+TITLE: Three wirings of the same block
+
+The same multi-head block appears in three places, and the only thing that changes is where the queries, keys, and values come from.
+
+In [[encoder-self-attention|the encoder]], all three come from the previous encoder layer, so every position attends to every position, unmasked. This is [[self-attention|self-attention]]: one sequence relating its own positions to compute a representation of itself, an idea already used for reading comprehension, summarization, and entailment before this paper.
+
+In the decoder, the same function runs over the decoder's own previous layer — but each position may only attend to itself and earlier positions. That is [[masked-decoder-self-attention|masked self-attention]], and the mask is what separates it from the encoder case. The implementation is blunt: [[causal-masking|set the scores for forbidden positions to $-\infty$ before the softmax]], and exponentiating $-\infty$ gives zero weight. This exists to keep the auto-regressive property intact. Together with offsetting the output embeddings by one position, it guarantees the prediction at position $i$ depends only on outputs before $i$ — without it, the decoder would train by reading the answer.
+
+The third wiring is [[encoder-decoder-attention]]: queries from the previous decoder layer, keys and values from the encoder's output. Every decoder position can look anywhere in the input. The paper is explicit that this mimics the encoder-decoder attention of typical sequence-to-sequence models — it is the one piece kept from the old design, not reinvented. It also means the encoder stack has to have run before there is anything to attend over.
+
+[[theme-where-attention-is-used]] takes the three uses one at a time; [[etheme-attention-wired-into-stacks]] traces the mask specifically.
+
+--- CHAPTER id=per-position-parts ---
+TITLE: The parts that act on one position at a time
+
+Attention mixes information across positions. Two things are still missing: nothing transforms a position's own vector, and nothing tells the model what order the tokens are in.
+
+The first gap is closed by the [[position-wise-feed-forward-network]], the second sub-layer in every encoder and decoder layer. [[eq-ffn|It is a two-layer MLP]] — $\max(0, xW_1 + b_1)W_2 + b_2$ — widening each 512-dimensional vector to [[d-ff|$d_{ff} = 2048$]], applying a [[relu|ReLU]], and projecting back. The same parameters at every position within a layer, different parameters across layers. Note what is not in that equation: no index over other positions. All cross-position work happens in the attention sub-layers, and only there.
+
+The [[token-embeddings|embeddings]] are ordinary learned lookups, with one economy: [[embedding-softmax-weight-sharing|the encoder input embedding, the decoder input embedding, and the pre-softmax output projection are one shared matrix]], with the embedding layers multiplying it by [[sqrt-dmodel-embedding-multiplier|$\sqrt{d_{model}}$]]. The paper states this in a sentence and cites; the mechanism, and why it helps, lives in the cited [[weight-tying|weight-tying]] work and its [[three-way-weight-tying|three-way variant]] for translation models.
+
+The second gap is the one self-attention creates. Self-attention treats a sequence as a set — every position looks at every other with no sense of who came first — so with no recurrence and no convolution, order has to be injected by hand. The fix is a [[positional-encoding]] added to the input embeddings at the bottom of both stacks. The version used is [[sinusoidal-positional-encoding|a bank of sinusoids]]: [[eq-posenc|each dimension is a sine or cosine of the position]], with wavelengths in a geometric progression from $2\pi$ to $10000 \cdot 2\pi$. Nothing here is learned.
+
+The stated reason is a hypothesis: for any fixed offset $k$, the encoding of $pos+k$ is [[relative-position-linearity|a linear function of the encoding of $pos$]], which the authors guessed would make attending by relative position easy to learn. They also tried [[learned-positional-embedding|learned positional embeddings]] and got nearly identical results. Sinusoids were kept anyway, on the grounds that they *may* let the model extrapolate to sequences longer than any it trained on — a possibility the paper does not test.
+
+[[theme-position-embeddings-and-feed-forward]] covers all three pieces; [[etheme-order-without-recurrence]] follows the order question on its own.
+
+--- CHAPTER id=the-argument-in-three-numbers ---
+TITLE: The argument in three numbers
+
+The architecture is fully specified by this point, and the paper has not yet given a reason to prefer it. Section 4 is that reason, and it is an argument from complexity, not from experiment.
+
+It proposes [[layer-comparison-desiderata|three criteria]] for judging any layer that maps one length-$n$ sequence to another: [[complexity-per-layer|total computation per layer]], [[minimum-sequential-operations|the number of operations that must run one after another]] as a measure of parallelizability, and [[maximum-path-length|the longest path a signal travels between any two positions]]. [[table-1]] is that framework filled in — one row per layer type, one column per criterion.
+
+The third criterion carries the weight. Shorter forward and backward paths make [[long-range-dependencies]] easier to learn, so the table's path-length column is the case: $O(1)$ for self-attention against $O(n)$ for a recurrent layer, and $O(n/k)$ or $O(\log_k n)$ for stacked convolutions depending on whether they are [[dilated-convolutions|dilated]]. The sequential-operations column says the same thing about training: $O(1)$ against $O(n)$.
+
+The per-layer cost column does not favor self-attention unconditionally, and the paper says so. Self-attention costs $O(n^2 \cdot d)$ against a recurrent layer's $O(n \cdot d^2)$, so recurrence wins whenever $n$ exceeds $d$. The defense is empirical rather than asymptotic: with word-piece and byte-pair sentence representations, $n$ is usually smaller than $d$. That defense is load-bearing, and it is an observation about typical sentence lengths, not a bound. For sequences long enough to break it, the paper sketches [[restricted-self-attention|restricting attention to a neighborhood of size $r$]], which pushes path length back up to $O(n/r)$ — offered as future work, not run.
+
+One more benefit is claimed and immediately hedged: self-attention *could* yield more interpretable models, since [[attention-interpretability|inspecting attention distributions]] suggests heads pick up distinct roles, many of which *appear* to relate to syntax and semantics.
+
+[[theme-why-self-attention]] takes the comparison row by row; [[etheme-case-against-recurrence]] is the same argument stated as the case against the incumbents.
+
+--- CHAPTER id=training-the-thing ---
+TITLE: Training the thing
+
+The [[transformer-training-recipe|recipe]] is reported in enough detail to reproduce, and most of its pieces are borrowed at stated settings rather than derived here.
+
+Data: [[wmt-2014-en-de|WMT 2014 English-German]], about 4.5M sentence pairs, tokenized with [[byte-pair-encoding|byte-pair encoding]] into a shared source-target vocabulary of roughly 37000 tokens; and [[wmt-2014-en-fr|WMT 2014 English-French]], 36M sentences, with a 32000-token [[word-piece-encoding|word-piece vocabulary]]. Neither scheme is defined in this paper — BPE is [[bpe-merge-algorithm|the greedy merge loop]] from its own paper, and word pieces come from [[wordpiece-model|Google's NMT system]]. [[length-based-batching|Batches group sentence pairs of similar length]] and are measured in tokens: about 25000 source and 25000 target tokens each.
+
+Hardware: [[training-hardware-and-schedule|one machine with 8 NVIDIA P100 GPUs]]. The base model takes about 0.4 seconds per step and trains for 100,000 steps, twelve hours. The [[base-vs-big-transformer|big model]] takes 1.0 seconds per step and trains for 300,000 steps, 3.5 days.
+
+Optimizer: [[adam-optimizer|Adam]] with [[transformer-adam-settings|$\beta_1 = 0.9$, $\beta_2 = 0.98$, $\epsilon = 10^{-9}$]] — a lower $\beta_2$ than the usual default — and a learning rate that is not constant. [[learning-rate-warmup-schedule|The schedule]] is [[eq-lrate|Equation (3)]]: rise linearly for [[warmup-steps-4000|the first 4000 steps]], then decay as the inverse square root of the step number, all scaled by $d_{model}^{-0.5}$. This is one of the few pieces the paper introduces without a citation, and it gets no ablation.
+
+Regularization is three things. [[residual-dropout|Dropout]] on each sub-layer's output before the residual addition, and on the embedding-plus-positional-encoding sums, at $P_{drop} = 0.1$ for the base model. [[label-smoothing]] at $\epsilon_{ls} = 0.1$, applied by citation — the mechanism is [[label-smoothing-regularization|the cited LSR target mixture]], with [[smoothing-parameter-epsilon|$\epsilon$ and the prior distribution]] as its two knobs. And the paper reports something the smoothing does that reads as a contradiction and is not: it hurts [[perplexity]], because the model learns to be less sure, while improving accuracy and BLEU.
+
+One last step happens after training: [[checkpoint-averaging|the final weights are the elementwise average of the last checkpoints]] — five for base models, twenty for big ones, written at ten-minute intervals. Every reported number is an averaged model, not a single checkpoint. The code is released as [[tensor2tensor]].
+
+[[theme-training-the-thing]] separates what is doing work from what is merely reported; [[etheme-borrowed-recipe]] traces each borrowed piece back to where it is actually defined.
+
+--- CHAPTER id=what-the-numbers-show ---
+TITLE: What the numbers show
+
+Decoding is [[beam-search]] with beam size 4 and [[length-penalty|$\alpha = 0.6$]]. The paper reports $\alpha$ without saying what it does; it is the exponent in [[length-normalization-penalty|the cited length-normalization divisor]] that lets long and short hypotheses be compared fairly. Output is capped at [[inference-length-limit|input length plus 50 tokens]], with early termination. These were picked on the development set.
+
+The headline is [[table-2]], which plots [[bleu]] against cost. The big model reaches 28.4 BLEU on English-to-German, more than 2.0 above every earlier entry, ensembles included. English-to-French comes in at 41.0 in Section 6.1, above every previously published single model at less than a quarter of the previous best's training cost. Even the base model, at twelve hours, beats all previously published models and ensembles. The cost axis is a [[training-flops-estimate|FLOP estimate]]: training time multiplied by the number of GPUs multiplied by an assumed sustained single-precision throughput per GPU.
+
+[[transformer-ablations|Table 3]] changes one thing at a time on the base model, measured on the English-to-German development set. Rows (A) vary the head count with total computation held fixed: [[attention-heads-ablation|single-head attention is 0.9 BLEU below the best setting, and quality also falls off with too many heads]]. That row is the entire evidence that $h = 8$ is a middle choice rather than more-is-better. Rows (B) show [[key-size-ablation|shrinking $d_k$ hurts]], which the paper reads as a hint that the dot product may be too simple a compatibility function — an admission against its own design choice. Rows (C) and (D) give the unsurprising results: [[size-and-dropout-ablation|bigger is better, dropout helps]]. Row (E) swaps sinusoids for learned position embeddings and gets nearly identical numbers. [[table-3]] is the one place the design is tested rather than asserted.
+
+The generalization test is [[constituency-parsing|English constituency parsing]], chosen because the output has strong structural constraints and is much longer than the input, and because RNN sequence-to-sequence models had not reached the top in small-data regimes. It only becomes a sequence problem at all through [[parse-tree-linearization|the cited linearization scheme]], which flattens a tree into bracket-and-label tokens. A 4-layer Transformer with $d_{model} = 1024$ trains on [[penn-treebank-wsj|the ~40K-sentence WSJ treebank]], and separately in a [[semi-supervised-parsing|semi-supervised setting]] with about 17M additional machine-parsed sentences. [[table-4]] gives 91.3 F1 on Section 23 in the WSJ-only setting — past [[berkeley-parser|the BerkeleyParser]] and every listed model except [[recurrent-neural-network-grammar|the RNNG]] — with only dropout, learning rate, and beam size tuned.
+
+[[theme-what-the-numbers-show]] covers decoding and evaluation together; [[etheme-translation-numbers]] and [[etheme-parsing-test]] take the two experiments separately.
+
+--- CHAPTER id=what-this-establishes ---
+TITLE: What this establishes, and what it does not
+
+The result is real and worth stating plainly: an encoder-decoder with no recurrence and no convolution reaches the top of two standard translation benchmarks, and it does so with less training compute than the models it beats. That is a claim about an architecture, and it is supported.
+
+Now the accounting.
+
+The evidence is three tasks, all of them text, all fed in as token sequences. Two are translation datasets from the same year's WMT; the third is parsing, which only qualifies as sequence transduction because a tree was flattened first. The conclusion lists images, audio, and video as things the authors *plan* to try. Nothing outside text was tested.
+
+Every number is a single run. [[table-2]] and [[table-3]] each report one figure per configuration — no seeds, no variance, no intervals. The 0.9 BLEU gap that justifies eight heads is one run against another, on a development set. So is the finding that learned and sinusoidal positions are "nearly identical": with no variance estimate, near-identical and identical are indistinguishable, and the paper's stated reason for keeping sinusoids anyway is an untested guess about extrapolation.
+
+The cost axis, which carries half the argument, is not measured. It is training time times GPU count times an *assumed* sustained throughput — 2.8, 3.7, 6.0, and 9.5 TFLOPS for K80, K40, M40, and P100. Applied to other people's models on other people's hardware, the comparison inherits that assumption everywhere.
+
+One number does not agree with itself: the abstract reports 41.8 BLEU for English-to-French; Section 6.1 reports 41.0 for the same model. The paper does not reconcile them.
+
+The interpretability material is offered as illustration and nothing more. [[fig-3]] shows several heads tracking a long-distance dependency for one query word; [[fig-4]] shows two heads resolving the pronoun "its" onto two different antecedents; [[fig-5]] shows two heads in the same layer with visibly different patterns. These are hand-picked sentences with no quantitative claim attached. The paper's own verb is that heads "appear to exhibit" behavior related to syntax and semantics.
+
+Several mechanisms are motivated by suspicion rather than measurement, and the paper says so each time: the $1/\sqrt{d_k}$ divisor is there because the authors *suspect* large dot products flatten the softmax; the sinusoid choice rests on a *hypothesis* about relative positions; [[restricted-self-attention|restricted attention]] for long sequences is described and never run. The $O(n^2 \cdot d)$ per-layer cost is defended by the observation that sentences are shorter than 512 subword tokens, which holds for this data and is not argued beyond it.
+
+What is left after all of that is still substantial. The [[transformer|Transformer]] shows that the [[sequential-computation-bottleneck|sequential constraint]] on recurrent training can be dropped without giving up quality on the task recurrence was best at, and the parsing result suggests the architecture is not translation-specific. What it has not shown is how far past sentence-length text sequences any of it carries.
+

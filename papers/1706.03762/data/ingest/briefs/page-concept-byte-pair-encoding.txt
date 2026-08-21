@@ -1,0 +1,25 @@
+PAGE FOR CONCEPT: byte-pair-encoding
+NAME: Byte-pair encoding (BPE)
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A subword tokenization scheme that builds a vocabulary by repeatedly merging the most frequent pair of symbols, so rare words split into known pieces.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+BPE starts from characters and greedily merges the most frequent adjacent symbol pairs until the vocabulary reaches a target size. Common words end up as single tokens; rare words break into subword units, so any text can be encoded without an out-of-vocabulary token. The paper uses BPE for the WMT 2014 English-German data with a single vocabulary of about 37000 tokens shared between source and target languages. BPE also appears in section 4's complexity argument: byte-pair sentence representations are cited as the kind state-of-the-art translation models use, supporting the claim that sequence length $n$ is usually smaller than representation dimension $d$.
+
+THEME IT BELONGS TO: theme-training-the-thing | Training the thing - Everything needed to reproduce a trained model: the translation datasets, subword vocabularies built with byte-pair encoding or word pieces, batching by sequence length, and eight GPUs on one machine. The learning rate is not fixed — it ramps up linearly for the first 4000 steps and then decays as the inverse square root of the step. Label smoothing, dropout, and averaging the last several checkpoints round out the recipe, and the code was released as tensor2tensor.
+
+DEFINED IN A CITED PAPER [31] (paper id 1508.07909). Those concepts are linkable: bpe-merge-algorithm, bpe-segmentation-at-test-time, bpe-vocabulary-size, joint-bpe-shared-vocabulary, vocabulary-vs-sequence-length-tradeoff
+
+EDGES TOUCHING THIS CONCEPT (4) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] -> bpe-merge-algorithm (BPE Merge Algorithm) | depends-on | vocabulary built by merging pairs: The 37000-token English-German vocabulary is the output of the greedy merge loop from the cited paper. Without the merge procedure the vocabulary size is just a number with no meaning.
+  [supporting] -> joint-bpe-shared-vocabulary (Joint BPE and the Shared Source-Target Vocabulary) | depends-on | shared source-target vocab needs joint BPE: Section 5.1 says the English-German vocabulary is shared between source and target. That is the joint-BPE variant, where merges are learned over both languages' text at once, and it is what makes the encoder and decoder embeddings shareable.
+  [supporting] <- complexity-per-layer (Computational complexity per layer) | depends-on | the n < d claim assumes subwords: Self-attention is cheaper per layer than recurrence only when sequence length n is below representation dimension d. The paper supports that condition by pointing at word-piece and byte-pair representations, which keep sentence lengths short.
+  [supporting] -> joint-bpe-shared-vocabulary (Joint BPE and the Shared Source-Target Vocabulary) | instance-of | uses joint BPE across both languages: The cited BPE paper describes learning merges over the combined source and target text so both languages share one vocabulary. The English-German setup does this, with a shared vocabulary of about 37000 tokens.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - table-3 | One-knob-at-a-time ablations: Table 3 changes one design choice of the base Transformer at a time and reports the effect on English-to-German development-set quality. It shows a middling head count (around 8-16) is best, shrinking the attention key dimension $d_k$ hurts, bigger models are better, dropout matters a lot, and learned positional embeddings match sinusoids almost exactly.
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 13-4-why-self-attention.txt
+  - 15-5.1-training-data-and-batching.txt

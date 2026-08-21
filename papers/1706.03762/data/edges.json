@@ -1,0 +1,1048 @@
+{
+ "edges": [
+  {
+   "source": "multi-head-attention",
+   "target": "scaled-dot-product-attention",
+   "type": "depends-on",
+   "label": "provides the per-head unit",
+   "explanation": "Multi-head attention runs h heads, and each head is one call to the scaled dot-product attention function of Equation (1). The same function is used every time; only the projected inputs differ. Everything the multi-head layer adds sits outside that call — the linear projections before it, the concatenation after it. So the inner function has to be understood first.",
+   "strength": "load-bearing",
+   "id": "e001"
+  },
+  {
+   "source": "eq-multihead",
+   "target": "eq-attention",
+   "type": "depends-on",
+   "label": "calls the Equation (1) function",
+   "explanation": "The multi-head equation defines head_i as Attention(QW^Q_i, KW^K_i, VW^V_i). The per-head projections happen inside the argument list; the Attention term applied to them is exactly the function from Equation (1). Nothing about the scoring rule changes. The multi-head line is a wrapper around Equation (1), not a replacement for it.",
+   "strength": "load-bearing",
+   "id": "e002"
+  },
+  {
+   "source": "dk-dv-dimensions",
+   "target": "num-heads-h",
+   "type": "depends-on",
+   "label": "head width is d_model divided by h",
+   "explanation": "The 64 is not picked independently. The paper sets d_k = d_v = d_model/h, and d_model is 512 with h = 8, so 512/8 = 64 is the width each head gets. The total width is held fixed and divided among the heads. Change the head count and the head width changes with it.",
+   "strength": "load-bearing",
+   "id": "e003"
+  },
+  {
+   "source": "sqrt-dk-scaling",
+   "target": "dk-dv-dimensions",
+   "type": "depends-on",
+   "label": "scale is set by key dimension",
+   "explanation": "The footnote's argument starts from an assumption: the components of the query and key are independent random variables with mean 0 and variance 1. Summing d_k such products gives a dot product with variance d_k. So d_k is the quantity that makes the scores grow as the head gets wider. That is why the divisor is sqrt(d_k) and not some other constant.",
+   "strength": "supporting",
+   "id": "e004"
+  },
+  {
+   "source": "sqrt-dk-scaling",
+   "target": "softmax",
+   "type": "depends-on",
+   "label": "protects the softmax gradient",
+   "explanation": "The stated reason for dividing is that large dot products push the softmax into regions where its gradients are extremely small. Shrinking the scores before they reach the softmax keeps them out of that region. The fix only makes sense once softmax saturation is on the table. The paper offers this as a suspicion about why the scaling helps, not as a proof.",
+   "strength": "supporting",
+   "id": "e005"
+  },
+  {
+   "source": "scaled-dot-product-attention",
+   "target": "dot-product-attention",
+   "type": "depends-on",
+   "label": "adds one factor to plain dot-product",
+   "explanation": "The paper defines its attention by difference rather than from scratch. It is identical to dot-product attention in every respect but one: the 1/sqrt(d_k) factor applied to the scores. That makes the plain dot-product variant the baseline the definition rests on, with the scaling as the single addition.",
+   "strength": "supporting",
+   "id": "e006"
+  },
+  {
+   "source": "causal-masking",
+   "target": "softmax",
+   "type": "depends-on",
+   "label": "minus-infinity becomes zero weight",
+   "explanation": "The masking happens before the softmax: the scores at forbidden positions are set to minus infinity. The softmax then exponentiates every score, and exponentiating minus infinity gives zero. Those positions come out with no weight at all. The trick works only because of that property of the softmax.",
+   "strength": "load-bearing",
+   "id": "e007"
+  },
+  {
+   "source": "masked-decoder-self-attention",
+   "target": "auto-regressive-generation",
+   "type": "depends-on",
+   "label": "masking preserves auto-regression",
+   "explanation": "The mask exists to stop information flowing leftward in the decoder, so that the auto-regressive property holds. Position i must not be able to see anything that comes after it. The output embeddings are also offset by one position. The two together ensure the prediction at position i depends only on outputs at positions before i.",
+   "strength": "load-bearing",
+   "id": "e008"
+  },
+  {
+   "source": "causal-masking",
+   "target": "scaled-dot-product-attention",
+   "type": "depends-on",
+   "label": "implemented inside the attention function",
+   "explanation": "Section 3.2.3 places the masking inside scaled dot-product attention, applied to the input of the softmax. It is a stage of the attention block that already exists — the optional Mask box in Figure 2. Nothing new is stacked on top of attention. The same block simply runs with one step switched on.",
+   "strength": "supporting",
+   "id": "e009"
+  },
+  {
+   "source": "encoder-decoder-attention",
+   "target": "encoder-stack",
+   "type": "depends-on",
+   "label": "keys and values are encoder output",
+   "explanation": "This sub-layer draws its inputs from two places. The queries come from the previous decoder layer, while the memory keys and values are the encoder stack's output. That output is the thing being attended over, so there is nothing for the decoder to attend to until the encoder stack has run.",
+   "strength": "load-bearing",
+   "id": "e010"
+  },
+  {
+   "source": "positional-encoding",
+   "target": "self-attention",
+   "type": "depends-on",
+   "label": "exists because attention ignores order",
+   "explanation": "Self-attention treats the sequence as a set. Every position attends to every other position, and the computation itself records nothing about which one came first. The model has no recurrence and no convolution to supply that ordering either. So the paper says information about position has to be injected separately.",
+   "strength": "load-bearing",
+   "id": "e011"
+  },
+  {
+   "source": "d-model",
+   "target": "residual-connection",
+   "type": "depends-on",
+   "label": "residuals force one shared width",
+   "explanation": "A residual connection adds a sub-layer's input to its output, which only works if the two have the same width. Section 3.1 gives that as the reason directly: to facilitate the residual connections, all sub-layers and the embedding layers produce outputs of dimension 512. The single shared width is a consequence of adding inputs to outputs everywhere, not an independent choice.",
+   "strength": "load-bearing",
+   "id": "e012"
+  },
+  {
+   "source": "sub-layer",
+   "target": "layer-normalization",
+   "type": "depends-on",
+   "label": "every sub-layer output is normalized",
+   "explanation": "Every sub-layer is wrapped the same way: the output is LayerNorm(x + Sublayer(x)). The residual addition comes first, and the layer normalization is applied to the sum. That normalization sits inside the definition of a sub-layer, not as an optional extra bolted on afterwards.",
+   "strength": "load-bearing",
+   "id": "e013"
+  },
+  {
+   "source": "layer-normalization",
+   "target": "layer-normalization-statistics",
+   "type": "depends-on",
+   "label": "reuses the cited normalization formula",
+   "explanation": "The paper uses layer normalization by citation and never writes the formula down. In the cited definition, the mean and standard deviation are computed across the hidden units of a single position. Nothing is pooled across positions, so one token's statistics do not depend on how many other tokens are present. That is what lets it work on variable-length sequences.",
+   "strength": "load-bearing",
+   "id": "e014"
+  },
+  {
+   "source": "embedding-softmax-weight-sharing",
+   "target": "weight-tying",
+   "type": "depends-on",
+   "label": "borrows tying without defining it",
+   "explanation": "The paper's whole statement is that it shares one weight matrix between the two embedding layers and the pre-softmax projection, with a citation attached. It does not describe how the tying works, and it does not argue for why it should help. Both the mechanism and its motivation live in that cited prior work.",
+   "strength": "load-bearing",
+   "id": "e015"
+  },
+  {
+   "source": "embedding-softmax-weight-sharing",
+   "target": "three-way-weight-tying",
+   "type": "depends-on",
+   "label": "three roles, one matrix",
+   "explanation": "One matrix fills three roles here: the encoder input embedding, the decoder input embedding, and the output projection. That is the three-way case of tying. It is possible only because source and target share a single vocabulary.",
+   "strength": "supporting",
+   "id": "e016"
+  },
+  {
+   "source": "sqrt-dmodel-embedding-multiplier",
+   "target": "embedding-softmax-weight-sharing",
+   "type": "depends-on",
+   "label": "rescales the shared matrix",
+   "explanation": "The multiplier applies to the shared weights at the points where they act as the embedding layers. It arises only because that one matrix serves two roles — an embedding lookup on the inputs, and the pre-softmax projection at the output. Without the sharing there would be no second use to rescale against. The paper states the multiplication and gives no reason for it.",
+   "strength": "supporting",
+   "id": "e017"
+  },
+  {
+   "source": "learning-rate-warmup-schedule",
+   "target": "d-model",
+   "type": "depends-on",
+   "label": "schedule scales with model width",
+   "explanation": "Equation (3) multiplies the entire schedule by d_model^-0.5. That factor shrinks as d_model grows, so a wider model automatically gets smaller steps with no constants retuned by hand. The schedule is therefore not a fixed set of numbers carried from one model to the next. It is tied to the width of the architecture it trains.",
+   "strength": "supporting",
+   "id": "e018"
+  },
+  {
+   "source": "learning-rate-warmup-schedule",
+   "target": "adam-optimizer",
+   "type": "depends-on",
+   "label": "overrides Adam's step size",
+   "explanation": "The formula does not replace Adam. It sets the global learning rate that Adam then scales per parameter, so the schedule sits on top of the optimizer rather than beside it. The paper also runs Adam with beta2 = 0.98 rather than the usual default. The schedule and the optimizer settings are chosen together.",
+   "strength": "supporting",
+   "id": "e019"
+  },
+  {
+   "source": "label-smoothing",
+   "target": "label-smoothing-regularization",
+   "type": "depends-on",
+   "label": "uses the cited target mixture",
+   "explanation": "The paper applies label smoothing at eps = 0.1 and points to prior work for what it is. The mechanism lives in that cited definition: the one-hot target is replaced by a mixture that gives the correct token 1 - eps and spreads eps over the rest. At eps = 0.1, the correct token is trained toward 0.9 rather than 1.",
+   "strength": "load-bearing",
+   "id": "e020"
+  },
+  {
+   "source": "byte-pair-encoding",
+   "target": "bpe-merge-algorithm",
+   "type": "depends-on",
+   "label": "vocabulary built by merging pairs",
+   "explanation": "The English-German vocabulary is not designed to be 37000 tokens. That number is what the greedy merge loop from the cited paper produces: repeatedly fuse the most frequent adjacent symbol pair in the corpus into a new symbol, stop after a set number of merges, and count what is left. Without that procedure, 37000 is a size with nothing behind it.",
+   "strength": "load-bearing",
+   "id": "e021"
+  },
+  {
+   "source": "byte-pair-encoding",
+   "target": "joint-bpe-shared-vocabulary",
+   "type": "depends-on",
+   "label": "shared source-target vocab needs joint BPE",
+   "explanation": "Section 5.1 says the English-German vocabulary is shared between source and target. Covering both sides with one vocabulary means the merges have to be learned over both languages' text at once rather than separately per language. That variant is joint BPE. It is also what makes the encoder and decoder embedding matrices shareable, since both index into the same token set.",
+   "strength": "supporting",
+   "id": "e022"
+  },
+  {
+   "source": "word-piece-encoding",
+   "target": "wordpiece-model",
+   "type": "depends-on",
+   "label": "32000-token vocab from cited scheme",
+   "explanation": "For English-French the paper does not describe a segmentation of its own. It splits tokens into a 32000 word-piece vocabulary taken from the cited translation system. That scheme chooses its subword units so any string can be covered by some combination of them, which is the guarantee that no input ever falls out of vocabulary.",
+   "strength": "supporting",
+   "id": "e023"
+  },
+  {
+   "source": "length-penalty",
+   "target": "length-normalization-penalty",
+   "type": "depends-on",
+   "label": "alpha = 0.6 is the cited divisor",
+   "explanation": "The paper reports beam size 4 and alpha = 0.6 without saying what alpha does. In the cited work it is the exponent in a length-normalization divisor. A hypothesis's log-probability is divided by that term before candidates are compared, so a long candidate is not ranked below a short one merely for having accumulated more negative log-probabilities along the way.",
+   "strength": "load-bearing",
+   "id": "e024"
+  },
+  {
+   "source": "complexity-per-layer",
+   "target": "byte-pair-encoding",
+   "type": "depends-on",
+   "label": "the n < d claim assumes subwords",
+   "explanation": "Self-attention is cheaper per layer than recurrence only under a condition: sequence length n has to be below representation dimension d. The paper's argument that the condition normally holds is the tokenization. Word-piece and byte-pair representations keep a translated sentence to a few dozen tokens, which is where the n < d claim gets its support.",
+   "strength": "supporting",
+   "id": "e025"
+  },
+  {
+   "source": "restricted-self-attention",
+   "target": "maximum-path-length",
+   "type": "depends-on",
+   "label": "trade priced in path length",
+   "explanation": "Restricting each position to attend only inside a neighborhood of size r is proposed for very long sequences, where full attention becomes expensive. The saving is real, but it costs distance: two far-apart positions now need several hops to reach each other, which raises maximum path length to O(n/r). Without the path-length metric there is nothing to charge that saving against, so the trade only reads as a trade in that column.",
+   "strength": "supporting",
+   "id": "e026"
+  },
+  {
+   "source": "maximum-path-length",
+   "target": "long-range-dependencies",
+   "type": "depends-on",
+   "label": "metric exists to serve this goal",
+   "explanation": "Path length is not measured for its own sake. The paper calls learning long-range dependencies a key challenge in sequence transduction. Its stated reason for tracking the length of the forward and backward signal paths is that shorter paths are said to make such dependencies easier to learn.",
+   "strength": "supporting",
+   "id": "e027"
+  },
+  {
+   "source": "attention-heads-ablation",
+   "target": "dk-dv-dimensions",
+   "type": "depends-on",
+   "label": "holding compute fixed needs shrinking heads",
+   "explanation": "The head sweep holds total computation constant across rows. That is only possible because each head's width is d_model/h, so raising the head count shrinks the dimension each head works in by the same factor. Under that constraint, single-head attention lands 0.9 BLEU below the best setting, and pushing the head count too high hurts as well.",
+   "strength": "supporting",
+   "id": "e028"
+  },
+  {
+   "source": "key-size-ablation",
+   "target": "compatibility-function",
+   "type": "depends-on",
+   "label": "reads d_k as scoring capacity",
+   "explanation": "Table 3 shows that shrinking d_k lowers quality. The paper's reading is that scoring the match between a query and a key is not an easy function to compute, and that the dot product may be too simple a way of doing it. That reading is offered as a suggestion, not a demonstration, which is why the result is framed as a statement about the compatibility function rather than about one dimension setting.",
+   "strength": "supporting",
+   "id": "e029"
+  },
+  {
+   "source": "constituency-parsing",
+   "target": "parse-tree-linearization",
+   "type": "depends-on",
+   "label": "trees must become token sequences",
+   "explanation": "The decoder emits one token at a time into a flat sequence and has no way to output a tree structure directly. So the parse tree is first written out as a string of bracket and label tokens, and the model is trained to produce that string. The paper does not restate the encoding; it follows the cited parsing setup.",
+   "strength": "load-bearing",
+   "id": "e030"
+  },
+  {
+   "source": "semi-supervised-parsing",
+   "target": "semi-supervised-parsing-corpora",
+   "type": "depends-on",
+   "label": "the 17M sentences come from here",
+   "explanation": "The second parsing regime adds roughly 17M sentences from the high-confidence and BerkeleyParser corpora. Those sentences carry parses produced automatically over web news in the cited work, not annotations written by hand. Training on a small hand-annotated set alongside that much larger machine-parsed set is what the label semi-supervised is pointing at.",
+   "strength": "supporting",
+   "id": "e031"
+  },
+  {
+   "source": "training-flops-estimate",
+   "target": "training-hardware-and-schedule",
+   "type": "depends-on",
+   "label": "cost derived from time and GPU count",
+   "explanation": "The FLOPs figures in Table 2 are not measured counts. They are a product of three terms: training time, number of GPUs, and an assumed sustained throughput per GPU. Two of those three come straight from the training setup — the machine with 8 P100s, and the 12-hour base run and 3.5-day big run — so the cost figures move whenever the schedule does.",
+   "strength": "supporting",
+   "id": "e032"
+  },
+  {
+   "source": "layer-comparison-desiderata",
+   "target": "table-1",
+   "type": "supported-by",
+   "label": "turns the three criteria into numbers",
+   "explanation": "Section 4 proposes judging layer types on three criteria: total complexity per layer, the minimum number of operations that must run in sequence, and the maximum path length between any two positions. Table 1 is that framework filled in — one row per layer type, one column per criterion. Without the table the three criteria are named but never priced, and the section stays a set of assertions.",
+   "strength": "load-bearing",
+   "id": "e033"
+  },
+  {
+   "source": "sequential-computation-bottleneck",
+   "target": "table-1",
+   "type": "supported-by",
+   "label": "O(n) vs O(1) sequential operations",
+   "explanation": "The complaint about recurrence is that position t cannot be computed until position t-1 has been. Table 1 puts a figure on it: the sequential-operations column reads O(n) for a recurrent layer against O(1) for self-attention. That column counts operations in the abstract, not wall-clock time on hardware, so it bounds how much parallelism is available rather than what a given machine delivers.",
+   "strength": "load-bearing",
+   "id": "e034"
+  },
+  {
+   "source": "long-range-dependencies",
+   "target": "table-1",
+   "type": "supported-by",
+   "label": "maximum path length per layer type",
+   "explanation": "The claim is that shorter forward and backward paths make distant dependencies easier to learn. Table 1's path-length column supplies the lengths: O(1) for self-attention, where any two positions meet within a single layer, O(n) for recurrent, and O(log_k n) for dilated convolutions. What the table establishes is that the path is short. It does not itself establish that models with short paths learn better.",
+   "strength": "load-bearing",
+   "id": "e035"
+  },
+  {
+   "source": "restricted-self-attention",
+   "target": "table-1",
+   "type": "supported-by",
+   "label": "prices the r-neighborhood variant",
+   "explanation": "Table 1 gives the restricted variant a row of its own. Cost falls to O(r*n*d) while maximum path length rises to O(n/r), which puts both halves of the proposed trade in the same units as every other layer type. The paper never trains this variant. The row is analysis, not a result.",
+   "strength": "minor",
+   "id": "e036"
+  },
+  {
+   "source": "convolutional-sequence-models",
+   "target": "table-1",
+   "type": "supported-by",
+   "label": "convolutional rows in the comparison",
+   "explanation": "Table 1 charges the convolutional layer O(k*n*d^2) per layer, against O(n*d^2) for recurrence — the difference is the kernel width k. The path-length column then gives convolutions O(log_k n) with dilated kernels, short but not constant. Those two entries together are the paper's argument: convolutions cost more than recurrence by that factor of k and still do not connect every pair of positions inside one layer.",
+   "strength": "supporting",
+   "id": "e037"
+  },
+  {
+   "source": "transformer",
+   "target": "table-2",
+   "type": "supported-by",
+   "label": "reports the headline BLEU scores",
+   "explanation": "The paper's central quality claim rests on this table. On WMT 2014 English-to-German it reports 28.4 BLEU, more than 2.0 BLEU above the previous best result, ensembles included. The English-to-French figure is inconsistent across the paper: Section 6.1 quotes 41.0 while the abstract and the table say 41.8, so read the French number off the table.",
+   "strength": "load-bearing",
+   "id": "e038"
+  },
+  {
+   "source": "training-flops-estimate",
+   "target": "table-2",
+   "type": "supported-by",
+   "label": "supplies the training-cost column",
+   "explanation": "Table 2 puts a training-cost figure beside every BLEU score. Without that column the paper could claim the quality but not the comparison it wants, that these scores came at a fraction of prior training cost. The figures are estimates rather than measured counts: training time times GPU count times an assumed sustained throughput, taken as 2.8, 3.7, 6.0 and 9.5 TFLOPS for K80, K40, M40 and P100.",
+   "strength": "supporting",
+   "id": "e039"
+  },
+  {
+   "source": "base-vs-big-transformer",
+   "target": "table-2",
+   "type": "supported-by",
+   "label": "both configurations appear as rows",
+   "explanation": "Table 2 lists base and big as separate rows instead of reporting a single headline system. That separation is what supports a second, weaker claim alongside the headline one: even the base model beats all previously published models and ensembles, and it does so at a small fraction of their training cost.",
+   "strength": "supporting",
+   "id": "e040"
+  },
+  {
+   "source": "attention-heads-ablation",
+   "target": "table-3",
+   "type": "supported-by",
+   "label": "rows (A) sweep the head count",
+   "explanation": "Rows (A) vary the number of heads while total computation is held constant — as h goes up, the dimension given to each head comes down to compensate. So what the sweep isolates is head count, not model size. Single-head attention lands 0.9 BLEU below the best setting, and quality falls off again once there are too many heads. That peak in the middle is the whole evidence for h=8 being a middle choice rather than more-is-better.",
+   "strength": "load-bearing",
+   "id": "e041"
+  },
+  {
+   "source": "num-heads-h",
+   "target": "table-3",
+   "type": "supported-by",
+   "label": "where h = 8 comes from",
+   "explanation": "Eight heads is not derived from anything in the architecture; no argument in the paper says the number should be eight. Rows (A) of Table 3 are the measurement that picks the value, by sweeping h and reporting what each setting scores. The sweep runs on the English-to-German development set only, so it is one task's answer.",
+   "strength": "supporting",
+   "id": "e042"
+  },
+  {
+   "source": "key-size-ablation",
+   "target": "table-3",
+   "type": "supported-by",
+   "label": "rows (B) shrink d_k",
+   "explanation": "Rows (B) reduce the attention key dimension and leave the rest of the model alone, and quality drops. The paper reads that drop as a hint that the dot product may be too simple a compatibility function. That is an interpretation of the number rather than something the table tests: rows (B) shrink d_k, they do not try any alternative compatibility function.",
+   "strength": "supporting",
+   "id": "e043"
+  },
+  {
+   "source": "size-and-dropout-ablation",
+   "target": "table-3",
+   "type": "supported-by",
+   "label": "rows (C) and (D) vary size and dropout",
+   "explanation": "Rows (C) change the model's size parameters and rows (D) change the dropout rate. The paper does not walk through them line by line. It summarizes both blocks in a single sentence: bigger models are better, and dropout is very helpful in avoiding over-fitting.",
+   "strength": "supporting",
+   "id": "e044"
+  },
+  {
+   "source": "residual-dropout",
+   "target": "table-3",
+   "type": "supported-by",
+   "label": "row (D) shows the cost of removing it",
+   "explanation": "P_drop = 0.1 in the base model is not carried over from anywhere; the (D) rows are what justify it. Turning dropout off degrades development-set quality, and raising the rate degrades it too, which leaves 0.1 as the best of the values tried. The table varies one rate for the whole model, so it does not separate the residual dropout from any other place dropout is applied.",
+   "strength": "supporting",
+   "id": "e045"
+  },
+  {
+   "source": "label-smoothing",
+   "target": "table-3",
+   "type": "supported-by",
+   "label": "reports BLEU and perplexity together",
+   "explanation": "Section 5.4 claims that label smoothing of 0.1 hurts perplexity but improves accuracy and BLEU. Checking a trade-off like that needs both quantities side by side, and Table 3 is the only place both are reported per configuration. So it is where the trade-off would be visible. But the paper's prose about Table 3 comments on dropout and not on smoothing, so the claim is stated more firmly than it is demonstrated.",
+   "strength": "supporting",
+   "id": "e046"
+  },
+  {
+   "source": "learned-positional-embedding",
+   "target": "table-3",
+   "type": "supported-by",
+   "label": "row (E) finds no difference",
+   "explanation": "Row (E) swaps the sinusoids for learned positional embeddings and gets nearly identical results. That leaves no quality argument for the sinusoids — on this benchmark the two choices are interchangeable. The paper keeps them anyway, on the hope that a fixed periodic function extrapolates to sequences longer than those seen in training, which is not tested here.",
+   "strength": "supporting",
+   "id": "e047"
+  },
+  {
+   "source": "constituency-parsing",
+   "target": "table-4",
+   "type": "supported-by",
+   "label": "reports the WSJ Section 23 F1",
+   "explanation": "The generalization claim is carried entirely by this table. A 4-layer Transformer is trained on the WSJ treebank — about 40K sentences, small by the standards of the translation runs — with almost no task-specific tuning. It reaches 91.3 F1 on Section 23, beating the BerkeleyParser in the same small-data setting.",
+   "strength": "load-bearing",
+   "id": "e048"
+  },
+  {
+   "source": "semi-supervised-parsing",
+   "target": "table-4",
+   "type": "supported-by",
+   "label": "lists the 17M-sentence result",
+   "explanation": "Table 4 keeps the WSJ-only rows separate from the semi-supervised rows. Reading across the two blocks shows what the extra ~17M automatically parsed sentences buy. Each setting is one run, with dropout, learning rate, and beam size tuned on Section 22.",
+   "strength": "supporting",
+   "id": "e049"
+  },
+  {
+   "source": "recurrent-neural-network-grammar",
+   "target": "table-4",
+   "type": "supported-by",
+   "label": "the one row the Transformer loses to",
+   "explanation": "Table 4 records the limit of the claim alongside the claim itself. RNNG scores higher than the Transformer, so the paper's wording is that its model beats all previously reported models with that one exception. Worth putting in front of readers, because it is the qualification the abstract leaves out.",
+   "strength": "minor",
+   "id": "e050"
+  },
+  {
+   "source": "encoder-decoder-architecture",
+   "target": "fig-1",
+   "type": "supported-by",
+   "label": "draws both stacks and their link",
+   "explanation": "Figure 1 puts the whole model in one picture: an N-layer encoder tower, an N-layer decoder tower, and the arrows carrying encoder output into each decoder layer's second attention sub-layer. That last connection is the part hardest to state in prose, and the drawing fixes it. It is a schematic, so it settles wiring, not sizes.",
+   "strength": "supporting",
+   "id": "e051"
+  },
+  {
+   "source": "scaled-dot-product-attention",
+   "target": "fig-2",
+   "type": "supported-by",
+   "label": "left panel as data flow",
+   "explanation": "The left half of Figure 2 redraws Equation (1) as boxes in order: MatMul of queries and keys, Scale, optional Mask, SoftMax, then MatMul with values. Reading the stack gives the order the operations actually run in. It also shows where the mask sits, between the scaling and the softmax, which the equation itself does not.",
+   "strength": "supporting",
+   "id": "e052"
+  },
+  {
+   "source": "multi-head-attention",
+   "target": "fig-2",
+   "type": "supported-by",
+   "label": "right panel shows h parallel heads",
+   "explanation": "The right half of Figure 2 shows the projections that split the input into h heads, the attention blocks running side by side, the concatenation of their outputs, and the final linear map. The heads sit next to each other on the page. That makes their parallelism visible in a way the equation's Concat notation does not.",
+   "strength": "supporting",
+   "id": "e053"
+  },
+  {
+   "source": "long-range-dependencies",
+   "target": "fig-3",
+   "type": "supported-by",
+   "label": "a distant dependency, drawn",
+   "explanation": "Figure 3 shows many heads in encoder layer 5 attending from 'making' to a far-away word that completes 'making...more difficult'. The dependency spans a long stretch of the sentence, and the attention crosses it in one step. This is one hand-picked word in one sentence, so it illustrates that long-distance attention happens; it does not measure how often.",
+   "strength": "supporting",
+   "id": "e054"
+  },
+  {
+   "source": "attention-averaging-resolution-cost",
+   "target": "fig-4",
+   "type": "supported-by",
+   "label": "two heads split one word's attention",
+   "explanation": "For the word 'its', head 5 and head 6 sit in the same layer and put almost all their weight on different words. Collapse the two into a single head and what comes out is the average of those distributions — one blurred pattern pointing weakly at both. That averaging cost is the paper's stated reason for using several heads. The figure is a qualitative example, and the paper only says the heads are 'apparently' doing anaphora resolution.",
+   "strength": "supporting",
+   "id": "e055"
+  },
+  {
+   "source": "attention-interpretability",
+   "target": "fig-5",
+   "type": "supported-by",
+   "label": "two heads with different patterns",
+   "explanation": "Figure 5 takes two heads from encoder layer 5 and shows them attending over the same sentence with visibly different patterns. Same input, different behaviour, so the difference sits in the heads. That is the basis for the claim that heads learn distinct, sometimes syntax-related roles. These are selected examples with no quantitative analysis, and the paper hedges with 'seems related'.",
+   "strength": "supporting",
+   "id": "e056"
+  },
+  {
+   "source": "scaled-dot-product-attention",
+   "target": "eq-attention",
+   "type": "supported-by",
+   "label": "states the mechanism in one line",
+   "explanation": "Equation (1) is the definition of the mechanism rather than an illustration of one given elsewhere: softmax(QK^T/sqrt(d_k))V. Everything else in Section 3.2 refers back to this one line. The masked use and the encoder-decoder use differ in what is fed into Q, K, and V, and take the rest from here.",
+   "strength": "load-bearing",
+   "id": "e057"
+  },
+  {
+   "source": "sqrt-dk-scaling",
+   "target": "eq-attention",
+   "type": "supported-by",
+   "label": "the divisor inside the softmax",
+   "explanation": "The 1/sqrt(d_k) term is written into Equation (1) itself, not added afterwards as an implementation detail. The footnote supplies the argument: with independent, zero-mean, unit-variance components, a dot product over d_k dimensions has variance d_k, so its scale grows with the dimension. From there the paper says it 'suspects' large dot products flatten the softmax gradient, and it runs no ablation on the scaling factor.",
+   "strength": "supporting",
+   "id": "e058"
+  },
+  {
+   "source": "multi-head-attention",
+   "target": "eq-multihead",
+   "type": "supported-by",
+   "label": "defines heads, concat, and W^O",
+   "explanation": "The multi-head equation spells out what the name compresses: each head runs Equation (1) on its own projected queries, keys, and values, and the head outputs are concatenated and mapped back through W^O. The projection sizes are what make the cost work out. d_model is 512 and there are h = 8 heads, so d_k = d_v = d_model/h = 64 dimensions per head, and eight heads at 64 is the same total width as one head at 512. That is why the paper can say total cost is close to single-head attention at full width.",
+   "strength": "load-bearing",
+   "id": "e059"
+  },
+  {
+   "source": "position-wise-feed-forward-network",
+   "target": "eq-ffn",
+   "type": "supported-by",
+   "label": "defines the second sub-layer",
+   "explanation": "Equation (2), max(0, xW1 + b1)W2 + b2, is the whole feed-forward sub-layer: two linear maps with a ReLU between them. The x here is one position's vector, and no term in the equation reaches for any other position. So there is no mixing across positions in this sub-layer, which leaves all cross-position work to the attention sub-layers.",
+   "strength": "load-bearing",
+   "id": "e060"
+  },
+  {
+   "source": "sinusoidal-positional-encoding",
+   "target": "eq-posenc",
+   "type": "supported-by",
+   "label": "gives the sine and cosine formulas",
+   "explanation": "The pair of PE formulas is what pins the encoding down. Even dimensions take a sine, odd dimensions take a cosine, and the wavelengths across dimensions form a geometric progression from 2*pi up to 10000*2*pi. Every term is fixed by the formula; nothing here is fitted during training. That is what makes the scheme extendable to positions never seen.",
+   "strength": "load-bearing",
+   "id": "e061"
+  },
+  {
+   "source": "learning-rate-warmup-schedule",
+   "target": "eq-lrate",
+   "type": "supported-by",
+   "label": "defines warmup then inverse-sqrt decay",
+   "explanation": "Equation (3) gives the learning rate at each step: d_model^-0.5 * min(step^-0.5, step * warmup_steps^-1.5), with warmup_steps = 4000. While the step count is below 4000, the second term inside the min is the smaller one, so the rate climbs linearly. After that the first term takes over and the rate decays as the inverse square root of the step. The paper gives no ablation of this schedule, so it is a stated recipe rather than a measured choice.",
+   "strength": "supporting",
+   "id": "e062"
+  },
+  {
+   "source": "encoder-self-attention",
+   "target": "multi-head-attention",
+   "type": "instance-of",
+   "label": "first of three attention uses",
+   "explanation": "Section 3.2.3 lists three places the Transformer applies multi-head attention, and this is the first of them. In the encoder, the queries, keys and values are all taken from the output of the previous encoder layer. Nothing is masked, so every position can attend to every position.",
+   "strength": "load-bearing",
+   "id": "e063"
+  },
+  {
+   "source": "masked-decoder-self-attention",
+   "target": "multi-head-attention",
+   "type": "instance-of",
+   "label": "second of three attention uses",
+   "explanation": "The decoder runs the same multi-head attention over its own previous layer, so the mechanism itself is unchanged. What changes is the range: each position may attend only up to and including itself. The paper says this restriction is needed to preserve the auto-regressive property.",
+   "strength": "load-bearing",
+   "id": "e064"
+  },
+  {
+   "source": "encoder-decoder-attention",
+   "target": "multi-head-attention",
+   "type": "instance-of",
+   "label": "third of three attention uses",
+   "explanation": "This third use is the one that joins the two stacks. The queries come from the previous decoder layer, while the keys and values come from the encoder output. Every decoder position can therefore look at the whole input. The paper says this mimics the encoder-decoder attention of earlier sequence-to-sequence models.",
+   "strength": "load-bearing",
+   "id": "e065"
+  },
+  {
+   "source": "num-heads-h",
+   "target": "multi-head-attention",
+   "type": "instance-of",
+   "label": "sets h for the base model",
+   "explanation": "Multi-head attention is defined for any number of parallel heads, written h, and the definition itself never fixes that number. The base model fills it in. It sets h = 8.",
+   "strength": "supporting",
+   "id": "e066"
+  },
+  {
+   "source": "dk-dv-dimensions",
+   "target": "attention-head",
+   "type": "instance-of",
+   "label": "gives each head its width",
+   "explanation": "Each head does not see the full model width; it works in its own projected subspace. That subspace is d_model divided by h, and in the base model d_model is 512 with h = 8, so d_k = d_v = 512/8 = 64. The paper notes that because each head is this narrow, the total cost is similar to one full-width attention.",
+   "strength": "supporting",
+   "id": "e067"
+  },
+  {
+   "source": "n-layers",
+   "target": "encoder-stack",
+   "type": "instance-of",
+   "label": "fixes the stack depth at six",
+   "explanation": "The encoder is described as a stack of N identical layers, with N left open in the description. The base model sets N = 6. The decoder is built to the same depth.",
+   "strength": "supporting",
+   "id": "e068"
+  },
+  {
+   "source": "d-model",
+   "target": "transformer",
+   "type": "instance-of",
+   "label": "fixes the shared model width",
+   "explanation": "Section 3.1 says every sub-layer and every embedding layer outputs vectors of the same dimension. The reason is the residual connections: the two things being added have to match in width. That shared dimension is d_model, and the base model sets it to 512.",
+   "strength": "supporting",
+   "id": "e069"
+  },
+  {
+   "source": "warmup-steps-4000",
+   "target": "learning-rate-warmup-schedule",
+   "type": "instance-of",
+   "label": "fixes the ramp length",
+   "explanation": "Equation (3) leaves warmup_steps as a free parameter of the schedule. The paper fills it in at warmup_steps = 4000. So the learning rate rises linearly across the first 4000 steps, and from there on it decays as the inverse square root of the step.",
+   "strength": "supporting",
+   "id": "e070"
+  },
+  {
+   "source": "base-vs-big-transformer",
+   "target": "transformer",
+   "type": "instance-of",
+   "label": "two configurations of one architecture",
+   "explanation": "Base and big are not two architectures. They are one architecture trained at two sizes: the base model for 100,000 steps, about 12 hours, and the big model for 300,000 steps, about 3.5 days. Reported results are always tagged as one or the other.",
+   "strength": "supporting",
+   "id": "e071"
+  },
+  {
+   "source": "sinusoidal-positional-encoding",
+   "target": "positional-encoding",
+   "type": "instance-of",
+   "label": "the fixed encoding actually used",
+   "explanation": "Section 3.5 says there are many choices of positional encoding, some learned and some fixed. The paper takes one from the fixed side. Its choice is a bank of sines and cosines, with wavelengths running from 2*pi up to 10000*2*pi.",
+   "strength": "load-bearing",
+   "id": "e072"
+  },
+  {
+   "source": "learned-positional-embedding",
+   "target": "positional-encoding",
+   "type": "instance-of",
+   "label": "the learned alternative tested",
+   "explanation": "This is the other instance of the same slot: instead of a formula, a trainable vector for each position. The paper reports that it gave nearly identical results, in Table 3 row E. It chose the sinusoids anyway, saying they may let the model extrapolate to sequences longer than those seen in training.",
+   "strength": "supporting",
+   "id": "e073"
+  },
+  {
+   "source": "machine-translation",
+   "target": "sequence-transduction",
+   "type": "instance-of",
+   "label": "the paper's main transduction task",
+   "explanation": "Sequence transduction names the general problem of mapping one sequence to another. Translation is the concrete version of it that the paper trains and reports on. All of Table 2 is translation.",
+   "strength": "supporting",
+   "id": "e074"
+  },
+  {
+   "source": "constituency-parsing",
+   "target": "sequence-transduction",
+   "type": "instance-of",
+   "label": "a second, non-translation task",
+   "explanation": "The paper treats parsing as sequence transduction too: the input is a sentence, and the output is a linearized tree generated as a sequence. It is run to test whether the Transformer generalizes beyond translation. The paper notes that this output is structurally constrained, and longer than the input.",
+   "strength": "supporting",
+   "id": "e075"
+  },
+  {
+   "source": "wmt-2014-en-de",
+   "target": "machine-translation",
+   "type": "instance-of",
+   "label": "the main benchmark instance",
+   "explanation": "About 4.5 million sentence pairs, encoded with a byte-pair vocabulary of 37000 tokens shared across the two languages. This is the task behind the headline 28.4 BLEU. It is also the task behind every ablation in Table 3.",
+   "strength": "supporting",
+   "id": "e076"
+  },
+  {
+   "source": "wmt-2014-en-fr",
+   "target": "machine-translation",
+   "type": "instance-of",
+   "label": "the larger-data benchmark instance",
+   "explanation": "This is the same kind of task at a larger data scale: 36M sentence pairs, with a 32000 word-piece vocabulary. It is used to check the model when far more data is available. The big model reports 41.0 BLEU there.",
+   "strength": "minor",
+   "id": "e077"
+  },
+  {
+   "source": "embedding-softmax-weight-sharing",
+   "target": "three-way-weight-tying",
+   "type": "instance-of",
+   "label": "applies the cited tying scheme",
+   "explanation": "The cited work shares a single matrix across three places: the encoder input embedding, the decoder input embedding, and the pre-softmax projection. Section 3.4 does exactly that. It adds one thing on top: in the embedding layers, the shared weights are multiplied by sqrt(d_model).",
+   "strength": "supporting",
+   "id": "e078"
+  },
+  {
+   "source": "label-smoothing",
+   "target": "label-smoothing-regularization",
+   "type": "instance-of",
+   "label": "applies LSR at eps = 0.1",
+   "explanation": "The cited scheme does not train against a bare one-hot target. It replaces that target with a mixture of the one-hot and a fixed distribution, with eps setting how much of each. The paper sets eps_ls = 0.1, and reports the trade it buys: perplexity gets worse, while accuracy and BLEU improve.",
+   "strength": "supporting",
+   "id": "e079"
+  },
+  {
+   "source": "byte-pair-encoding",
+   "target": "joint-bpe-shared-vocabulary",
+   "type": "instance-of",
+   "label": "uses joint BPE across both languages",
+   "explanation": "The cited BPE paper learns its merges over the source and target text combined, so one vocabulary covers both languages. The English-German setup does this. The resulting shared vocabulary is about 37000 tokens.",
+   "strength": "supporting",
+   "id": "e080"
+  },
+  {
+   "source": "penn-treebank-wsj",
+   "target": "wsj-parsing-protocol",
+   "type": "instance-of",
+   "label": "follows the standard WSJ split",
+   "explanation": "The parsing experiment uses the WSJ portion of the Penn Treebank, about 40K sentences. Tuning happens on Section 22; the reported numbers come from Section 23. That split is not the paper's own choice — it is the protocol defined in the cited work. Following it is what makes Table 4 comparable to prior parsers.",
+   "strength": "supporting",
+   "id": "e081"
+  },
+  {
+   "source": "semi-supervised-parsing",
+   "target": "semi-supervised-parsing-corpora",
+   "type": "instance-of",
+   "label": "reuses the cited machine-parsed data",
+   "explanation": "The second parsing regime keeps the treebank and adds machine-parsed data from the cited work: the high-confidence and BerkeleyParser corpora. That takes training data to roughly 17M sentences. The larger, noisier corpus comes with a vocabulary change as well — from 16K tokens in the supervised setting to 32K.",
+   "strength": "supporting",
+   "id": "e082"
+  },
+  {
+   "source": "length-penalty",
+   "target": "length-normalization-penalty",
+   "type": "instance-of",
+   "label": "sets the cited penalty to 0.6",
+   "explanation": "Beam search has to rank hypotheses of different lengths against each other, and raw scores favour the short ones. The cited system's fix is a length-normalization divisor with a strength parameter alpha. The paper takes that penalty as given and sets alpha = 0.6, with beam size 4. Both values were chosen on the development set.",
+   "strength": "minor",
+   "id": "e083"
+  },
+  {
+   "source": "scaled-dot-product-attention",
+   "target": "eq-attention",
+   "type": "instance-of",
+   "label": "defined by Equation (1)",
+   "explanation": "Equation (1) is the whole definition, in four steps: dot every query against every key, divide by sqrt(d_k), pass the result through softmax, then use it to weight the values. There is no further mechanism hiding behind the name. Everything the paper says about attention afterwards refers back to this one line.",
+   "strength": "load-bearing",
+   "id": "e084"
+  },
+  {
+   "source": "multi-head-attention",
+   "target": "eq-multihead",
+   "type": "instance-of",
+   "label": "defined by the MultiHead equation",
+   "explanation": "The name multi-head attention does not by itself say what running h heads involves; the equation does. Q, K and V are projected by per-head matrices into h separate subspaces, and Equation (1) runs independently inside each one. The h outputs are then concatenated and passed through a final projection W^O.",
+   "strength": "load-bearing",
+   "id": "e085"
+  },
+  {
+   "source": "position-wise-feed-forward-network",
+   "target": "eq-ffn",
+   "type": "instance-of",
+   "label": "defined by Equation (2)",
+   "explanation": "Equation (2) pins down the second sub-layer of every encoder and decoder layer. It is a two-layer MLP with a ReLU between the two layers. It is applied to each position separately, and every position within a layer uses the same weights.",
+   "strength": "supporting",
+   "id": "e086"
+  },
+  {
+   "source": "sinusoidal-positional-encoding",
+   "target": "eq-posenc",
+   "type": "instance-of",
+   "label": "defined by the PE equations",
+   "explanation": "The PE(pos, 2i) and PE(pos, 2i+1) formulas give the exact sinusoid used for each dimension, sine on the even indices and cosine on the odd ones. Writing them out is what makes the paper's relative-offset claim checkable rather than asserted. For a fixed offset k, PE(pos+k) turns out to be a linear function of PE(pos).",
+   "strength": "supporting",
+   "id": "e087"
+  },
+  {
+   "source": "learning-rate-warmup-schedule",
+   "target": "eq-lrate",
+   "type": "instance-of",
+   "label": "defined by Equation (3)",
+   "explanation": "Equation (3) is the schedule itself, not a description of one. The learning rate scales with d_model^-0.5, multiplied by the smaller of two terms: step^-0.5 and step * warmup_steps^-1.5. Early on the second term is the smaller one and it grows linearly with step, so the rate ramps up. Past warmup_steps the first term takes over and the rate decays as the inverse square root of the step number.",
+   "strength": "supporting",
+   "id": "e088"
+  },
+  {
+   "source": "self-attention",
+   "target": "recurrent-neural-network",
+   "type": "contrasts-with",
+   "label": "constant vs O(n) sequential steps",
+   "explanation": "Section 4 puts the two layer types on the same job: mapping one length-n sequence of representations to another. A self-attention layer connects all positions with a constant number of sequentially executed operations. A recurrent layer needs O(n) such steps, and they cannot be parallelized, since each one waits on the state produced by the last. That gap is the paper's main reason for dropping recurrence.",
+   "strength": "load-bearing",
+   "id": "e089"
+  },
+  {
+   "source": "self-attention",
+   "target": "convolutional-sequence-models",
+   "type": "contrasts-with",
+   "label": "one layer vs stacked layers",
+   "explanation": "A single convolutional layer with kernel width k < n sees only k neighbouring positions, so it does not connect all pairs. Covering every pair takes a stack: O(n/k) layers with contiguous kernels, or O(log_k n) with dilated ones. Self-attention connects every pair inside one layer. The path between two distant positions therefore stays constant instead of growing with the distance.",
+   "strength": "load-bearing",
+   "id": "e090"
+  },
+  {
+   "source": "convolutional-sequence-models",
+   "target": "recurrent-neural-network",
+   "type": "contrasts-with",
+   "label": "parallel positions, longer paths",
+   "explanation": "Convolutions were the earlier answer to the problem recurrence poses. They compute all positions in parallel, which is exactly what a recurrent layer cannot do. What they do not fix is path length: the number of operations relating two positions still grows with the distance between them. The paper also notes that convolutional layers are generally more expensive than recurrent ones, by a factor of the kernel width k.",
+   "strength": "supporting",
+   "id": "e091"
+  },
+  {
+   "source": "bytenet",
+   "target": "convs2s",
+   "type": "contrasts-with",
+   "label": "logarithmic vs linear distance growth",
+   "explanation": "Both replace recurrence with convolutions, and both are measured by how the cost of relating two positions grows with the distance between them. In ByteNet that growth is logarithmic; in ConvS2S it is linear. Logarithmic is the better of the two, but neither reaches the constant cost the Transformer claims. That shared shortfall is why the background section lists them together.",
+   "strength": "supporting",
+   "id": "e092"
+  },
+  {
+   "source": "separable-convolutions",
+   "target": "self-attention",
+   "type": "contrasts-with",
+   "label": "the concession on layer cost",
+   "explanation": "The paper concedes ground here. Separable convolutions cut complexity to O(k*n*d + n*d^2), and even at k = n, the widest kernel available, that equals the cost of a self-attention layer plus a point-wise feed-forward layer. Those two together are exactly the combination the Transformer uses, so on layer cost the two designs are level. The case against convolutions therefore rests on the path-length and parallelism arguments, not on cost.",
+   "strength": "supporting",
+   "id": "e093"
+  },
+  {
+   "source": "complexity-per-layer",
+   "target": "maximum-path-length",
+   "type": "contrasts-with",
+   "label": "two criteria that pull apart",
+   "explanation": "Two of Section 4's three criteria pull in opposite directions. Buying a shorter path between distant positions means each layer looks at more pairs, and so costs more. Going the other way — a narrow convolution kernel, a restricted attention window — makes the layer cheaper and lengthens the path. Table 1 is a comparison across that trade-off, not a single ranking.",
+   "strength": "supporting",
+   "id": "e094"
+  },
+  {
+   "source": "complexity-per-layer",
+   "target": "minimum-sequential-operations",
+   "type": "contrasts-with",
+   "label": "cheap layer vs parallel layer",
+   "explanation": "Self-attention costs O(n^2 * d) per layer; a recurrent layer costs O(n * d^2). Which is cheaper depends on n against d, and recurrence wins on per-layer cost whenever n is larger than d. The paper argues that n < d holds for the sentence-length word-piece and byte-pair representations used in machine translation. On the other criterion, sequential operations, self-attention wins outright regardless.",
+   "strength": "load-bearing",
+   "id": "e095"
+  },
+  {
+   "source": "restricted-self-attention",
+   "target": "self-attention",
+   "type": "contrasts-with",
+   "label": "cheaper window, longer path",
+   "explanation": "For very long sequences, attending over every position gets expensive, so the paper proposes limiting each position to a neighborhood of size r. That cuts the per-layer cost. It also raises the maximum path length from constant to O(n/r), which is the price paid. The idea is offered as future work, not something the paper tested.",
+   "strength": "supporting",
+   "id": "e096"
+  },
+  {
+   "source": "dot-product-attention",
+   "target": "additive-attention",
+   "type": "contrasts-with",
+   "label": "faster vs stabler at large d_k",
+   "explanation": "These are the two commonly used attention functions, and the paper has to choose one. In theoretical complexity they are similar. In practice dot-product attention is much faster and more space-efficient, because it maps onto highly optimized matrix multiplication. The comparison runs the other way on quality: additive attention outperforms unscaled dot-product attention at larger values of d_k.",
+   "strength": "load-bearing",
+   "id": "e097"
+  },
+  {
+   "source": "scaled-dot-product-attention",
+   "target": "dot-product-attention",
+   "type": "contrasts-with",
+   "label": "one scaling factor apart",
+   "explanation": "The paper's attention is identical to plain dot-product attention apart from the 1/sqrt(d_k) factor. The reason given for adding it is a suspicion rather than a demonstration: with d_k large, the dot products grow in magnitude and push the softmax into a region of very small gradients. That is the regime where unscaled dot-product attention was losing to additive attention. The scaling factor targets exactly that.",
+   "strength": "load-bearing",
+   "id": "e098"
+  },
+  {
+   "source": "key-size-ablation",
+   "target": "dot-product-attention",
+   "type": "contrasts-with",
+   "label": "evidence the dot product is thin",
+   "explanation": "Table 3 row (B) shrinks d_k on its own, and quality drops. The paper reads that as a hint that determining compatibility is not easy, and that a more sophisticated compatibility function than the dot product may be beneficial. Both readings stay hedged. Either way, they are a caveat on the paper's own choice.",
+   "strength": "supporting",
+   "id": "e099"
+  },
+  {
+   "source": "attention-head",
+   "target": "multi-head-attention",
+   "type": "contrasts-with",
+   "label": "single head vs h subspaces",
+   "explanation": "With a single attention head, averaging over positions inhibits attending to different representation subspaces at once. Splitting into heads is the fix, and it is sized so the split costs almost nothing: d_model is 512 and h = 8, so each head gets d_k = d_v = 512/8 = 64, keeping total cost about the same as one full-width head. Table 3 row (A) puts a number on the difference: single-head attention is 0.9 BLEU worse than the best setting. More heads is not simply better, though — quality also drops off with too many.",
+   "strength": "load-bearing",
+   "id": "e100"
+  },
+  {
+   "source": "attention-averaging-resolution-cost",
+   "target": "maximum-path-length",
+   "type": "contrasts-with",
+   "label": "the price of constant-length paths",
+   "explanation": "Relating two arbitrary positions costs a constant number of operations in the Transformer, however far apart those positions sit. The background section names the price for that directly: effective resolution is reduced, because the layer averages over attention-weighted positions and blurs them together. Multi-head attention is introduced as the counteraction. That reduced resolution is what the head split is paying for.",
+   "strength": "load-bearing",
+   "id": "e101"
+  },
+  {
+   "source": "sinusoidal-positional-encoding",
+   "target": "learned-positional-embedding",
+   "type": "contrasts-with",
+   "label": "fixed vs trained position vectors",
+   "explanation": "The paper tried both the fixed sinusoidal encoding and a learned positional embedding, and reports nearly identical results in row (E) of Table 3. Quality, then, did not decide the question. Sinusoids were chosen for a different reason: they may let the model extrapolate to sequence lengths longer than any seen in training. That is a hypothesis, and the paper does not test it here.",
+   "strength": "supporting",
+   "id": "e102"
+  },
+  {
+   "source": "positional-encoding",
+   "target": "recurrent-neural-network",
+   "type": "contrasts-with",
+   "label": "order injected vs order implicit",
+   "explanation": "A recurrent model consumes positions one after another, so word order comes for free from the order of processing. The Transformer has neither recurrence nor convolution, which leaves it with no such signal -- the input vectors carry no notion of which one came first. Position information therefore has to be added to the input embeddings explicitly. The encoding exists because of what was removed.",
+   "strength": "supporting",
+   "id": "e103"
+  },
+  {
+   "source": "masked-decoder-self-attention",
+   "target": "encoder-self-attention",
+   "type": "contrasts-with",
+   "label": "masked past vs full sequence",
+   "explanation": "Both are the same operation over the same kind of input; they differ only in what each position is allowed to see. Encoder self-attention lets every position attend to all positions. Decoder self-attention masks out future positions, so a position sees only itself and what precedes it. That restriction is what keeps generation auto-regressive, so the decoder gives up the encoder's full context by design.",
+   "strength": "supporting",
+   "id": "e104"
+  },
+  {
+   "source": "label-smoothing",
+   "target": "perplexity",
+   "type": "contrasts-with",
+   "label": "smoothing hurts perplexity",
+   "explanation": "Training uses label smoothing of value 0.1, which teaches the model to hold back some probability mass rather than putting it all on the correct token. Perplexity measures how much probability the model assigns to the true tokens, so a model trained not to commit fully scores those tokens lower. Label smoothing therefore hurts perplexity. The paper accepts this cost.",
+   "strength": "supporting",
+   "id": "e105"
+  },
+  {
+   "source": "label-smoothing",
+   "target": "bleu",
+   "type": "contrasts-with",
+   "label": "same change helps BLEU",
+   "explanation": "The same smoothing that hurts perplexity improves accuracy and BLEU. That is not a contradiction, because the two metrics grade different things. Perplexity grades how confident the model is on the reference token, while BLEU grades the tokens that decoding actually picks. The less confident model ranks candidates better, and it is the ranking that decoding acts on.",
+   "strength": "load-bearing",
+   "id": "e106"
+  },
+  {
+   "source": "perplexity",
+   "target": "bleu",
+   "type": "contrasts-with",
+   "label": "metrics that disagree here",
+   "explanation": "Label smoothing is the case where the two measures point in opposite directions, one moving down while the other moves up. That divergence is a reason the paper reports translation quality in BLEU rather than in likelihood. A better-calibrated probability model is not automatically a better translator.",
+   "strength": "supporting",
+   "id": "e107"
+  },
+  {
+   "source": "transformer",
+   "target": "model-ensembling",
+   "type": "contrasts-with",
+   "label": "one model beats prior ensembles",
+   "explanation": "Table 2 scores a single Transformer against previously published models, and that field includes ensembles rather than single systems only. The big model reports 28.4 BLEU on English-to-German, more than 2.0 above the best previously reported result. The paper adds that even the base model surpasses all previously published models and ensembles, and does so at a fraction of their training cost.",
+   "strength": "supporting",
+   "id": "e108"
+  },
+  {
+   "source": "training-flops-estimate",
+   "target": "bleu",
+   "type": "contrasts-with",
+   "label": "the two axes of Table 2",
+   "explanation": "Table 2 has two axes: translation quality on one, training cost on the other. The cost figure is an estimate, computed as training time times the number of GPUs times an assumed sustained throughput per GPU. The claim the paper wants is a win on both axes at once. On English-to-French that is 41.0 BLEU at less than a quarter of the previous state of the art's training cost.",
+   "strength": "supporting",
+   "id": "e109"
+  },
+  {
+   "source": "convs2s",
+   "target": "transformer",
+   "type": "contrasts-with",
+   "label": "the convolutional baseline in Table 2",
+   "explanation": "ConvS2S is a prior attempt at the same goal the Transformer pursues: computation that runs in parallel across positions rather than stepping through them one at a time. It is also one of the baselines the Transformer is scored against in Table 2. Comparing the two is how the paper argues that removing convolutions, on top of removing recurrence, was not a loss.",
+   "strength": "supporting",
+   "id": "e110"
+  },
+  {
+   "source": "recurrent-neural-network-grammar",
+   "target": "transformer",
+   "type": "contrasts-with",
+   "label": "the one parser it does not beat",
+   "explanation": "On WSJ constituency parsing the Transformer reaches 91.3 F1. That beats every previously reported model in Table 4 with one exception: the Recurrent Neural Network Grammar, which builds trees with explicit tree-structured operations rather than emitting them as a sequence. It marks the limit of the generic-architecture argument.",
+   "strength": "supporting",
+   "id": "e111"
+  },
+  {
+   "source": "berkeley-parser",
+   "target": "transformer",
+   "type": "contrasts-with",
+   "label": "grammar-based parser, small data",
+   "explanation": "RNN sequence-to-sequence models had not reached state-of-the-art parsing in small-data regimes, and the classical grammar-based BerkeleyParser was the standard there. The paper reports the Transformer beating it, and beating it while training on only the 40K hand-parsed WSJ sentences. That is the comparison that gives the small-data result its force.",
+   "strength": "minor",
+   "id": "e112"
+  },
+  {
+   "source": "penn-treebank-wsj",
+   "target": "semi-supervised-parsing",
+   "type": "contrasts-with",
+   "label": "40K vs 17M training sentences",
+   "explanation": "The parsing experiment is run in two regimes rather than one. The first uses the ~40K hand-parsed WSJ sentences alone. The second is semi-supervised, adding about 17M automatically parsed sentences on top. The pair separates what the architecture does in a small-data regime from what more data buys.",
+   "strength": "minor",
+   "id": "e113"
+  },
+  {
+   "source": "layer-norm-vs-batch-norm",
+   "target": "layer-normalization",
+   "type": "contrasts-with",
+   "label": "across features vs across batch",
+   "explanation": "From the Layer Normalization paper, the difference is the direction the statistics are taken in. Batch normalization computes each neuron's mean and variance across the examples in a mini-batch. Layer normalization computes them across the features of a single example instead. The second does not depend on batch size or on which examples share a batch, which is why it fits per-position sequence models.",
+   "strength": "supporting",
+   "id": "e114"
+  },
+  {
+   "source": "weight-tying",
+   "target": "input-and-output-embeddings",
+   "type": "contrasts-with",
+   "label": "one shared matrix vs two",
+   "explanation": "The usual setup carries two matrices of the same shape: an input embedding and a pre-softmax output projection. The cited work contrasts that with tying them into one shared matrix. The Transformer follows the tied version, sharing weights between both embedding layers and the pre-softmax linear projection.",
+   "strength": "minor",
+   "id": "e115"
+  },
+  {
+   "source": "vocabulary-vs-sequence-length-tradeoff",
+   "target": "complexity-per-layer",
+   "type": "contrasts-with",
+   "label": "finer subwords lengthen n",
+   "explanation": "The BPE paper's trade-off runs between vocabulary size and tokenized sequence length: smaller vocabularies mean each sentence breaks into more subword tokens, so sequences get longer. Longer sequences push against self-attention's O(n^2 * d) per-layer cost, which grows with the square of the sequence length. They also push against the n < d condition the Transformer paper leans on when it argues self-attention is faster than recurrence.",
+   "strength": "minor",
+   "id": "e116"
+  }
+ ]
+}

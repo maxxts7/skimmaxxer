@@ -1,0 +1,29 @@
+PAGE FOR: theme-how-attention-is-computed (theme)
+
+The model has one computational primitive; everything else is scaffolding around it. This page covers what that primitive does, and why the paper's version carries the two extra pieces it does — a division by $\sqrt{d_k}$, and eight copies running side by side.
+
+### The generic function, then the specific one
+
+[[attention-mechanism|Attention]], as Section 3.2 defines it, is deliberately unspecific: a query vector, a set of key-value pairs, out comes a weighted sum of the values. [[queries-keys-values|The three roles]] are all the structure there is — a query asks, keys advertise, values carry the content that gets mixed. The weight on each value comes from a [[compatibility-function]] scoring the query against that value's key. Nothing in the definition says what that scoring function is. That slot is what the paper fills.
+
+[[scaled-dot-product-attention]] fills it with a dot product, softmaxed, with one rescaling in between. [[eq-attention|Equation (1)]] is the whole thing:
+
+$$\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V$$
+
+The dot product is chosen for speed rather than expressiveness. The paper says [[additive-attention]] — a one-hidden-layer net as the scorer — is comparable in theoretical complexity, but dot products drop straight into optimized matrix multiply, so they are faster and use less memory. [[dot-product-attention|Plain dot-product attention]] is the same algorithm minus the one factor.
+
+That factor exists because of a reported failure. Prior work found additive attention beats unscaled dot-product attention as $d_k$ grows. The paper's explanation is a suspicion, stated as one: large dot products push the softmax into regions with very small gradients. The supporting argument is a footnote — if query and key components are independent with mean 0 and variance 1, the dot product has variance $d_k$ — not an experiment. [[sqrt-dk-scaling|Dividing by $\sqrt{d_k}$]] cancels that growth. The evidence for the mechanism is thinner than the confidence with which the fix is adopted.
+
+This makes [[dk-dv-dimensions|$d_k$ and $d_v$]] load-bearing rather than incidental. Later, [[table-3]] shows [[key-size-ablation|shrinking $d_k$ costs quality]], which the authors read as a hint that a dot product may be too simple a compatibility function after all.
+
+### Why eight of them
+
+[[multi-head-attention]] sits directly on top of Equation (1): each head is one call to it, and the only additions are projections before and a concatenation after. [[eq-multihead]] states it.
+
+The motive comes from a cost admitted back in the Background. Attention relates any two positions in a constant number of steps, but it does so by averaging over positions, which blurs position-specific detail — [[attention-averaging-resolution-cost]]. Running $h$ attentions on separate subspaces is the counter. [[attention-projection-matrices|Learned projections $W^Q_i, W^K_i, W^V_i$]] map each [[attention-head|head]]'s inputs down to $d_k = d_v = d_{model}/h = 64$, with [[num-heads-h|$h = 8$]] and [[d-model|$d_{model} = 512$]]; $W^O$ mixes the concatenation back to full width. Because each head is narrower by a factor of $h$, total cost stays close to one full-width head. [[fig-2]] draws both halves.
+
+Support for "different representation subspaces" is mostly pictures: [[fig-3]], [[fig-4]] and [[fig-5]] show heads with visibly different patterns, and the paper's own wording about [[attention-interpretability|what heads learn]] is that the behavior "seems related" to sentence structure. The measured claim is smaller: [[attention-heads-ablation|single-head attention is 0.9 BLEU worse]] than the best head count, and too many heads also hurts.
+
+### What comes next
+
+[[fig-1]] and [[transformer|the architecture]] gave you a layout with attention-shaped holes in it. You now have the thing that fills them. The next question is not what attention computes but where $Q$, $K$ and $V$ come from, since that is the only thing distinguishing [[encoder-self-attention]], [[masked-decoder-self-attention]] and [[encoder-decoder-attention]] — three uses of one unchanged function.

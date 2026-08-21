@@ -1,0 +1,59 @@
+NARRATIVE NODE: n-the-shape-of-the-model--add-then-normalize--why-not-batch-norm
+TITLE: Why This Normalizer and Not the Other
+
+INTRO:
+The parent gave the verdict. This level does the arithmetic underneath it: which sums each normalizer takes, what a training batch in this particular setup actually contains, what is left of a batch during beam search, and what the invariance results say once they are written out rather than gestured at.
+
+--- CHAPTER id=same-recipe-different-axis ---
+TITLE: Same recipe, different axis
+
+Both normalizers do the same three things: subtract a mean, divide by a standard deviation, apply a learned per-unit gain and bias. They differ only in which axis the two sums run over.
+
+Take the output of one [[sub-layer]] as a tensor of shape (sentences in the batch) x (positions) x (units). [[layer-norm-vs-batch-norm|Batch normalization]] fixes a unit and a position and averages down the sentence axis: one mean and one variance per (unit, position) pair. [[layer-normalization-statistics|Layer normalization]] fixes a sentence and a position and averages along the unit axis:
+
+$$\mu=\frac{1}{H}\sum_{i=1}^{H}a_i,\qquad \sigma=\sqrt{\frac{1}{H}\sum_{i=1}^{H}(a_i-\mu)^2}$$
+
+with $H$ the number of units. In this model $H$ is [[d-model|512]] at every normalizer, because every sub-layer and embedding layer is built to that one width so the [[residual-connection|residual additions]] line up. Each of the six [[encoder-stack|encoder]] layers normalizes $x+\mathrm{Sublayer}(x)$ twice; each [[decoder-stack|decoder]] layer three times.
+
+So the sample size behind the estimate is a constant here. Every mean in the model is an average of exactly 512 numbers — in the first layer and the sixth, at position 1 and at position 200, during training and during decoding. A batch-norm estimate at a given position instead averages however many sentences reached that position. The [[gain-and-bias-parameters|gain and bias]] are one pair per unit and [[per-timestep-normalization|shared across positions]], not learned per position, so the normalizer's parameter count does not depend on sequence length either.
+
+--- CHAPTER id=what-a-batch-holds ---
+TITLE: What one batch here actually holds
+
+The packing sets the divisor. A training batch is about 25000 source and 25000 target tokens, [[length-based-batching|assembled from sentence pairs of similar length]], and it is sized in tokens because that is what keeps per-step compute even. The number of sentences is whatever falls out. WMT 2014 English-German is 4.5M pairs segmented by [[byte-pair-encoding|byte-pair encoding]] into a shared vocabulary of about 37000 tokens; a batch of short pairs at roughly 25 tokens a side holds on the order of a thousand of them, while a batch drawn from the long tail at 100 tokens a side holds about a quarter as many. A [[layer-norm-vs-batch-norm|batch statistic]] at position $t$ would be an average over that count, and the count moves by several times across a run.
+
+The length sorting cuts both ways. It means the batches with the fewest sentences are exactly the batches of longest sentences, so the positions needing the most samples sit where there are fewest. It also means sentences within a batch end at nearly the same place, so late positions are not starved the way they would be under random batching. The dependence is smoothed, not removed.
+
+There is a bookkeeping point too. [[self-attention|Every position of a sentence is computed at once]] here, so a batch is a padded rectangle, and a sum down the sentence axis has to exclude padded slots by hand or it averages in zeros. [[per-timestep-normalization|A sum across the 512 units of one real position]] never meets a padded slot. None of this reasoning is in this paper; it is the cited argument applied to this [[transformer-training-recipe|recipe]].
+
+--- CHAPTER id=no-batch-at-decode ---
+TITLE: At decode time there is no batch
+
+Training is only half of it. Batch normalization has no batch at test time, so it carries stored running estimates, and in a sequence model those estimates are indexed by position as well as by unit. This decoder caps output at [[inference-length-limit|input length plus 50 tokens]], so a long input can be decoded past any position the stored table saw in training. Estimates for those positions would have to be extrapolated or borrowed from a neighbour.
+
+What batch dimension exists during decoding is the hypothesis set. The paper decodes with [[beam-search|beam search]] at beam size 4 under a [[length-penalty|length penalty of $\alpha = 0.6$]] and terminates hypotheses early where it can, so the number of live sequences moving through the stack changes from step to step and has nothing to do with the training distribution. [[auto-regressive-generation|One generation step]] extends each live hypothesis by one position through the whole [[decoder-stack|decoder]].
+
+Then there is [[checkpoint-averaging|checkpoint averaging]]. The reported models are not single checkpoints: base results average the last 5 checkpoints written at 10-minute intervals, big results the last 20. Averaging weights elementwise is well defined. What a pair of running mean and variance tables should become under the same average is a further decision someone would have to make and report.
+
+[[per-timestep-normalization|Normalizing within a position]] leaves none of that open. No stored state, nothing estimated during training and reused later, and the same function of the same 512 numbers whether the position sits in a full training batch or in the third of four surviving beams.
+
+--- CHAPTER id=invariance-spelled-out ---
+TITLE: The invariance results, spelled out
+
+The cited paper's second argument is about geometry rather than batches. Write a unit's pre-activation as a row of $W$ dotted with the input. Scale the whole matrix, $W \to \delta W$: every pre-activation scales by $\delta$, so $\mu$ and $\sigma$ both scale by $\delta$, and $(a-\mu)/\sigma$ comes out unchanged. Add the same vector to every row instead: every pre-activation gains the same scalar, and [[layer-normalization-statistics|subtracting the mean across units]] removes it. Those are the two [[normalization-invariance-properties|whole-matrix invariances]].
+
+The complement is worth stating, because it is where the two normalizers separate rather than agree. Re-scale one unit's incoming weight vector alone and layer norm is not invariant: that unit's pre-activation moves, the across-unit mean and variance move with it, and every unit's normalized output changes. [[layer-norm-vs-batch-norm|Batch normalization]] absorbs exactly that case, since it normalizes each unit on its own. Layer norm is instead invariant to re-scaling a single training case, which batch norm is not.
+
+The step-size claim follows from the first invariance. If the output is unchanged under $W \to \delta W$, the gradient with respect to the scaled weights carries a factor $1/\delta$. So as a layer's weights grow, its updates shrink in proportion without the schedule being told anything. That is the mechanism the cited work offers for faster convergence.
+
+Standardization also costs something: each position's vector is pinned to mean zero and norm $\sqrt{512}$, so scale and offset stop carrying information. The [[gain-and-bias-parameters|learned gain and bias]] give them back, one pair per unit, applied before the non-linearity in the cited formulation — and [[layer-normalization]] is not invariant to re-scaling them.
+
+--- CHAPTER id=claim-not-isolated ---
+TITLE: Why the speed claim could not be isolated here
+
+Suppose you did want to check the faster-training claim on this model. Two other parts of the recipe already control step size. The [[learning-rate-warmup-schedule|warmup schedule]] makes the rate [[eq-lrate|a function of the step number]] — linear ramp for [[warmup-steps-4000|4000 steps]], then inverse-square-root decay — and [[adam-optimizer|Adam]] rescales every parameter by its own running second-moment estimate, here with [[transformer-adam-settings|$\beta_2 = 0.98$]], below the usual default. Both shrink effective steps as training runs. The [[normalization-invariance-properties|invariance argument]] says the normalizer shrinks them too, in proportion to weight norm. A measurement would see all three at once.
+
+[[table-3|The ablation table]] shows what the authors did vary one knob at a time: head count and key dimension at fixed compute, $d_k$ on its own, model size, dropout rate, and sinusoidal against learned positional encodings. [[transformer-ablations|Five groups of rows]], none for the normalizer and none for the wrapper it sits in. The numbers that reach [[table-2]] — 28.4 BLEU English-German, 41.0 English-French, [[training-hardware-and-schedule|3.5 days on eight P100s]] — are evidence for the recipe as a whole.
+
+So the position to hold is narrow. This paper cites [[layer-normalization]] and states where it goes in the stack. The case for it, batch statistics and invariances alike, lives in [[layer-normalization-statistics|the cited paper]], and was argued there about recurrent networks rather than about this architecture.
+

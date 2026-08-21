@@ -1,0 +1,102 @@
+EDGE EXPLANATIONS (20)
+
+--- EDGE id=e021 ---
+byte-pair-encoding --depends-on--> bpe-merge-algorithm | label: vocabulary built by merging pairs
+
+The 37000-token English-German vocabulary is the output of the greedy merge loop from the cited paper. Without the merge procedure the vocabulary size is just a number with no meaning.
+
+--- EDGE id=e022 ---
+byte-pair-encoding --depends-on--> joint-bpe-shared-vocabulary | label: shared source-target vocab needs joint BPE
+
+Section 5.1 says the English-German vocabulary is shared between source and target. That is the joint-BPE variant, where merges are learned over both languages' text at once, and it is what makes the encoder and decoder embeddings shareable.
+
+--- EDGE id=e023 ---
+word-piece-encoding --depends-on--> wordpiece-model | label: 32000-token vocab from cited scheme
+
+For English-French the paper splits tokens into a 32000 word-piece vocabulary taken from the cited translation system. The scheme's guarantee is that any string can be encoded with no out-of-vocabulary token.
+
+--- EDGE id=e024 ---
+length-penalty --depends-on--> length-normalization-penalty | label: alpha = 0.6 is the cited divisor
+
+The paper reports beam size 4 and alpha = 0.6 without saying what alpha does. It is the exponent in the cited length-normalization divisor applied to a hypothesis's log-probability so long and short candidates compare fairly.
+
+--- EDGE id=e025 ---
+complexity-per-layer --depends-on--> byte-pair-encoding | label: the n < d claim assumes subwords
+
+Self-attention is cheaper per layer than recurrence only when sequence length n is below representation dimension d. The paper supports that condition by pointing at word-piece and byte-pair representations, which keep sentence lengths short.
+
+--- EDGE id=e026 ---
+restricted-self-attention --depends-on--> maximum-path-length | label: trade priced in path length
+
+Limiting each position to a neighborhood of size r is proposed as a way to cut cost on very long sequences, at the price of raising maximum path length to O(n/r). The trade only reads as a trade in the path-length metric.
+
+--- EDGE id=e027 ---
+maximum-path-length --depends-on--> long-range-dependencies | label: metric exists to serve this goal
+
+The paper measures path length because learning long-range dependencies is called a key challenge, and shorter forward and backward paths are said to make such dependencies easier to learn.
+
+--- EDGE id=e028 ---
+attention-heads-ablation --depends-on--> dk-dv-dimensions | label: holding compute fixed needs shrinking heads
+
+The head sweep keeps total computation constant, which is only possible because each head's width is d_model/h and shrinks as h grows. Under that constraint single-head attention is 0.9 BLEU below the best setting, and too many heads also hurts.
+
+--- EDGE id=e029 ---
+key-size-ablation --depends-on--> compatibility-function | label: reads d_k as scoring capacity
+
+Table 3 shows that shrinking d_k lowers quality. The paper reads this as a hint that the dot product may be too simple a way of scoring query-key matches, so the result is stated in terms of the compatibility function.
+
+--- EDGE id=e030 ---
+constituency-parsing --depends-on--> parse-tree-linearization | label: trees must become token sequences
+
+A sequence-to-sequence Transformer can only emit a flat string, so the parse tree has to be linearized into bracket-and-label tokens first. The paper does not restate this step; it follows the cited parsing setup.
+
+--- EDGE id=e031 ---
+semi-supervised-parsing --depends-on--> semi-supervised-parsing-corpora | label: the 17M sentences come from here
+
+The second parsing regime adds roughly 17M sentences from the high-confidence and BerkeleyParser corpora. Those are machine-parsed web news from the cited work, not hand-annotated data, which is why the setting is called semi-supervised.
+
+--- EDGE id=e032 ---
+training-flops-estimate --depends-on--> training-hardware-and-schedule | label: cost derived from time and GPU count
+
+The FLOPs figures in Table 2 are not measured. They are training time times number of GPUs times an assumed sustained throughput per GPU, so they follow directly from the 8 P100 machine and the 12-hour and 3.5-day runs.
+
+--- EDGE id=e033 ---
+layer-comparison-desiderata --supported-by--> table-1 | label: turns the three criteria into numbers
+
+Section 4 proposes judging layer types by complexity per layer, minimum sequential operations, and maximum path length. Table 1 is that framework filled in: one row per layer type, one column per criterion. Without the table the section is a set of assertions.
+
+--- EDGE id=e034 ---
+sequential-computation-bottleneck --supported-by--> table-1 | label: O(n) vs O(1) sequential operations
+
+The paper's complaint about RNNs is that positions must be computed one after another. Table 1's sequential-operations column states this as O(n) for a recurrent layer against O(1) for self-attention. Note the column counts operations in the abstract, not wall-clock time on hardware.
+
+--- EDGE id=e035 ---
+long-range-dependencies --supported-by--> table-1 | label: maximum path length per layer type
+
+The claim is that shorter forward and backward paths make distant dependencies easier to learn. Table 1's path-length column gives O(1) for self-attention, O(n) for recurrent, and O(log_k n) for dilated convolutions. The table shows the path is short; it does not itself show that models with short paths learn better.
+
+--- EDGE id=e036 ---
+restricted-self-attention --supported-by--> table-1 | label: prices the r-neighborhood variant
+
+Table 1 includes a row for self-attention restricted to a neighborhood of size r: cost O(r*n*d) but maximum path length O(n/r). It makes the proposed trade explicit. The paper never trains this variant, so the row is analysis, not a result.
+
+--- EDGE id=e037 ---
+convolutional-sequence-models --supported-by--> table-1 | label: convolutional rows in the comparison
+
+Table 1 gives the convolutional layer O(k*n*d^2) per layer and O(log_k n) path length with dilated kernels, which is how the paper argues convolutions cost more than recurrence by a factor of k while still not connecting all pairs in one layer.
+
+--- EDGE id=e038 ---
+transformer --supported-by--> table-2 | label: reports the headline BLEU scores
+
+The paper's central quality claim rests on this table: 28.4 BLEU on WMT 2014 English-to-German, over 2.0 BLEU above the previous best including ensembles, plus the English-to-French result. Section 6.1 quotes 41.0 for English-to-French while the abstract and table say 41.8, so read the French number off the table.
+
+--- EDGE id=e039 ---
+training-flops-estimate --supported-by--> table-2 | label: supplies the training-cost column
+
+Table 2 puts a FLOPs figure next to every BLEU score, which is what lets the paper say it reached these scores at a fraction of prior training cost. The figures are estimates: training time times GPU count times an assumed sustained throughput (2.8/3.7/6.0/9.5 TFLOPS for K80/K40/M40/P100), not measured counts.
+
+--- EDGE id=e040 ---
+base-vs-big-transformer --supported-by--> table-2 | label: both configurations appear as rows
+
+Table 2 lists the base and big models separately, which is how the paper supports the weaker but cheaper claim that even the base model beats all previously published models and ensembles at a small fraction of their training cost.
+

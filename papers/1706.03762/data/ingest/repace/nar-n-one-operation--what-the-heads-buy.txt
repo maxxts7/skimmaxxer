@@ -1,0 +1,57 @@
+NARRATIVE NODE: n-one-operation--what-the-heads-buy
+TITLE: What the Split Is Shown to Buy
+
+INTRO:
+The parent named the evidence. This level opens it: the exact rows and what was held fixed, the confound the protocol builds in, the row in the same table that turns on the paper's own scoring rule, and what each of the three appendix pictures can carry.
+
+--- CHAPTER id=the-sweep-as-run ---
+TITLE: The five rows, and what was held fixed
+
+Group (A) of [[table-3]] is four trained models plus the base row. The base has [[num-heads-h|$h = 8$]] with [[dk-dv-dimensions|$d_k = d_v = 64$]] and scores 4.92 [[perplexity|PPL]], 25.8 [[bleu|BLEU]], 65M parameters. The four variants:
+
+$h = 1$, $d_k = d_v = 512$ gives 5.29 and 24.9. $h = 4$ at 128 gives 5.00 and 25.5. $h = 16$ at 32 gives 4.91 and 25.8. $h = 32$ at 16 gives 5.01 and 25.4.
+
+The rule that makes computation constant is visible in those pairs: $d_k = d_v = d_{model}/h$, so $h \cdot d_k = 512$ in every row. The concatenation of the heads is always [[d-model|512]] wide, [[attention-projection-matrices|$W^O$]] is always $512 \times 512$, and the per-head projections always sum to the same width. Parameter count stays at 65M across the whole group. That is the sense in which one head and thirty-two heads cost the same: not an estimate, an identity built into how the rows were chosen.
+
+The measurement is newstest2013, the English-to-German development set, decoded with [[beam-search]] and without [[checkpoint-averaging]] — so these are not the numbers from the headline table, and they are not test-set numbers. The perplexities are per word-piece under the paper's [[byte-pair-encoding|BPE]] vocabulary, which the caption says should not be compared to per-word perplexities elsewhere. Each row is one run.
+
+--- CHAPTER id=what-row-a-separates ---
+TITLE: Head count and head width move together
+
+The identity that keeps compute constant is also what limits the reading. Because [[dk-dv-dimensions|$d_k = d_v = d_{model}/h$]], the head count and the head width cannot move independently. The $h = 1$ row is not "one head" — it is one head 512 dimensions wide. The $h = 32$ row is thirty-two heads 16 dimensions wide. Both ends of the curve therefore have two candidate explanations, and [[attention-heads-ablation|the sweep]] cannot tell them apart. The falloff at 32 heads is as consistent with 16-dimensional keys being too narrow to score a match as it is with having too many heads. The paper's own group (B) is the reason to take that seriously: [[key-size-ablation|shrinking $d_k$ alone hurts]], at $d_k = 16$ most of all.
+
+The top of the curve is flat in a way worth naming. Sixteen heads posts the group's best perplexity, 4.91 against the base row's 4.92, and ties it on BLEU at 25.8. The base model ships [[num-heads-h|eight]] anyway, and [[table-3]] gives no reason for the choice. With one run per setting and no seeds or intervals, a 0.01 perplexity difference is not a signal anyone should act on — and the quoted 0.9 BLEU is the distance from the worst row in the group to the best, not a gradient anywhere near $h = 8$.
+
+What none of this touches is the claim the split was introduced to answer. [[attention-averaging-resolution-cost|Averaging blurring position-specific information]] is a statement about representations; group (A) reports end-task BLEU. No number anywhere measures resolution retained. [[multi-head-attention|The design]] is defended by a proxy.
+
+--- CHAPTER id=row-b-against-the-dot-product ---
+TITLE: Row (B) turns on the scoring rule
+
+Group (B) breaks the tie the previous group enforced. Head count stays at eight and $d_v$ stays at 64; only the key dimension shrinks. At $d_k = 32$: 5.01 PPL, 25.4 BLEU, 60M parameters. At $d_k = 16$: 5.16, 25.1, 58M. Worse than base on both metrics, and monotone — the smaller the key, the worse the model. Note that this group is not compute-neutral the way group (A) was. The query and key projections genuinely shrink, so parameters fall with quality, and size is a live alternative explanation.
+
+Section 6.2 draws a conclusion anyway, in one sentence: determining compatibility is not easy, and a more sophisticated [[compatibility-function]] than a dot product may be beneficial. That is the authors casting doubt on their own scoring rule inside the same table that defends their head count. It also lands next to an admission already in Section 3.2.1 — that [[additive-attention]] outperforms unscaled [[dot-product-attention|dot products]] at large $d_k$, which is why [[sqrt-dk-scaling|the $1/\sqrt{d_k}$ divisor]] is there. Row (B) probes the small-$d_k$ end and finds trouble there too.
+
+What [[key-size-ablation|the row]] does not do is test the alternative it points at. There is no additive-attention row in the table, at any budget. The step from "small keys hurt" to "the dot product may be too simple" is an inference, not a measurement, and the paper marks it as a suggestion. [[scaled-dot-product-attention|The function]] survives the section unchanged.
+
+--- CHAPTER id=fig-3-one-word ---
+TITLE: Figure 3: eight heads, one dependency
+
+[[fig-3]] draws a single query position from [[encoder-self-attention]] at layer 5 of [[n-layers|six]], on the sentence ending "...passed new laws since 2009 making the registration or voting process more difficult." Only the attention leaving "making" is drawn, one colour per [[attention-head|head]], line opacity carrying the [[softmax]] weight.
+
+Most of the visible mass lands on two words. Four heads — blue, orange, green, gray — concentrate on "more"; four — blue, green, red, brown — concentrate on "difficult". Both sit six and seven tokens after "making", with "the registration or voting process" in between. A purple head attends back to "making" itself, a pink head to "2009" and "laws".
+
+Read as evidence for the eight-way split, this is the weakest of the three pictures, and for a specific reason: on the one word it draws, the heads mostly agree. Four heads doing the same job is redundancy, not division of labour. What the picture does show cleanly is something else — a [[long-range-dependencies|long-distance dependency]] crossed in a single hop rather than six sequential steps, which is [[maximum-path-length|the path-length argument]] made visible.
+
+The frame is narrow too. One query position, one sentence, one layer, one model. The caption says "many of the attention heads" attend to the distant dependency, but a reader cannot check that count against the figure, because only "making" is drawn. [[attention-interpretability|The observation is offered as an example]], not a rate.
+
+--- CHAPTER id=fig-4-fig-5-two-heads ---
+TITLE: Figures 4 and 5: two heads pulled apart
+
+The remaining two pictures share a sentence and a layer: "The Law will never be perfect, but its application should be just — this is what we are missing, in my opinion", encoder self-attention, layer 5 of 6 again.
+
+[[fig-4]] has two panels. The top shows all of head 5's attention, mostly faint lines. The bottom keeps only the lines leaving "its", for two heads at once: head 5 sends nearly all of that word's weight to "Law", head 6 nearly all of it to "application". The caption calls the attentions "very sharp" for this word and the behaviour "apparently involved in anaphora resolution". This is the clearest instance of the diversity claim in the paper — two [[attention-head|heads]] at the same depth giving one token two different answers, on a job nobody supervised. It is also one pronoun in one sentence.
+
+[[fig-5]] is two full attention maps from the same layer, different heads. The green head spreads a haze across nearly every pair with heavy fans converging on Law, application, missing and opinion. The red head is sparse: short, near-vertical links picking out one or two nearby tokens. Also visible in both panels is a dark self-link on `<pad>` — not every strong line is linguistic, and nothing in the figure sorts them.
+
+The captions grade themselves unevenly, and Section 4 keeps the same split: that the heads "clearly learned to perform different tasks" is stated flat, while behaviour related to syntax and semantics only "seems" so. [[attention-interpretability|Interpretability]] is named a side benefit. No layer other than the fifth is shown, and nothing is scored.
+

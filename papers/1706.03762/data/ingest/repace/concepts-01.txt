@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=transformer ---
+NAME: The Transformer
+OWNER: 1706.03762
+SUMMARY (leave alone): The architecture this paper proposes: an encoder-decoder built entirely from stacked self-attention and position-wise feed-forward layers, with no recurrence and no convolutions.
+
+EXPLANATION:
+The Transformer keeps the standard encoder-decoder shape but replaces the recurrent (or convolutional) layers inside it with two building blocks: multi-head self-attention and point-wise (position-wise) fully connected layers. The encoder and decoder are each a stack of identical layers wrapped in residual connections and layer normalization. Because no step has to wait for the previous position's hidden state, much more of the computation can run in parallel, which the paper says cuts training time substantially. Because the model has no recurrence or convolution, word order is injected separately, via positional encodings added to the input embeddings. The paper reports 28.4 BLEU on WMT 2014 English-to-German (over 2 BLEU above prior results, including ensembles) and 41.8 BLEU on WMT 2014 English-to-French after 3.5 days on eight GPUs, and shows results on English constituency parsing as evidence the model generalizes beyond translation.
+
+--- CONCEPT id=sequence-transduction ---
+NAME: Sequence transduction
+OWNER: 1706.03762
+SUMMARY (leave alone): The general task of converting one sequence of symbols into another sequence, such as translating a German sentence into English.
+
+EXPLANATION:
+A transduction model reads an input sequence $(x_1, ..., x_n)$ and produces an output sequence, which may have a different length and use a different vocabulary. Machine translation is the paper's main example; language modeling is the related task of predicting the next symbol in a single sequence. Section 4 narrows the discussion to one layer of such a model: mapping a variable-length sequence of symbol representations $(x_1, ..., x_n)$ to another sequence of equal length $(z_1, ..., z_n)$, with each $x_i, z_i \in \mathbb{R}^d$. The paper frames everything else — recurrence, convolutions, attention — as competing ways to build these layers.
+
+--- CONCEPT id=encoder-decoder-architecture ---
+NAME: Encoder-decoder architecture
+OWNER: 1706.03762
+SUMMARY (leave alone): A two-part model design: an encoder turns the input sequence into continuous representations, and a decoder generates the output sequence from them, one symbol at a time.
+
+EXPLANATION:
+The encoder maps an input sequence of symbols $(x_1, ..., x_n)$ to a sequence of continuous representations $z = (z_1, ..., z_n)$ — one vector per input position. Given $z$, the decoder generates the output sequence $(y_1, ..., y_m)$ one element at a time, consuming its previously generated symbols as extra input at each step. The abstract notes that the dominant transduction models of the time were recurrent or convolutional encoder-decoders, and that the best ones also connected encoder and decoder through an attention mechanism. The Transformer keeps this overall structure but changes what the encoder and decoder are made of.
+
+--- CONCEPT id=auto-regressive-generation ---
+NAME: Auto-regressive generation
+OWNER: 1706.03762
+SUMMARY (leave alone): Producing an output sequence one symbol at a time, where each new symbol is conditioned on all previously generated symbols.
+
+EXPLANATION:
+The decoder is auto-regressive: to generate the symbol at position $i$, it takes as input everything it generated at positions before $i$. This property is what the decoder's masking exists to protect during training — the prediction for position $i$ must not be able to look at position $i$ or anything after it.
+
+--- CONCEPT id=sequential-computation-bottleneck ---
+NAME: Sequential computation bottleneck of RNNs
+OWNER: 1706.03762
+SUMMARY (leave alone): Because an RNN's hidden state at position t depends on the hidden state at position t-1, positions within one training example cannot be computed in parallel.
+
+EXPLANATION:
+Recurrent models align positions with computation steps: they compute a hidden state $h_t$ as a function of the previous state $h_{t-1}$ and the input at position $t$. Each step must wait for the one before it, so the work inside a single example cannot be parallelized. This matters most for long sequences, where memory limits also restrict how many examples fit in a batch, cutting off the other route to parallelism. The paper notes that factorization tricks and conditional computation improved efficiency, but says the fundamental constraint of sequential computation remains. Removing this constraint is the Transformer's central motivation.
+
+--- CONCEPT id=factorization-tricks ---
+NAME: Factorization tricks for LSTMs
+OWNER: 1706.03762
+SUMMARY (leave alone): Techniques that factor an LSTM's weight matrices into smaller pieces to reduce computation.
+
+EXPLANATION:
+The introduction cites this as recent work that improved the computational efficiency of recurrent models. It reduces the cost of each recurrent step but does not remove the step-by-step dependency, so the sequential bottleneck stays.
+
+--- CONCEPT id=conditional-computation ---
+NAME: Conditional computation
+OWNER: 1706.03762
+SUMMARY (leave alone): Activating only parts of a network per input, so compute is spent selectively.
+
+EXPLANATION:
+The introduction cites conditional computation (the sparsely-gated mixture-of-experts layer) as recent work that improved both the efficiency and the quality of recurrent models. Like factorization tricks, it makes each step cheaper or better without removing the sequential dependency between steps.
+
+--- CONCEPT id=attention-mechanism ---
+NAME: Attention mechanism (query, key, value)
+OWNER: 1706.03762
+SUMMARY (leave alone): A function that maps a query vector and a set of key-value vector pairs to an output: a weighted sum of the values, with weights set by how well the query matches each key.
+
+EXPLANATION:
+Given one query vector and a set of key-value pairs (all vectors), attention outputs a weighted sum of the values. Each value's weight comes from a compatibility function that scores the query against that value's key — a high score means 'this value is relevant to this query' — and the scores become weights through a softmax. Before this paper, attention was mostly used to connect an encoder and decoder: at each decoding step the decoder looks back over all encoder states and pulls in the relevant ones. The introduction stresses the key property: attention models dependencies without regard to their distance in the input or output sequences. It also notes that, with few exceptions, attention had been used together with a recurrent network rather than instead of one. Everything in the Transformer's attention machinery is a particular choice of compatibility function (scaled dot product) plus a particular choice of where the queries, keys, and values come from.
+
+--- CONCEPT id=queries-keys-values ---
+NAME: Queries, keys, and values
+OWNER: 1706.03762
+SUMMARY (leave alone): The three roles vectors play in attention: a query asks for information, keys advertise what each position holds, and values carry the content that actually gets mixed into the output.
+
+EXPLANATION:
+Each position that wants information issues a query vector. Each position that offers information exposes a key vector (used only for matching against queries) and a value vector (the content returned). The attention output for a query is a weighted sum of all the values, weighted by query-key match scores. Separating keys from values means what a position matches on can differ from what it contributes. In practice all queries are stacked into a matrix $Q$, and keys and values into matrices $K$ and $V$, so attention runs as a few matrix multiplications.
+
+--- CONCEPT id=compatibility-function ---
+NAME: Compatibility function
+OWNER: 1706.03762
+SUMMARY (leave alone): The scoring function that measures how well a query matches a key; its scores become the attention weights after a softmax.
+
+EXPLANATION:
+Attention variants differ mainly in this function. Dot-product attention scores a query-key pair by their dot product $q \cdot k$. Additive attention scores them with a small feed-forward network with one hidden layer. The Transformer uses the dot product divided by $\sqrt{d_k}$. Whatever the function, the scores over all keys are pushed through a softmax to become weights that sum to one.
+
+--- CONCEPT id=scaled-dot-product-attention ---
+NAME: Scaled dot-product attention
+OWNER: 1706.03762
+SUMMARY (leave alone): The Transformer's attention: dot the query with every key, divide by $\sqrt{d_k}$, softmax the scores, and use them to weight the values.
+
+EXPLANATION:
+Inputs are queries and keys of dimension $d_k$ and values of dimension $d_v$. For each query, the model computes its dot product with all keys, divides each score by $\sqrt{d_k}$, and applies a softmax to get weights on the values. With queries, keys, and values packed into matrices $Q$, $K$, $V$, the whole thing is $\mathrm{Attention}(Q, K, V) = \mathrm{softmax}(QK^T / \sqrt{d_k})\,V$. The paper picks this over additive attention because it runs as plain matrix multiplication, which is much faster and more memory-efficient in practice even though the two have similar theoretical complexity. The $\sqrt{d_k}$ divisor is the one change from standard dot-product attention.
+
+--- CONCEPT id=dk-dv-dimensions ---
+NAME: d_k and d_v (key and value dimensions)
+OWNER: 1706.03762
+SUMMARY (leave alone): The dimensions of the key/query vectors ($d_k$) and value vectors ($d_v$) inside attention; in the base model each head uses $d_k = d_v = 64$.
+
+EXPLANATION:
+Queries and keys share dimension $d_k$ because they are dotted together; values have their own dimension $d_v$, which sets the size of the attention output. In multi-head attention each head projects down to $d_k = d_v = d_{model}/h = 512/8 = 64$. $d_k$ also appears in the scaling factor $1/\sqrt{d_k}$ and in the variance argument for why unscaled dot products grow with dimension.
+

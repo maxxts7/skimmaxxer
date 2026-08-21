@@ -1,0 +1,54 @@
+NARRATIVE NODE: n-training-the-thing--three-regularizers--what-the-citation-says
+TITLE: What the citation actually says
+
+INTRO:
+The summary above gave the formula and the motive. This level opens the cited section itself: where the mixture comes from before it is a formula, what the two knobs would do if anyone turned them, what the split loss does to the numbers a training run prints, and how much evidence stood behind $\epsilon = 0.1$ when it was carried across from vision.
+
+--- CHAPTER id=where-the-mixture-comes-from ---
+TITLE: Where the mixture comes from
+
+The cited section does not open with the mixture. It opens with a procedure, and the mixture is what you get by averaging over it. Draw the training label this way: set it to the reference token $y$; then, with probability $\epsilon$, throw that away and draw a replacement from $u$ instead. [[label-smoothing-regularization|LSR]] is what you train against when you skip the coin flip and use its expected target directly. The cited paper's own framing of the section is estimating the marginalized effect of label dropout.
+
+The notation it sets up is worth carrying, because the later steps lean on it. $z_k$ are the logits, $p(k) = \exp(z_k)/\sum_i \exp(z_i)$ is the [[softmax]] over $K$ classes, and $q(k|x)$ is the ground-truth distribution, required only to be normalized. The loss is written $\ell = -\sum_k q(k)\log p(k)$ for an arbitrary target; the one-hot case arrives a paragraph later as a specialization, not as the premise. That generality is what makes the decomposition available for free two steps on.
+
+Moving it to translation changes the unit. A class is an entry in the output vocabulary, and the classifier runs at every decoder position rather than once per image. The [[masked-decoder-self-attention|decoder]] emits one token per position under [[auto-regressive-generation|the auto-regressive constraint]], and batches are assembled to roughly 25000 target tokens by [[length-based-batching|approximate sequence length]], so the smoothed target is applied about 25000 times per step. What [[label-smoothing|Section 5.4]] states as a single value of 0.1 is a tenth of the target mass reassigned at each of those positions — every one of them scored by [[embedding-softmax-weight-sharing|the projection shared with the embedding tables]].
+
+--- CHAPTER id=the-two-knobs ---
+TITLE: Two knobs, and the one nobody turned
+
+The cited work proposes using the prior distribution over classes as $u$, and then reports experiments that use uniform $u$ anyway. The gap between the proposal and the setting is already in the source. This paper inherits the setting and drops the proposal: [[smoothing-parameter-epsilon|both knobs]] survive the transfer, but only one of them gets a number.
+
+The choice matters more here than it did there. A thousand photo classes are roughly balanced. A 37000-symbol vocabulary built by [[byte-pair-encoding|BPE]] is not — frequent subwords and rare ones differ by orders of magnitude in the corpus. Under uniform $u$ the floor is the same $2.7 \times 10^{-6}$ for a comma as for a piece that appears a few dozen times across 4.5M sentence pairs. A corpus-prior $u$ would put the floor where the mass actually is. Neither paper reports trying it.
+
+The two training runs make the asymmetry visible. [[wmt-2014-en-de|English-German]] uses about 37000 shared BPE tokens; [[wmt-2014-en-fr|English-French]] uses a 32000-entry [[word-piece-encoding|word-piece]] vocabulary. $\epsilon_{ls} = 0.1$ is stated once and covers both, so the mass taken off the reference token is 0.1 in each run while the per-wrong-token floor is not the same: $2.7 \times 10^{-6}$ against $3.1 \times 10^{-6}$. $\epsilon$ is the setting. The floor is downstream of a vocabulary decision made for unrelated reasons.
+
+As for the value, 0.1 arrives from the vision paper unchanged. There is no sweep. $\epsilon_{ls}$ is not a row in [[table-3]], which varies head count, $d_k$, model size, [[dropout]] rate and positional encoding and stops there. [[transformer-training-recipe|The recipe]] reports smoothing as settled rather than as chosen.
+
+--- CHAPTER id=what-the-loss-becomes ---
+TITLE: What the split loss does to the numbers
+
+The identity itself was in the summary above. Two things follow from it that the identity does not show on its face.
+
+First, the weight. Factor out $(1-\epsilon)$ and the second loss sits at relative weight $\epsilon/(1-\epsilon)$ against the first — at $\epsilon = 0.1$, exactly one ninth. [[lsr-as-two-cross-entropy-losses|The pair]] is lopsided by construction. The pull toward $u$ is a standing tax on the ordinary objective, not a co-equal term.
+
+Second, the constant. $H(u,p) = D_{KL}(u\|p) + H(u)$, and $H(u)$ has no model in it. For uniform $u$ over 37000 symbols, $H(u) = \log 37000 \approx 10.5$ nats, added to every example's loss and never moving. Only the divergence part carries a gradient. So a smoothed run's reported loss is displaced from an unsmoothed one by a fixed offset plus a term measuring distance from uniform, and the two curves are not on a common scale. The quantity being minimized is no longer the log-likelihood that [[perplexity]] exponentiates.
+
+Both the offset and the floor also move when the vocabulary moves. [[bpe-vocabulary-size|The merge count sets $K$]], and $K$ is picked against [[vocabulary-vs-sequence-length-tradeoff|tokenized sequence length]], which has nothing to do with smoothing.
+
+One alternative in the cited text went untaken. When $u$ is uniform, $H(u,p)$ measures how far $p$ sits from uniform — and so does negative entropy $-H(p)$, though the cited paper is careful to say not equivalently. Its sentence is that they have not experimented with this approach. The entropy-penalty form of this [[regularization|regularizer]] is untested in the work being cited, and untested here.
+
+--- CHAPTER id=the-argument-and-its-evidence ---
+TITLE: The argument, and what was behind it
+
+The cited case against one-hot targets has two limbs, and only one is about confidence. First: a model that learns to assign full probability to the training label at every example is not guaranteed to generalize. Second: reaching that target requires the correct logit to run far ahead of the rest, and the per-logit gradient of cross entropy is
+
+$$\frac{\partial \ell}{\partial z_k} = p(k) - q(k) \in [-1, 1]$$
+
+so a widening gap has to be bought one bounded step at a time, which the source says reduces the model's ability to adapt. [[overconfidence-and-bounded-logit-gradient|The whole argument]] is hedged where it is made — may result in over-fitting, intuitively.
+
+Substituting $q'$ makes the fix legible in the same expression. At the reference token the gradient is $p(y) - (1 - \epsilon + \epsilon/K)$, which reaches zero at $p(y) \approx 0.9$ instead of never. At any other token it is $p(k) - \epsilon/K$, positive as soon as $p(k)$ falls below $2.7 \times 10^{-6}$, so the model is pushed back up toward the floor. The source's own reason this works: every $q'(k)$ has a positive lower bound, unlike $\delta_{k,y}$, so a runaway top logit is charged a large cross entropy.
+
+That upward push lands on shared weights. The projection is [[weight-tying|tied]] to both embedding tables — [[three-way-weight-tying|three roles, one matrix]] — so a gradient on 37000 output rows is a gradient on 37000 [[token-embeddings|embedding rows]]. [[tied-embedding-update-dynamics|The tying argument]] is that the output matrix already gets an update on every row every step; smoothing changes what the tail updates say rather than adding them. Neither paper discusses the interaction.
+
+The evidence carried over is thin. In the source, smoothing is one row of a cumulative table on ILSVRC 2012: top-1 error 23.1% to 22.8%, top-5 6.3% to 6.1%, roughly the 0.2% absolute the text claims, with every earlier change still stacked in — not the one-at-a-time design of [[transformer-ablations|the ablations here]]. That is the basis on which $\epsilon = 0.1$ arrives at a 37000-way conditional model for [[machine-translation]].
+

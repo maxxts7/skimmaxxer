@@ -1,0 +1,15 @@
+PAGE FOR: constituency-parsing (concept)
+
+Constituency parsing takes a sentence and returns its syntactic tree: words grouped into nested labeled phrases, a noun phrase sitting inside a verb phrase inside a clause. The paper runs it not because it cares about parsing, but as a transfer check — can a configuration tuned for translation be pointed at a structurally different task with almost nothing changed?
+
+### Turning a tree into a string
+
+The [[transformer]] can only emit a flat token sequence, so the tree is flattened first. [[parse-tree-linearization]] walks the tree depth-first and emits an open-bracket-plus-label token on entering a node and a close token on leaving it; parsing then becomes ordinary [[sequence-transduction]], sentence in, bracket string out. Two things make it unlike translation. The output is several times longer than the input, because every tree node adds tokens on top of the words. And it is not free-form: brackets have to nest and close, and the leaves have to be exactly the input words in order. Nothing in the architecture enforces either constraint — the decoder has to learn them from data.
+
+The setup: 4 layers instead of the [[n-layers|six]] used for translation, and $d_{model} = 1024$, double the base [[d-model|model width]]. Two regimes: [[penn-treebank-wsj]] alone (~40K sentences, 16K-token vocabulary) and [[semi-supervised-parsing]] (~17M extra machine-parsed sentences, 32K vocabulary), both under the [[wsj-parsing-protocol]] — tune on Section 22, report on Section 23. Only [[residual-dropout]] and [[attention-dropout]], the learning rate, and the beam size were re-tuned; everything else carried over from the English-to-German base model. At inference [[beam-search]] widens to 21 with a [[length-penalty|length penalty of $\alpha = 0.3$]], and the [[inference-length-limit|output cap]] goes to input length + 300 tokens. Both are concessions to the long, structured output.
+
+### What the numbers support
+
+[[table-4]] carries the entire claim. WSJ-only: 91.3 F1, above every listed discriminative parser except [[recurrent-neural-network-grammar|Dyer et al.'s RNNG]] at 91.7, and above the [[berkeley-parser]] — that last comparison is the load-bearing one, since RNN sequence-to-sequence parsers had not beaten a classical grammar-based parser in the 40K-sentence regime. Semi-supervised: 92.7, the best semi-supervised row.
+
+Read the evidence as thin, though. One run per setting, no variance reported, and margins of a few tenths of an F1 point. RNNG, which builds trees with explicit tree-structured operations, still wins on WSJ-only: the generic architecture gets close without a task-specific inductive bias, but not past one. The paper says its model does "surprisingly well" and stops there, which is about the right strength.

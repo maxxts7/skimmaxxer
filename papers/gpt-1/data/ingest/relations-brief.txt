@@ -1,0 +1,278 @@
+RELATIONS BRIEF FOR: Improving Language Understanding by Generative Pre-Training (gpt-1)
+
+=== WHAT THIS PAPER IS, IN ITS OWN TERMS ===
+Its major concepts, which are what a comparison should be drawn against:
+  labeled-data-scarcity | Scarcity of Labelled Data: The problem the paper starts from: raw text is abundant, but human-annotated data for any one task is small and expensive.
+  semi-supervised-learning-for-nlp | Semi-Supervised Learning for NLP: The family of methods that combine a large unlabelled corpus with a small labelled dataset, which the paper places itself inside.
+  two-stage-training-procedure | Two-Stage Training Procedure: The paper's recipe: learn the network's initial parameters with a language modelling objective on unlabelled text, then adapt those same parameters to each target task with its supervised ob
+  generative-pretraining | Generative Pre-Training (Stage One): Train a multi-layer transformer decoder to predict each next token on a large unlabelled corpus, and keep the weights rather than the outputs.
+  language-modeling-objective | Language Modelling Objective $L_1$: The pre-training loss $L_1(U)=\sum_i \log P(u_i \mid u_{i-k},\dots,u_{i-1};\Theta)$: maximize the log-probability the model gives each token given the tokens before it.
+  multi-layer-transformer-decoder | Multi-Layer Transformer Decoder: The language model is a stack of transformer blocks used as a decoder only: masked multi-head self-attention over the context, then position-wise feedforward layers.
+  decoder-only-stack | Decoder-Only Stack: The model drops the encoder half of the original encoder-decoder transformer and keeps one stack that attends only to its own past tokens.
+  masked-self-attention | Masked Self-Attention: Self-attention restricted so each position attends only to itself and earlier positions, never to later ones.
+  supervised-fine-tuning | Supervised Fine-Tuning (Stage Two): Run labelled inputs through the pre-trained model, take the final block's activation at the last token, and train a linear layer on it to predict the label.
+  auxiliary-lm-objective | Auxiliary Language Modelling Objective: During fine-tuning the paper keeps optimizing the language modelling loss alongside the task loss: $L_3(C) = L_2(C) + \lambda\, L_1(C)$.
+  task-specific-input-transformations | Task-Specific Input Transformations: Structured task inputs are rewritten as one ordered token sequence, so the pre-trained model can read them without architectural change.
+  task-agnostic-model | Task-Agnostic Model: A single architecture, pre-trained once, applied to every task without being redesigned for any of them.
+  bookscorpus | BooksCorpus: The pre-training corpus: over 7,000 unpublished books across genres. Its selling point in this paper is long stretches of contiguous text.
+  model-specification | Model Specification: The exact architecture trained: a 12-layer decoder-only transformer with 768-dimensional states, 12 attention heads and 3072-dimensional inner feed-forward states.
+  pre-training-optimization | Pre-Training Optimization Setup: How the language model was actually trained: Adam, a warmup-then-cosine schedule peaking at 2.5e-4, and 100 epochs of 64-sequence minibatches.
+  fine-tuning-hyperparameters | Fine-Tuning Hyperparameters: Fine-tuning reuses the pre-training settings except for a learning rate of 6.25e-5, batch size 32, three epochs, classifier dropout 0.1, and a short warmup.
+  evaluation-task-families | Four Task Families, Twelve Datasets: The paper evaluates on natural language inference, question answering and commonsense reasoning, semantic similarity, and text classification, across twelve datasets.
+  layers-transferred | Impact of Number of Layers Transferred: An analysis varying how many pre-trained layers are carried into fine-tuning, showing each transformer layer adds performance, up to 9% on MultiNLI for full transfer.
+  zero-shot-behaviors | Zero-Shot Behaviours: Heuristics that make the pre-trained generative model perform the evaluation tasks with no supervised fine-tuning at all, tracked across pre-training.
+  ablation-studies | Ablation Studies: Three controlled removals reported in Table 5: dropping the auxiliary LM objective, replacing the transformer with an LSTM, and skipping pre-training entirely.
+
+Concepts it marks as borrowed - each names a citation this paper makes:
+  word-embedding-transfer | Pre-Trained Word Embedding Transfer <- [39, 42] T. Mikolov et al. Distributed representations of words and phrases and their compositional
+      needed for: The objectives that produce these vectors live in those papers; this one cites them as prior evidence.
+  pretraining-as-regularization | Pre-Training as a Regularization Scheme <- [15] D. Erhan, Y. Bengio, A. Courville, P.-A. Manzagol, P. Vincent, and S. Bengio. Why does uns
+      needed for: The regularization claim is an empirical result established there and asserted here in one sentence.
+  elmo-deep-contextualized-word-representations | Deep Contextualized Word Representations (ELMo) <- [44] M. E. Peters, M. Neumann, M. Iyyer, M. Gardner, C. Clark, K. Lee, and L. Zettlemoyer. Deep
+      needed for: The bidirectional language model and the layer-mixing scheme that produce the features are defined there; this paper summarizes it in a clause.
+  semi-supervised-sequence-learning | Semi-Supervised Sequence Learning <- [13] A. M. Dai and Q. V. Le. Semi-supervised sequence learning. NIPS, 2015.
+      needed for: The pre-training objectives and fine-tuning procedure are defined there; this paper names the result only.
+  ulmfit | Universal Language Model Fine-Tuning <- [21] J. Howard and S. Ruder. Universal language model fine-tuning for text classification. ACL,
+      needed for: The staged fine-tuning schedule this paper calls intricate is specified there, not here.
+  multi-layer-transformer-decoder | Multi-Layer Transformer Decoder <- [34] P. J. Liu, M. Saleh, E. Pot, B. Goodrich, R. Sepassi, L. Kaiser, and N. Shazeer. Generatin
+      needed for: The decoder-only transformer variant the paper adopts is defined there; the paper cites it in place of describing the variant.
+  transformer-gpt1 | Transformer Architecture <- [62] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. 
+      needed for: The architecture is defined there and adopted wholesale here.
+  decoder-only-stack | Decoder-Only Stack <- [62] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. 
+      needed for: The encoder-decoder design this stack is a trimmed version of, including the cross-attention sublayer that gets removed, is defined there.
+  learned-position-embeddings | Learned Position Embeddings <- [62] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. 
+      needed for: The sinusoidal scheme being replaced is defined there.
+  auxiliary-lm-objective | Auxiliary Language Modelling Objective <- [50] M. Rei. Semi-supervised multitask learning for sequence labeling. ACL, 2017.
+      needed for: The construction this paper adopts, and its measured effect on sequence labeling, come from there; this paper cites it in one sentence.
+  traversal-style-approach | Traversal-Style Approach <- [52] T. Rocktäschel, E. Grefenstette, K. M. Hermann, T. Kočiský, and P. Blunsom. Reasoning abou
+      needed for: The paper names this as the source of the traversal-style approach it adopts without describing what that approach is.
+  task-specific-architectures | Task-Specific Architectures <- [44] M. E. Peters, M. Neumann, M. Iyyer, M. Gardner, C. Clark, K. Lee, and L. Zettlemoyer. Deep
+      needed for: This is the concrete prior approach Section 3.3 contrasts against; the contrast needs its transfer scheme and what it builds on top.
+  bookscorpus | BooksCorpus <- [71] Y. Zhu, R. Kiros, R. Zemel, R. Salakhutdinov, R. Urtasun, A. Torralba, and S. Fidler. Alig
+      needed for: The corpus is defined and collected there; its size, genre composition and collection method are not restated here.
+  model-specification | Model Specification <- [62] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. 
+      needed for: The architecture the spec largely follows is defined there; this section records only the deltas and the hyperparameter values.
+  gelu | Gaussian Error Linear Unit (GELU) <- [18] D. Hendrycks and K. Gimpel. Bridging nonlinearities and stochastic regularizers with gauss
+      needed for: The activation is defined and motivated there; this paper only names it.
+  layer-normalization-gpt1 | Layer Normalization <- [2] J. L. Ba, J. R. Kiros, and G. E. Hinton. Layer normalization. arXiv:1607.06450, 2016.
+      needed for: Definition of the normalization scheme the setup relies on.
+  adam-optimizer-gpt1 | Adam Optimizer <- [27] D. P. Kingma and J. Ba. Adam: a method for stochastic optimization. arXiv:1412.6980, 2014.
+      needed for: The update rule, its moment estimates and default betas are defined there and are needed to reproduce the schedule.
+  decoupled-weight-decay | Modified L2 Regularization (Decoupled Weight Decay) <- [37] I. Loshchilov and F. Hutter. Fixing weight decay regularization in adam. arXiv:1711.05101,
+      needed for: The exact modified update rule, and why L2 and weight decay differ under Adam, live there; this section only names it and gives w.
+  byte-pair-encoding-gpt1 | Byte-Pair Encoding (BPE) <- [53] R. Sennrich, B. Haddow, and A. Birch. Neural machine translation of rare words with subwor
+      needed for: The merge algorithm and its training procedure are defined there; this paper gives only the merge count.
+  glue-benchmark | GLUE Benchmark <- [64] A. Wang, A. Singh, J. Michael, F. Hill, O. Levy, and S. R. Bowman. Glue: a multi-task benc
+      needed for: Which datasets GLUE contains and how the aggregate score is computed are defined there.
+  snli | SNLI <- [5] S. R. Bowman, G. Angeli, C. Potts, and C. D. Manning. A large annotated corpus for learnin
+      needed for: The dataset's construction, label scheme and split sizes are defined there.
+  multinli | MultiNLI (MNLI) <- [66] A. Williams, N. Nangia, and S. R. Bowman. A broad-coverage challenge corpus for sentence u
+      needed for: The genre composition and matched/mismatched split structure are defined there.
+  scitail | SciTail <- [25] T. Khot, A. Sabharwal, and P. Clark. Scitail: a textual entailment dataset from science qu
+      needed for: How entailment pairs were derived from science questions is defined there.
+  rte | RTE <- [4] L. Bentivogli, P. Clark, I. Dagan, and D. Giampiccolo. The fifth pascal recognizing textua
+      needed for: The RTE challenge data and its label conventions are defined there.
+  race-dataset | RACE <- [30] G. Lai, Q. Xie, H. Liu, Y. Yang, and E. Hovy. Race: large-scale reading comprehension data
+      needed for: Passage length, question types, and the analysis showing it is more reasoning-heavy than CNN or SQuAD are established there.
+  cnn-and-squad-contrast | CNN and SQuAD as Contrast Datasets <- [19, 47] [19] K. M. Hermann et al. Teaching machines to read and comprehend. NIPS 2015. [47] P. Raj
+      needed for: The comparison rests on what these datasets' questions look like, which is only established in those papers.
+  story-cloze-test | Story Cloze Test <- [40] N. Mostafazadeh, M. Roth, A. Louis, N. Chambers, and J. Allen. Lsdsem 2017 shared task: th
+      needed for: The shared-task setup, how the wrong endings were written, and the evaluation split are defined there.
+  mrpc | Microsoft Paraphrase Corpus (MRPC) <- [14] W. B. Dolan and C. Brockett. Automatically constructing a corpus of sentential paraphrases
+      needed for: The corpus construction and its paraphrase labelling criteria are defined there.
+  qqp | Quora Question Pairs (QQP) <- [9] Z. Chen, H. Zhang, X. Zhang, and L. Zhao. Quora question pairs. 2018.
+      needed for: The dataset release, size and labelling are defined there, and the size is needed for the 'larger datasets benefit' claim.
+  sts-b | Semantic Textual Similarity Benchmark (STS-B) <- [6] D. Cer, M. Diab, E. Agirre, I. Lopez-Gazpio, and L. Specia. Semeval-2017 task 1: semantic 
+      needed for: The similarity rating scale and correlation metric a '1 point absolute gain' is measured on are defined there.
+  cola | Corpus of Linguistic Acceptability (CoLA) <- [65] A. Warstadt, A. Singh, and S. R. Bowman. Corpus of linguistic acceptability. 2018.
+      needed for: The acceptability judgements and the correlation metric the 45.4 is measured in are defined there.
+  sst-2 | Stanford Sentiment Treebank (SST-2) <- [54] R. Socher, A. Perelygin, J. Wu, J. Chuang, C. D. Manning, A. Ng, and C. Potts. Recursive d
+      needed for: The treebank and its binary sentence-level split define what 91.3% accuracy is measured on, and the label vocabulary underpins the zero-shot heuristic.
+  dprd-winograd-heuristic | DPRD Winograd-Schema Zero-Shot Heuristic <- [46] A. Rahman and V. Ng. Resolving complex cases of definite pronouns: the winograd schema cha
+      needed for: The DPRD dataset and the definite-pronoun-resolution format the heuristic operates on are defined there.
+
+=== WHAT WAS READ WHILE BUILDING THIS EXPLAINER ===
+  1801.10198 ([34]): Section 3.1 says only that it uses a multi-layer Transformer decoder, a variant of the original transformer, citing this. The decoder-only variant — which sublayers were dropped and how the single stack is arranged — is defined there and is
+  1711.05101 ([37]): The paper says only 'a modified version of L2 regularization proposed in [37], with w = 0.01'. What the modification is, and why decoupling it from Adam's adaptive denominator changes the effective penalty, is entirely in that paper and is 
+  1606.08415 ([18]): GELU is named without a formula and used at the 3072-dimensional point of every feed-forward sublayer. Its definition, the tanh approximation usually implemented, and the stochastic-regularizer motivation all live there.
+  1509.06664 ([52]): Sections 1 and 3.3 say the input transformations are derived from a traversal-style approach and cite this without defining it. The whole minimal-architecture-change claim rests on what that serialization actually is.
+  1508.07909 ([53]): GPT-1 uses a bytepair encoding vocabulary with 40,000 merges, and its reported token-level perplexity of 18.4 is measured in those units.
+  1706.03762 ([62]): GPT-1 is this architecture minus the encoder, with masked attention and learned rather than sinusoidal positions.
+  1607.06450 ([2]): GPT-1 justifies its N(0, 0.02) initialization by the fact that layernorm is used extensively throughout the model.
+
+=== THE OTHER PAPERS IN THIS PROJECT ===
+These are the only ids outside this paper you may link to.
+
+--- 1706.03762 | Attention Is All You Need | Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin (2017) [full read] ---
+    transformer | The Transformer: The architecture this paper proposes: an encoder-decoder built entirely from stacked self-attention and position-wise feed-forward layers, with no recurrence and no convo
+    sequence-transduction | Sequence transduction: The general task of converting one sequence of symbols into another sequence, such as translating a German sentence into English.
+    machine-translation | Machine translation: Automatically translating text from one language to another; the paper's main benchmark task.
+    language-modeling | Language modeling: Predicting the next symbol in a sequence given the symbols so far.
+    encoder-decoder-architecture | Encoder-decoder architecture: A two-part model design: an encoder turns the input sequence into continuous representations, and a decoder generates the output sequence from them, one symbol at a time.
+    auto-regressive-generation | Auto-regressive generation: Producing an output sequence one symbol at a time, where each new symbol is conditioned on all previously generated symbols.
+    recurrent-neural-network | Recurrent neural network (RNN): A network that processes a sequence one position at a time, carrying a hidden state forward.
+    lstm | Long short-term memory (LSTM): An RNN variant with gates that help preserve information over long spans.
+    gated-recurrent-unit | Gated recurrent unit (GRU): A simpler gated RNN variant, an alternative to the LSTM.
+    sequential-computation-bottleneck | Sequential computation bottleneck of RNNs: Because an RNN's hidden state at position t depends on the hidden state at position t-1, positions within one training example cannot be computed in parallel.
+    factorization-tricks | Factorization tricks for LSTMs: Techniques that factor an LSTM's weight matrices into smaller pieces to reduce computation.
+    conditional-computation | Conditional computation: Activating only parts of a network per input, so compute is spent selectively.
+    attention-mechanism | Attention mechanism (query, key, value): A function that maps a query vector and a set of key-value vector pairs to an output: a weighted sum of the values, with weights set by how well the query matches each ke
+    queries-keys-values | Queries, keys, and values: The three roles vectors play in attention: a query asks for information, keys advertise what each position holds, and values carry the content that actually gets mixed in
+    compatibility-function | Compatibility function: The scoring function that measures how well a query matches a key; its scores become the attention weights after a softmax.
+    scaled-dot-product-attention | Scaled dot-product attention: The Transformer's attention: dot the query with every key, divide by $\sqrt{d_k}$, softmax the scores, and use them to weight the values.
+    dk-dv-dimensions | d_k and d_v (key and value dimensions): The dimensions of the key/query vectors ($d_k$) and value vectors ($d_v$) inside attention; in the base model each head uses $d_k = d_v = 64$.
+    sqrt-dk-scaling | The 1/sqrt(d_k) scaling factor: Dividing the query-key dot products by $\sqrt{d_k}$ so their magnitude stays controlled as the dimension grows, keeping the softmax out of its flat, tiny-gradient regions
+    dot-product-attention | Dot-product (multiplicative) attention: An attention variant that scores each query-key pair by their plain dot product; identical to the Transformer's attention except for the $1/\sqrt{d_k}$ factor.
+    additive-attention | Additive attention: An attention variant that scores each query-key pair with a small feed-forward network with one hidden layer, instead of a dot product.
+    multi-head-attention | Multi-head attention: Running $h$ attention functions in parallel on different learned linear projections of the queries, keys, and values, then concatenating and projecting the results.
+    attention-head | Attention head: One of the parallel attention functions inside multi-head attention, operating on its own learned low-dimensional projection of the queries, keys, and values.
+    num-heads-h | h = 8 (number of heads): The number of parallel attention heads in the base model: eight.
+    attention-projection-matrices | Attention projection matrices (W^Q, W^K, W^V, W^O): The learned linear maps that create each head's queries, keys, and values, and the final matrix that mixes the concatenated head outputs back to $d_{model}$.
+    attention-averaging-resolution-cost | Averaging cost of single-head attention: A single attention operation blends many positions into one weighted average, which can blur position-specific information.
+    attention-interpretability | Interpretability of attention: The paper's observation that inspecting attention distributions suggests individual heads learn distinct, sometimes linguistically meaningful, roles.
+    self-attention | Self-attention (intra-attention): Attention where the queries, keys, and values all come from the same sequence, so every position can gather information from every other position in that sequence.
+    encoder-self-attention | Encoder self-attention: The self-attention layers in the encoder, where each position can attend to all positions in the previous encoder layer, with no masking.
+    masked-decoder-self-attention | Masked decoder self-attention: The decoder's self-attention, restricted by a mask so each position can only attend to itself and earlier positions.
+    causal-masking | Causal masking: Setting the attention scores for forbidden (future) positions to $-\infty$ before the softmax, so those positions receive zero attention weight.
+    restricted-self-attention | Restricted (local) self-attention: A proposed variant where each position attends only to a neighborhood of size r around it, trading path length for cheaper computation on very long sequences.
+    encoder-decoder-attention | Encoder-decoder attention: The decoder sub-layer where queries come from the decoder and the keys and values come from the encoder's output, letting every decoder position look at the whole input s
+    encoder-stack | Encoder stack: The Transformer's encoder: $N=6$ identical layers, each containing a multi-head self-attention sub-layer followed by a position-wise feed-forward sub-layer.
+    decoder-stack | Decoder stack: The Transformer's decoder: $N=6$ identical layers, each with masked self-attention, attention over the encoder output, and a feed-forward sub-layer.
+    sub-layer | Sub-layer: One of the components inside a Transformer layer — an attention mechanism or a feed-forward network — each wrapped in its own residual connection and layer normalization.
+    residual-connection | Residual connection: A shortcut that adds a layer's input directly to its output, so the layer only has to learn a change (residual) on top of the identity.
+    layer-normalization | Layer normalization: A normalization step that rescales each position's activation vector to have a standard mean and variance, computed across the features of that single vector.
+    n-layers | N = 6 (number of layers): The number of identical layers stacked in each of the encoder and the decoder in the base model: six.
+    d-model | d_model = 512 (model dimension): The shared width of the model: every sub-layer and embedding layer outputs vectors of dimension $d_{model} = 512$.
+    position-wise-feed-forward-network | Position-wise feed-forward network: A two-layer fully connected network applied to each sequence position independently and identically: expand to $d_{ff}=2048$, apply ReLU, project back to $d_{model}=512$.
+    d-ff | d_ff = 2048 (feed-forward inner dimension): The width of the hidden layer inside the position-wise feed-forward network: 2048, four times $d_{model}$.
+    relu | ReLU activation: The rectified linear unit, $\max(0, x)$: a standard nonlinearity that zeroes out negative values.
+    softmax | Softmax: The standard function that turns a vector of scores into a probability distribution: exponentiate each score and normalize by the sum.
+    token-embeddings | Token embeddings: Learned lookup tables that convert input and output tokens into $d_{model}$-dimensional vectors.
+    embedding-softmax-weight-sharing | Embedding and softmax weight sharing: The two token embedding layers and the pre-softmax output projection all share a single weight matrix.
+    sqrt-dmodel-embedding-multiplier | sqrt(d_model) embedding multiplier: In the embedding layers, the shared weights are multiplied by $\sqrt{d_{model}}$.
+    positional-encoding | Positional encoding: Vectors added to the input embeddings that inject information about each token's position, since the model itself has no recurrence or convolution to sense order.
+    sinusoidal-positional-encoding | Sinusoidal positional encoding: The paper's fixed positional encoding: each dimension is a sine or cosine of the position, at wavelengths forming a geometric progression from $2\pi$ to $10000 \cdot 2\pi
+    relative-position-linearity | Relative positions as linear functions: For any fixed offset $k$, the sinusoidal encoding of position $pos+k$ is a linear function of the encoding of position $pos$ — the hypothesized reason sinusoids help the 
+    learned-positional-embedding | Learned positional embeddings: The alternative to sinusoids: a trainable vector per position, learned like any other parameter.
+    convolutional-sequence-models | Convolutional sequence models: Prior architectures (Extended Neural GPU, ByteNet, ConvS2S) that replace recurrence with convolutions, computing all positions' hidden representations in parallel.
+    extended-neural-gpu | Extended Neural GPU: A convolution-based sequence model cited as prior work on reducing sequential computation.
+    bytenet | ByteNet: A convolutional translation model using dilated convolutions; relating two positions costs a number of operations that grows logarithmically with their distance.
+    convs2s | ConvS2S: A convolutional sequence-to-sequence translation model; relating two positions costs a number of operations that grows linearly with their distance.
+    dilated-convolutions | Dilated convolutions: Convolutions whose kernel taps are spaced apart, so each layer sees a wider span without more weights.
+    separable-convolutions | Separable convolutions: A cheaper convolution that splits the operation into a per-channel (depthwise) part and a 1x1 mixing part.
+    end-to-end-memory-networks | End-to-end memory networks: Prior models built on a recurrent attention mechanism instead of sequence-aligned recurrence.
+    layer-comparison-desiderata | Three criteria for comparing layer types: Section 4's framework: judge self-attention, recurrent, and convolutional layers by per-layer complexity, minimum sequential operations, and maximum path length.
+    complexity-per-layer | Computational complexity per layer: The total amount of computation one layer performs, as a function of sequence length n, representation dimension d, and kernel width k.
+    minimum-sequential-operations | Minimum sequential operations: The number of operations that must run one after another rather than in parallel; the paper's measure of parallelizability.
+    maximum-path-length | Maximum path length: The longest path a signal must travel through the network between any two input and output positions; shorter paths make long-range dependencies easier to learn.
+    long-range-dependencies | Long-range dependencies: Relationships between symbols far apart in a sequence, which the paper calls a key challenge in sequence transduction.
+    byte-pair-encoding | Byte-pair encoding (BPE): A subword tokenization scheme that builds a vocabulary by repeatedly merging the most frequent pair of symbols, so rare words split into known pieces.
+    word-piece-encoding | Word-piece vocabulary: A subword tokenization scheme similar in spirit to BPE, from Google's neural machine translation system; the paper uses a 32000-token word-piece vocabulary for English-Fr
+    bleu | BLEU score: The standard automatic metric for translation quality: n-gram overlap precision against reference translations with a penalty for overly short outputs. Higher is better.
+    perplexity | Perplexity: A measure of how well a model predicts the true next tokens: the exponentiated average negative log-probability. Lower is better.
+    model-ensembling | Model ensembling: Combining predictions from several trained models to get better quality than any single model.
+    tensor2tensor | tensor2tensor: The open-source codebase the authors used to train and evaluate the Transformer.
+    transformer-training-recipe | Transformer training recipe: The complete set of choices the paper used to train its models: data, batching, hardware, optimizer schedule, and regularization.
+    wmt-2014-en-de | WMT 2014 English-German dataset: The standard benchmark translation dataset of about 4.5 million English-German sentence pairs used as the main training and evaluation task.
+    wmt-2014-en-fr | WMT 2014 English-French dataset: A much larger benchmark translation dataset of 36 million sentence pairs, used to test the model at larger data scale.
+    length-based-batching | Batching by sequence length: Sentence pairs of similar length are grouped into the same batch, and batch size is measured in tokens rather than in sentences.
+    training-hardware-and-schedule | Hardware and training schedule: One machine with 8 NVIDIA P100 GPUs; base models train for 100,000 steps (12 hours), big models for 300,000 steps (3.5 days).
+    base-vs-big-transformer | Base vs big model configurations: The paper trains two main configurations: a 'base' Transformer and a scaled-up 'big' Transformer with larger dimensions, more dropout, and three times the training steps.
+    adam-optimizer | Adam optimizer: A standard gradient-descent variant that adapts the step size per parameter using running averages of gradients and squared gradients.
+    transformer-adam-settings | Adam settings (beta2 = 0.98): The paper runs Adam with beta1 = 0.9, beta2 = 0.98, and epsilon = 10^-9, a lower-than-default beta2.
+    learning-rate-warmup-schedule | Warmup learning-rate schedule: The learning rate rises linearly for the first warmup_steps steps, then decays as the inverse square root of the step number, all scaled by the model width.
+    warmup-steps-4000 | warmup_steps = 4000: The number of initial steps over which the learning rate ramps up linearly; the paper uses 4000.
+    regularization | Regularization: Any technique that discourages a model from fitting the training data too closely so it generalizes better.
+    dropout | Dropout: Randomly zeroing a fraction of activations during training so the network cannot rely on any single unit.
+    residual-dropout | Residual dropout: Dropout applied to each sub-layer's output before the residual addition and layer normalization, and to the embedding-plus-positional-encoding sums, at rate P_drop = 0.1 
+    attention-dropout | Attention dropout: Dropout applied inside the attention mechanism, mentioned as a separately tunable rate in the parsing experiments.
+    label-smoothing | Label smoothing: A training target modification: instead of putting probability 1 on the correct token, the target gives it 1 - eps and spreads eps = 0.1 over other tokens, penalizing ove
+    beam-search | Beam search: A decoding procedure that keeps the k best partial output sequences at each step instead of committing to a single best token; the paper uses beam size 4.
+    length-penalty | Length penalty (alpha = 0.6): A normalization applied to beam-search scores so that longer output sequences are not unfairly penalized; the paper uses strength alpha = 0.6 from the GNMT paper.
+    inference-length-limit | Maximum output length rule: During inference the output is capped at input length + 50 tokens, with early termination when possible.
+    checkpoint-averaging | Checkpoint averaging: The final model's weights are the elementwise average of the last several saved checkpoints: 5 for base models, 20 for big models, written at 10-minute intervals.
+    training-flops-estimate | Training-cost FLOPs estimate: The paper estimates each model's training cost as training time x number of GPUs x an assumed sustained single-precision throughput per GPU.
+    transformer-ablations | Model variation ablations (Table 3): Experiments that change one component of the base model at a time and measure the effect on English-to-German translation, to see which parts matter.
+    attention-heads-ablation | Number of heads sweet spot: Varying the head count with total computation held constant shows single-head attention is 0.9 BLEU worse than the best setting, but too many heads also degrades quality.
+    key-size-ablation | Reducing d_k hurts quality: Shrinking the attention key dimension d_k lowers translation quality, suggesting the dot product may be too simple a compatibility function.
+    size-and-dropout-ablation | Model size and dropout effects: Bigger models translate better, and dropout is very helpful in preventing over-fitting.
+    constituency-parsing | English constituency parsing: The task of producing a sentence's syntactic tree — nested phrases like noun phrases and verb phrases — used as a generalization test for the Transformer beyond translati
+    penn-treebank-wsj | Penn Treebank (WSJ portion): The standard constituency-parsing dataset: about 40K hand-parsed sentences from the Wall Street Journal.
+    semi-supervised-parsing | Semi-supervised parsing setting: A second training regime that adds about 17M automatically parsed sentences from the high-confidence and BerkeleyParser corpora on top of the WSJ data.
+    recurrent-neural-network-grammar | Recurrent Neural Network Grammar (RNNG): A parsing model that builds trees with explicit tree-structured operations; the one prior model the Transformer does not beat on parsing.
+    berkeley-parser | BerkeleyParser: A classical (non-neural) grammar-based parser used as a baseline; the Transformer beats it even with only 40K WSJ training sentences.
+
+--- 1607.06450 | Layer Normalization | Ba, Kiros & Hinton (2016) [narrow read] ---
+    read scope: Skipped all six experimental sections (order embeddings, attentive reader, skip-thoughts, DRAW, handwriting generation, MNIST) except the two facts AIAYN-relevant usage touches: the default gain/bias initialization and the ConvNet caveat. Also skipped the layer-normalized LSTM/GRU equation variants 
+    layer-normalization-statistics | Layer normalization statistics: Layer normalization standardizes a layer's activations using a mean and standard deviation computed across the hidden units of that layer, separately for each training ca
+    gain-and-bias-parameters | Learned gain and bias: After standardization, each neuron gets its own learned multiplicative gain and additive bias, applied before the non-linearity, so the layer can recover any scale and sh
+    layer-norm-vs-batch-norm | Contrast with batch normalization: Batch normalization computes each neuron's statistics across the training cases in a mini-batch; layer normalization computes them across the neurons within one case. Thi
+    per-timestep-normalization | Per-step normalization in sequence models: In a recurrent or sequential model, layer normalization is applied independently at each time step, using only that step's activations, with one shared set of gain and bi
+    normalization-invariance-properties | Invariance and learning-rate effects: Layer normalization makes the model's output invariant to re-scaling and re-shifting of a layer's whole weight matrix and to re-scaling of an individual input case, and t
+
+--- 1508.07909 | Neural Machine Translation of Rare Words with Subword Units | Sennrich, Haddow & Birch (2015) [narrow read] ---
+    read scope: Deliberately skipped: the Bahdanau-style RNN encoder-decoder recap (Section 2), the character n-gram and shortlist baselines, the SMT-era related work, all WMT'15 English-German and English-Russian experimental setup and BLEU/CHRF3/unigram-F1 results (Sections 4-5), and the linguistic analysis of wh
+    bpe-merge-algorithm | BPE Merge Algorithm: A greedy loop that builds a subword vocabulary by repeatedly merging the most frequent adjacent symbol pair in the training corpus. Adapted from Gage's 1994 byte-pair com
+    bpe-segmentation-at-test-time | Applying BPE Merges to New Text: At test time, words are split into characters and the learned merge operations are replayed in order, producing a segmentation of any word into known subword symbols. Thi
+    bpe-vocabulary-size | Vocabulary Size as the Single Hyperparameter: The final BPE symbol vocabulary size equals the initial character vocabulary size plus the number of merge operations. The merge count is the algorithm's only hyperparame
+    joint-bpe-shared-vocabulary | Joint BPE and the Shared Source-Target Vocabulary: Joint BPE learns one set of merge operations on the union (in practice, the concatenation) of the source and target training text, giving both languages a single shared s
+    vocabulary-vs-sequence-length-tradeoff | Vocabulary Size vs. Sequence Length Trade-off: Subword segmentation trades vocabulary size against tokenized sequence length: finer splits shrink the vocabulary but lengthen every sentence, and encoder-decoder cost gr
+
+--- 1512.00567 | Rethinking the Inception Architecture for Computer Vision | Szegedy, Vanhoucke, Ioffe, Shlens & Wojna (2015) [narrow read] ---
+    read scope: I read only Section 7 ("Model Regularization via Label Smoothing") and the surrounding context needed to state it precisely. Everything else in the paper is skipped: the design principles for scaling convolutional networks, factorized convolutions (n x n into 1 x n and n x 1), grid-size reduction, t
+    label-smoothing-regularization | Label-Smoothing Regularization (LSR): Replace the one-hot training target with a mixture of that one-hot target and a fixed label distribution, so the correct class gets mass $1-\epsilon$ and the rest of the 
+    lsr-as-two-cross-entropy-losses | LSR as a pair of cross-entropy losses: Because cross entropy is linear in the target, smoothing splits the loss into the ordinary one-hot cross entropy plus a term that pulls the predicted distribution toward 
+    overconfidence-and-bounded-logit-gradient | Why one-hot targets encourage overconfidence: A one-hot target is only approached as the correct logit grows far larger than the rest, which the paper argues causes overfitting and, given the bounded logit gradient, 
+    smoothing-parameter-epsilon | Choosing $\epsilon$ and the prior $u$: LSR has two knobs: the smoothing parameter $\epsilon$ and the fixed distribution $u$. The paper's reported setting is $\epsilon = 0.1$ with uniform $u(k)=1/K$ over $K = 1
+
+--- 1609.08144 | Google's Neural Machine Translation System | Wu, Schuster, Chen et al. (2016) [narrow read] ---
+    read scope: Deliberately skipped: the 8-layer LSTM encoder/decoder stack, residual and bottom-decoder-to-top-encoder attention wiring, model and data parallelism, quantized inference and TPU serving, reinforcement-learning (GLEU) refinement, model ensembling, and all BLEU/side-by-side experimental results. The 
+    wordpiece-model | Wordpiece model (sub-word vocabulary): A data-driven sub-word vocabulary: words are split into a fixed set of common sub-word units, so any string can be encoded with no out-of-vocabulary tokens. The segmentat
+    length-normalization-penalty | Length normalization penalty lp(Y): A divisor applied to a hypothesis's log-probability during beam search so that longer and shorter candidates can be compared fairly. It is controlled by a single exponent
+    coverage-penalty | Coverage penalty cp(X; Y): An extra term in the beam-search score that rewards hypotheses whose attention has spread over the whole source sentence. It is controlled by a weight beta and is optiona
+    beam-search-pruning-and-termination | Beam search pruning and early termination: Beyond keeping a fixed number of hypotheses, the decoder prunes candidates that fall a fixed margin below the current best, both per-step and among finished hypotheses. T
+
+--- 1608.05859 | Using the Output Embedding to Improve Language Models | Press & Wolf (2016) [narrow read] ---
+    read scope: Deliberately skipped: the paper's projection-regularization scheme ($h_3 = V P h_2$ with penalty $\lambda \\lVert P \\rVert^2$, $\lambda = 0.15$), which is an alternative regularizer for undropped-out small models and is not part of what the Transformer borrows. Also skipped the embedding-quality be
+    input-and-output-embeddings | Input and Output Embeddings: A word-level neural language model holds two matrices of the same shape: the input embedding that maps a token id to a vector, and the pre-softmax projection matrix that 
+    weight-tying | Weight Tying (U = V = S): Weight tying replaces the separate input embedding and pre-softmax projection with one shared matrix S used in both roles. It cuts the parameter count by one C-by-H matri
+    tied-embedding-update-dynamics | Why Tying Helps: Update Dynamics: In an untied model, only the row of the current input word gets an input-embedding gradient each step, while every row of the output embedding gets one. The paper shows t
+    three-way-weight-tying | Three-Way Weight Tying: In an encoder-decoder translation model, three-way weight tying shares one matrix across the encoder input embedding, the decoder input embedding, and the decoder pre-sof
+
+--- 1412.7449 | Grammar as a Foreign Language | Vinyals, Kaiser, Koo, Petrov, Sutskever & Hinton (2015) [narrow read] ---
+    read scope: I skipped the paper's own model definition (LSTM equations, the additive attention scoring function, 3x256 layer sizes, dropout placement, input reversing, word2vec initialization) since a Transformer-based explainer does not reuse that architecture. I also skipped the attention-visualization analys
+    parse-tree-linearization | Parse Tree Linearization: A constituency parse tree is turned into a flat token sequence by a depth-first traversal that emits an opening bracket-plus-label when entering a node and a matching lab
+    wsj-parsing-protocol | WSJ Penn Treebank Evaluation Protocol: The standard constituency-parsing benchmark: train on the Wall Street Journal portion of the Penn Treebank (about 40K sentences), tune on section 22, test on section 23, 
+    semi-supervised-parsing-corpora | Machine-Parsed Semi-Supervised Corpora: Two large synthetic training sets built by running existing parsers over unlabeled web news: a ~7M-sentence corpus labeled by one parser, and a ~11M-sentence "high-confid
+    parsing-baseline-scores | Reference F1 Scores on WSJ: The F1 numbers this line of work is compared against, on WSJ section 22 (dev) and section 23 (test), split into WSJ-only supervised parsers and semi-supervised ones train
+
+--- 1801.10198 | Generating Wikipedia by Summarizing Long Sequences | Peter J. Liu, Mohammad Saleh, Etienne Pot, Ben Goodrich, Ryan Sepassi, Lukasz Kaiser, Noam Shazeer [narrow read] ---
+    read scope: Skipped everything about the paper's dataset and task construction (the Wikipedia-as-multi-document-summarization framing, corpus collection, the citations-only vs combined corpora, train/dev/test sizes), the entire extractive stage (identity, tf-idf, TextRank, SumBasic, the cheating extractor and e
+    transformer-decoder-t-d | Transformer Decoder (T-D): dropping the encoder: A modification of the encoder-decoder transformer that deletes the encoder module entirely, leaving a single stack of decoder blocks that reads input and output as one co
+    transduction-as-single-sequence-lm | Transduction recast as single-sequence language modeling: A source-target example is concatenated into one sentence with a special separator token between the two halves, and the model is trained as a plain next-token language m
+    long-input-scaling-comparison | Where the decoder-only stack pays off: long inputs: The stated motivation for dropping the encoder is input length: the encoder-decoder transformer stopped learning at a few thousand input tokens, while the single-stack ve
+    memory-compressed-attention | Memory-compressed attention: A self-attention variant that shrinks the number of keys and values with a strided convolution after projection, leaving the queries untouched, so the attention matrix ge
+    local-attention-blocks-lmlml | Block-local attention and the LMLML stack: Tokens are split into fixed-size blocks and attention runs inside each block independently, making activation cost linear in sequence length; the final network alternates
+
+--- 1711.05101 | Decoupled Weight Decay Regularization | Ilya Loshchilov, Frank Hutter [narrow read] ---
+    read scope: Skipped: the empirical validation entirely (CIFAR-10 / ImageNet32x32 ResNet and Shake-Shake experiments, Figures 1-4 and all supplementary figures, the 15% relative test-error improvement, the hyperparameter-landscape separability plots); the Bayesian-filtering justification of decoupled weight deca
+    l2-regularization-vs-weight-decay | L2 regularization vs. weight decay: L2 regularization adds a penalty term to the loss so the regularizer flows through the gradient; weight decay instead multiplies the weights by a factor slightly below 1 
+    adaptive-preconditioner-dilutes-l2 | Why adaptive gradients break the equivalence: When the optimizer divides the gradient by a per-parameter scale, the L2 penalty's gradient gets divided too, so weights with historically large gradients are shrunk less
+    decoupled-weight-decay-update | The AdamW update rule: AdamW keeps Adam's moment estimates and adaptive step exactly as they are, but removes lambda*theta from the gradient and instead subtracts it directly from the weights a
+    normalized-weight-decay | Normalized weight decay: The optimal lambda shifts with the training budget, so the paper reparameterizes it as lambda = lambda_norm * sqrt(b / (B*T)), where b is batch size, B the dataset size a
+
+--- 1606.08415 | Gaussian Error Linear Units (GELUs) | Dan Hendrycks, Kevin Gimpel [narrow read] ---
+    read scope: Skipped the paper's entire experimental program (MNIST classification and autoencoding, Twitter POS tagging, TIMIT frame classification, CIFAR-10/100 results, the noise-robustness study, all learning curves in Figures 2-7, and the CIFAR-10 architecture table in Appendix A), since the mechanism being
+    gelu-definition | GELU: the definition x*Phi(x): The Gaussian Error Linear Unit is the activation GELU(x) = x * Phi(x), where Phi is the cumulative distribution function of the standard normal. It multiplies each input 
+    gelu-as-expected-stochastic-regularizer | GELU as the expectation of an input-dependent stochastic regularizer: The formula is derived by imagining a mask m ~ Bernoulli(Phi(x)) that stochastically zeroes or keeps a neuron's input depending on the input's own value, then taking the 
+    gelu-tanh-approximation | The tanh and sigmoid approximations used in practice: Because the exact Gaussian CDF is comparatively slow to evaluate, the paper gives two cheap substitutes: 0.5*x*(1 + tanh[sqrt(2/pi)*(x + 0.044715*x^3)]) and x*sigma(1.702
+    gelu-vs-relu-and-elu | How GELU relates to ReLU and ELU: GELU can be read as a smoothed ReLU: it becomes the ReLU in the limit sigma -> 0 with mu = 0, and the two agree asymptotically. Unlike ReLU and ELU, which are convex, mon
+
+--- 1509.06664 | Reasoning about Entailment with Neural Attention | Tim Rocktäschel, Edward Grefenstette, Karl Moritz Hermann, Tomáš Kočiský, Phil Blunsom [narrow read] ---
+    read scope: Deliberately skipped: the attention mechanism itself (Eqs. 7-10), word-by-word attention (Eqs. 11-14), two-way attention, the qualitative attention visualizations in Figures 2 and 3, the SNLI corpus description, the ADAM/grid-search training setup, and the accuracy figures for the attentive models. 
+    conditional-encoding | Conditional encoding: reading both sentences in one pass: Instead of embedding a premise and a hypothesis separately and comparing the two vectors, the model reads them as a single left-to-right sequence — premise, then a delimi
+    premise-hypothesis-delimiter | The delimiter token between the two sentences: A dedicated delimiter symbol is inserted between the premise and the hypothesis in the single token stream, so the reader has an explicit in-band signal for where one sen
+    cell-state-conditioning-handoff | Cell-state handoff at the sentence boundary: Conditioning is implemented by initializing the second LSTM's memory with the last cell state produced while reading the premise, rather than by any comparison or matchin
+    shared-parameter-single-reader | Parameter sharing: one reader for the whole stream: The premise reader and hypothesis reader can share all weights, which makes the model literally one recurrent net sweeping a single delimited sequence, and keeps the para
+    last-output-vector-classifier | Classifying from the final output vector: The prediction is read off the last output vector of the stream: a non-linear projection into the three-class space followed by a softmax, trained with cross-entropy.
+    independent-encoding-baseline-contrast | What one stream buys over two separate encoders: The alternative it is measured against encodes premise and hypothesis independently into fixed-length vectors and feeds their concatenation to an MLP. Reading one joined 

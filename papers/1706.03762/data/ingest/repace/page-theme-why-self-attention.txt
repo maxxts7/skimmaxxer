@@ -1,0 +1,27 @@
+PAGE FOR: theme-why-self-attention (theme)
+
+By now the architecture is fully specified. The open question is why anyone should swap a recurrent layer for a self-attention one at all. Section 4 is the paper's answer, and it is an argument from three numbers rather than from experiment.
+
+### The three criteria
+
+The paper picks a narrow, fair comparison: three layer types that all map a variable-length sequence $(x_1, \dots, x_n)$ to another sequence of the same length, with $x_i \in \mathbb{R}^d$ — the kind of layer that sits inside any [[sequence-transduction]] encoder. It then judges them on [[layer-comparison-desiderata|three criteria]].
+
+The first is [[complexity-per-layer|total computation per layer]], the arithmetic bill. The second is [[minimum-sequential-operations]] — how much of that work has to happen in order, which is the paper's proxy for parallelism and the direct restatement of the [[sequential-computation-bottleneck]] it opened with. The third is [[maximum-path-length]]: the longest route a forward or backward signal must take between any two positions.
+
+The third criterion is where the argument actually lands, and it exists because of [[long-range-dependencies]]. The paper calls learning them a key challenge in sequence transduction, and asserts, on a citation rather than its own evidence, that shorter forward and backward paths make them easier to learn. Path length is a structural property you can read off an architecture; ease of learning is not. The chain from one to the other is the load-bearing assumption of the whole section, and the paper does not test it directly.
+
+### What the numbers say
+
+[[table-1]] turns the criteria into big-O. [[self-attention]] connects every position to every other in $O(1)$ sequential steps and a path of length 1; a [[recurrent-neural-network|recurrent]] layer needs $O(n)$ of both. That is the whole case for the swap, and criteria two and three both point the same way.
+
+Criterion one is the one that could have gone against them. Self-attention costs $O(n^2 \cdot d)$ per layer against a recurrent layer's $O(n \cdot d^2)$, so it wins only when $n < d$. The paper does not hide this; it argues the condition usually holds for sentence-level translation with subword vocabularies like [[word-piece-encoding|word-piece]] and [[byte-pair-encoding|byte-pair]] units. With $d_{model} = 512$ (see [[d-model]]), that is a claim about sentence lengths, not a general result.
+
+[[convolutional-sequence-models|Convolutional layers]] are handled the same way. A kernel of width $k < n$ does not connect all pairs at once, so you need $O(n/k)$ stacked layers, or $O(\log_k n)$ with [[dilated-convolutions]] as in [[bytenet]] — better than [[convs2s]]'s linear growth, still not constant. [[separable-convolutions]] cut the cost a lot, and the paper concedes that at $k = n$ they match self-attention plus a [[position-wise-feed-forward-network]] — which is exactly what a Transformer layer is.
+
+### The escape hatch, and the qualitative evidence
+
+Because the cost is quadratic in $n$, very long sequences break the argument. The paper sketches [[restricted-self-attention]]: each position attends only to a window of size $r$, which raises maximum path length to $O(n/r)$. It is a proposal, not a result — flagged as future work in both Section 4 and the conclusion.
+
+The section closes on a side benefit, [[attention-interpretability]], illustrated by [[fig-3]], where several heads link "making" to "more difficult" seven tokens away in one hop. That is an example, not a measurement.
+
+You can now say precisely what the paper claims self-attention buys, and where it is asserting rather than showing. Next comes the recipe that produced the numbers backing any of it.

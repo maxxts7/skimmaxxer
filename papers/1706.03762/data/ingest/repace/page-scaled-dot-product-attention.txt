@@ -1,0 +1,21 @@
+PAGE FOR: scaled-dot-product-attention (concept)
+
+Every attention layer in the Transformer — encoder self-attention, masked decoder self-attention, encoder-decoder attention — is a call to this one function. It is the paper's choice of [[compatibility-function|compatibility function]] plus the weighted sum that follows it, and the paper names it to distinguish it from the two attention variants already in use at the time.
+
+### The operation, with shapes
+
+Pack the [[queries-keys-values|queries]] for a whole sequence into a matrix $Q$ of shape $n \times d_k$, the keys into $K$ of shape $m \times d_k$, and the values into $V$ of shape $m \times d_v$. Then [[eq-attention|Equation (1)]] is:
+
+$$\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^{T}}{\sqrt{d_k}}\right)V$$
+
+$QK^{T}$ is $n \times m$: one score for every query-key pair. Divide every entry by $\sqrt{d_k}$ (see [[sqrt-dk-scaling]]), then [[softmax]] along the key axis, so each row is a distribution over the $m$ keys. Multiply by $V$ and you get $n \times d_v$ — one output vector per query, each a convex combination of the value rows.
+
+Note what is *not* in here: no learned weights. The function is two matrix multiplications and a softmax. The projections that produce $Q$, $K$, $V$ live outside it, in [[multi-head-attention]], which runs $h=8$ copies of this function with [[dk-dv-dimensions|$d_k = d_v = 64$]] each rather than one copy at [[d-model|$d_{model}=512$]]. [[causal-masking]] also happens inside this function, setting forbidden entries of the pre-softmax matrix to $-\infty$; the left panel of [[fig-2]] shows exactly where that box sits, which the equation does not.
+
+### Why this scoring rule, and what it costs
+
+The alternative was [[additive-attention]], a one-hidden-layer feed-forward net over each query-key pair. The paper says the two are similar in theoretical complexity but dot products are much faster and more space-efficient in practice, because the whole thing reduces to matmul kernels that are already heavily optimized. That is the entire performance argument — the paper gives no timing table for it.
+
+The scaling is the only difference from plain [[dot-product-attention]]. The paper's reasoning is hedged: additive attention had been reported to beat unscaled dot products at larger $d_k$, and the authors *suspect* the cause is dot products growing large and flattening the softmax's gradients. The support is a footnote's variance argument under an independence assumption, not a measurement; no row of [[table-3]] removes the $\sqrt{d_k}$ factor.
+
+The cost of a parameter-free scorer shows up in [[key-size-ablation|rows (B)]] of [[table-3]]: shrinking $d_k$ hurts BLEU, which the paper reads as a hint that a dot product may be too simple a compatibility function.

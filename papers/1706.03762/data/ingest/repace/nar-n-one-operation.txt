@@ -1,0 +1,50 @@
+NARRATIVE NODE: n-one-operation
+TITLE: One operation, run eight times
+
+INTRO:
+The parent gave you the two equations. This level does the arithmetic behind them: what one attention call actually multiplies, where the $\sqrt{d_k}$ divisor comes from and how far the paper is willing to defend it, why eight heads cost what one head costs, and how thin the evidence for the head split really is.
+
+--- CHAPTER id=what-one-call-computes ---
+TITLE: What one call actually multiplies
+
+Everything in [[eq-attention|Equation (1)]] happens on matrices, not one query at a time. Pack $n$ queries into $Q$ ($n \times d_k$), the keys into $K$ ($m \times d_k$), the values into $V$ ($m \times d_v$). Then $QK^{T}$ is an $n \times m$ table of scores — every query scored against every key in one matrix multiply. The softmax runs along each row, turning it into a distribution over the $m$ key positions. Multiplying by $V$ collapses each distribution into a single $d_v$-vector. Two matrix multiplies and a softmax, no loop over positions.
+
+Notice what is not in there. The function has no parameters of its own. The [[attention-mechanism|attention function]] learns nothing; the only weights anywhere near it are the projections that produce $Q$, $K$ and $V$, so once you pick a dot product the [[compatibility-function]] is fixed for the life of the model. The three [[queries-keys-values|roles]] are established outside the block and consumed inside it.
+
+[[fig-2]]'s left panel is [[scaled-dot-product-attention|this same function]] drawn as a box list: MatMul, Scale, Mask (opt.), SoftMax, MatMul. The mask sits between the scale and the softmax, which places it inside the function rather than around it — [[causal-masking]] is a stage of this block, not a separate layer, which is how one implementation serves all of the model's attention wirings.
+
+Also notice the shape of the score table. It is $n \times m$, so the work grows with the product of the two lengths — quadratic when this is [[self-attention]] and queries, keys and values all come from the same $n$ positions. That is the bill the paper runs up in exchange for a constant-length path between any two positions, and it is argued out on its own in [[table-1]].
+
+--- CHAPTER id=the-divisor ---
+TITLE: Why a dot product, and why divided by root d_k
+
+The pick between [[additive-attention]] and [[dot-product-attention]] is made on implementation grounds, not on quality. The paper puts the two at similar theoretical complexity and prefers the dot product because it compiles to optimized matrix-multiply code, so it runs faster and uses less space. No experiment in the paper compares their translation quality head to head.
+
+The divisor is a repair aimed at a specific reported failure. Prior work found the two variants perform similarly at small $d_k$, but that additive attention beats unscaled dot-product attention as $d_k$ grows. [[sqrt-dk-scaling|The $1/\sqrt{d_k}$ factor]] targets that regime. Footnote 4 supplies the arithmetic: if the components of $q$ and $k$ are independent with mean 0 and variance 1, then $q \cdot k = \sum_{i=1}^{d_k} q_i k_i$ has mean 0 and variance $d_k$. Dividing by $\sqrt{d_k}$ returns the variance to 1. Scores whose spread grows like $\sqrt{d_k}$ drive [[softmax]] toward a near one-hot output, where its gradients are very small.
+
+That is the whole justification, and the paper flags its status: the authors *suspect* this is the mechanism. There is no ablation that switches the divisor off, no measured score magnitudes, no gradient norms. At the paper's own [[dk-dv-dimensions|$d_k = 64$]] the factor is 8, so it is not a rounding correction — it is an untested one.
+
+A later result pushes back on the scoring choice itself. Among the [[transformer-ablations|one-knob variations]], [[key-size-ablation|shrinking $d_k$]] lowers quality, and the authors read that as a sign that determining compatibility is not easy, and that a more sophisticated function than a dot product may help. The scoring function is chosen here, not settled.
+
+--- CHAPTER id=eight-narrow-copies ---
+TITLE: Eight narrow copies out of one budget
+
+The cost claim attached to [[eq-multihead|the multi-head equation]] is exact arithmetic, and it is worth doing once. [[attention-projection-matrices|Per head]], $W^Q_i$, $W^K_i$ and $W^V_i$ are each $512 \times 64$. Stack all eight copies of each and you have three $512 \times 512$ matrices. The output matrix $W^O$ is $hd_v \times d_{model}$, which is $512 \times 512$ as well. A single full-width head at $d_k = d_v = 512$ would need exactly those same four $512 \times 512$ matrices. [[num-heads-h|Eight heads]] re-partitions a fixed parameter budget; it does not add to it.
+
+The attention work lands the same way. Eight score matrices of size $n \times n$, each mixing values of width 64, cost $n^2 \cdot 64 \cdot 8$ — what one $n \times n$ matrix mixing values of width [[d-model|512]] would cost. What the arithmetic does not settle is wall-clock time: eight narrow matrix multiplies are not one wide one, and the paper claims only that total cost is "similar", with no timings.
+
+The tie $d_k = d_v = d_{model}/h$ is a convention, not part of [[multi-head-attention]]'s definition — the equation permits any widths. Fixing it is what turns the head count into a free knob: raise $h$ and the per-head width falls by the same factor, holding computation constant. That is what makes a fair sweep over $h$ possible at all.
+
+One mechanical point hides behind the Concat in the equation: the heads never see each other. Each [[attention-head]] runs on its own projection and emits its own 64-dimensional vector, and those vectors are merely stacked. $W^O$ is the single place they mix, and it mixes them one position at a time, after all the attending is done.
+
+--- CHAPTER id=what-the-heads-buy ---
+TITLE: What the split is shown to buy
+
+The averaging problem is not raised as an afterthought. Section 2 lists it as a cost of the Transformer itself: relating two positions in a constant number of operations comes at the price of [[attention-averaging-resolution-cost|reduced effective resolution]] from averaging attention-weighted positions, and multi-head attention is named right there as the counteraction. So the eight heads are a fix for a weakness the paper diagnoses in its own design. The question is how well the fix is evidenced.
+
+Numerically, by one block of [[table-3]]. Rows (A) sweep the head count with computation held constant. Single-head attention comes in 0.9 [[bleu|BLEU]] below the best setting, and quality drops off again when there are too many heads; [[attention-heads-ablation|the best sits in the middle]], around eight to sixteen. That is the whole quantitative case: one sweep, one language pair, on the English-to-German development set, one run per setting. A 0.9 BLEU gap is a real gap, but the curve near the top is flat enough that eight and sixteen heads are hard to separate.
+
+Qualitatively, three appendix pictures. [[fig-3]] shows several heads carrying one word's attention six and seven tokens out to the words that govern it. [[fig-4]] shows two heads resolving "its" onto two different antecedents. [[fig-5]] shows two heads on the same sentence with visibly unlike patterns. Section 4 grades its own claims carefully: heads "clearly learn to perform different tasks", but only "many appear to exhibit" behavior related to syntax and semantics. [[attention-interpretability|None of it is measured]] — chosen sentences, chosen layers, no score for what a head does.
+
+Nothing tests the original claim directly: that the heads recover resolution the average destroyed. The head-count sweep is the nearest thing, and it asks a narrower question. [[etheme-dot-product-to-eight-heads]] walks the same chain from one dot product to the eight-head wrapper.
+

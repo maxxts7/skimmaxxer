@@ -1,0 +1,19 @@
+ITEM: fig-2 (figure) - Attention as a wiring diagram
+
+TAKEAWAY:
+The figure draws the paper's attention math as data flow: on the left, Equation (1) box by box (dot queries against keys, scale, optionally mask, softmax, weight the values); on the right, that whole block used as a reusable unit, run $h$ times in parallel on separately projected copies of Q, K and V, then concatenated and projected once more.
+
+WALKTHROUGH:
+Two block diagrams. Data flows bottom to top along the arrows: inputs enter at the bottom, each rounded box is one operation, the top arrow carries the output.
+
+### Left: one attention function
+
+This is [[scaled-dot-product-attention|scaled dot-product attention]], the picture of $\mathrm{Attention}(Q,K,V)=\mathrm{softmax}\!\left(\frac{QK^{T}}{\sqrt{d_k}}\right)V$.
+
+Three inputs sit at the bottom: $Q$, $K$, $V$ — matrices whose rows are the [[queries-keys-values|queries, keys and values]], packed so many queries are handled at once. The lower **MatMul** takes only $Q$ and $K$ and computes $QK^{T}$: every query dotted with every key, giving one raw score per query-key pair. **Scale** divides those scores by $\sqrt{d_k}$; the paper's stated reason is that in high dimensions the dot products grow large and push softmax into a low-gradient region ([[sqrt-dk-scaling]]). **Mask (opt.)** is drawn as optional because only some attention layers use it: in the decoder, scores for future positions are set to $-\infty$ so they vanish after softmax ([[causal-masking]]). **SoftMax** turns each query's row of scores into weights summing to 1. The upper **MatMul** multiplies those weights by $V$ — note $V$'s long arrow bypasses the whole scoring column and joins only here. The output is a weighted sum of value vectors.
+
+### Right: h of them at once
+
+This is [[multi-head-attention]]. $V$, $K$, $Q$ enter at the bottom and each passes through its own **Linear** block — the learned projections $W^V_i, W^K_i, W^Q_i$ ([[attention-projection-matrices]]) that cut each input down to $d_k$ or $d_v$ dimensions.
+
+The faint offset copies behind each box are the visual device for parallelism: the Linear blocks and the Scaled Dot-Product Attention block are each drawn as a stack of identical sheets, and the **h** annotation labels how many. Each sheet is one [[attention-head]], with its own projection weights, computing the left-hand diagram independently. **Concat** glues the $h$ output vectors back into one wide vector; the final **Linear** ($W^O$) mixes them back to model width.

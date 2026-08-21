@@ -1,0 +1,71 @@
+NARRATIVE NODE: n-training-the-thing
+TITLE: Training the thing
+
+INTRO:
+The parent listed the settings. This level takes them apart: what the vocabulary counts are actually the output of, where the twelve hours go and how they become the cost axis, what the learning-rate formula does at each end of the run, and which of these pieces the paper tests rather than merely reports.
+
+--- CHAPTER id=data-and-vocabulary ---
+TITLE: The data, and what the token counts hide
+
+The corpora are standard. The vocabulary numbers are worth a second look, because they are not chosen directly.
+
+For [[wmt-2014-en-de|English-German]] the paper uses [[byte-pair-encoding|BPE]], and a BPE vocabulary is the output of a procedure: [[bpe-merge-algorithm|start from characters and repeatedly merge the most frequent adjacent pair]]. [[bpe-vocabulary-size|The only knob is how many merges you run]] — the final symbol count is the character inventory plus the merge count. So "about 37000 tokens" is a merge budget, not a word list, and it is the one number that decides how rare words get split.
+
+The vocabulary is also shared between source and target. That is [[joint-bpe-shared-vocabulary|joint BPE]]: merges learned over both languages' text together, so the same string segments the same way on either side. It is also what makes [[embedding-softmax-weight-sharing|the one-matrix embedding scheme]] possible at all — encoder input, decoder input, and output projection can only be the same table if both languages index the same rows.
+
+[[wmt-2014-en-fr|English-French]] switches to a 32000-token [[word-piece-encoding|word-piece]] vocabulary from [[wordpiece-model|Google's NMT system]], with no reason given for the switch. Both schemes carry the same [[vocabulary-vs-sequence-length-tradeoff|trade]]: finer splits shrink the vocabulary and lengthen every sentence. That trade feeds straight back into Section 4's cost argument — subword sentences stay short enough that $n < d$, which is the condition self-attention's [[complexity-per-layer|$O(n^2 \cdot d)$ per-layer cost]] needs to come out ahead.
+
+Batches are counted in tokens, not sentences: [[length-based-batching|about 25000 source and 25000 target tokens each]], grouped by similar length. Grouping by length keeps padding down; counting in tokens keeps per-step work roughly constant as sentence lengths vary. Across 8 GPUs that is on the order of 3000 target tokens per device per step.
+
+--- CHAPTER id=the-compute-budget ---
+TITLE: Twelve hours, taken apart
+
+Twelve hours is the number half the paper's argument rests on, so multiply it out.
+
+[[training-hardware-and-schedule|One machine, eight P100s]] — no cluster, no asynchronous workers. The base model: 100,000 steps at about 0.4 seconds is roughly 40,000 seconds, eleven hours, which the paper rounds to twelve. The [[base-vs-big-transformer|big model]]: 300,000 steps at 1.0 seconds is 3.5 days. Three times the steps and two and a half times the per-step cost make the big run about 7.5 times the base run's GPU time.
+
+What a step buys: 100,000 steps at 25,000 target tokens is 2.5 billion target tokens. The paper never reports epochs, but against 4.5M sentence pairs that is on the order of twenty passes over the corpus, depending on average sentence length.
+
+The cost axis in [[table-2]] is built from exactly these two numbers and one assumption. [[training-flops-estimate|Time times GPU count times assumed sustained throughput]], at 9.5 TFLOPS for a P100: twelve hours gives $3.3 \times 10^{18}$, 3.5 days gives $2.3 \times 10^{19}$. Those are the figures printed in the table. Nothing on that axis was measured.
+
+The step time is also where the architecture's claim cashes out. A batch of 25,000 tokens goes through a sub-layer as one large matrix multiply, not as a chain of dependent updates, because [[minimum-sequential-operations|the number of operations that must run in order]] is constant in sequence length. A [[recurrent-neural-network|recurrent]] model of similar width cannot fill eight GPUs the same way — that is the [[sequential-computation-bottleneck]] measured in wall clock rather than in asymptotics.
+
+--- CHAPTER id=the-schedule ---
+TITLE: The one piece the paper invents
+
+The optimizer is [[adam-optimizer|Adam]], at [[transformer-adam-settings|$\beta_1 = 0.9$, $\beta_2 = 0.98$, $\epsilon = 10^{-9}$]]. The $\beta_2$ is the odd one: 0.98 instead of the usual 0.999 means a shorter memory in the squared-gradient average, so the per-parameter step size tracks a changing gradient scale faster. The paper states the value and gives no reason for it.
+
+The [[learning-rate-warmup-schedule|schedule]] is where the behavior is. [[eq-lrate|Equation (3)]] is a minimum of two terms:
+
+$$lrate = d_{model}^{-0.5} \cdot \min\left(step^{-0.5},\ step \cdot warmup^{-1.5}\right)$$
+
+The two terms are equal exactly at $step = warmup\_steps$, which is what joins the linear ramp to the inverse-square-root decay without a jump. With [[warmup-steps-4000|$warmup\_steps = 4000$]] and [[d-model|$d_{model} = 512$]], the peak rate is $512^{-0.5} \cdot 4000^{-0.5} \approx 7 \times 10^{-4}$, reached after 4% of the base run. By step 100,000 it has fallen to about $1.4 \times 10^{-4}$, a fifth of the peak.
+
+The $d_{model}^{-0.5}$ factor ties width to rate: the big model at $d_{model} = 1024$ peaks near $5 \times 10^{-4}$ with nobody retuning anything.
+
+On evidence, be blunt. This is one of the few pieces the paper introduces with no citation and no derivation, and it is not tested. [[transformer-ablations|The ablations]] in [[table-3]] vary head count, key size, width, dropout, and positional encoding. The warmup length, the decay exponent, and the width scaling are never varied. The schedule is reported, used, and left alone.
+
+--- CHAPTER id=three-regularizers ---
+TITLE: Three regularizers, and where each one acts
+
+Placement is the part the summary skipped. [[residual-dropout|Dropout is applied to each sub-layer's output before it is added back and normalized]] — so the dropped units never reach [[layer-normalization]], and the identity path through the [[residual-connection]] is left untouched. The signal can be thinned but not cut. Dropout also hits the sums of embeddings and [[positional-encoding|positional encodings]] in both stacks, which means the position signal itself gets dropped out during training.
+
+The rate is $P_{drop} = 0.1$ for the base model. The big English-German model uses 0.3; the big English-French model goes back to 0.1. Same architecture, different rate, and the thing that changed is 36M sentences instead of 4.5M. The rate tracks data size, not model size — the one place the recipe visibly adapts to a task. [[size-and-dropout-ablation|Rows (C) and (D)]] of the ablation table are the support: bigger models are better, dropout helps against overfitting. A separate [[attention-dropout|attention dropout]] rate exists too, but is mentioned only in the parsing experiments.
+
+[[label-smoothing]] at $\epsilon_{ls} = 0.1$ is applied by citation. [[label-smoothing-regularization|The cited mechanism]] replaces the one-hot target with $1 - \epsilon$ on the correct token and $\epsilon$ spread over the rest; [[smoothing-parameter-epsilon|$\epsilon$ and the prior distribution]] are its two knobs, and [[lsr-as-two-cross-entropy-losses|the loss splits into the ordinary cross entropy plus a pull toward that prior]]. [[overconfidence-and-bounded-logit-gradient|The stated motivation]] is that a one-hot target is only reached by driving the correct logit far above the others.
+
+The reported effect splits: [[perplexity]] gets worse, [[bleu]] gets better. Not a contradiction — perplexity grades confidence on the reference token, BLEU grades the tokens decoding actually picks.
+
+--- CHAPTER id=what-you-ship ---
+TITLE: What you actually ship
+
+Training ends and the weights you keep are not the weights from the last step. [[checkpoint-averaging|The final model is the elementwise average of the last several checkpoints]]: five for base models, twenty for big ones, written at ten-minute intervals.
+
+Do the arithmetic. Five checkpoints at ten minutes is the last fifty minutes of a twelve-hour run. Twenty is the last two hundred minutes of an eighty-four-hour run. Both are roughly the final 4% of training, which is the same fraction the warmup occupies at the other end. The averaging window is short, and it is scaled to the run.
+
+Every number the paper reports is an averaged model. No unaveraged checkpoint is reported anywhere, for any configuration. So there is no way, from this paper, to say how much of the headline quality is the architecture and how much is the averaging — the two arrive together.
+
+The code is released as [[tensor2tensor]], which is the reproducibility claim in place of a hyperparameter appendix.
+
+Stand back from [[transformer-training-recipe|the whole recipe]] and one pattern holds. Of everything in this section, only the learning-rate schedule originates here. Adam, dropout, label smoothing, BPE, word pieces, checkpoint averaging: each is used at a stated setting with a citation and no re-derivation, which [[etheme-borrowed-recipe|traces back to the papers that define them]]. And none of it is ablated — [[theme-training-the-thing|the training setup]] is reported, not tested. The one-knob-at-a-time experiments that come later touch the architecture, not this.
+

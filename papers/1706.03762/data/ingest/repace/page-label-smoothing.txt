@@ -1,0 +1,17 @@
+PAGE FOR: label-smoothing (concept)
+
+The paper trains with label smoothing at $\epsilon_{ls} = 0.1$, citing [36] for the method and giving it two sentences in Section 5.4. It sits in the [[transformer-training-recipe|recipe]] as one of three kinds of [[regularization]], next to [[residual-dropout|residual dropout]] and, at decode time, [[checkpoint-averaging|checkpoint averaging]].
+
+### The operation
+
+At every output position the decoder emits logits over the shared [[byte-pair-encoding|BPE]] vocabulary — about 37000 tokens for English-German — and [[softmax]] turns them into a distribution $p$. Training normally minimizes cross entropy against a one-hot target. Smoothing replaces that target with a mixture (the cited [[label-smoothing-regularization|LSR]] definition):
+
+$$q'(k) = (1-\epsilon_{ls})\,\delta_{k,y} + \epsilon_{ls}\,u(k)$$
+
+With uniform $u$ and $\epsilon_{ls}=0.1$, the true token is asked for $\approx 0.9$ and each of the other ~37000 tokens for $0.1/37000 \approx 2.7\times 10^{-6}$. Cross entropy is linear in the target, so the loss splits into the ordinary one-hot term plus a pull toward $u$ — see [[lsr-as-two-cross-entropy-losses]] — and the gradient at logit $k$ becomes $p_k - q'(k)$ rather than $p_k - \delta_{k,y}$. The fixed point is now finite: gradients vanish when the correct logit sits about $\ln(0.9/2.7\times10^{-6}) \approx 12.7$ above the rest, instead of growing without bound ([[overconfidence-and-bounded-logit-gradient]]). Nothing in the forward pass changes. Same $d_{model}=512$, same weights, same shapes — only the target tensor. $\epsilon_{ls}$ and the choice of $u$ are the two knobs ([[smoothing-parameter-epsilon]]); the paper reports only $0.1$ and never sweeps it.
+
+### The trade it makes
+
+[[perplexity]] gets worse, and mechanically it must. Perplexity is the exponentiated negative log-probability the model assigns to reference tokens, and a model trained to hold back a tenth of its mass scores those tokens lower. A model that reproduced its smoothed target exactly would still show a per-token perplexity near $1/0.9$. [[bleu]] moves the other way, because [[beam-search]] only cares about the ranking of candidates, not the absolute probability of the reference. The paper accepts the perplexity cost for that reason and says so in one line: it "hurts perplexity, as the model learns to be more unsure, but improves accuracy and BLEU score."
+
+That claim is asserted, not demonstrated. [[table-3]] is the only place the paper reports development perplexity and BLEU side by side per configuration, which is where the opposite movement would be visible — but its rows vary head count, $d_k$, model size, [[size-and-dropout-ablation|dropout]] and positional encoding, and none of them turns smoothing off. Section 6.2's prose discusses dropout and never mentions it. So the reported headline numbers in [[table-2]] were trained with $\epsilon_{ls}=0.1$, and how much of them it is worth is not something this paper measures.

@@ -1,0 +1,41 @@
+PAGE FOR CONCEPT: pre-training-optimization
+NAME: Pre-Training Optimization Setup
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+How the language model was actually trained: Adam, a warmup-then-cosine schedule peaking at 2.5e-4, and 100 epochs of 64-sequence minibatches.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+The setup section fixes the optimizer and its schedule as tightly as it fixes the architecture.
+
+Updates use Adam. The learning rate does not start at its maximum: it rises linearly from zero over the first 2000 updates, peaks at 2.5e-4, then decays to zero along a cosine curve for the rest of training.
+
+Training runs for 100 epochs over BooksCorpus. Each minibatch holds 64 sequences, and each sequence is a contiguous 512-token span sampled at random from the corpus.
+
+These are the numbers a reader would need to reproduce the pre-trained model that everything else in the paper starts from.
+
+THEME IT BELONGS TO: theme-corpus-tokens-and-training-setup | Corpus, Tokens and Training Setup - The corpus is over 7,000 unpublished books, chosen because the text stays in its original order across sentences and paragraphs; the paper contrasts it with a same-sized benchmark that is shuffled sentence by sentence. Raw text is cleaned, tokenized, then cut into subword units by byte-pair encoding with 40,000 merges. Training uses Adam with a learning rate warmed up over 2000 updates and then annealed on a cosine curve, for 100 passes over the corpus, with dropout and a decoupled weight decay. The reported perplexity of 18.4 is offered as evidence the model fit the corpus, not as a result about any task; it sits here rather than in the results chapter for that reason.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - adam-optimizer-gpt1 | Adam Optimizer: The adaptive gradient method used for pre-training, with a maximum learning rate of 2.5e-4.
+  - linear-warmup | Linear Warmup Over 2000 Updates: The learning rate is raised linearly from zero to 2.5e-4 across the first 2000 updates instead of starting at full size.
+  - cosine-annealing | Cosine Learning Rate Annealing: After warmup, the learning rate follows a cosine curve from 2.5e-4 down to zero over the remainder of training.
+  - pretraining-schedule | 100 Epochs of 64-Sequence Minibatches: Pre-training makes 100 passes over BooksCorpus with minibatches of 64 randomly sampled contiguous sequences.
+  - regularization-setup | Regularization Setup: Three regularizers during pre-training: dropout at 0.1 in three places, a modified L2 weight decay at $w = 0.01$, and no decay on biases or gains.
+    - dropout-gpt1 | Dropout: Randomly zeroing activations during training to discourage co-adaptation. Assumed known.
+    - residual-embedding-attention-dropout | Residual, Embedding and Attention Dropout at 0.1: Dropout with rate 0.1 applied at three points: residual branches, the embedding layer, and attention.
+    - decoupled-weight-decay | Modified L2 Regularization (Decoupled Weight Decay): A variant of L2 regularization designed for Adam, applied with $w = 0.01$ to all non-bias and non-gain weights.
+
+PREREQUISITES:
+  - bookscorpus | BooksCorpus: The pre-training corpus: over 7,000 unpublished books across genres. Its selling point in this paper is long stretches of contiguous text.
+  - language-modeling-objective | Language Modelling Objective $L_1$: The pre-training loss $L_1(U)=\sum_i \log P(u_i \mid u_{i-k},\dots,u_{i-1};\Theta)$: maximize the log-probability the model gives each token given the tokens before it.
+
+EDGES TOUCHING THIS CONCEPT (1) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [minor] <- fine-tuning-lr-and-batch (Learning Rate 6.25e-5, Batch Size 32) | contrasts-with | 6.25e-5 against 2.5e-4 peak: Fine-tuning reuses the pre-training settings except for a learning rate about four times smaller, batch size 32 rather than 64, and three epochs rather than 100. The smaller steps reflect that the weights are already where the model wants them.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-2 | Layer Transfer and Zero-Shot Growth: Two diagnostics for why the recipe works. The left panel says every pre-trained layer carries transferable value: dev accuracy on RACE and MultiNLI rises steadily as more of the twelve-layer stack is carried into fine-tuning, up to about 9% on MultiNLI for full transfer. The right panel says the pre-trained language model is already learning task-relevant behaviour before any fine-tuning: heuristic zero-shot scores on four tasks climb steadily across pre-training, and do so more smoothly for the transformer than for an LSTM trained the same way.
+  - eq-lm-objective | The Pre-Training Likelihood $L_1$: This is the entire training signal for stage one: over a corpus of unlabelled tokens, sum the log-probability the network assigns to each token given the $k$ tokens immediately before it, and adjust the network's parameters $\Theta$ to make that sum as large as possible. No labels, no task, and one training term per token position.
+
+PAPER SECTIONS TO READ (in papers/gpt-1/data/ingest/sections/):
+  - 05-3.1-unsupervised-pre-training.txt
+  - 09-4.1-setup.txt

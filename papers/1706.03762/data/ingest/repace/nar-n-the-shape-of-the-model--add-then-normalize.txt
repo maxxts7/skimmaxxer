@@ -1,0 +1,48 @@
+NARRATIVE NODE: n-the-shape-of-the-model--add-then-normalize
+TITLE: Add, Then Normalize
+
+INTRO:
+The parent gave the order of operations. This level counts how many times that order actually runs, writes down the normalization formula the paper leaves to its citation, and separates what the paper measured about this wrapper from what it only inherited.
+
+--- CHAPTER id=wrapper-as-code ---
+TITLE: The wrapper, written out
+
+One thing the compact notation hides is how much work $\mathrm{Sublayer}$ is doing. It is not the raw attention function. For an attention [[sub-layer]] it is the whole [[eq-multihead|multi-head block]] including the output projection $W^O$; for the other kind it is all of [[eq-ffn|Equation (2)]] — two linear maps with a ReLU between them. Everything up to that final projection lives on the branch. Only the branch's last output meets the addition.
+
+The wrapper is defined once and then applied without variation. The [[encoder-stack]] has [[n-layers|six layers]] of two sub-layers; the [[decoder-stack]] has six of three, since [[encoder-decoder-attention|encoder-decoder attention]] is inserted between [[masked-decoder-self-attention|masked self-attention]] and the feed-forward block. That is twelve plus eighteen: thirty wrapped sub-layers in the base model, thirty additions, thirty normalizations. [[fig-1]] draws the wrapper as a single "Add & Norm" box, which is why the count is easy to miss.
+
+It is worth being precise about what the untouched path buys. Within one wrapper, $x$ reaches the sum having passed through nothing — no scaling, no dropout. But because [[layer-normalization|the norm]] sits on the trunk rather than the branch, the clean addition path is exactly one sub-layer long. The input to sub-layer $k+1$ is the normalized output of sub-layer $k$. Between the embedding and the logits the trunk crosses thirty normalizations. What each [[residual-connection|residual]] guarantees is local: this sub-layer starts from the identity and only has to learn a difference.
+
+--- CHAPTER id=the-dropout-rate ---
+TITLE: The dropout, and the only evidence for it
+
+Section 5.4 is where the placement is actually stated, and it names two applications of the same regularizer, not one. [[residual-dropout|Residual dropout]] hits every sub-layer output before the addition, and it also hits the sums of the [[token-embeddings|token embeddings]] and the [[positional-encoding|positional encodings]] at the bottom of both stacks. So the very first thing on the trunk is already a dropped-out vector; the identity path starts from a noisy embedding sum, not a clean one.
+
+The rate is a single number. The base model uses $P_{drop} = 0.1$ everywhere. The [[base-vs-big-transformer|big model]] raises it to $0.3$ for English-to-German — and then, for English-to-French, drops back to $0.1$, the paper's stated reason being the much larger dataset. One knob, tuned per run, not per site.
+
+The evidence is thin and indirect. [[table-3]] rows (D) vary the dropout rate on the base model, and the paper's own reading of rows (C) and (D) is a sentence: bigger models are better, and [[size-and-dropout-ablation|dropout is very helpful in avoiding over-fitting]]. That tests the rate. Nothing in [[transformer-ablations|the ablations]] tests the placement — whether dropping before the addition beats dropping after it, or whether dropping the branch beats dropping the sum. The one hint that these are separable knobs comes from the [[constituency-parsing|parsing]] experiments, which say residual and [[attention-dropout|attention dropout]] were tuned separately, without reporting the values.
+
+--- CHAPTER id=what-layernorm-computes ---
+TITLE: The formula the paper does not print
+
+Written out for one position, with $H = d_{model}$ activations $a_1 \dots a_H$ arriving at the normalization site:
+
+$$\mu = \frac{1}{H}\sum_{i=1}^{H} a_i, \qquad \sigma = \sqrt{\frac{1}{H}\sum_{i=1}^{H}(a_i - \mu)^2}, \qquad h_i = g_i\,\frac{a_i - \mu}{\sigma} + b_i$$
+
+Here $H = 512$, so [[layer-normalization-statistics|the mean and standard deviation]] are each an average over that one token's [[d-model|512 numbers]]. The vector being normalized is $x + \mathrm{Dropout}(\mathrm{Sublayer}(x))$, already merged. Neither this paper nor the cited one writes the $\epsilon$ that a real implementation puts under the square root.
+
+The [[gain-and-bias-parameters|gain $g$ and bias $b$]] are the only learned parameters the wrapper adds: $2 \times 512 = 1024$ per site, about 31k across all thirty sites, against roughly 65M for the base model. They are indexed by unit, not by position — [[per-timestep-normalization|one set of 1024 numbers is shared by every token in the sequence]], which is what lets a normalization site accept a sequence of any length. Without them the operation would be a pure standardization and each [[sub-layer]] would be unable to express a scale of its own.
+
+Note what does not happen. The statistics are recomputed from scratch at each of the thirty sites, for each position, on every forward pass. There is no running average and nothing carried between training and inference — [[layer-normalization]] has no state.
+
+--- CHAPTER id=why-not-batch-norm ---
+TITLE: Why this normalizer and not the other
+
+The stateless property from the last chapter is the whole argument. [[layer-norm-vs-batch-norm|Batch normalization slices the activation tensor the other way]]: one neuron, statistics taken across the mini-batch. In a sequence model that slice has to be taken per time step, and step $t$'s statistics come only from those sentences in the batch long enough to reach $t$. This paper's batches are built by [[length-based-batching|grouping sentence pairs of similar length]] to about 25000 source and 25000 target tokens each, so which sentences share a batch is a function of the packing, and the late positions of a long sentence would be normalized by whatever few samples remain. Batch norm would also need stored running statistics for inference, where [[beam-search|beam search]] presents whatever number of hypotheses it happens to be holding.
+
+[[per-timestep-normalization|Normalizing across the 512 units of one position instead]] removes every one of those dependencies. The arithmetic for a token is identical in a full training batch, in a batch of one, and mid-decode.
+
+The cited work adds a second claim the paper inherits without restating: [[normalization-invariance-properties|scaling a layer's weight matrix leaves its normalized output unchanged]], and the gradient with respect to those weights shrinks in proportion, so the effective step size adapts to the weight scale. That is the mechanism behind the faster-training claim.
+
+All of this is imported. Nothing in this paper measures it, and there is no run reported with the normalizer removed, moved, or swapped.
+

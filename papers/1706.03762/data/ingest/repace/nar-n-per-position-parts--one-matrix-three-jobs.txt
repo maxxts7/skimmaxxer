@@ -1,0 +1,61 @@
+NARRATIVE NODE: n-per-position-parts--one-matrix-three-jobs
+TITLE: The sentence that imports another paper
+
+INTRO:
+Section 3.4 is two sentences and a citation. This level goes and reads the citation: what the two same-shaped matrices are, what the gradient argument for tying actually says, what the translation variant was measured to buy, what vocabulary it demands, and the one clause that arrives with no argument at all.
+
+--- CHAPTER id=two-matrices ---
+TITLE: Two matrices, one shape
+
+The citation points at a language-modeling paper, and the setup there is worth restating in its own notation, because that is where the two roles get named.
+
+Take a vocabulary of size $C$ and a hidden width $H$. [[input-and-output-embeddings|Two matrices]] in such a model are both $C \times H$. The input embedding $U$ is an ordinary [[token-embeddings|lookup table]]: one-hot token $c$ becomes $U^{\top}c$, so row $U_k$ is word $k$'s vector. The network computes a hidden state $h$, and a second matrix $V$ produces the logits $Vh$, so row $V_k$ is the vector whose inner product with $h$ gives word $k$'s score before the [[softmax]]. Standard practice was to call $U$ the word embedding and throw $V$ away.
+
+The cited paper's claim is that $V$ is a word embedding too, arrived at for a different reason: $U$ wants near rows for synonyms so the network reacts to them alike, while $V$ wants near rows for interchangeable words so their scores come out alike. It checks this rather than asserting it, scoring $V$ on word-similarity benchmarks, where it lands roughly level with $U$ in skip-gram and ahead of $U$ in recurrent [[language-modeling|language models]]. That measurement is the premise everything else rests on: if the output matrix were junk, sharing it with the input would be a pure loss.
+
+One precondition rides along. The constraint only typechecks when the embedding width and the pre-softmax input width are equal; otherwise an extra projection has to be spliced in. In the Transformer everything is [[d-model|512 wide]], including whatever the [[decoder-stack|decoder]] hands to the output projection, so the constraint costs nothing and never has to be mentioned.
+
+--- CHAPTER id=sum-of-two-gradients ---
+TITLE: What the sum of two gradients contains
+
+[[weight-tying|Tying]] is the constraint $U = V = S$. There is no extra loss term and no stop-gradient: one matrix occupies both slots, gradients from both roles land on it, and they are summed. The cited paper's contribution is an account of what that sum contains.
+
+Untied, the two gradients have very different support. The input-embedding gradient is nonzero only for the row of the current input token — $\partial L_t/\partial U_k = 0$ for every $k \neq i_t$. The output-embedding gradient touches every row: $(p_t(o_t) - 1)h$ for the target row, $p_t(k)\,h$ for all the rest. A rare word's input row therefore moves on the handful of steps where that word appears, while its output row moves on every step of training.
+
+[[tied-embedding-update-dynamics|Tied]], row $S_k$ receives both terms. For $k \neq i_t$ only the output term exists, so the update is the untied output update with $S$ substituted. For the single row where both apply, the output term is scaled by $p_t(i_t)$ — the model's probability that the current input token is also the next target — which is near zero, since tokens seldom repeat back to back. So the input term dominates there and every other row still moves. The paper's read is that the tied matrix ends up nearer the untied output embedding than the untied input one, and it supports that with rank correlations of pairwise word distances: up to 0.77 output-versus-tied, 0.31 to 0.45 input-versus-tied.
+
+The quality evidence is indirect. Training [[perplexity]] rises while validation and test perplexity fall, read as less overfitting from the smaller parameter count. A failure case is stated too: tying hurts in skip-gram, where the hidden layer is the identity, because a near-zero $p_t(i_t)$ then drives the input row's norm toward zero. Recurrent layers are said to decouple the roles enough that this does not bite. Six decoder layers presumably decouple them at least as much. The Transformer does not raise the question.
+
+--- CHAPTER id=three-way ---
+TITLE: The translation version, and what it was shown to buy
+
+The variant the Transformer takes is a later section of the same paper. Write the encoder input embedding as $W \in \mathbb{R}^{C_s \times H}$ and the decoder's pair as $U, V \in \mathbb{R}^{C_t \times H}$, with $C_s$ and $C_t$ the source and target vocabulary sizes. Decoder-only tying sets $U = V$ and leaves the encoder alone. [[three-way-weight-tying|Three-way tying]] sets $W$ equal to them as well, which puts source tokens and target tokens into one embedding space — a substantive claim about the two languages, not just a storage trick.
+
+The cited numbers separate the rungs. Decoder-only tying takes a translation model from 168M parameters to 122M. Three-way takes 165M to 79M on English-German and 168M to 80M on English-French, about 52% off. Reported BLEU sits within noise of the untied baselines.
+
+Notice what that is and is not evidence for. The perplexity gain from tying was measured on language models. On translation, the cited result is "half the parameters, same score" — a size claim, and a null result on quality. [[embedding-softmax-weight-sharing|The Transformer's sharing]] inherits both and tests neither. There is no untied row anywhere in [[transformer-ablations|Table 3]], so within this paper the choice is never varied against an alternative; [[base-vs-big-transformer|base and big]] both use it, and the parameter counts reported for each are counts of the already-shared model. The most one can say from the paper itself is that a model built this way reaches the numbers in [[table-2]]. Whether an untied Transformer would reach them too, at roughly twice the size, is not asked.
+
+--- CHAPTER id=one-vocabulary ---
+TITLE: One vocabulary, or nothing to share
+
+Three-way tying needs source and target to index into the same rows. [[byte-pair-encoding|BPE]] supplies that only if the merges are learned the right way.
+
+[[joint-bpe-shared-vocabulary|Joint BPE]] is the variant: concatenate the source and target sides of the training corpus, then learn one ordered list of merges over the pile. The alternative — BPE per language — is more compact and guarantees every subword was seen in text of its own language, but it can segment the same string differently on the two sides. The cited example is the name Mirzayeva, split Mirz|ayeva in English and Mir|za|eva in Russian, which makes the subword-to-subword mapping harder to learn and surfaces as copying and transliteration errors. Joint merges make the segmentations agree. The stated cost is small: about 0.05% of test tokens come out as segments that only ever occurred in one language's text.
+
+The resulting overlap is not total. At 89,500 joint merges the cited work reports roughly 80K shared subwords out of about 94K for English-German. "Shared vocabulary" means most rows serve both languages and a minority do not.
+
+[[wmt-2014-en-de|The Transformer's English-German setup]] reports the outcome — one source-target vocabulary of about 37000 tokens — and none of the procedure. That figure is downstream of a merge count, since [[bpe-vocabulary-size|the vocabulary is the character set plus one symbol per merge]], and the merge count is the only knob the method has.
+
+[[wmt-2014-en-fr|The English-French model]] is a loose end. It uses a 32000-token [[word-piece-encoding|word-piece]] vocabulary from a different cited system, and Section 5.1 never calls it shared. Section 3.4 states the sharing without exceptions, so it presumably still holds. The paper does not confirm it.
+
+--- CHAPTER id=the-multiplier ---
+TITLE: The multiplier with no argument
+
+One clause of Section 3.4 stands on nothing: in the embedding layers the shared weights are multiplied by $\sqrt{d_{model}}$ — [[sqrt-dmodel-embedding-multiplier|about 22.6]] at 512 wide. No reason, no citation, no ablation.
+
+Two facts about where it applies. First, the embedding role only. The same matrix is used unscaled as the output projection, so tying does not force one scale on both jobs: the multiplier is what lets those rows be small as logit vectors and large as input vectors at once. It is the only part of the sharing scheme that treats the three roles differently, and it is the part with no stated motive.
+
+Second, the scaled vector's next stop is an addition. [[positional-encoding|Position]] is added, not concatenated, and [[eq-posenc|the sinusoids]] give entries in $[-1,1]$ by construction. The ratio between the two terms decides how much of the sum is content and how much is order, and multiplying by 22.6 makes the embedding the larger term for rows of ordinary initialized size. Then [[residual-dropout|dropout at $P_{drop}=0.1$]] is applied to the sum, in both stacks. The paper states each of these in a separate sentence, in separate sections, and never puts them side by side.
+
+Compare the model's other square root. The division by [[sqrt-dk-scaling|$\sqrt{d_k}$]] inside attention comes with a motive — a suspicion, hedged as one, that large dot products push the softmax into small gradients. This one gets half a sentence. A reader wanting to know whether 22.6 matters, or whether any constant near it would do, gets nothing here and nothing from [[table-3]].
+

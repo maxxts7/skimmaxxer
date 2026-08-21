@@ -1,0 +1,61 @@
+NARRATIVE NODE: n-what-the-numbers-show--one-knob-at-a-time--capacity-and-regularizers
+TITLE: Where the BLEU is bought
+
+INTRO:
+The parent gave you the row values. This level takes them apart: what each knob actually changes inside the model, where the parameters land, which rows are confounded with each other, and what the two result columns are each measuring when they disagree.
+
+--- CHAPTER id=depth-monotone ---
+TITLE: Depth, and the column that stays monotone
+
+Read the four depths together, base included, and the two result columns in [[table-3]] behave differently.
+
+[[perplexity|Perplexity]] is monotone in [[n-layers|$N$]]: 6.11 at 2 layers, 5.19 at 4, 4.92 at 6, 4.88 at 8. Every layer added helps, by less each time. [[bleu|BLEU]] is not monotone: 23.7, 25.3, 25.8, 25.5. It peaks at the base depth and comes back down. So it is not that depth stops paying — on the metric the model is actually trained against, it never stops. It is that the second column stops following the first past $N=6$.
+
+The yield per parameter collapses fast. Going 2 to 4 costs 14M parameters and returns 1.6 BLEU. Going 4 to 8 costs 30M and returns 0.2. Note $N$ counts layers in both stacks — [[encoder-stack|encoder]] and [[decoder-stack|decoder]] grow together, which is why 8 layers lands at 80M rather than somewhere nearer 70M.
+
+One thing the row group does not vary: every row here trains for 100K steps at [[residual-dropout|$P_{drop} = 0.1$]], the base setting, while parameters range from 36M to 168M across all of [[size-and-dropout-ablation|group (C)]]. The last row of the table, the [[base-vs-big-transformer|big model]], runs $P_{drop} = 0.3$ and [[training-hardware-and-schedule|300K steps]]. So the large (C) rows are regularized and trained like a 65M model. The paper does not raise this, and the table gives no way to tell how much of the flattening at $N=8$ is depth and how much is a fixed schedule.
+
+--- CHAPTER id=width-two-things ---
+TITLE: Width moves two things at once
+
+The [[d-model|$d_{model}$]] rows are not a clean width sweep, and the table's own configuration columns say so. At $d_{model} = 256$ the row also lists [[dk-dv-dimensions|$d_k = d_v = 32$]]; at 1024 it lists 128. That is forced: with [[num-heads-h|$h$]] fixed at 8, the per-head width is $d_{model}/h$, so changing the model width changes every head's width with it.
+
+That matters because [[key-size-ablation|rows (B)]] already measured the key dimension on its own. Cutting $d_k$ to 32 with $d_{model}$ left at 512 costs 0.4 BLEU. The 256 row cuts $d_k$ to 32 *and* halves the model, and loses 1.3. The two effects are not separable from the table — (B) held the model width fixed, so you cannot subtract one from the other — but part of what looks like a width penalty is the narrower keys inside [[multi-head-attention|each head]].
+
+The paper's own scale-up avoids the tangle. The big model takes $d_{model}$ to 1024 and raises $h$ to 16, which keeps $d_k = d_v = 64$ unchanged. Row (C) never does that.
+
+Width is also the expensive direction structurally. $d_{model}$ is fixed everywhere by [[residual-connection|the residual connections]], so raising it widens the [[attention-projection-matrices|four projection matrices]] in all 18 attention blocks — quadratically, since both their input and output dimensions scale — while [[token-embeddings|the embedding table]], [[embedding-softmax-weight-sharing|shared three ways]], grows linearly. Doubling it takes the model from 65M to 168M for 0.2 BLEU.
+
+--- CHAPTER id=cheap-axis ---
+TITLE: The feed-forward layer as the cheap axis
+
+[[d-ff|$d_{ff}$]] is the one knob in (C) that touches nothing else. It appears only between the two matrices of [[eq-ffn|Equation (2)]] — $\max(0, xW_1 + b_1)W_2 + b_2$ — so widening it widens $W_1$ and $W_2$ and leaves every other dimension in the model alone. No head width changes, no residual width changes.
+
+It is also linear in parameters, and the table's counts show it exactly. Each of the 12 [[position-wise-feed-forward-network|feed-forward sub-layers]] holds $2 \cdot d_{model} \cdot d_{ff}$ weights, about 2.1M at base, 25M across the model — roughly 40% of the base 65M. Halving $d_{ff}$ to 1024 should remove about 12.6M: the table reports 53M, down from 65M. Doubling to 4096 should add 25M: the table reports 90M. Both land where the arithmetic puts them.
+
+So the comparison is 26.2 BLEU at 90M against 26.0 at 168M, and 4.75 [[perplexity|PPL]] against 4.66. Perplexity still prefers the wide model; BLEU prefers the wide feed-forward layer, at 78M fewer parameters.
+
+What the 4096 row actually is, is a model whose inner layer is eight times $d_{model}$ rather than the four times Section 3.3 specifies. That ratio is stated in the architecture section as a fact about the base configuration, never as a choice with a reason behind it. [[transformer-ablations|The ablation]] tests it once, gets the best base-depth row in the table, and Section 6.2 folds the result into a single sentence about bigger models being better. The [[relu|ReLU]] block goes uncommented.
+
+--- CHAPTER id=one-dropout-number ---
+TITLE: One dropout number, three places
+
+[[dropout|Dropout]] is a single column in the table but not a single application. Section 5.4 puts [[residual-dropout|residual dropout]] on the output of every [[sub-layer|sub-layer]], before it is added to the sub-layer input and passed through [[layer-normalization|layer normalization]], and separately on the sums of the embeddings and [[positional-encoding|positional encodings]] in both stacks. One rate, $P_{drop}$, sets all of them. The 0.0 row does not remove dropout from one place; it removes it everywhere at once.
+
+The penalty is asymmetric. Going from 0.0 to the base 0.1 is worth 1.2 BLEU and 0.85 perplexity. Going from 0.1 to 0.2 costs 0.3 BLEU and 0.03 perplexity. The optimum is interior but the curve is much steeper on the low side, which is the shape you would expect if the base model is closer to overfitting than to underfitting on 4.5M sentence pairs.
+
+One calibration: the undropped model scores 24.6 BLEU. The model with $d_{model}$ halved scores 24.5 at 37M fewer parameters. Turning off [[regularization|the regularizer]] costs about what deleting more than half the model costs.
+
+Both result columns move the same way across this row group — worse dropout setting, worse perplexity, worse BLEU. That is what makes the next pair of rows odd rather than routine. Also worth noting: Section 5.4 announces three types of regularization and describes two. [[attention-dropout|Dropout inside attention]] surfaces only as a separately tuned rate in the parsing experiments, and [[table-3]] has no column for it.
+
+--- CHAPTER id=columns-split ---
+TITLE: Why the two result columns split
+
+On the smoothing axis the columns come apart. Perplexity is monotone in $\epsilon_{ls}$ and monotone the wrong way: 4.67 at 0.0, 4.92 at the base 0.1, 5.47 at 0.2. BLEU goes 25.3, 25.8, 25.7 — up sharply, then essentially flat. Across the full range, perplexity degrades by 0.8 while BLEU does not fall at all.
+
+The mechanism is in what [[label-smoothing|smoothing]] does to the target. [[label-smoothing-regularization|The cited construction]] replaces the one-hot target with a mixture: [[smoothing-parameter-epsilon|$1 - \epsilon$ on the correct token]], $\epsilon$ spread over the rest — here uniformly over a 37000-entry [[byte-pair-encoding|word-piece vocabulary]]. Cross entropy against that target [[lsr-as-two-cross-entropy-losses|splits into two terms]]: the ordinary one-hot loss plus a pull toward the flat prior. Training never asks for probability 1 on the reference token, so the model never drives the correct logit far above the others — which is exactly [[overconfidence-and-bounded-logit-gradient|the overconfidence the cited paper is trying to prevent]].
+
+Perplexity then measures the mass the model was trained to hold back. It reads the [[softmax]] probability on the true [[word-piece-encoding|word piece]], per token, and a deliberately flattened distribution scores worse by construction. BLEU reads what [[beam-search]] emits, and beam search depends on which hypothesis outranks which, not on how peaked any single step is.
+
+The practical consequence sits in the table without being drawn out. The $\epsilon_{ls} = 0.0$ row has the lowest perplexity of any row that keeps the base's 65M parameters, and gives up half a BLEU. Selecting a translation model on dev perplexity would pick it.
+

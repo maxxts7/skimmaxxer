@@ -1,0 +1,48 @@
+NARRATIVE NODE: n-three-wirings-of-the-same-block
+TITLE: Three wirings of the same block
+
+INTRO:
+You already have the three placements and the reason the mask exists. This level goes underneath them: the shape of what each wiring actually computes, exactly where in the code path the mask sits, what the encoder's output gets reused for, and — at the end — how little the paper does to test that this particular arrangement is the right one.
+
+--- CHAPTER id=all-pairs-six-times ---
+TITLE: The encoder: an all-pairs mixer, six times over
+
+Start with the shape of what [[encoder-self-attention|encoder self-attention]] computes. For a source of $n$ tokens, each [[attention-head|head]] builds an $n \times n$ matrix of scores — one row per query position — and each row is softmaxed into a distribution over the entire sentence. Eight of those run side by side at [[dk-dv-dimensions|$d_k = d_v = 64$]], and the layer hands back $n$ vectors of width [[d-model|512]]. Nothing in that shape depends on distance: position 1 scores position 50 exactly the way it scores position 2. This is the wiring behind [[table-1]]'s [[maximum-path-length|path-length]] row. The constant-length route between two positions is literally one entry of one score matrix, and that is why the paper expects [[long-range-dependencies]] to be easier to learn here.
+
+Now stack it. [[n-layers|Six]] layers means six rounds of all-pairs mixing, and each round attends over the layer below's output rather than over the embeddings. By layer three, the vector at position 7 is already a blend of the whole sentence, so what is being attended over is not a word representation but whatever the previous layer produced. Every layer in the [[encoder-stack]] does this once, interleaved with [[position-wise-feed-forward-network|the per-position network]].
+
+What the individual heads end up doing is the one part of this wiring the paper shows rather than asserts, and it shows it in appendix pictures of encoder self-attention. [[fig-3]] has several heads following one long-distance dependency to the same word. [[fig-4]] has two heads resolving the pronoun "its" to two different words. [[fig-5]] has two heads from one layer producing plainly different patterns on one sentence. Three hand-picked sentences, no counts — and the paper's own claim is hedged to heads that *appear* to have learned distinct behavior ([[attention-interpretability]]).
+
+--- CHAPTER id=the-mask ---
+TITLE: The mask, and what the softmax does under it
+
+Be exact about where the mask sits. [[masked-decoder-self-attention|Decoder self-attention]] is [[scaled-dot-product-attention|the same attention function]], and [[causal-masking|the mask]] is applied inside it — after the scaling, before the [[softmax]]. In [[fig-2]] it is the box labelled optional. It is a flag on one code path, not a second mechanism, which is why the paper can describe all three uses as the same block.
+
+Applying it before the softmax rather than after has a consequence worth spelling out: the surviving weights are renormalized over the visible prefix and still sum to one. Position 1 may attend to nothing but itself, so its attention output is just its own value vector; position 2 splits weight over two positions; the number of positions being averaged grows as you move right. The paper is specific that a position may attend up to *and including* itself, so the diagonal stays legal.
+
+The mask alone does not deliver the guarantee. It is paired with the output embeddings being offset by one position — the decoder reads the target shifted right, so slot $i$ holds token $i-1$. Two mechanisms, one property: the prediction at position $i$ depends only on outputs before $i$, which is what keeps [[auto-regressive-generation]] intact. [[decoder-stack|The decoder description in Section 3.1]] states them together; Section 3.2.3 restates the reason as preventing leftward information flow.
+
+The cost is small and fixed. No parameters, and the same triangle is reused across all [[num-heads-h|eight heads]] and all six decoder layers. The arithmetic is not saved, though: half the $m \times m$ score matrix is computed and then zeroed, unless an implementation goes out of its way to skip the upper triangle.
+
+--- CHAPTER id=memory-keys-and-values ---
+TITLE: Queries from one stack, memory from the other
+
+The paper's own phrasing for the third wiring is worth keeping: the queries come from the previous decoder layer, and the *memory* keys and values come from the output of the encoder. Memory is the operative word. The encoder's $n$ output vectors are computed once per source sentence, then read unchanged by [[encoder-decoder-attention]] in all six decoder layers, and again at every step of decoding. What is not shared is the reading — each decoder layer applies its own [[attention-projection-matrices|$W^K$ and $W^V$]] to that same tensor, so the six layers can pull different things out of it.
+
+The matrices stop being square here. With $m$ target positions and $n$ source positions, the scores form an $m \times n$ matrix, and it carries no mask at all: every source position is legal for every target position, at every step. The only asymmetry left is that the two sides can have different lengths.
+
+So the whole interface between the two stacks is a sequence of $n$ vectors — not one summary vector. That is what the attention-based [[encoder-decoder-architecture|encoder-decoder]] line had already established, and what this [[sub-layer]] inherits rather than proposes.
+
+Order inside a decoder layer matters and is easy to skip past in [[fig-1]]: masked self-attention first, encoder-decoder attention second, feed-forward third. A decoder position consults what has already been produced before it consults the source. Each of the three is separately wrapped in a [[residual-connection]] and [[layer-normalization]], so what encoder-decoder attention writes is added onto a stream that already carries target-side state, not onto a blank vector.
+
+--- CHAPTER id=shared-and-untested ---
+TITLE: One block, three jobs — and no test of the arrangement
+
+Line the three up and the differences are narrow. Same [[multi-head-attention]] function, same [[eq-multihead|equation]], same eight heads at 64 dimensions. Three switches distinguish them: which tensor supplies the queries, which supplies the keys and values, and whether the mask is on. Nothing else about the block changes.
+
+The parameters are not shared. Each attention sub-layer carries its own $W^Q, W^K, W^V, W^O$ — six encoder self-attention sub-layers, six masked decoder ones, six encoder-decoder ones, eighteen in the base model. Calling them three wirings is a statement about data flow, not weight reuse.
+
+Cost splits the same way. An encoder layer pays one $n \times n$ attention; a decoder layer pays an $m \times m$ and an $m \times n$, plus a third [[position-wise-feed-forward-network|feed-forward]] sub-layer. Both stacks are [[n-layers|six]] deep, but the decoder is the heavier one per layer.
+
+Then the evidence, which is thin in a specific way. None of the three wirings is varied anywhere in the paper. [[transformer-ablations|Table 3]] moves head count, $d_k$, model size, dropout rates, and the positional encoding scheme; there is no row for an unmasked decoder, none for removing encoder-decoder attention, none for a different assignment of queries and keys. The arrangement comes from the existing [[encoder-decoder-architecture|encoder-decoder tradition]] and is supported only by the end-to-end numbers in [[table-2]]. That is weaker support than the pieces that earned an ablation row — and it is the part of [[transformer|the architecture]] most obviously inherited rather than argued for.
+

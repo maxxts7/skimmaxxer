@@ -1,0 +1,40 @@
+PAGE FOR CONCEPT: self-attention
+NAME: Self-attention (intra-attention)
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Attention where the queries, keys, and values all come from the same sequence, so every position can gather information from every other position in that sequence.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+In a self-attention layer, all of the keys, values, and queries come from the same place — in the Transformer, the output of the previous layer of the same stack. Each position issues a query and attends over all positions of that previous layer's output, so information can flow between any pair of positions in one layer. This is the mechanism that replaces recurrence and convolution as the Transformer's way of relating positions within a sequence; the encoder uses it unrestricted, the decoder uses a masked version. Section 2 notes prior uses in reading comprehension, abstractive summarization, textual entailment, and sentence representations. The paper's claim to priority is specific: the Transformer is, to the authors' knowledge, the first transduction model that relies entirely on self-attention to compute representations of its input and output, without sequence-aligned RNNs or convolution. Section 4 argues for it on three grounds: per-layer complexity, parallelism, and short paths between distant positions.
+
+THEME IT BELONGS TO: theme-where-attention-is-used | Where attention is used in the model - The same attention function appears in three places. In the encoder, self-attention lets every position look at every other position in the layer below. In the decoder, the same thing runs with a mask so a position can only see itself and earlier positions, which keeps generation auto-regressive. In between, the decoder attends over the encoder's output, with queries from the decoder and keys and values from the encoder.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - encoder-self-attention | Encoder self-attention: The self-attention layers in the encoder, where each position can attend to all positions in the previous encoder layer, with no masking.
+  - masked-decoder-self-attention | Masked decoder self-attention: The decoder's self-attention, restricted by a mask so each position can only attend to itself and earlier positions.
+    - causal-masking | Causal masking: Setting the attention scores for forbidden (future) positions to $-\infty$ before the softmax, so those positions receive zero attention weight.
+  - restricted-self-attention | Restricted (local) self-attention: A proposed variant where each position attends only to a neighborhood of size r around it, trading path length for cheaper computation on very long sequences.
+
+PREREQUISITES:
+  - attention-mechanism | Attention mechanism (query, key, value): A function that maps a query vector and a set of key-value vector pairs to an output: a weighted sum of the values, with weights set by how well the query matches each key.
+  - multi-head-attention | Multi-head attention: Running $h$ attention functions in parallel on different learned linear projections of the queries, keys, and values, then concatenating and projecting the results.
+  - sequence-transduction | Sequence transduction: The general task of converting one sequence of symbols into another sequence, such as translating a German sentence into English.
+
+EDGES TOUCHING THIS CONCEPT (5) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] <- positional-encoding (Positional encoding) | depends-on | exists because attention ignores order: Self-attention treats the sequence as a set: every position looks at every other with no notion of who came first. Because the model has no recurrence and no convolution, the paper says order information must be injected separately.
+  [load-bearing] -> recurrent-neural-network (Recurrent neural network (RNN)) | contrasts-with | constant vs O(n) sequential steps: Section 4 sets these two layer types against each other on the same job: mapping one length-n sequence to another. A self-attention layer connects all positions with a constant number of sequentially executed operations, while a recurrent layer needs O(n) steps that cannot be parallelized. This is the paper's main reason for dropping recurrence.
+  [load-bearing] -> convolutional-sequence-models (Convolutional sequence models) | contrasts-with | one layer vs stacked layers: A single convolutional layer with kernel width k < n does not connect all pairs of positions; reaching all pairs needs O(n/k) layers, or O(log_k n) with dilated convolutions. Self-attention connects every pair in one layer, so the path between distant positions stays constant instead of growing with distance.
+  [supporting] <- separable-convolutions (Separable convolutions) | contrasts-with | the concession on layer cost: The paper concedes that separable convolutions cut complexity to O(k*n*d + n*d^2), and that even at k = n this equals the cost of a self-attention layer plus a point-wise feed-forward layer -- the exact combination the Transformer uses. So the cost argument against convolutions is not what carries the case; the path-length and parallelism arguments are.
+  [supporting] <- restricted-self-attention (Restricted (local) self-attention) | contrasts-with | cheaper window, longer path: For very long sequences the paper proposes limiting each position to a neighborhood of size r, which cuts per-layer cost but raises the maximum path length from constant to O(n/r). It is offered as future work, not something the paper tested.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - table-1 | Layer types by cost and path length: The table is the paper's argument for replacing recurrence with self-attention: a self-attention layer connects every position to every other in a constant number of sequential steps and a path of length 1, while a recurrent layer needs $O(n)$ of both. Its per-layer arithmetic cost, $O(n^2 \cdot d)$, is lower than a recurrent layer's $O(n \cdot d^2)$ whenever the sequence is shorter than the model is wide.
+  - fig-3 | Heads tracking "making … more difficult": This is one query word's attention pattern in a single encoder self-attention layer, drawn as lines from the word to the positions it attends to, colored by head. Several of the eight heads put most of their weight on "more" and "difficult", six and seven tokens away from "making" — the paper's illustration that self-attention can link distant, grammatically related words in a single step.
+  - fig-5 | Two heads, one sentence: Two attention heads from the same encoder self-attention layer, run on the same sentence, produce visibly different attention patterns: one fans many positions into a few words, the other makes sparse, short, word-to-word links. The paper offers this as a qualitative illustration that heads specialize, and says only that the patterns "seem related" to sentence structure — nothing here is measured.
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 03-2-background.txt
+  - 04-3-model-architecture.txt
+  - 09-3.2.3-applications-of-attention-in-our-model.txt
+  - 13-4-why-self-attention.txt
+  - 23-7-conclusion.txt

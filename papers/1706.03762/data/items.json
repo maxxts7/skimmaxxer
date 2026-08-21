@@ -1,0 +1,2432 @@
+{
+ "items": [
+  {
+   "id": "fig-1",
+   "kind": "figure",
+   "number": 1,
+   "caption": "Figure 1: The Transformer - model architecture.",
+   "page": 3,
+   "asset": "assets/fig-1.png",
+   "title": "The two-stack data path",
+   "takeaway": "The figure shows the entire model in one picture: two towers of identical layers, each layer built only from attention and a position-wise feed-forward network. Every sub-layer is wrapped in a residual connection plus layer normalization. There is no recurrence and no convolution anywhere, so order information has to be injected once, at the bottom of each tower.",
+   "walkthrough": "**What you are looking at.** This is one diagram of the whole [[transformer|Transformer]]. Data flows bottom to top. There are two towers.\n\nThe left tower is the [[encoder-stack|encoder]]. It reads the source sentence. The right tower is the [[decoder-stack|decoder]], and it emits the target sentence.\n\nAround each tower is a grey rounded box. That box is one layer. The \"N×\" printed beside it means that layer is stacked $N=6$ times, and each of the six copies carries its own weights — the shape repeats, the parameters do not.\n\n**How to read it.** Two drawing conventions first, before the parts. Every arrow in the figure carries a sequence of vectors, one vector per token. Each of those vectors is [[d-model|$d_{model}=512$]] numbers wide, and that width is the same everywhere in the diagram.\n\nSome arrows leave a box, bypass the next box entirely, and rejoin further up at a band marked **Add & Norm**. That bypass is a [[residual-connection|residual connection]]. What the band computes is $\\mathrm{LayerNorm}(x + \\mathrm{Sublayer}(x))$: the block's input $x$ is added back onto the block's output, and the sum is then passed through [[layer-normalization|layer normalization]].\n\nThe second convention is the fan of three arrows entering each attention box. Those three legs are the queries, the keys and the values. Where all three legs come from the same place below, the box is attending to the very sequence it sits in. That case is [[self-attention]].\n\n**Bottom.** *Inputs* enter at the bottom of the left tower. They pass through *Input Embedding*, a learned lookup that turns each token into a vector of 512 dimensions.\n\nThe small circle drawn with a sine wave inside it is the fixed [[sinusoidal-positional-encoding|sinusoidal]] [[positional-encoding]]. It is fixed, not learned. The $\\oplus$ beside it adds that positional vector to the token embedding elementwise — same width in, same width out.\n\nThe right tower repeats this same pair of steps at its own bottom, on *Outputs (shifted right)*.\n\n**Left tower.** Two [[sub-layer|sub-layers]], in this order.\n\nFirst comes [[multi-head-attention|Multi-Head Attention]] over the output of the previous layer, then an Add & Norm. Second comes a [[position-wise-feed-forward-network|Feed Forward]] network, then another Add & Norm.\n\nThat feed-forward network is applied at each position separately and identically, with no mixing across positions. Its widths run $512 \\to 2048 \\to 512$: expand each position's 512-dimensional vector out to 2048, apply ReLU, project back down to 512.\n\n**Right tower.** Three sub-layers rather than two. The extra one sits in the middle.\n\nThe first is labelled *Masked* Multi-Head Attention. It is [[masked-decoder-self-attention|decoder self-attention]] carrying [[causal-masking|causal masking]]: the scores a position assigns to later positions are set to $-\\infty$ before the softmax. After the softmax those entries are exactly zero, so no position can read from its own future.\n\nThe middle box is another Multi-Head Attention, but its three legs no longer come from one place. The two arrows arriving from the top of the left tower are the keys and the values, taken from the final encoder layer. The query arrow comes from below, out of the decoder itself. That split wiring is what the paper calls [[encoder-decoder-attention]].\n\nThe third sub-layer is the same Feed Forward block the encoder uses. Each of the three sub-layers gets its own Add & Norm.\n\n**Top.** The decoder's final output is still 512 numbers wide at each position. *Linear* projects those 512 dimensions out to the vocabulary size, producing one score per vocabulary token. [[softmax|Softmax]] then turns each position's scores into *Output Probabilities* for the next token.\n\nThat projection matrix is not its own. It is [[embedding-softmax-weight-sharing|shared]] with both embedding layers, the one at the bottom of the left tower and the one at the bottom of the right.\n\n**Shifted right.** The label on the decoder input means the target sequence is displaced by one position. The consequence is the point of it: position $i$ is fed only tokens that come before $i$.\n\nIn training, the full target sequence is fed in at once. The mask is what makes that safe, so every position can be predicted in parallel without any position seeing what it is meant to predict.\n\nAt inference the two towers run on different clocks. The encoder runs once over the source sentence. The decoder then runs one step per token, each step consuming its own previous outputs — [[auto-regressive-generation|auto-regressive]] decoding.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Inputs",
+     "definition": "The source token sequence entering the encoder, e.g. the sentence to be translated. In the paper's notation this is $(x_1, \\ldots, x_n)$.",
+     "conceptId": "sequence-transduction"
+    },
+    {
+     "term": "Input Embedding",
+     "definition": "A learned lookup table that turns each input token into a vector of dimension $d_{model}$. The paper multiplies the embedding weights by $\\sqrt{d_{model}}$.",
+     "conceptId": "token-embeddings"
+    },
+    {
+     "term": "Outputs (shifted right)",
+     "definition": "The target token sequence fed into the decoder, offset by one position so that the vector at position $i$ is the token at position $i-1$. Combined with masking, this ensures a prediction for position $i$ depends only on known outputs before $i$.",
+     "conceptId": "auto-regressive-generation"
+    },
+    {
+     "term": "Output Embedding",
+     "definition": "The learned lookup table for target tokens, the decoder-side twin of Input Embedding. It shares its weight matrix with the input embedding and the final pre-softmax Linear layer.",
+     "conceptId": "token-embeddings"
+    },
+    {
+     "term": "Positional Encoding",
+     "definition": "Vectors added to the embeddings at the bottom of each stack so the model knows token order; without them the architecture is order-blind. They have the same dimension $d_{model}$ as the embeddings so the two can be summed.",
+     "conceptId": "positional-encoding"
+    },
+    {
+     "term": "Sine-wave circle",
+     "definition": "The small circle drawn with a wave inside is the source of the positional encoding vectors: each dimension is a sine or cosine of the position at a different frequency.",
+     "conceptId": "sinusoidal-positional-encoding"
+    },
+    {
+     "term": "⊕ (plus-in-circle)",
+     "definition": "Elementwise addition. Here it adds the positional encoding vector to the token embedding vector, once per stack, at the very bottom.",
+     "conceptId": "positional-encoding"
+    },
+    {
+     "term": "N×",
+     "definition": "The annotation beside each grey box meaning the layer inside is repeated N times in sequence. The layers are identical in structure but each has its own parameters.",
+     "conceptId": "n-layers"
+    },
+    {
+     "term": "Grey rounded box",
+     "definition": "The outline enclosing one complete encoder layer (left) or decoder layer (right); it is what the N× multiplier applies to.",
+     "conceptId": "sub-layer"
+    },
+    {
+     "term": "Multi-Head Attention (left stack)",
+     "definition": "Encoder self-attention: queries, keys and values all come from the previous encoder layer, so each position can attend to every position in the input.",
+     "conceptId": "encoder-self-attention"
+    },
+    {
+     "term": "Masked Multi-Head Attention",
+     "definition": "Decoder self-attention restricted so each position attends only to itself and earlier positions. Illegal (future) connections are set to $-\\infty$ in the softmax input.",
+     "conceptId": "masked-decoder-self-attention"
+    },
+    {
+     "term": "Multi-Head Attention (middle of right stack)",
+     "definition": "The encoder-decoder attention sub-layer. Queries come from the previous decoder layer; keys and values come from the encoder stack's output, so every decoder position can attend over all input positions.",
+     "conceptId": "encoder-decoder-attention"
+    },
+    {
+     "term": "Arrows from the encoder to the decoder",
+     "definition": "The two lines running from the top of the left tower into the middle attention block of every decoder layer. They carry the final encoder output, used as the keys and values; the third arrow, from below, carries the queries.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "Three-arrow fan into an attention box",
+     "definition": "The three inputs to multi-head attention: queries, keys and values. All three from the same source means self-attention; split sources mean encoder-decoder attention.",
+     "conceptId": "attention-mechanism"
+    },
+    {
+     "term": "Add & Norm",
+     "definition": "The residual addition followed by layer normalization applied around every sub-layer: the output is $\\mathrm{LayerNorm}(x + \\mathrm{Sublayer}(x))$.",
+     "conceptId": "residual-connection"
+    },
+    {
+     "term": "Bypass arrow into Add & Norm",
+     "definition": "The curved line that routes a sub-layer's input around it and into the Add & Norm box; it is the residual shortcut, so the sub-layer only has to learn a change to its input.",
+     "conceptId": "residual-connection"
+    },
+    {
+     "term": "Feed Forward",
+     "definition": "A two-layer fully connected network applied to each position separately and identically, with a ReLU in between: $\\mathrm{FFN}(x)=\\max(0,xW_1+b_1)W_2+b_2$.",
+     "conceptId": "position-wise-feed-forward-network"
+    },
+    {
+     "term": "Linear",
+     "definition": "The learned linear transformation on top of the decoder that maps each $d_{model}$-dimensional output vector to one score per vocabulary token. It shares its weight matrix with the two embedding layers.",
+     "conceptId": "embedding-softmax-weight-sharing"
+    },
+    {
+     "term": "Softmax",
+     "definition": "Turns the Linear layer's vocabulary scores into a probability distribution over the next token.",
+     "conceptId": "softmax"
+    },
+    {
+     "term": "Output Probabilities",
+     "definition": "The final result at the top: for each decoder position, a probability distribution over the vocabulary for the next token.",
+     "conceptId": "softmax"
+    },
+    {
+     "term": "Left half / encoder",
+     "definition": "The stack that maps the input symbols to a sequence of continuous representations $z=(z_1,\\ldots,z_n)$. It runs once per input sentence and sees the whole input at once.",
+     "conceptId": "encoder-stack"
+    },
+    {
+     "term": "Right half / decoder",
+     "definition": "The stack that generates the output sequence $(y_1,\\ldots,y_m)$ one element at a time, conditioned on the encoder output and on the symbols generated so far.",
+     "conceptId": "decoder-stack"
+    },
+    {
+     "term": "The Transformer",
+     "definition": "The name of the whole architecture drawn here: an encoder-decoder built entirely from stacked attention and point-wise feed-forward layers, with no recurrence or convolution.",
+     "conceptId": "transformer"
+    },
+    {
+     "term": "Sub-layer",
+     "definition": "One attention or feed-forward component inside a layer. Each is wrapped in its own residual connection and layer normalization, which is why every coloured box has an Add & Norm above it.",
+     "conceptId": "sub-layer"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "N (as in \"N×\")",
+     "meaning": "The number of times the boxed layer is repeated in each stack. The paper sets N = 6 for both the encoder and the decoder in the base model. The two N× annotations are independent labels but hold the same value here."
+    },
+    {
+     "value": "2",
+     "meaning": "Sub-layers per encoder layer: multi-head self-attention, then the position-wise feed-forward network. Counted as the two coloured boxes inside the left grey box."
+    },
+    {
+     "value": "3",
+     "meaning": "Sub-layers per decoder layer: masked self-attention, encoder-decoder attention, then feed-forward. The paper describes the middle one as a third sub-layer inserted relative to the encoder layer."
+    },
+    {
+     "value": "3 (arrow legs)",
+     "meaning": "The number of arrows entering each attention box: queries, keys and values. In the decoder's middle attention box, two of them arrive from the encoder and one from below."
+    },
+    {
+     "value": "1 position",
+     "meaning": "The size of the right-shift on the decoder input. Offsetting the output embeddings by one position, together with the mask, makes the prediction at position i depend only on outputs at positions less than i."
+    },
+    {
+     "value": "d_model = 512",
+     "meaning": "The width of every arrow in the diagram. All sub-layers and both embedding layers produce vectors of this dimension; the paper says this uniformity is what makes the residual additions possible."
+    },
+    {
+     "value": "d_ff = 2048",
+     "meaning": "The inner width of each Feed Forward box: it expands 512 to 2048, applies ReLU, then projects back to 512."
+    },
+    {
+     "value": "−∞",
+     "meaning": "The value the mask writes into the softmax input for forbidden (future) positions inside the Masked Multi-Head Attention box, so those positions get zero attention weight."
+    },
+    {
+     "value": "2π to 10000·2π",
+     "meaning": "The range of wavelengths of the sinusoids feeding the positional-encoding circles; they form a geometric progression across the 512 dimensions."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     3
+    ]
+   }
+  },
+  {
+   "id": "fig-2",
+   "kind": "figure",
+   "number": 2,
+   "caption": "Figure 2: (left) Scaled Dot-Product Attention. (right) Multi-Head Attention consists of several attention layers running in parallel.",
+   "page": 4,
+   "asset": "assets/fig-2.png",
+   "title": "Attention as a wiring diagram",
+   "takeaway": "The figure draws the paper's attention math as data flow. On the left, Equation (1) is laid out box by box: dot the queries against the keys, scale, optionally mask, softmax, then weight the values. On the right, that whole block becomes a reusable unit, run $h$ times in parallel on separately projected copies of Q, K and V, then concatenated and projected once more.",
+   "walkthrough": "Two block diagrams, drawn side by side. Data flows bottom to top along the arrows. The inputs enter at the bottom, each rounded box is one operation, and the arrow leaving the top carries the output.\n\nThe left diagram is one attention function. The right diagram uses that whole function as a component.\n\n### Left: one attention function\n\nThis is the picture of $\\mathrm{Attention}(Q,K,V)=\\mathrm{softmax}\\!\\left(\\frac{QK^{T}}{\\sqrt{d_k}}\\right)V$, drawn one operation at a time. The paper's name for it is [[scaled-dot-product-attention|scaled dot-product attention]].\n\nThree inputs sit at the bottom: $Q$, $K$ and $V$. Each is a matrix whose rows are the [[queries-keys-values|queries, keys and values]]. They are packed this way so that many queries go through the same set of matrix multiplies at once.\n\nThe lower **MatMul** takes only two of the three inputs, $Q$ and $K$, and computes $QK^{T}$. That product dots every query with every key. The result is one raw score per query-key pair, arranged with one row per query and one column per key.\n\n**Scale** divides every score in that table by the same constant, $\\sqrt{d_k}$. The paper's stated reason is that in high dimensions the dot products grow large, and large inputs push softmax into a region where its gradients are small ([[sqrt-dk-scaling]]).\n\n**Mask (opt.)** is drawn as optional because only some of the model's attention layers use it. In the decoder, the scores for future positions are set to $-\\infty$ before the softmax. An exponentiated $-\\infty$ is zero, so those positions receive no weight at all ([[causal-masking]]).\n\n**SoftMax** then turns each query's row of scores into weights that sum to 1. It acts along each row separately, so every query ends up with its own distribution over the keys.\n\nThe upper **MatMul** multiplies those weights by $V$. Follow $V$'s arrow: it runs up the side of the diagram, bypasses the whole scoring column, and joins only here. Values are never scored, only weighted. What leaves the top is a weighted sum of value vectors.\n\n### Right: h of them at once\n\nThe right diagram is [[multi-head-attention]]. The whole left-hand diagram appears inside it as a single box, labeled Scaled Dot-Product Attention, and the rest of the picture is what surrounds that box.\n\n$V$, $K$ and $Q$ enter at the bottom, and each one passes through its own **Linear** block first. Those blocks are the learned projections $W^V_i, W^K_i, W^Q_i$ ([[attention-projection-matrices]]). Each projection cuts its input down to a smaller width: queries and keys to $d_k$ dimensions, values to $d_v$.\n\nThe faint offset copies drawn behind each box are the figure's device for showing parallelism. The Linear blocks and the Scaled Dot-Product Attention block are each drawn as a stack of identical sheets. The **h** annotation beside the stack says how many sheets there are.\n\nEach sheet is one [[attention-head]]. A head has its own projection weights and computes the left-hand diagram on its own projected copies of $Q$, $K$ and $V$, independently of the others.\n\nThat leaves $h$ separate outputs, one per head. **Concat** glues those $h$ output vectors back into a single wide vector, whose width is the $h$ head widths added together. The final **Linear**, the matrix $W^O$, mixes that wide vector back down to the model's working width. The output of the right diagram therefore has the same width as the inputs that entered it.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Scaled Dot-Product Attention",
+     "definition": "The title of the left diagram and the name of the paper's attention function: score each query against each key by a dot product, divide by the square root of the key dimension, softmax, then take the weighted sum of values.",
+     "conceptId": "scaled-dot-product-attention"
+    },
+    {
+     "term": "Multi-Head Attention",
+     "definition": "The title of the right diagram: h copies of the left-hand attention function run in parallel on differently projected inputs, then concatenated and projected once more.",
+     "conceptId": "multi-head-attention"
+    },
+    {
+     "term": "Q",
+     "definition": "The query matrix entering at the bottom of both diagrams. Its rows are the query vectors — one per position asking for information — packed together so many queries are computed at once.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "K",
+     "definition": "The key matrix. Its rows are the key vectors, one per position, advertising what that position holds; queries are matched against keys to produce the attention scores.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "V",
+     "definition": "The value matrix. Its rows are the value vectors, one per position, holding the content that gets averaged. In the left diagram its arrow runs past the scoring column and joins only at the top MatMul.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "MatMul (lower, in the left diagram)",
+     "definition": "Matrix multiplication of Q with K transposed, producing the raw compatibility score for every query-key pair.",
+     "conceptId": "compatibility-function"
+    },
+    {
+     "term": "Scale",
+     "definition": "Division of every score by the square root of d_k. The paper adds this step to plain dot-product attention so scores stay moderate as d_k grows.",
+     "conceptId": "sqrt-dk-scaling"
+    },
+    {
+     "term": "Mask (opt.)",
+     "definition": "An optional step that sets forbidden scores to negative infinity before the softmax, so those positions receive zero weight. Used in the decoder to block attention to future positions, and skipped in encoder self-attention — hence '(opt.)'.",
+     "conceptId": "causal-masking"
+    },
+    {
+     "term": "SoftMax",
+     "definition": "Turns each query's row of scaled scores into non-negative weights that sum to one, by exponentiating each score and dividing by the row's total.",
+     "conceptId": "softmax"
+    },
+    {
+     "term": "MatMul (upper, in the left diagram)",
+     "definition": "Matrix multiplication of the softmax weights with V, producing each query's output as a weighted sum of value vectors. This is the output of the attention function.",
+     "conceptId": "attention-mechanism"
+    },
+    {
+     "term": "Linear (the three blocks at the bottom right)",
+     "definition": "Learned linear projections applied to V, K and Q before attention. Each head gets its own projection matrices, mapping d_model-dimensional inputs down to d_k (keys, queries) or d_v (values) dimensions.",
+     "conceptId": "attention-projection-matrices"
+    },
+    {
+     "term": "Scaled Dot-Product Attention (the block in the right diagram)",
+     "definition": "The entire left-hand diagram reused as a single unit inside multi-head attention. It appears once as a box but is drawn stacked, because it is instantiated once per head.",
+     "conceptId": "scaled-dot-product-attention"
+    },
+    {
+     "term": "Concat",
+     "definition": "Concatenation of the h per-head output vectors into one wider vector, of width h times d_v, before the final projection.",
+     "conceptId": "multi-head-attention"
+    },
+    {
+     "term": "Linear (top right)",
+     "definition": "The final learned projection W^O applied after Concat, mixing the concatenated head outputs back to d_model width.",
+     "conceptId": "attention-projection-matrices"
+    },
+    {
+     "term": "h (annotation with the leader line)",
+     "definition": "The label on the stacked sheets giving how many parallel attention heads there are. It points at the stack to say the depth of that stack is h, not some fixed drawn count.",
+     "conceptId": "num-heads-h"
+    },
+    {
+     "term": "Stacked / offset sheets",
+     "definition": "The faint duplicate outlines drawn behind the Linear and Scaled Dot-Product Attention boxes. They are a drawing convention for 'this same block exists h times, each with its own weights, all running in parallel' — not h sequential layers.",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "Attention head",
+     "definition": "One sheet of the stack: one set of Q/K/V projections plus one scaled dot-product attention computation, producing a d_v-dimensional output per position.",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "d_k",
+     "definition": "The dimension of each query and key vector inside a head; it sets the scaling factor in the Scale box. Not printed in the figure but it is what Scale divides by.",
+     "conceptId": "dk-dv-dimensions"
+    },
+    {
+     "term": "d_v",
+     "definition": "The dimension of each value vector inside a head, and therefore the width of each head's output before Concat.",
+     "conceptId": "dk-dv-dimensions"
+    },
+    {
+     "term": "d_model",
+     "definition": "The model's working width: what enters the bottom Linear blocks and what leaves the top Linear block, so multi-head attention is width-preserving.",
+     "conceptId": "d-model"
+    },
+    {
+     "term": "W^Q, W^K, W^V",
+     "definition": "The per-head parameter matrices realized by the three bottom Linear blocks, each of shape d_model by d_k (or d_model by d_v for values).",
+     "conceptId": "attention-projection-matrices"
+    },
+    {
+     "term": "W^O",
+     "definition": "The parameter matrix realized by the top Linear block, of shape (h times d_v) by d_model, mapping the concatenated head outputs back to model width.",
+     "conceptId": "attention-projection-matrices"
+    },
+    {
+     "term": "Arrows",
+     "definition": "Data flow, running bottom to top. Arrow merges into a box mean that box takes multiple inputs; the multiple thin arrows into Concat are the h head outputs.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "h",
+     "meaning": "The number of parallel attention heads, marked by the annotation on the stacked sheets. Left symbolic in the figure; the paper sets it to 8 for its models."
+    },
+    {
+     "value": "h = 8",
+     "meaning": "The head count actually used in the paper's models: eight parallel attention layers."
+    },
+    {
+     "value": "d_k = d_v = d_model / h = 64",
+     "meaning": "The per-head key/query and value dimensions. Each head works in a reduced space so that, as the paper puts it, the total computational cost is about the same as one attention function at full dimensionality."
+    },
+    {
+     "value": "d_model = 512",
+     "meaning": "The base model's width — the size of vectors entering the bottom Linear blocks and leaving the top one. With h = 8 this gives the 64 above."
+    },
+    {
+     "value": "1/sqrt(d_k)",
+     "meaning": "The factor applied in the Scale box. The paper's reason: for large d_k the dot products grow large in magnitude and push softmax into regions of extremely small gradients. It notes that if query and key components were independent with mean 0 and variance 1, the dot product would have mean 0 and variance d_k."
+    },
+    {
+     "value": "sqrt(64) = 8",
+     "meaning": "The concrete divisor in the paper's base model, following from d_k = 64. The figure itself only says 'Scale'."
+    },
+    {
+     "value": "-infinity",
+     "meaning": "The value the Mask box writes into forbidden score entries, so that after SoftMax those positions get weight zero. Not printed in the figure; it is how the paper implements the mask."
+    },
+    {
+     "value": "1",
+     "meaning": "Each query's softmax weights sum to one, which is what makes the top MatMul a weighted average of value vectors rather than an arbitrary combination."
+    },
+    {
+     "value": "3",
+     "meaning": "The number of Linear blocks along the bottom of the right diagram — one each for V, K and Q. Every head has its own copy of all three."
+    },
+    {
+     "value": "2",
+     "meaning": "The number of MatMul boxes in the left diagram: the first for Q against K transposed, the second for the softmax weights against V."
+    },
+    {
+     "value": "1 (the final Linear)",
+     "meaning": "There is only one projection after Concat, shared across heads, unlike the three per-head projections below."
+    },
+    {
+     "value": "h x d_v",
+     "meaning": "The width of the vector leaving Concat, and therefore the input width of the final Linear block. With h = 8 and d_v = 64 this equals 512, matching d_model."
+    },
+    {
+     "value": "Equation (1)",
+     "meaning": "The numbered equation in the paper that the left diagram draws: Attention(Q,K,V) = softmax(QK^T / sqrt(d_k)) V."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     4
+    ]
+   }
+  },
+  {
+   "id": "table-1",
+   "kind": "table",
+   "number": 1,
+   "caption": "Table 1: Maximum path lengths, per-layer complexity and minimum number of sequential operations for different layer types. n is the sequence length, d is the representation dimension, k is the kernel size of convolutions and r the size of the neighborhood in restricted self-attention.",
+   "page": 6,
+   "asset": "assets/table-1.png",
+   "title": "Layer types by cost and path length",
+   "takeaway": "The table is the paper's argument for replacing recurrence with self-attention. A self-attention layer connects every position to every other in a constant number of sequential steps, over a path of length 1, where a recurrent layer needs $O(n)$ of both. Its per-layer arithmetic cost, $O(n^2 \\cdot d)$, is lower than a recurrent layer's $O(n \\cdot d^2)$ whenever the sequence is shorter than the model is wide.",
+   "walkthrough": "You are looking at a four-row comparison. Each row is one way to build a single layer that maps a sequence $(x_1,\\dots,x_n)$ of $d$-dimensional vectors to another sequence $(z_1,\\dots,z_n)$ of the same length and the same width. That is the shape of a hidden layer inside a [[sequence-transduction|sequence transduction]] encoder or decoder, so the four rows are four candidates for the same slot in the same architecture.\n\nFour symbols carry every entry in the table. $n$ is the sequence length, the number of tokens. $d$ is the representation dimension; in the paper's base model that is [[d-model|$d_{model}=512$]]. $k$ is the kernel width of a convolution. $r$ is the neighborhood size in [[restricted-self-attention|restricted self-attention]], which is the last row.\n\nTake the columns before the rows. They are the paper's [[layer-comparison-desiderata|three criteria]] for judging a layer type.\n\n[[complexity-per-layer|Complexity per layer]] is the total arithmetic one layer performs.\n\n[[minimum-sequential-operations|Sequential operations]] counts the steps that must run one after another, because a later step needs an earlier step's output. It is therefore a measure of what cannot be parallelized, however much hardware is available.\n\n[[maximum-path-length|Maximum path length]] is the longest hop count a signal travels between any two positions, going forward or coming back as gradient. Shorter paths, the paper says, make [[long-range-dependencies|long-range dependencies]] easier to learn.\n\nOne caveat before reading any value. Every entry is big-O in $n$, $d$, $k$ and $r$ — asymptotic operation counts, not measured speed. Lower is better in all three columns.\n\nNow the first row. [[self-attention|Self-attention]] compares every position with every other, which is $n \\times n = n^2$ pairs, and each comparison is a dot product over $d$ dimensions. That gives the $O(n^2 \\cdot d)$ arithmetic in the first column. The other two columns are where it pays off: $O(1)$ sequential operations and $O(1)$ path length. One layer already puts every position a single hop from every other.\n\nSecond row. A [[recurrent-neural-network|recurrent]] layer costs $O(n \\cdot d^2)$, which is $n$ time steps, each one a $d \\times d$ matrix multiply, and a $d \\times d$ multiply is $d^2$ work. But it is $O(n)$ in both of the remaining columns, because step $t$ cannot start until step $t-1$ has produced its hidden state ([[sequential-computation-bottleneck|the bottleneck]]). Information from the first position reaches the last only by being handed along all $n$ steps.\n\nThe two cost expressions cross over somewhere. Set $n^2 d$ against $n d^2$ and divide both by $n d$; what remains is $n$ against $d$. So self-attention is the cheaper layer exactly when $n < d$ — when the sequence is shorter than the model is wide. The paper says this is most often the case for sentences tokenized with [[word-piece-encoding|word-piece]] or [[byte-pair-encoding|byte-pair]] vocabularies.\n\nThat leaves the two rows that qualify the picture rather than headline it.\n\n[[convolutional-sequence-models|Convolutional]] layers match self-attention on parallelism, at $O(1)$ sequential operations. Their per-layer cost is a factor of $k$ above the recurrent layer's, that is $O(k \\cdot n \\cdot d^2)$, since each output position mixes $k$ input positions rather than one. And a single layer with $k < n$ does not connect all pairs: its receptive field is only $k$ wide. Reaching across the whole sequence takes a stack — $O(n/k)$ layers with contiguous kernels, or $O(\\log_k n)$ with [[dilated-convolutions|dilated convolutions]], which widen the span each layer covers.\n\nThe last row is a proposal, not a trained model. Restrict each position to attend only within a neighborhood of $r$ positions around it. Cost falls to $O(r \\cdot n \\cdot d)$, because each of the $n$ positions now scores $r$ keys instead of $n$. The price shows up in the path column: information moves at most $r$ positions per layer, so crossing the sequence stretches to $O(n/r)$ hops.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Layer Type",
+     "definition": "The row header column: each row is one candidate design for a single sequence-to-sequence layer being compared on equal footing.",
+     "conceptId": "layer-comparison-desiderata"
+    },
+    {
+     "term": "Complexity per Layer",
+     "definition": "Total arithmetic performed by one layer, written as a big-O function of n, d, k, r. Lower means cheaper compute per layer.",
+     "conceptId": "complexity-per-layer"
+    },
+    {
+     "term": "Sequential Operations",
+     "definition": "The minimum number of operations that must execute one after another inside the layer, i.e. what cannot be parallelized across positions. The paper's proxy for parallelizability.",
+     "conceptId": "minimum-sequential-operations"
+    },
+    {
+     "term": "Maximum Path Length",
+     "definition": "The longest number of network hops a forward or backward signal must traverse between any input position and any output position. Shorter is claimed to make long-range dependencies easier to learn.",
+     "conceptId": "maximum-path-length"
+    },
+    {
+     "term": "Self-Attention",
+     "definition": "Row 1: a layer where every position attends to every other position of the same sequence. All pairs are connected within a single layer.",
+     "conceptId": "self-attention"
+    },
+    {
+     "term": "Recurrent",
+     "definition": "Row 2: a layer that walks the sequence position by position, carrying a hidden state forward, as in an LSTM or GRU.",
+     "conceptId": "recurrent-neural-network"
+    },
+    {
+     "term": "Convolutional",
+     "definition": "Row 3: a layer that applies a width-k kernel over the sequence, mixing each position with its k-neighborhood in parallel.",
+     "conceptId": "convolutional-sequence-models"
+    },
+    {
+     "term": "Self-Attention (restricted)",
+     "definition": "Row 4: a proposed variant, not used in the paper's trained models, where each output position attends only to the r input positions around it instead of all n.",
+     "conceptId": "restricted-self-attention"
+    },
+    {
+     "term": "n",
+     "definition": "Sequence length: the number of tokens or positions in the input sequence, which equals the number of output positions here.",
+     "conceptId": null
+    },
+    {
+     "term": "d",
+     "definition": "Representation dimension: the width of the vector held at each position. In the paper's base Transformer this is d_model = 512.",
+     "conceptId": "d-model"
+    },
+    {
+     "term": "k",
+     "definition": "Kernel size (width) of a convolution: how many neighboring positions one convolution filter spans.",
+     "conceptId": null
+    },
+    {
+     "term": "r",
+     "definition": "Neighborhood size in restricted self-attention: each output position attends only to the r input positions centered on it.",
+     "conceptId": "restricted-self-attention"
+    },
+    {
+     "term": "O(...) (big-O)",
+     "definition": "Asymptotic order-of-growth notation. Every cell states how a quantity scales with n, d, k, r as they grow, ignoring constant factors — it is not a measured runtime.",
+     "conceptId": null
+    },
+    {
+     "term": "log_k(n)",
+     "definition": "Logarithm of the sequence length in base k: how many layers of dilated convolutions with kernel width k are needed before every pair of positions is connected.",
+     "conceptId": "dilated-convolutions"
+    },
+    {
+     "term": "x_i, z_i",
+     "definition": "From the surrounding text: the input and output vectors at position i, both in R^d. The layer maps (x_1,...,x_n) to (z_1,...,z_n) of equal length.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "O(n^2 · d)",
+     "meaning": "Self-attention's complexity per layer. Quadratic in n because each of n positions computes a compatibility score against all n positions, and each score involves d-dimensional vectors."
+    },
+    {
+     "value": "O(n · d^2)",
+     "meaning": "Recurrent layer's complexity per layer. n sequential steps, each applying a d x d weight matrix to a d-dimensional state, which costs d^2."
+    },
+    {
+     "value": "O(k · n · d^2)",
+     "meaning": "Convolutional layer's complexity per layer. The same d x d mixing at each of n positions as a recurrent layer, but repeated across the k kernel taps — the paper states convolutions are generally more expensive than recurrent layers by a factor of k."
+    },
+    {
+     "value": "O(r · n · d)",
+     "meaning": "Restricted self-attention's complexity per layer. Each of n positions attends to only r neighbors instead of all n, so n^2 in the first row becomes r · n."
+    },
+    {
+     "value": "O(1)",
+     "meaning": "The sequential-operations entry for self-attention, convolutional, and restricted self-attention: a constant number of steps regardless of sequence length, because all positions are computed in parallel. Also self-attention's maximum path length — any two positions are connected directly in one layer."
+    },
+    {
+     "value": "O(n)",
+     "meaning": "Appears twice in the recurrent row: n sequential operations (step t cannot start until step t-1 finishes) and a maximum path length of n (a signal must pass through up to n recurrent steps to reach a distant position). These two n's are why the paper wants to replace recurrence."
+    },
+    {
+     "value": "O(log_k(n))",
+     "meaning": "Convolutional maximum path length. One layer with kernel width k < n does not connect all pairs; the text says a stack of dilated convolutions reaches all pairs in log base k of n layers."
+    },
+    {
+     "value": "O(n/r)",
+     "meaning": "Restricted self-attention's maximum path length: with a window of r, reaching a position n away takes about n/r hops. This is the cost the paper flags for the cheaper first column."
+    },
+    {
+     "value": "O(n/k)",
+     "meaning": "Not in the table but in the text: the number of stacked contiguous-kernel convolutional layers needed to connect all pairs of positions, the non-dilated alternative to O(log_k(n))."
+    },
+    {
+     "value": "exponent 2 (in n^2 and d^2)",
+     "meaning": "The only exponents in the table. n^2 comes from all-pairs attention scoring; d^2 comes from a full d x d linear map applied per position. Which one dominates is the whole comparison."
+    },
+    {
+     "value": "n < d",
+     "meaning": "The condition under which self-attention is cheaper per layer than recurrence, since O(n^2 · d) < O(n · d^2) exactly when n < d. The paper says this is most often the case for sentence representations built from word-piece or byte-pair vocabularies."
+    },
+    {
+     "value": "d = 512",
+     "meaning": "From elsewhere in the paper, not printed in the table: the base model's d_model. It gives a concrete sense of the n < d threshold — typical subword-tokenized sentences are shorter than 512 tokens."
+    },
+    {
+     "value": "k < n",
+     "meaning": "The regime the text discusses for convolutions: when the kernel is narrower than the sequence, a single convolutional layer cannot connect all input-output pairs, hence the need for a stack."
+    },
+    {
+     "value": "k = n",
+     "meaning": "The text's limiting case: even with a kernel spanning the whole sequence, a separable convolution's complexity equals that of a self-attention layer plus a point-wise feed-forward layer — the combination the Transformer actually uses."
+    },
+    {
+     "value": "O(k · n · d + n · d^2)",
+     "meaning": "Not in the table but cited in the text: the complexity of separable convolutions, which the paper says reduces the convolutional cost considerably relative to O(k · n · d^2)."
+    },
+    {
+     "value": "factor of k",
+     "meaning": "The stated ratio by which ordinary convolutional layers are more expensive than recurrent layers — the difference between O(k · n · d^2) and O(n · d^2)."
+    },
+    {
+     "value": "3 (three desiderata)",
+     "meaning": "The number of criteria the section compares, which is the number of non-header columns in the table: per-layer complexity, minimum sequential operations, and maximum path length."
+    },
+    {
+     "value": "4 (four rows)",
+     "meaning": "The number of layer types compared: self-attention, recurrent, convolutional, and restricted self-attention. Only the first three are used in real models here; the fourth is a proposal for very long sequences left to future work."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     6
+    ]
+   }
+  },
+  {
+   "id": "table-2",
+   "kind": "table",
+   "number": 2,
+   "caption": "Table 2: The Transformer achieves better BLEU scores than previous state-of-the-art models on the English-to-German and English-to-French newstest2014 tests at a fraction of the training cost.",
+   "page": 8,
+   "asset": "assets/table-2.png",
+   "title": "Translation quality against training cost",
+   "takeaway": "On the WMT 2014 newstest2014 benchmarks, the big Transformer reports the best English-to-German BLEU in the table: 28.4, more than 2.0 BLEU above every earlier model listed, ensembles included. Its English-to-French score is competitive rather than best. And its estimated training cost is at least a few times lower than any competitive baseline. The base Transformer, at roughly 3.3e18 FLOPs, already scores above every prior row on English-to-German.",
+   "walkthrough": "The table holds ten translation systems, one per row. Every one of them is scored on the same two test sets, which is what makes the rows comparable at all.\n\nThere are four value columns, and they come in two pairs. Reading them as two pairs rather than as four separate columns is the key to the table.\n\nThe left pair is [[bleu|BLEU]] score. One column is WMT 2014 English-to-German ([[wmt-2014-en-de|EN-DE]]), the other is English-to-French ([[wmt-2014-en-fr|EN-FR]]). Both are measured on the newstest2014 test set. Higher is better, and on these particular benchmarks a gap of a single point is considered large.\n\nThe right pair is not quality at all. It is the estimated cost of *training* that model, measured in floating-point operations, given once for each language pair.\n\nTwo conventions govern the cells themselves. A blank cell means that system never reported that number — it is missing data, not a zero. A bracketed number is a citation to the original paper the row came from.\n\n### The three blocks\n\nHorizontal rules split the ten rows into three groups.\n\nThe top block is prior single models. [[bytenet|ByteNet]] is a dilated-convolution translator. Deep-Att + PosUnk is a deep recurrent net with fast-forward connections, combined with a rare-word fix — \"PosUnk\" is the \"position unknown\" handling for words the model cannot produce directly. GNMT + RL is Google's production LSTM system, fine-tuned with reinforcement learning. [[convs2s|ConvS2S]] is a fully convolutional seq2seq model. MoE is an LSTM carrying a sparsely gated mixture-of-experts layer, which activates only a few experts per input rather than the whole layer — that selective spending of compute is [[conditional-computation]].\n\nThe middle block is [[model-ensembling|ensembles]] of three of those same systems. An ensemble is several separately trained copies of a model decoding together. It is a routine way to buy 1–2 BLEU, and the price is several times the compute.\n\nThe bottom block is the paper's own two configurations, the [[base-vs-big-transformer|base and big]] [[transformer|Transformer]].\n\n### Where the cost numbers come from\n\nThe cost column is not a measurement. It comes from a rough formula ([[training-flops-estimate]]): training time, multiplied by the number of GPUs, multiplied by an assumed sustained single-precision throughput per GPU.\n\nThat last factor is a lookup, not an observation. Footnote 5 gives the assumed rates: 2.8 TFLOPS for a K80, 3.7 for a K40, 6.0 for an M40, and 9.5 for a P100.\n\nNow walk the base model's entry. It trained on [[training-hardware-and-schedule|8 P100s for 12 hours]]. Twelve hours is 43,200 seconds. So the estimate is $8 \\times 43{,}200\\,\\text{s} \\times 9.5\\times10^{12} \\approx 3.3\\times10^{18}$.\n\nThe same arithmetic runs for the big model, with 3.5 days in place of 12 hours. That gives $2.3\\times10^{19}$.\n\nNote what the 9.5 in that product actually is. It is nominal capacity, not measured utilization. So the whole column should be treated as an order-of-magnitude figure.\n\n### Two things to watch in the printing\n\nBold marks the best value in a column. In the EN-FR column, two entries are bold: 41.29 and 41.8.\n\nThere is a second inconsistency alongside it. The running text quotes 41.0 for the big model, not the 41.8 printed here. Both look like leftovers from a revision of that number.\n\nOne last caveat covers the whole table. The comparison runs across papers, so data pipelines and tokenization differ between rows. The paper reports only what previous work published.\n\nThe claim the table is built to support: a single Transformer beats prior ensembles on EN-DE, while costing about an order of magnitude less to train than the ensembles it beats.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Model (column 1)",
+     "definition": "The name of each translation system compared, with a bracketed citation to the paper it comes from. Rows are grouped by horizontal rules into prior single models, prior ensembles, and this paper's two Transformers.",
+     "conceptId": null
+    },
+    {
+     "term": "BLEU (column group)",
+     "definition": "An automatic translation-quality metric based on n-gram overlap with human reference translations, reported on a 0–100 scale. Higher is better; on newstest2014 a one-point difference is a substantial difference.",
+     "conceptId": "bleu"
+    },
+    {
+     "term": "Training Cost (FLOPs) (column group)",
+     "definition": "An estimate of the total floating-point operations spent training that model, computed as training time x number of GPUs x an assumed sustained single-precision throughput per GPU. It measures training compute, not inference cost or parameter count.",
+     "conceptId": "training-flops-estimate"
+    },
+    {
+     "term": "EN-DE",
+     "definition": "English-to-German, i.e. the WMT 2014 English-German task (about 4.5M sentence pairs), evaluated on the newstest2014 test set. Appears once under BLEU and once under Training Cost.",
+     "conceptId": "wmt-2014-en-de"
+    },
+    {
+     "term": "EN-FR",
+     "definition": "English-to-French, i.e. the much larger WMT 2014 English-French task (about 36M sentence pairs), also evaluated on newstest2014.",
+     "conceptId": "wmt-2014-en-fr"
+    },
+    {
+     "term": "newstest2014",
+     "definition": "The standard held-out news-domain test set from the WMT 2014 shared task, used here so all rows are scored on identical sentences.",
+     "conceptId": null
+    },
+    {
+     "term": "ByteNet [18]",
+     "definition": "A translation model built from dilated convolutions instead of recurrence, so the encoder runs in parallel over positions. Listed with an EN-DE score only.",
+     "conceptId": "bytenet"
+    },
+    {
+     "term": "Deep-Att + PosUnk [39]",
+     "definition": "A deep recurrent encoder-decoder with fast-forward (shortcut) connections and attention, combined with a 'PosUnk' post-processing step that replaces unknown-word tokens using their aligned source position.",
+     "conceptId": null
+    },
+    {
+     "term": "GNMT + RL [38]",
+     "definition": "Google's Neural Machine Translation system: a deep LSTM encoder-decoder with attention and word-piece vocabulary, further tuned with reinforcement learning against a BLEU-like reward.",
+     "conceptId": null
+    },
+    {
+     "term": "ConvS2S [9]",
+     "definition": "A fully convolutional sequence-to-sequence model with attention, in which both encoder and decoder are stacks of gated convolutions rather than RNNs.",
+     "conceptId": "convs2s"
+    },
+    {
+     "term": "MoE [32]",
+     "definition": "The sparsely gated mixture-of-experts model: an LSTM translation network with a very large layer of expert sub-networks of which a gating network activates only a few per token, an instance of conditional computation.",
+     "conceptId": "conditional-computation"
+    },
+    {
+     "term": "Ensemble (rows 6–8)",
+     "definition": "Several separately trained copies of the same architecture whose output distributions are combined during decoding. Ensembling reliably raises BLEU by roughly one to two points and multiplies training cost by the number of members.",
+     "conceptId": "model-ensembling"
+    },
+    {
+     "term": "Transformer (base model)",
+     "definition": "The paper's default configuration (N=6 layers, d_model=512, 8 heads), trained for 100,000 steps / 12 hours on 8 P100 GPUs. It is the reference point for the ablations in Table 3.",
+     "conceptId": "base-vs-big-transformer"
+    },
+    {
+     "term": "Transformer (big)",
+     "definition": "The scaled-up configuration from the bottom line of Table 3 (wider layers, more heads), trained for 300,000 steps / 3.5 days on the same 8 GPUs. The EN-FR run used dropout 0.1 instead of 0.3.",
+     "conceptId": "base-vs-big-transformer"
+    },
+    {
+     "term": "Bold values",
+     "definition": "Highlight the best figure in a column: 28.4 EN-DE BLEU, the bolded EN-FR entries, and the base model's 3.3e18 training cost as the cheapest run in the table.",
+     "conceptId": null
+    },
+    {
+     "term": "Bracketed citation numbers ([18], [39], [38], [9], [32])",
+     "definition": "References to the source papers for each baseline: Kalchbrenner et al. (ByteNet), Zhou et al. (Deep-Att), Wu et al. (GNMT), Gehring et al. (ConvS2S), Shazeer et al. (MoE).",
+     "conceptId": null
+    },
+    {
+     "term": "Blank cells",
+     "definition": "No value was reported by that system's authors for that language pair or cost, so the paper leaves the cell empty rather than estimating it.",
+     "conceptId": null
+    },
+    {
+     "term": "P100 (in the cost estimate)",
+     "definition": "The NVIDIA GPU model the Transformer was trained on; eight of them on one machine. Its assumed sustained single-precision rate, 9.5 TFLOPS, is what turns training time into a FLOPs figure.",
+     "conceptId": "training-hardware-and-schedule"
+    },
+    {
+     "term": "Checkpoint averaging / beam search (how these BLEU numbers were decoded)",
+     "definition": "Each reported Transformer score comes from weights averaged over the last 5 (base) or 20 (big) checkpoints, decoded with beam size 4 and length penalty alpha = 0.6.",
+     "conceptId": "checkpoint-averaging"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "23.75",
+     "meaning": "ByteNet's EN-DE BLEU. Its EN-FR score and both training costs are not reported."
+    },
+    {
+     "value": "39.2 / 1.0e20",
+     "meaning": "Deep-Att + PosUnk: EN-FR BLEU and estimated EN-FR training cost. No EN-DE numbers are given for it."
+    },
+    {
+     "value": "24.6 / 39.92 / 2.3e19 / 1.4e20",
+     "meaning": "GNMT + RL: EN-DE BLEU, EN-FR BLEU, EN-DE training cost, EN-FR training cost. Its EN-DE cost, 2.3e19, equals the big Transformer's total cost while scoring 3.8 BLEU lower."
+    },
+    {
+     "value": "25.16 / 40.46 / 9.6e18 / 1.5e20",
+     "meaning": "ConvS2S single model: the two BLEU scores then the two training costs. Its 9.6e18 EN-DE cost is the cheapest baseline run in the table, still about 3x the base Transformer's."
+    },
+    {
+     "value": "26.03 / 40.56 / 2.0e19 / 1.2e20",
+     "meaning": "MoE: the best prior single model on both language pairs (26.03 EN-DE, 40.56 EN-FR), with the listed training costs."
+    },
+    {
+     "value": "40.4 / 8.0e20",
+     "meaning": "Deep-Att + PosUnk Ensemble: EN-FR BLEU and EN-FR training cost, 8x the single model's 1.0e20 — the cost of training the ensemble members."
+    },
+    {
+     "value": "26.30 / 41.16 / 1.8e20 / 1.1e21",
+     "meaning": "GNMT + RL Ensemble: BLEU and cost on both pairs. Ensembling adds about 1.7 EN-DE BLEU over the single GNMT and multiplies cost by roughly 8."
+    },
+    {
+     "value": "26.36 / 41.29 / 7.7e19 / 1.2e21",
+     "meaning": "ConvS2S Ensemble: the strongest prior EN-DE result (26.36) and the strongest prior EN-FR result (41.29), at 1.2e21 FLOPs for EN-FR — the largest training cost in the table."
+    },
+    {
+     "value": "27.3 / 38.1 / 3.3e18",
+     "meaning": "Transformer base: EN-DE and EN-FR BLEU, plus a single training cost figure spanning both cost columns because the same 12-hour recipe was used. 27.3 exceeds every row above it on EN-DE, including all ensembles; 38.1 on EN-FR is below the baselines, which the paper does not claim otherwise."
+    },
+    {
+     "value": "28.4 / 41.8 / 2.3e19",
+     "meaning": "Transformer big: the table's best EN-DE score, its EN-FR score, and one training cost for both. 28.4 is described in the text as a new state of the art, more than 2.0 BLEU above the best previous result (26.36)."
+    },
+    {
+     "value": "more than 2.0 BLEU",
+     "meaning": "The margin the text claims for Transformer (big) over the best previously reported EN-DE models including ensembles: 28.4 - 26.36 = 2.04."
+    },
+    {
+     "value": "41.0",
+     "meaning": "The EN-FR BLEU the running text attributes to the big model, while the table prints 41.8. The two disagree; the table's value is the later one."
+    },
+    {
+     "value": "9.5 TFLOPS (and 2.8, 3.7, 6.0)",
+     "meaning": "Assumed sustained single-precision throughput per GPU used in the cost estimate: 9.5 for P100, and 2.8, 3.7, 6.0 for K80, K40, M40 respectively when baselines used those cards (footnote 5)."
+    },
+    {
+     "value": "8 GPUs",
+     "meaning": "The Transformer runs used one machine with 8 NVIDIA P100 GPUs; this is the GPU-count factor in the cost formula."
+    },
+    {
+     "value": "12 hours / 100,000 steps / ~0.4 s per step",
+     "meaning": "The base model's training schedule. 100,000 steps x 0.4 s is about 11 hours, rounded to 12."
+    },
+    {
+     "value": "3.5 days / 300,000 steps / 1.0 s per step",
+     "meaning": "The big model's training schedule. 300,000 steps x 1.0 s is about 83 hours, i.e. 3.5 days."
+    },
+    {
+     "value": "3.3e18",
+     "meaning": "The base model's estimated training FLOPs: 8 GPUs x 12 hours (43,200 s) x 9.5e12 FLOP/s = 3.28e18, rounded to 3.3e18. Bold as the lowest training cost in the table."
+    },
+    {
+     "value": "2.3e19",
+     "meaning": "The big model's estimated training FLOPs: 8 x 3.5 days (302,400 s) x 9.5e12 = 2.30e19. It happens to match GNMT + RL's EN-DE cost exactly."
+    },
+    {
+     "value": "less than 1/4",
+     "meaning": "The text's claim for EN-FR: the big model's 2.3e19 is under a quarter of the previous state-of-the-art model's training cost (compare 1.2e20 for MoE, about 1/5)."
+    },
+    {
+     "value": "Cost column scale: 1e18 to 1e21",
+     "meaning": "The training-cost entries span roughly three orders of magnitude, so differences between rows should be read multiplicatively, not by subtraction."
+    },
+    {
+     "value": "BLEU column scale: 23.75 to 28.4 (EN-DE), 38.1 to 41.8 (EN-FR)",
+     "meaning": "The whole quality range covered by the table is under 5 BLEU on each pair, which is why fractions of a point are reported."
+    },
+    {
+     "value": "dropout 0.1 vs 0.3",
+     "meaning": "The big model's EN-FR run used a residual dropout rate of 0.1 rather than the 0.3 used for EN-DE, because the EN-FR dataset is much larger and needs less regularization."
+    },
+    {
+     "value": "5 / 20 checkpoints, beam size 4, alpha = 0.6, input length + 50",
+     "meaning": "Decoding settings behind the Transformer BLEU values: average the last 5 (base) or 20 (big) checkpoints written 10 minutes apart, beam search with beam 4 and length penalty 0.6, output capped at input length plus 50 tokens."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     8
+    ]
+   }
+  },
+  {
+   "id": "table-3",
+   "kind": "table",
+   "number": 3,
+   "caption": "Table 3: Variations on the Transformer architecture. Unlisted values are identical to those of the base model. All metrics are on the English-to-German translation development set, newstest2013. Listed perplexities are per-wordpiece, according to our byte-pair encoding, and should not be compared to per-word perplexities.",
+   "page": 9,
+   "asset": "assets/table-3.png",
+   "title": "One-knob-at-a-time ablations",
+   "takeaway": "Table 3 changes one design choice of the base Transformer at a time and reports the effect on English-to-German development-set quality. It shows a middling head count (around 8-16) is best, shrinking the attention key dimension $d_k$ hurts, bigger models are better, and dropout matters a lot. Learned positional embeddings match sinusoids almost exactly, so this table does not choose between them.",
+   "walkthrough": "### What you are looking at\n\nAn ablation table for [[transformer-ablations|the Transformer's design choices]]. Every row is one separately trained model.\n\nThe first row, `base`, is the full base configuration. The last row, `big`, is the scaled-up one. Everything in between falls into groups labelled (A) through (E).\n\nEach row in those groups changes exactly one thing relative to `base`. That is the discipline the whole table rests on: turn one knob, hold the rest fixed, and any difference in the result belongs to that knob.\n\nMost cells in those rows are blank. **A blank cell means \"same as base\"** — that is what the caption's \"unlisted values are identical\" is telling you.\n\n### How to read it\n\nThe table divides into two blocks. The left block is what was dialled in; the right block is what came out.\n\nThe left block, in order: [[n-layers|$N$]], the number of layers in each stack; the model width [[d-model|$d_{model}$]]; the feed-forward inner width [[d-ff|$d_{ff}$]]; the number of [[multi-head-attention|attention heads]] [[num-heads-h|$h$]]; the per-head key and value sizes [[dk-dv-dimensions|$d_k$ and $d_v$]]; the [[residual-dropout|dropout rate]] $P_{drop}$; the [[label-smoothing|label smoothing]] amount $\\epsilon_{ls}$; and the number of training steps.\n\nThe right block is shorter: [[perplexity|PPL]], [[bleu|BLEU]], and the parameter count in millions. Lower PPL is better, higher BLEU is better.\n\nNow the measurement conditions, which matter before comparing any of these numbers to anything outside the table. All results are on newstest2013, the English-German development set. Decoding uses [[beam-search]]. It does not use [[checkpoint-averaging]], which the paper does apply to its headline translation results.\n\nOne caveat about the PPL column in particular. It is measured **per word-piece** under the paper's [[byte-pair-encoding|byte-pair encoding]], not per word. A model predicting sub-word pieces is making more, individually easier predictions, so these perplexities are not comparable to per-word perplexities reported elsewhere.\n\n### What it shows\n\nGroup (A) sweeps the head count $h$, and adjusts the per-head width to compensate, following the rule $d_k = d_v = d_{model}/h$.\n\nWork that rule through. $d_{model}$ is 512, and the base setting uses 8 heads, so each head gets $512/8 = 64$ dimensions. Push up to 32 heads and each one gets $512/32 = 16$. Collapse down to a single head and it gets all 512 to itself.\n\nBecause the per-head width shrinks exactly as fast as the head count grows, the total attention computation stays roughly constant across the sweep. The comparison is therefore about how a fixed budget is divided, not how large the budget is.\n\n[[attention-heads-ablation|Single-head attention is 0.9 BLEU below the best setting]]: 24.9 against 25.8. Quality also drops at the other end of the sweep, with 32 heads scoring 25.4.\n\nBoth extremes lose. The good settings sit in the middle.\n\nGroup (B) changes $d_k$ alone, leaving $d_v$ at 64. This is not the compute trade of group (A); it isolates how much room the query-key match itself has to work in.\n\n[[key-size-ablation|Quality falls]]. The function that scores a query against a key, and whose scores become the attention weights, is the [[compatibility-function|compatibility function]]; in this model it is a plain [[dot-product-attention|dot product]]. The paper suggests that this may be too simple, and that the compatibility function may need to be more than a dot product.\n\nGroups (C) and (D) confirm the expected: [[size-and-dropout-ablation|bigger is better, and dropout helps]]. Group (C) scales the model up along $N$, $d_{model}$, and $d_{ff}$; group (D) varies the regularization.\n\nThe dropout effect is the sharper of the two. Removing dropout entirely, setting $P_{drop}=0.0$, costs 1.2 BLEU.\n\nRow (E) swaps the [[sinusoidal-positional-encoding|sinusoids]] for [[learned-positional-embedding|learned positional embeddings]], leaving everything else at base.\n\nThe results come out near-identical: 4.92 PPL and 25.7 BLEU, against base's 25.8 BLEU. Translation quality does not distinguish the two schemes.\n\nWhich is why the paper's preference for sinusoids rests on grounds this table does not measure.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "base",
+     "definition": "The base Transformer configuration, the reference point for the whole table. All other rows differ from it only in the cells they explicitly list.",
+     "conceptId": "base-vs-big-transformer"
+    },
+    {
+     "term": "big",
+     "definition": "The scaled-up Transformer configuration in the last row: wider, more heads, more dropout, and three times as many training steps. Its numbers are bolded as the best in the table.",
+     "conceptId": "base-vs-big-transformer"
+    },
+    {
+     "term": "(A)",
+     "definition": "The row group that varies the number of attention heads while rescaling per-head key and value dimensions to keep total computation constant.",
+     "conceptId": "attention-heads-ablation"
+    },
+    {
+     "term": "(B)",
+     "definition": "The row group that reduces only the attention key dimension d_k, leaving d_v and everything else at base values.",
+     "conceptId": "key-size-ablation"
+    },
+    {
+     "term": "(C)",
+     "definition": "The row group that changes model size: depth N, width d_model, and feed-forward width d_ff.",
+     "conceptId": "size-and-dropout-ablation"
+    },
+    {
+     "term": "(D)",
+     "definition": "The row group that changes the two regularizers: dropout rate P_drop and label-smoothing value eps_ls.",
+     "conceptId": "size-and-dropout-ablation"
+    },
+    {
+     "term": "(E)",
+     "definition": "The single row that replaces the fixed sinusoidal positional encoding with learned positional embeddings.",
+     "conceptId": "learned-positional-embedding"
+    },
+    {
+     "term": "N",
+     "definition": "The number of identical layers stacked in the encoder and in the decoder. The base model uses 6 in each.",
+     "conceptId": "n-layers"
+    },
+    {
+     "term": "d_model",
+     "definition": "The shared width of the model: the dimension of embeddings and of every sub-layer's output. 512 in the base model.",
+     "conceptId": "d-model"
+    },
+    {
+     "term": "d_ff",
+     "definition": "The hidden width inside the position-wise feed-forward network in each layer. 2048 in the base model, four times d_model.",
+     "conceptId": "d-ff"
+    },
+    {
+     "term": "h",
+     "definition": "The number of parallel attention heads in each multi-head attention layer. 8 in the base model.",
+     "conceptId": "num-heads-h"
+    },
+    {
+     "term": "d_k",
+     "definition": "The dimension of each head's query and key vectors. 64 in the base model, which is d_model/h.",
+     "conceptId": "dk-dv-dimensions"
+    },
+    {
+     "term": "d_v",
+     "definition": "The dimension of each head's value vectors, and so of each head's output before the heads are concatenated. 64 in the base model.",
+     "conceptId": "dk-dv-dimensions"
+    },
+    {
+     "term": "P_drop",
+     "definition": "The residual dropout rate: the fraction of activations zeroed at each sub-layer output before the residual add, and on the embedding-plus-positional-encoding sums. 0.1 in the base model.",
+     "conceptId": "residual-dropout"
+    },
+    {
+     "term": "eps_ls",
+     "definition": "The label-smoothing value: probability mass moved off the correct token and spread over the rest of the vocabulary during training. 0.1 in the base model.",
+     "conceptId": "label-smoothing"
+    },
+    {
+     "term": "train steps",
+     "definition": "The number of optimizer updates the model was trained for. 100K for base-sized rows, 300K for the big model.",
+     "conceptId": "training-hardware-and-schedule"
+    },
+    {
+     "term": "PPL (dev)",
+     "definition": "Perplexity on the development set: how surprised the model is by the true next token, lower being better. Here it is per word-piece, not per word.",
+     "conceptId": "perplexity"
+    },
+    {
+     "term": "BLEU (dev)",
+     "definition": "BLEU translation quality on the development set, higher being better. It measures n-gram overlap with reference translations.",
+     "conceptId": "bleu"
+    },
+    {
+     "term": "params x10^6",
+     "definition": "Total trainable parameter count of the model, in millions. Only shown for rows where it changes from the base model's 65M.",
+     "conceptId": null
+    },
+    {
+     "term": "newstest2013",
+     "definition": "The English-to-German development set every number in this table is measured on. It is a held-out set separate from the newstest2014 test set used in the paper's main results table.",
+     "conceptId": "wmt-2014-en-de"
+    },
+    {
+     "term": "per-wordpiece perplexity",
+     "definition": "Perplexity computed over subword units produced by the paper's byte-pair encoding rather than over whole words. The caption warns these values should not be compared to per-word perplexities reported elsewhere.",
+     "conceptId": "byte-pair-encoding"
+    },
+    {
+     "term": "positional embedding instead of sinusoids",
+     "definition": "The text spanning the configuration columns in row (E): a trainable vector per position replaces the fixed sine/cosine positional encoding, with everything else left at base values.",
+     "conceptId": "learned-positional-embedding"
+    },
+    {
+     "term": "beam search (no checkpoint averaging)",
+     "definition": "The decoding setup used for all of these numbers, stated in the surrounding text: beam search as in the previous section, but without averaging the last several checkpoints as the main results use.",
+     "conceptId": "checkpoint-averaging"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "6 / 512 / 2048 / 8 / 64 / 64 / 0.1 / 0.1 / 100K",
+     "meaning": "The base row's full configuration, read left to right: N, d_model, d_ff, h, d_k, d_v, P_drop, eps_ls, train steps. Every blank cell elsewhere in the table takes the value from this row."
+    },
+    {
+     "value": "4.92 / 25.8 / 65",
+     "meaning": "The base model's results: 4.92 per-wordpiece dev perplexity, 25.8 dev BLEU, 65 million parameters. This is the baseline that every other row is compared against."
+    },
+    {
+     "value": "1, 4, 16, 32",
+     "meaning": "The head counts h tried in group (A), replacing the base model's 8."
+    },
+    {
+     "value": "512/512, 128/128, 32/32, 16/16",
+     "meaning": "The d_k/d_v pairs paired with h = 1, 4, 16, 32 in group (A). They are set to d_model/h = 512/h so that total attention computation stays roughly constant as the head count changes."
+    },
+    {
+     "value": "5.29 / 24.9",
+     "meaning": "Single-head attention (h = 1) in group (A). Its 24.9 BLEU is the 0.9 BLEU gap the text cites versus the best setting's 25.8."
+    },
+    {
+     "value": "5.00 / 25.5",
+     "meaning": "h = 4 in group (A): still below base."
+    },
+    {
+     "value": "4.91 / 25.8",
+     "meaning": "h = 16 in group (A): the best perplexity in the group and BLEU tied with base, i.e. 8 and 16 heads perform about the same."
+    },
+    {
+     "value": "5.01 / 25.4",
+     "meaning": "h = 32 in group (A). Worse than base, which is the paper's evidence that quality also drops off with too many heads."
+    },
+    {
+     "value": "0.9 BLEU",
+     "meaning": "The gap the text names between single-head attention and the best setting in group (A) (24.9 versus 25.8)."
+    },
+    {
+     "value": "16 and 32",
+     "meaning": "The two reduced key dimensions d_k tried in group (B), with d_v left at the base value of 64. Because d_k and d_v differ here, the parameter count changes."
+    },
+    {
+     "value": "5.16 / 25.1 / 58 and 5.01 / 25.4 / 60",
+     "meaning": "Group (B) results for d_k = 16 and d_k = 32. Both are worse than base on both metrics, which the paper reads as evidence that a plain dot product may be too simple a compatibility function."
+    },
+    {
+     "value": "2, 4, 8",
+     "meaning": "The depths N tried in the first three rows of group (C), against the base model's 6."
+    },
+    {
+     "value": "6.11 / 23.7 / 36, 5.19 / 25.3 / 50, 4.88 / 25.5 / 80",
+     "meaning": "Results for N = 2, 4, 8. Quality rises monotonically with depth: the 2-layer model loses 2.1 BLEU versus base, while 8 layers beats base slightly."
+    },
+    {
+     "value": "256 and 1024",
+     "meaning": "The alternative model widths d_model in group (C). Each is paired with d_k = d_v = d_model/h, so 32/32 for d_model = 256 and 128/128 for d_model = 1024."
+    },
+    {
+     "value": "5.75 / 24.5 / 28 and 4.66 / 26.0 / 168",
+     "meaning": "Results for d_model = 256 and d_model = 1024. Halving the width costs 1.3 BLEU; doubling it gains 0.2 BLEU but takes parameters from 65M to 168M."
+    },
+    {
+     "value": "1024 and 4096",
+     "meaning": "The alternative feed-forward inner widths d_ff in group (C), against the base model's 2048."
+    },
+    {
+     "value": "5.12 / 25.4 / 53 and 4.75 / 26.2 / 90",
+     "meaning": "Results for d_ff = 1024 and d_ff = 4096. Widening the feed-forward layer gives 26.2 BLEU, the best of any base-depth variant."
+    },
+    {
+     "value": "0.0 and 0.2",
+     "meaning": "The alternative dropout rates P_drop in group (D), against the base model's 0.1."
+    },
+    {
+     "value": "5.77 / 24.6 and 4.95 / 25.5",
+     "meaning": "Results with no dropout and with dropout 0.2. Removing dropout costs 1.2 BLEU, which is what the text means by dropout being very helpful against over-fitting; more dropout than 0.1 also hurts slightly."
+    },
+    {
+     "value": "0.0 and 0.2",
+     "meaning": "The alternative label-smoothing values eps_ls in group (D), against the base model's 0.1."
+    },
+    {
+     "value": "4.67 / 25.3 and 5.47 / 25.7",
+     "meaning": "Results with eps_ls = 0.0 and 0.2. Turning label smoothing off gives the better perplexity (4.67) but worse BLEU (25.3), matching Section 5.4's statement that label smoothing hurts perplexity while improving BLEU."
+    },
+    {
+     "value": "4.92 / 25.7",
+     "meaning": "Row (E), learned positional embeddings. Identical perplexity to base and 0.1 BLEU below it, which is what the paper calls nearly identical results."
+    },
+    {
+     "value": "6 / 1024 / 4096 / 16 / 0.3 / 300K",
+     "meaning": "The big model's configuration: same depth, double width, double feed-forward width, 16 heads, dropout raised to 0.3, and three times the training steps. Its d_k and d_v are blank, so they follow d_model/h = 64."
+    },
+    {
+     "value": "4.33 / 26.4 / 213",
+     "meaning": "The big model's results, bolded as the best in the table: 4.33 perplexity, 26.4 BLEU, 213 million parameters."
+    },
+    {
+     "value": "100K and 300K",
+     "meaning": "The two training-step budgets. All base-sized variants use 100K steps so the comparisons are like-for-like; only the big model gets 300K."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     9
+    ]
+   }
+  },
+  {
+   "id": "table-4",
+   "kind": "table",
+   "number": 4,
+   "caption": "Table 4: The Transformer generalizes well to English constituency parsing (Results are on Section 23 of WSJ)",
+   "page": 10,
+   "asset": "assets/table-4.png",
+   "title": "The parsing leaderboard",
+   "takeaway": "Trained on the ~40K-sentence WSJ treebank with almost no task-specific tuning, a 4-layer Transformer reaches 91.3 F1 on WSJ Section 23. That is above every listed discriminative parser except Dyer et al.'s RNN Grammar at 91.7. Adding the ~17M auto-parsed sentences takes it to 92.7, the best semi-supervised number in the table — and in both regimes it beats the RNN sequence-to-sequence parser (Vinyals & Kaiser et al.) whose experimental setup it borrows.",
+   "walkthrough": "You are looking at a small leaderboard for [[constituency-parsing|English constituency parsing]]. The task is to predict a sentence's syntactic tree — the nesting of phrases inside phrases. This is the paper's only experiment that is not translation.\n\nIts purpose is to test whether [[transformer|the Transformer]] transfers to a different kind of [[sequence-transduction|sequence transduction]] task. Parsing differs from translation in two ways that matter here. The output is longer than the input, and the output must obey hard structural constraints rather than merely reading well.\n\n### How to read it\n\nThe table has three columns. **Parser** names the system and its citation. **Training** names the data regime that system was trained under. **WSJ 23 F1** is the score.\n\nEvery entry in that last column is measured the same way. So the numbers can be read straight down the column and compared.\n\nThat measurement is worth unpacking, because *F1 here* is not the classification F1. It is the parsing-evaluation F1, the one computed by EVALB. Start with the predicted tree and the gold tree for a sentence. From each of them, list every labelled constituent — a span of the sentence together with its label, e.g. `NP(3,7)`, a noun phrase covering words 3 through 7.\n\nThen compare the two lists. Precision is the fraction of predicted constituents that also appear in the gold tree. Recall is the fraction of gold constituents that the prediction recovered.\n\nThe two are combined in the usual way, $F_1 = 2PR/(P+R)$. It is reported here on a 0–100 scale rather than 0–1.\n\nThe column header also names the test data. Section 23 of the [[penn-treebank-wsj|Penn Treebank WSJ]] is the standard held-out test split for this task. A number in this column is therefore comparable to any other published Section 23 figure.\n\nNow the rows. Horizontal rules divide the table into blocks by training regime, and the blocks are not comparable to one another.\n\nThe first block is *WSJ only, discriminative*. These systems are trained on the roughly 40K hand-parsed sentences of the treebank. Discriminative means they score trees directly, rather than also modelling the probability of the sentence itself.\n\nThe second block is [[semi-supervised-parsing|semi-supervised]]. Same 40K-sentence treebank, plus roughly 17M sentences that were parsed automatically rather than by hand. That is over 400 times as much data as the treebank, none of it verified by a human.\n\nThe last two rows sit outside both blocks. One is multi-task, one is generative. Treat them as context rather than like-for-like comparisons.\n\n### What it shows\n\nThe Transformer rows are the ones to anchor on. It scores 91.3 in the WSJ-only regime and 92.7 in the semi-supervised regime.\n\nTake the WSJ-only block first. 91.3 puts the Transformer above [[berkeley-parser|the BerkeleyParser]] (Petrov et al., 90.4), and above Zhu et al., also at 90.4.\n\nIt falls below exactly one system in that block: [[recurrent-neural-network-grammar|the Recurrent Neural Network Grammar]] of Dyer et al., at 91.7. That is the single exception the paper names.\n\nIn the semi-supervised block there is no such exception. 92.7 is the top number in the block.\n\nOne row deserves separate attention, because it appears in both blocks: Vinyals & Kaiser et al. That is the [[recurrent-neural-network|RNN]] sequence-to-sequence parser whose experimental setup the Transformer copies.\n\nCopying the setup makes it the closest thing to a controlled comparison the table offers. The Transformer beats it by 3.0 F1 in the WSJ-only regime, so 91.3 against 88.3. In the semi-supervised regime the margin narrows to 0.6 F1, 92.7 against 92.1.\n\nThat leaves the question of how much of this came from tuning. The paper stresses that only three things were tuned for parsing: dropout rates, learning rate, and [[beam-search|beam]] size. Those were chosen on the Section 22 development set, not on the Section 23 test set the table reports.\n\nEverything else was left at the English-German base translation settings.\n\nSo the claim these numbers support is generalization, not a tuned parsing result.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Parser (column 1)",
+     "definition": "The system being scored, given as author-year plus the paper's bibliography number in brackets. Rows are prior published parsers, plus two Transformer rows.",
+     "conceptId": null
+    },
+    {
+     "term": "Training (column 2)",
+     "definition": "The data regime the parser was trained under: WSJ only, semi-supervised, multi-task, or generative. It determines which rows are fair comparisons with each other.",
+     "conceptId": null
+    },
+    {
+     "term": "WSJ 23 F1 (column 3)",
+     "definition": "Labelled-constituent F1 measured on Section 23 of the Penn Treebank Wall Street Journal corpus, the standard held-out test set for this task. Higher is better.",
+     "conceptId": null
+    },
+    {
+     "term": "F1 (parsing sense)",
+     "definition": "The harmonic mean of labelled precision and recall over constituents: a predicted constituent counts as correct only if a constituent with the same start, end, and phrase label exists in the gold tree. Reported on a 0-100 scale.",
+     "conceptId": null
+    },
+    {
+     "term": "Constituent",
+     "definition": "A contiguous span of the sentence together with its syntactic label (NP, VP, S, and so on). Constituents are the units precision and recall are computed over.",
+     "conceptId": null
+    },
+    {
+     "term": "WSJ / Wall Street Journal portion of the Penn Treebank",
+     "definition": "The standard constituency-parsing dataset: about 40K hand-parsed WSJ sentences. Section 23 is the test split, Section 22 the development split.",
+     "conceptId": "penn-treebank-wsj"
+    },
+    {
+     "term": "WSJ only, discriminative",
+     "definition": "Trained solely on the ~40K WSJ training sentences, and modelling the tree given the sentence rather than modelling sentence and tree jointly.",
+     "conceptId": null
+    },
+    {
+     "term": "semi-supervised",
+     "definition": "Trained on the WSJ treebank plus roughly 17M additional sentences parsed automatically (the high-confidence and BerkeleyParser corpora), so the extra labels are machine-produced.",
+     "conceptId": "semi-supervised-parsing"
+    },
+    {
+     "term": "multi-task",
+     "definition": "Training regime of the Luong et al. row: one model trained on parsing together with other tasks, so its data setup differs from both blocks above it.",
+     "conceptId": null
+    },
+    {
+     "term": "generative",
+     "definition": "Training regime of the last Dyer et al. row: the model assigns probability to sentence and tree jointly rather than scoring trees for a given sentence. Not a like-for-like comparison with the discriminative rows.",
+     "conceptId": null
+    },
+    {
+     "term": "Transformer (4 layers)",
+     "definition": "This paper's model configured for parsing: 4 encoder and decoder layers with d_model = 1024, otherwise the English-to-German base translation settings. Appears once per training regime.",
+     "conceptId": "transformer"
+    },
+    {
+     "term": "Vinyals & Kaiser el at. (2014) [37]",
+     "definition": "The RNN sequence-to-sequence parser ('Grammar as a Foreign Language') whose experimental setup, data and semi-supervised corpora the Transformer experiment borrows. It is the direct RNN baseline in both blocks.",
+     "conceptId": "recurrent-neural-network"
+    },
+    {
+     "term": "Petrov et al. (2006) [29]",
+     "definition": "The BerkeleyParser, a classical non-neural grammar-based parser. The paper singles it out as the baseline the Transformer beats using only the 40K-sentence WSJ training set.",
+     "conceptId": "berkeley-parser"
+    },
+    {
+     "term": "Zhu et al. (2013) [40]",
+     "definition": "A shift-reduce constituency parser, listed twice: once trained on WSJ only and once semi-supervised.",
+     "conceptId": null
+    },
+    {
+     "term": "Dyer et al. (2016) [8]",
+     "definition": "The Recurrent Neural Network Grammar, which builds trees with explicit tree-structured operations. Listed twice: a discriminative variant and a generative variant. Its discriminative score is the only WSJ-only result above the Transformer.",
+     "conceptId": "recurrent-neural-network-grammar"
+    },
+    {
+     "term": "Huang & Harper (2009) [14]",
+     "definition": "A self-trained latent-variable grammar parser, listed in the semi-supervised block.",
+     "conceptId": null
+    },
+    {
+     "term": "McClosky et al. (2006) [26]",
+     "definition": "A self-training reranking parser, listed in the semi-supervised block.",
+     "conceptId": null
+    },
+    {
+     "term": "Luong et al. (2015) [23]",
+     "definition": "A multi-task sequence-to-sequence model that trains parsing alongside other tasks; shown for context outside the two main blocks.",
+     "conceptId": null
+    },
+    {
+     "term": "Recurrent Neural Network Grammar (RNNG)",
+     "definition": "Dyer et al.'s parser; the one prior model the paper concedes outperforms the Transformer in the WSJ-only discriminative setting.",
+     "conceptId": "recurrent-neural-network-grammar"
+    },
+    {
+     "term": "BerkeleyParser",
+     "definition": "Petrov et al.'s grammar-based parser, also the source of one of the auto-parsed corpora used in the semi-supervised setting.",
+     "conceptId": "berkeley-parser"
+    },
+    {
+     "term": "Section 22 development set",
+     "definition": "The WSJ split used to tune the few hyperparameters the authors did tune (dropout rates, learning rate, beam size). Not scored in the table.",
+     "conceptId": null
+    },
+    {
+     "term": "beam size",
+     "definition": "How many partial output sequences beam-search decoding keeps at each step; one of the few settings tuned for parsing.",
+     "conceptId": "beam-search"
+    },
+    {
+     "term": "alpha (length penalty)",
+     "definition": "The exponent normalizing beam-search scores by output length, so longer trees are not unfairly penalized. Set to 0.3 for parsing versus 0.6 for translation.",
+     "conceptId": "length-penalty"
+    },
+    {
+     "term": "dropout (attention and residual)",
+     "definition": "The two dropout rates the authors tuned for parsing; everything else was inherited from the base translation model.",
+     "conceptId": "dropout"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "0-100",
+     "meaning": "The scale of the WSJ 23 F1 column. F1 is a fraction between 0 and 1 reported as a percentage; all values here sit in a narrow 88-94 band, so differences of a few tenths of a point are the unit of comparison."
+    },
+    {
+     "value": "88.3",
+     "meaning": "Vinyals & Kaiser et al. (2014), WSJ only, discriminative. The RNN sequence-to-sequence parser trained on the treebank alone; the lowest score in the table, illustrating the paper's remark that RNN seq2seq models had not reached state of the art in small-data regimes."
+    },
+    {
+     "value": "90.4",
+     "meaning": "Two rows share this score in the WSJ-only block: Petrov et al. (2006), the BerkeleyParser, and Zhu et al. (2013). Both are below the Transformer's 91.3."
+    },
+    {
+     "value": "91.7",
+     "meaning": "Dyer et al. (2016) discriminative RNNG, WSJ only. The highest WSJ-only score, 0.4 above the Transformer; the paper names the RNNG as the sole exception to its 'better than all previously reported models' claim."
+    },
+    {
+     "value": "91.3 (Transformer, WSJ only)",
+     "meaning": "The 4-layer Transformer trained only on the ~40K WSJ sentences. Above every listed WSJ-only parser except the RNNG, and 3.0 above the RNN seq2seq baseline it copies its setup from."
+    },
+    {
+     "value": "91.3 (Zhu et al. 2013, semi-supervised; Huang & Harper 2009, semi-supervised)",
+     "meaning": "Two semi-supervised rows tie at 91.3 — numerically equal to the WSJ-only Transformer, but they used the extra ~17M auto-parsed sentences to get there."
+    },
+    {
+     "value": "92.1",
+     "meaning": "Shared by McClosky et al. (2006) and Vinyals & Kaiser et al. (2014) in the semi-supervised block. The 92.1 for Vinyals & Kaiser is the RNN seq2seq baseline's semi-supervised score, 0.6 below the Transformer's."
+    },
+    {
+     "value": "92.7",
+     "meaning": "The 4-layer Transformer, semi-supervised. The best semi-supervised score in the table, and the paper's headline parsing result."
+    },
+    {
+     "value": "93.0",
+     "meaning": "Luong et al. (2015), multi-task. Numerically the second-highest value in the table, but a different training regime, so not a like-for-like comparison with either block."
+    },
+    {
+     "value": "93.3",
+     "meaning": "Dyer et al. (2016), generative. The highest number shown; again a different regime — a joint model of sentence and tree, not a discriminative parser."
+    },
+    {
+     "value": "23",
+     "meaning": "The WSJ section used as the test set, named in the column header and the caption. Fixed by convention so all rows are scored on the same sentences."
+    },
+    {
+     "value": "22",
+     "meaning": "The WSJ development section, mentioned in the surrounding text; where dropout, learning rate and beam size were selected."
+    },
+    {
+     "value": "4",
+     "meaning": "Layers in the Transformer used for parsing, against 6 in the base translation model."
+    },
+    {
+     "value": "1024",
+     "meaning": "d_model for the parsing Transformer, double the base translation model's 512."
+    },
+    {
+     "value": "~40K",
+     "meaning": "Training sentences in the WSJ portion of the Penn Treebank — the whole supervised signal available in the WSJ-only block, and what the paper calls a small-data regime."
+    },
+    {
+     "value": "~17M",
+     "meaning": "Approximate number of automatically parsed sentences from the high-confidence and BerkeleyParser corpora added in the semi-supervised setting, roughly 400x the hand-annotated data."
+    },
+    {
+     "value": "16K / 32K",
+     "meaning": "Vocabulary sizes in tokens: 16K for WSJ only, 32K for semi-supervised, the larger vocabulary matching the larger corpus."
+    },
+    {
+     "value": "21",
+     "meaning": "Beam size used at inference for both parsing settings, versus 4 for translation — a wider beam for the longer, structurally constrained output."
+    },
+    {
+     "value": "0.3",
+     "meaning": "The length penalty alpha for parsing, versus 0.6 for translation."
+    },
+    {
+     "value": "+300",
+     "meaning": "Maximum output length was set to input length + 300 tokens, versus + 50 for translation, because a bracketed parse tree is far longer than its sentence."
+    },
+    {
+     "value": "Years 2006, 2009, 2013, 2014, 2015, 2016",
+     "meaning": "Publication years of the prior parsers. They span a decade of work, so the table doubles as a rough history of the benchmark."
+    },
+    {
+     "value": "[8], [14], [23], [26], [29], [37], [40]",
+     "meaning": "Bracketed bibliography numbers in the paper's reference list, not scores. [37] is the RNN seq2seq parser, [29] the BerkeleyParser, [8] the RNNG."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     10
+    ]
+   }
+  },
+  {
+   "id": "fig-3",
+   "kind": "figure",
+   "number": 3,
+   "caption": "Figure 3: An example of the attention mechanism following long-distance dependencies in the encoder self-attention in layer 5 of 6. Many of the attention heads attend to a distant dependency of the verb ‘making’, completing the phrase ‘making...more difficult’. Attentions here shown only for the word ‘making’. Different colors represent different heads. Best viewed in color.",
+   "page": 13,
+   "asset": "assets/fig-3.png",
+   "title": "Heads tracking \"making … more difficult\"",
+   "takeaway": "This is one query word's attention pattern in a single encoder self-attention layer, drawn as lines running from that word to the positions it attends to, each line colored by the head that produced it. Several of the eight heads put most of their weight on \"more\" and \"difficult\", six and seven tokens away from \"making\". The paper offers this as an illustration that self-attention can link distant, grammatically related words in a single step.",
+   "walkthrough": "### What you are looking at\n\nThe figure shows the attention of a single query position, taken from a Transformer that has already been trained. The layer it comes from is an [[encoder-self-attention|encoder self-attention]] layer — specifically layer 5 out of the [[n-layers|six]] stacked layers in the encoder.\n\nThe input is one English sentence: *\"It is in this spirit that a majority of American governments have passed new laws since 2009 making the registration or voting process more difficult.\"*\n\nThat sentence is written out twice in the figure, once along the top edge and once along the bottom edge. Both copies are the same sentence in the same word order. The words are rotated to run vertically only so that they fit in the width of the page; the rotation carries no meaning.\n\nThe sequence is padded out to a fixed length before it enters the model. After the final word comes an `<EOS>` marker, and after that come six `<pad>` slots. The sentence itself is 26 tokens; add the one `<EOS>` and the six `<pad>` slots and you get the 33 positions that make up the columns of the figure.\n\n### How to read it\n\nThe two copies of the sentence play different roles. The top copy holds the *querying* positions — the words doing the looking. The bottom copy holds the positions being *attended to* — the words being looked at.\n\nOnly one query is drawn here, so the top row is almost entirely inactive. The single active query is the word \"making\", marked by the gray box in the top row. Every line in the figure leaves that box.\n\nEach line ends on a word in the bottom row, and it means that \"making\" assigned some attention weight to that word. The opacity of the line encodes how much weight. Those weights are a [[softmax]] output, which means that within any one head the weights across all 33 positions sum to 1. So a faint line is a small share of that budget, and a solid line is a large share.\n\nThe color of a line tells you which [[attention-head|head]] produced it. The model does not run one attention function over the full-width vectors; it runs [[num-heads-h|eight]] of them side by side, each on its own separately projected copy of the queries, keys and values. That arrangement is [[multi-head-attention]]. Because each head computes its own softmax over the 33 positions, each head has its own distribution — and therefore its own color in the figure.\n\nThe colored cells stacked underneath the bottom sentence carry exactly the same numbers in a different form. Read them as a heat strip: one row per head, one column per word, and shade standing in for weight.\n\n### What it shows\n\nNow to the pattern itself. Most of the visible weight lands on just two words out of the 33 positions available.\n\nFour heads — blue, orange, green and gray — concentrate on \"more\". Four heads — blue, green, red and brown — concentrate on \"difficult\". Both of those words sit well to the right of the query: \"more\" is six tokens after \"making\" and \"difficult\" is seven, with the phrase \"the registration or voting process\" filling the gap between them.\n\nNot every head joins in. A purple head attends back to \"making\" itself, and a pink head attends to \"2009\" and to \"laws\".\n\nThe paper reads the dominant pattern as heads following the verb out to its complement. \"Making\" and \"more difficult\" belong together grammatically, and the heads span the intervening phrase to connect them.\n\nThat connection is made in one attention hop rather than the six sequential steps a position-by-position model would need to cover the same distance. This is the [[maximum-path-length]] argument, shown on a concrete sentence: a [[long-range-dependencies|long-distance dependency]] closed in a single layer.\n\nTreat the figure as an example rather than a measurement. Nothing here is quantified over a corpus, and the paper itself only says that the attention distributions [[attention-interpretability|appear to relate]] to the structure of the sentence.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Attention Visualizations",
+     "definition": "The heading of the appendix panel that contains this figure; the paper's section of qualitative attention plots.",
+     "conceptId": "attention-interpretability"
+    },
+    {
+     "term": "Encoder self-attention",
+     "definition": "The self-attention sub-layer inside the encoder, where queries, keys and values all come from the previous encoder layer's output, so every position can attend to every other position of the same sentence. This figure visualizes exactly that.",
+     "conceptId": "encoder-self-attention"
+    },
+    {
+     "term": "Layer 5 of 6",
+     "definition": "The plot comes from the fifth of the encoder's six identical stacked layers — near the top of the stack, after the representation has already been mixed several times.",
+     "conceptId": "n-layers"
+    },
+    {
+     "term": "Attention head",
+     "definition": "One of the parallel attention functions inside multi-head attention, each with its own learned projections of queries, keys and values. Each head gets its own color in the plot.",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "Different colors represent different heads",
+     "definition": "The legend rule stated in the caption: line and cell color is a head identity label, not a magnitude. Eight distinct colors appear (blue, orange, green, red, purple, brown, pink, gray), one per head.",
+     "conceptId": "multi-head-attention"
+    },
+    {
+     "term": "Line darkness / opacity",
+     "definition": "The visual encoding of magnitude: how much attention weight that head's query at \"making\" placed on the bottom-row word the line reaches. Faint means near zero, solid means most of the head's weight.",
+     "conceptId": "attention-mechanism"
+    },
+    {
+     "term": "Top copy of the sentence",
+     "definition": "The row of querying positions. In this plot every position except \"making\" is left undrawn, so the top row is effectively just a label strip.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "Bottom copy of the sentence",
+     "definition": "The row of attended-to (key/value) positions. The same sentence repeated so lines can be drawn between two rows rather than looping within one.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "Gray highlight box on \"making\"",
+     "definition": "Marks the single query word whose attention is being displayed; the caption states attentions are shown only for this word.",
+     "conceptId": null
+    },
+    {
+     "term": "Colored cell strip below the bottom sentence",
+     "definition": "A heat-map rendering of the same weights: one horizontal row per head in head color, one column per sentence position, cell shade proportional to attention weight. It shows weights that are too small to notice as lines.",
+     "conceptId": null
+    },
+    {
+     "term": "\"making\"",
+     "definition": "The query word. A present participle verb whose complement (\"more difficult\") appears several words later; the paper calls this the verb whose distant dependency the heads follow.",
+     "conceptId": null
+    },
+    {
+     "term": "\"more\" and \"difficult\"",
+     "definition": "The two bottom-row words that receive most of the drawn attention. Together they form the complement of \"making\", completing the phrase \"making ... more difficult\".",
+     "conceptId": null
+    },
+    {
+     "term": "\"2009\" and \"laws\"",
+     "definition": "Two earlier words that one head (pink) attends to weakly. They show that not every head follows the same dependency.",
+     "conceptId": null
+    },
+    {
+     "term": "\"registration or voting process\"",
+     "definition": "The noun phrase sitting between \"making\" and \"more difficult\". It is what makes the dependency long-distance: these tokens intervene without being the target.",
+     "conceptId": null
+    },
+    {
+     "term": "<EOS>",
+     "definition": "The end-of-sequence token appended after the final period. A faint line and faint cells reach it, showing small residual weight there.",
+     "conceptId": null
+    },
+    {
+     "term": "<pad>",
+     "definition": "Padding tokens that fill the sequence out to a fixed batch length. They carry no content; a trace of weight on them is visual noise, not linguistic structure.",
+     "conceptId": null
+    },
+    {
+     "term": "Long-distance dependency",
+     "definition": "A grammatical relation between words that are far apart in the sentence. The paper treats handling these as a core difficulty in sequence transduction and uses this figure as an example of self-attention doing it.",
+     "conceptId": "long-range-dependencies"
+    },
+    {
+     "term": "Self-attention (intra-attention)",
+     "definition": "Attention in which queries, keys and values all come from the same sequence, so every position can pull information from every other position directly.",
+     "conceptId": "self-attention"
+    },
+    {
+     "term": "Softmax",
+     "definition": "The function that normalizes each head's raw compatibility scores into weights that are non-negative and sum to one across all positions — which is why a head with strong weight on \"difficult\" has little left over elsewhere.",
+     "conceptId": "softmax"
+    },
+    {
+     "term": "Best viewed in color",
+     "definition": "A caption note: head identity is encoded only by hue, so a grayscale print collapses the distinction between heads.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "3",
+     "meaning": "The figure number in the paper. It sits in the appendix alongside two more attention visualizations (Figures 4 and 5)."
+    },
+    {
+     "value": "5",
+     "meaning": "The encoder layer whose attention is plotted. The paper picks a layer near the top of the stack; it does not say the pattern holds at every layer."
+    },
+    {
+     "value": "6",
+     "meaning": "The number of identical layers in the encoder stack (N = 6 in the base model), given here so \"layer 5\" can be placed in the stack."
+    },
+    {
+     "value": "8",
+     "meaning": "The number of distinct colors, one per attention head. The base model uses h = 8 parallel heads (Section 3.2.2), each operating on 64-dimensional projections so total cost matches single-head attention at full width."
+    },
+    {
+     "value": "2009",
+     "meaning": "A token in the example sentence, not a model parameter. One head (pink) puts weak weight on it."
+    },
+    {
+     "value": "33",
+     "meaning": "The number of positions along each row: 26 words and punctuation, plus <EOS>, plus 6 <pad>. This is the length over which each head's softmax weights sum to 1."
+    },
+    {
+     "value": "26",
+     "meaning": "Words and punctuation in the sentence itself, from \"It\" through the final period, before padding."
+    },
+    {
+     "value": "6",
+     "meaning": "The count of <pad> slots after <EOS>, filling the sequence to the batch's fixed length."
+    },
+    {
+     "value": "6 and 7",
+     "meaning": "How many token positions separate \"making\" from \"more\" and from \"difficult\" respectively. This gap is what the caption means by \"distant\"; in a recurrent model the link would have to pass through that many sequential steps, while self-attention covers it in one."
+    },
+    {
+     "value": "0 to 1",
+     "meaning": "The range of the attention weights that line opacity and cell shade encode. Weights are softmax outputs, so they are non-negative and each head's weights sum to 1 across the 33 positions; the figure gives no numeric scale, only relative darkness."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     13
+    ]
+   }
+  },
+  {
+   "id": "fig-4",
+   "kind": "figure",
+   "number": 4,
+   "caption": "Figure 4: Two attention heads, also in layer 5 of 6, apparently involved in anaphora resolution. Top: Full attentions for head 5. Bottom: Isolated attentions from just the word ‘its’ for attention heads 5 and 6. Note that the attentions are very sharp for this word.",
+   "page": 14,
+   "asset": "assets/fig-4.png",
+   "title": "Two heads that resolve \"its\"",
+   "takeaway": "Two different attention heads in the same encoder layer put almost all of the word \"its\" attention on two different words — head 5 on \"Law\", head 6 on \"application\". The paper offers this as a sign that individual heads pick up distinct, sentence-structure-related jobs. Here that job is apparently anaphora resolution, which nobody supervised or programmed.",
+   "walkthrough": "### What you are looking at\n\nBoth panels show attention weights pulled out of one trained [[transformer|Transformer]]. The sentence fed to it is English: *\"The Law will never be perfect, but its application should be just — this is what we are missing, in my opinion.\"*\n\nThe weights come from [[encoder-self-attention|encoder self-attention]]. That places them in the encoder, whose stack is 6 layers deep, and specifically at layer 5 of those 6. Self-attention means the queries and the keys come from the same sequence, so every token here is attending to tokens of this one sentence and nothing else.\n\nThe word under examination is *its*. Working out what a pronoun points back to has a name: *anaphora resolution*. In this sentence the question is whose application, and the answer is the Law's.\n\nNothing in the training objective asks the model to answer that question. It was trained to translate.\n\n### How to read the panels\n\nEach panel prints the same sentence twice, once above and once below. The **top row is the querying positions**. The **bottom row is the attended positions**.\n\nA line drawn from a token on top to a token on the bottom means the top token's [[queries-keys-values|query]] put weight on the bottom token's [[queries-keys-values|key]]. The size of that weight is drawn two ways at once: darker lines and thicker lines mean more weight.\n\nThose weights are the output of a [[softmax]], so they are a distribution. The consequence for reading the picture: all the lines leaving any single top token sum to 1. A token that spends weight in one place has none left to spend elsewhere.\n\n**Top panel.** This is all of head 5's attention at once — every query position in the sentence, drawn together. Most of what you see is faint, which means most queries spread their weight thinly across many positions. A handful of dark lines stand out against that background.\n\n**Bottom panel.** Same picture, stripped down. Everything is removed except the lines leaving the single word *its*, which is shaded grey to mark it as the query. What is added is a second head: the panel now shows two heads at once, purple for head 5 and tan for head 6.\n\nThe two colors go to two different places. Head 5 sends nearly all of *its* weight to **Law**. Head 6 sends nearly all of it to **application**.\n\nThe stacked bars drawn under those two words are the per-head accounting — each head's share of the weight it gave that word. The caption describes the attentions as \"very sharp\" for this word. Sharp here means concentrated on a single position rather than smeared across many.\n\n### What it shows\n\nThe same input, the same depth in the stack, two [[attention-head|heads]] — and different behaviour. That is the observation the figure is built to make.\n\nThe paper's reading of the observation is hedged, and the hedge is in its own words: the heads are \"apparently involved in anaphora resolution\". This is one sentence and one pronoun. It is an example, not a measurement.\n\nTaken as an example, it supports the broader point Section 4 makes: [[attention-interpretability|inspecting attention distributions]] suggests that individual heads learn separate tasks. That in turn is part of the case for [[multi-head-attention]] rather than a single attention function whose one weighted average would have to serve both purposes at once.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Anaphora resolution",
+     "definition": "Working out which earlier word or phrase a pronoun refers back to. Here: deciding that the \"its\" in \"its application\" points to \"Law\".",
+     "conceptId": null
+    },
+    {
+     "term": "Attention head",
+     "definition": "One of the parallel attention functions running inside a multi-head attention layer, each with its own learned projections. This figure compares two of them.",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "head 5",
+     "definition": "The head whose full attention pattern is drawn in the top panel, and whose \"its\" attention is drawn in purple in the bottom panel. It puts nearly all of \"its\" weight on \"Law\".",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "head 6",
+     "definition": "The second head shown, drawn in tan/pink in the bottom panel only. It puts nearly all of \"its\" weight on \"application\".",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "layer 5 of 6",
+     "definition": "The encoder layer these attentions were taken from: the fifth of the six stacked encoder layers, one below the top.",
+     "conceptId": "n-layers"
+    },
+    {
+     "term": "Encoder self-attention",
+     "definition": "The attention sub-layer where queries, keys, and values all come from the same sentence, so each token can gather information from every other token. That is what is being visualized.",
+     "conceptId": "encoder-self-attention"
+    },
+    {
+     "term": "Full attentions (top panel)",
+     "definition": "Every query position's attention for head 5 drawn simultaneously, which is why most of the panel is a faint tangle.",
+     "conceptId": null
+    },
+    {
+     "term": "Isolated attentions (bottom panel)",
+     "definition": "The same drawing with all lines removed except those leaving one chosen query token, here \"its\".",
+     "conceptId": null
+    },
+    {
+     "term": "Top row of tokens",
+     "definition": "In each panel, the querying positions — the words doing the attending.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "Bottom row of tokens",
+     "definition": "In each panel, the attended-to positions — the words supplying keys and values.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "Line opacity and thickness",
+     "definition": "The visual encoding of attention weight: darker and thicker means more of that query's softmax mass went to that key.",
+     "conceptId": null
+    },
+    {
+     "term": "Line color (purple vs tan)",
+     "definition": "In the bottom panel, color separates the two heads: purple for head 5, tan for head 6. In the top panel a single purple is used because only one head is shown.",
+     "conceptId": null
+    },
+    {
+     "term": "Grey highlight on \"its\"",
+     "definition": "Marks the one query token whose attention is being isolated in the bottom panel.",
+     "conceptId": null
+    },
+    {
+     "term": "Stacked bars under \"Law\" and \"application\"",
+     "definition": "Per-head weight totals landing on those two words, stacked by head color, so you can see head 5's mass sits on \"Law\" and head 6's on \"application\".",
+     "conceptId": null
+    },
+    {
+     "term": "its",
+     "definition": "The possessive pronoun under study; the query token whose attention is isolated. Its referent is what anaphora resolution has to recover.",
+     "conceptId": null
+    },
+    {
+     "term": "Law",
+     "definition": "The noun that head 5's \"its\" attention concentrates on — the antecedent a human reader would also pick.",
+     "conceptId": null
+    },
+    {
+     "term": "application",
+     "definition": "The noun immediately after \"its\", and the word head 6's \"its\" attention concentrates on. The paper does not spell out what this link means beyond grouping both heads under \"apparently anaphora resolution\".",
+     "conceptId": null
+    },
+    {
+     "term": "The, will, never, be, perfect, but, should, just, this, is, what, we, are, missing, in, my, opinion",
+     "definition": "The remaining word tokens of the example sentence, printed as labels along both rows of each panel. They carry no special role here beyond being possible attention targets.",
+     "conceptId": null
+    },
+    {
+     "term": ", (comma), - (dash), . (period)",
+     "definition": "Punctuation tokens of the sentence. They occupy their own positions and can receive attention like any word.",
+     "conceptId": null
+    },
+    {
+     "term": "<EOS>",
+     "definition": "The end-of-sequence token appended to the sentence, marking where the input stops.",
+     "conceptId": null
+    },
+    {
+     "term": "<pad>",
+     "definition": "A filler token added to bring the sequence to the batch's fixed length. It carries no content but still appears as a position in the visualization.",
+     "conceptId": null
+    },
+    {
+     "term": "Multi-head attention",
+     "definition": "Running several attention functions in parallel on different learned projections, then concatenating. This figure is evidence for the claim that the separate heads end up doing different things.",
+     "conceptId": "multi-head-attention"
+    },
+    {
+     "term": "Softmax",
+     "definition": "The function that turns each query's raw compatibility scores into weights that are non-negative and sum to one; those weights are what the lines depict.",
+     "conceptId": "softmax"
+    },
+    {
+     "term": "Interpretability of attention",
+     "definition": "The paper's side claim that you can read something about what the model learned by inspecting attention distributions. This figure is one of its examples.",
+     "conceptId": "attention-interpretability"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "5 of 6",
+     "meaning": "The encoder layer the attentions come from: layer 5 out of the 6 identical layers in the encoder stack. The paper picks upper-middle layers for all three attention visualizations, but does not say why this layer in particular."
+    },
+    {
+     "value": "6",
+     "meaning": "N = 6, the number of stacked layers in the encoder (and in the decoder) of the base model."
+    },
+    {
+     "value": "5 and 6 (head indices)",
+     "meaning": "Which two of the layer's parallel attention heads are shown. They are labels, not quantities; the paper does not say these particular indices are special, only that these two showed the pattern."
+    },
+    {
+     "value": "8",
+     "meaning": "h = 8, the total number of parallel heads per attention layer in the base model (from Section 3.2.2), so heads 5 and 6 are 2 of the 8 available in this layer."
+    },
+    {
+     "value": "64",
+     "meaning": "d_k = d_v = d_model/h = 512/8, the dimension each individual head works in. Context for what \"a head\" is; not drawn in the figure."
+    },
+    {
+     "value": "2 panels",
+     "meaning": "Top: all of head 5's attention. Bottom: only the attention leaving \"its\", for heads 5 and 6."
+    },
+    {
+     "value": "2 heads",
+     "meaning": "The number of heads compared in the bottom panel, which is what makes the specialization claim visible — same input, same layer, different targets."
+    },
+    {
+     "value": "27 token positions",
+     "meaning": "The length of the visualized sequence: 22 words, 3 punctuation marks, plus <EOS> and <pad>. Each is one column in both rows of each panel."
+    },
+    {
+     "value": "weights in [0, 1], summing to 1 per query",
+     "meaning": "The implied scale of the line darkness: each query's attention is a softmax distribution over all positions. The figure prints no numeric axis, so relative darkness is the only reading available."
+    },
+    {
+     "value": "~1 (nearly all mass on one word)",
+     "meaning": "What the caption means by \"the attentions are very sharp for this word\": for \"its\", each head's distribution is concentrated on essentially a single target rather than spread across many, which is why only one dark line leaves \"its\" per head."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "fig-5",
+   "kind": "figure",
+   "number": 5,
+   "caption": "Figure 5: Many of the attention heads exhibit behaviour that seems related to the structure of the sentence. We give two such examples above, from two different heads from the encoder self-attention at layer 5 of 6. The heads clearly learned to perform different tasks.",
+   "page": 15,
+   "asset": "assets/fig-5.png",
+   "title": "Two heads, one sentence",
+   "takeaway": "Two attention heads from the same encoder self-attention layer, run on the same sentence, produce visibly different attention patterns. One fans many positions into a few words; the other makes sparse, short, word-to-word links. The paper offers this as a qualitative illustration that heads specialize, and says only that the patterns \"seem related\" to sentence structure — nothing here is measured.",
+   "walkthrough": "### What you are looking at\n\nTwo pictures of the same thing.\n\nEach panel shows every attention weight produced by a single [[attention-head|head]] on a single sentence. A head does not emit one number per word. It emits one number for every ordered pair of positions: for each word doing the looking, a weight on each word being looked at. A panel draws that entire grid at once, so every query row and every attended column is present — this is the full attention map of the head, not a slice of it.\n\nThe head sits inside the [[encoder-self-attention]] sub-layer at layer 5, out of the encoder's 6 layers.\n\nThe input is one sentence: *\"The Law will never be perfect, but its application should be just - this is what we are missing, in my opinion.\"*\n\nThe top panel is one head, drawn in green. The bottom panel is a different head, taken from that same layer, drawn in red.\n\nSentence, layer, and model are identical across the two panels. The layer index is doing the work of a control here, not of a claim. So whatever differs between the panels is the difference between the two heads, and nothing else.\n\n### How to read a panel\n\nEach panel prints the sentence twice, once along the top and once along the bottom.\n\nThe top copy is the *querying* positions — the words asking for information. The bottom copy is the positions being attended to — the words on offer.\n\nBoth copies are the same sentence, and that is exactly what makes this [[self-attention|self-attention]]. The [[queries-keys-values|queries, keys, and values]] all come from the previous encoder layer, so every position is looking only within its own sentence.\n\nA line drawn from a top token to a bottom token is one attention weight. The darker and more opaque the line, the larger that weight.\n\nOpacity is the only quantitative channel in the figure. There are no axes and no printed numbers. Anything read off a panel is therefore a relative judgement about shading, not a measurement.\n\nOne constraint does hold exactly, and it is worth keeping in mind while looking. The lines leaving any single top token form a [[softmax]] distribution over the bottom positions, so they sum to 1. A token that sends heavy mass in one direction is necessarily sending less everywhere else.\n\n### What it shows\n\nStart with the green head, in the top panel. It spreads.\n\nA faint haze of lines covers almost every top-to-bottom pair, and sitting on top of that haze are heavy fans converging on a handful of words: *Law*, *application*, *missing*, *opinion*. Many different querying positions are routing their mass into the same few tokens.\n\nThat is not one strong weight drawn many times. It is many separate distributions, one per querying position, that happen to agree on where to look.\n\nThe red head, in the bottom panel, does close to the opposite. Its links are mostly short and near-vertical: each query picks out one or two specific tokens near it, and there is little background haze behind them.\n\nTwo different jobs, in the same layer, at the same time. That is the behaviour [[multi-head-attention]] is meant to make room for.\n\nNow to the claims attached to the figure, which are pitched at deliberately different strengths.\n\nThat the heads \"learned to perform different tasks\" is stated flatly in the caption, and the two panels do show it — the shapes are not subtly different.\n\nThat the behaviour relates to sentence structure only \"seems\" so. The caption hedges that half and does not hedge the first half.\n\nSection 4 keeps the same distance. Heads there \"appear to exhibit\" behaviour related to syntactic and semantic structure, and [[attention-interpretability|interpretability]] is offered as a side benefit of multi-head attention rather than as a result the paper defends.\n\nThe evidence supporting the softer claim is two hand-picked heads on one sentence. There is no syntactic annotation drawn on the figure and no score reported alongside it. Nothing here is measured.\n\nOne detail cuts against reading every dark line as linguistic. Both panels carry a dark self-link on `<pad>` — a position holding no word at all.",
+   "latex": null,
+   "terms": [
+    {
+     "term": "Attention head",
+     "definition": "One of the parallel attention functions inside a multi-head attention layer, with its own learned query/key/value projections. Each panel of this figure shows the complete output of exactly one head.",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "Encoder self-attention",
+     "definition": "The self-attention sub-layer inside the encoder, where each position attends over all positions of the previous encoder layer. Both heads shown here come from this kind of layer, which is why the same sentence appears on both the query and key side.",
+     "conceptId": "encoder-self-attention"
+    },
+    {
+     "term": "Self-attention",
+     "definition": "Attention where queries, keys, and values all come from the same sequence. It is the reason the figure prints one sentence twice rather than an input and an output sentence.",
+     "conceptId": "self-attention"
+    },
+    {
+     "term": "Multi-head attention",
+     "definition": "Running several attention functions in parallel on different learned projections and concatenating their outputs. The figure is the paper's visual argument that different heads end up doing different things.",
+     "conceptId": "multi-head-attention"
+    },
+    {
+     "term": "Layer 5 of 6",
+     "definition": "The fifth of the encoder's six identical layers. Both heads are taken from this one layer, so the two panels differ by head, not by depth.",
+     "conceptId": "encoder-stack"
+    },
+    {
+     "term": "Top row of words (query positions)",
+     "definition": "The copy of the sentence along the top of each panel: the positions doing the attending. Lines leave from here.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "Bottom row of words (attended positions)",
+     "definition": "The copy of the sentence along the bottom of each panel: the key/value positions being attended to. Lines arrive here.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "Line (edge) between a top and a bottom token",
+     "definition": "One attention weight: how much the top position draws on the bottom position. There is one potential line for every ordered pair of tokens.",
+     "conceptId": "attention-mechanism"
+    },
+    {
+     "term": "Line opacity / colour intensity",
+     "definition": "The visual encoding of the attention weight. A solid dark line is a large weight; a barely visible line is a near-zero weight. This is the only quantity the figure encodes.",
+     "conceptId": null
+    },
+    {
+     "term": "Green (top panel)",
+     "definition": "The colour identifies the first head. Green versus red carries no meaning beyond telling the two heads apart.",
+     "conceptId": null
+    },
+    {
+     "term": "Red (bottom panel)",
+     "definition": "The colour identifies the second, different head from the same layer. Again the hue is only a label.",
+     "conceptId": null
+    },
+    {
+     "term": "The example sentence",
+     "definition": "\"The Law will never be perfect, but its application should be just - this is what we are missing, in my opinion.\" — the single input both heads were run on, tokenised into the columns you see. The same sentence is used in Figure 4.",
+     "conceptId": null
+    },
+    {
+     "term": "Law / application / missing / opinion",
+     "definition": "The four content words on the bottom row of the green panel that receive most of the heavy converging lines. They are the visible targets of that head's fans; the paper does not label what relation, if any, they represent.",
+     "conceptId": null
+    },
+    {
+     "term": "its",
+     "definition": "The possessive pronoun in the sentence. The paper's neighbouring Figure 4 singles this word out as a case of apparent anaphora resolution; in Figure 5 it is just one more column.",
+     "conceptId": null
+    },
+    {
+     "term": "Punctuation tokens ( , - . )",
+     "definition": "The comma, hyphen, and period are separate tokens with their own columns and their own attention distributions, like any word.",
+     "conceptId": null
+    },
+    {
+     "term": "<EOS>",
+     "definition": "The end-of-sequence token appended to the sentence. It is a real position in the sequence and both heads attend to and from it.",
+     "conceptId": null
+    },
+    {
+     "term": "<pad>",
+     "definition": "A padding token that fills the batch out to a fixed length and carries no linguistic content. It draws a dark near-vertical self-link in both panels, a reminder that a strong line is not automatically a meaningful one.",
+     "conceptId": null
+    },
+    {
+     "term": "Softmax (implicit)",
+     "definition": "The normalisation applied to each query's scores before they become weights. It is why every top token's outgoing lines form a distribution summing to one rather than independent scores.",
+     "conceptId": "softmax"
+    },
+    {
+     "term": "\"Seems related to the structure of the sentence\"",
+     "definition": "The caption's hedged claim: the patterns look structural to the authors, but the figure supplies no syntactic annotation, no metric, and no aggregate over sentences.",
+     "conceptId": "attention-interpretability"
+    },
+    {
+     "term": "\"Learned to perform different tasks\"",
+     "definition": "The caption's unhedged claim: the two panels plainly differ, so the two heads plainly do not compute the same function. This part is directly visible; the structural interpretation is not.",
+     "conceptId": "attention-interpretability"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "5",
+     "meaning": "The encoder layer the two heads are taken from — the fifth of six. Figures 3 and 4 use the same layer; the paper does not say why layer 5 was chosen."
+    },
+    {
+     "value": "6",
+     "meaning": "The number of identical layers in the encoder stack (N = 6 in the base model), so layer 5 is the second-to-last."
+    },
+    {
+     "value": "2",
+     "meaning": "The number of heads shown, one per panel. They are hand-picked examples, not a systematic sample."
+    },
+    {
+     "value": "8",
+     "meaning": "h, the number of parallel heads per attention layer in the base model (Section 3.2.2). The two panels are therefore 2 of the 8 heads available in this layer."
+    },
+    {
+     "value": "64",
+     "meaning": "d_k = d_v = d_model/h = 512/8, the dimension each head works in. Not drawn in the figure, but it is the size of the projected space whose attention pattern each panel visualises."
+    },
+    {
+     "value": "27",
+     "meaning": "The number of token columns in each row, counted from the figure: 24 words, 3 punctuation marks plus <EOS> and <pad> (The, Law, will, never, be, perfect, ',', but, its, application, should, be, just, '-', this, is, what, we, are, missing, ',', in, my, opinion, '.', <EOS>, <pad>). The paper does not state this count."
+    },
+    {
+     "value": "1",
+     "meaning": "The total attention mass leaving each top-row token: its lines are a softmax distribution over all bottom-row positions, so their weights sum to one. A head that spreads mass over many positions therefore draws many faint lines rather than a few dark ones."
+    },
+    {
+     "value": "0 to 1",
+     "meaning": "The range of the individual attention weights, shown as line opacity: fully transparent is near 0, solid is near 1. No weight value is printed anywhere in the figure."
+    },
+    {
+     "value": "1",
+     "meaning": "The number of sentences the figure covers. Both panels are the same single input, so the figure supports no claim about frequency across data."
+    },
+    {
+     "value": "0",
+     "meaning": "The number of measurements, scores, axes, or tick labels in the figure. It is entirely qualitative, which is why the caption hedges with \"seems related\"."
+    }
+   ],
+   "sources": {
+    "sections": [],
+    "pages": [
+     15
+    ]
+   }
+  },
+  {
+   "id": "eq-attention",
+   "kind": "equation",
+   "number": null,
+   "caption": "Scaled dot-product attention, eq. (1)",
+   "page": null,
+   "asset": null,
+   "section": "3.2.1",
+   "title": "The scaled dot-product attention formula",
+   "takeaway": "This is the paper's whole attention function in one line: score every query against every key with a dot product, shrink the scores by $\\sqrt{d_k}$, softmax them into weights, and return the weighted sum of the values. The $1/\\sqrt{d_k}$ factor is the only thing separating it from ordinary dot-product attention. The paper adds it because it suspects large dot products push the softmax into regions with very small gradients.",
+   "walkthrough": "Equation (1) defines [[scaled-dot-product-attention|the attention function]] that the whole Transformer is built from. Every attention layer in the model is a call to this one formula.\n\nIt is written for a batch of queries at once. Everything in it is a matrix rather than a single vector, so one call handles a full sequence of positions.\n\n### How to read it\n\nThe three inputs are [[queries-keys-values|queries, keys, and values]], packed as the rows of three matrices.\n\n$Q$ holds one row per query, and each of those rows has dimension [[dk-dv-dimensions|$d_k$]]. $K$ holds one row per key, also of dimension $d_k$. The two dimensions must match, because a query row and a key row are about to be dotted together.\n\n$V$ holds one row per value, of dimension $d_v$. That dimension is free to differ from $d_k$, since values are never dotted against anything.\n\n$K$ and $V$ always have the same number of rows. Keys and values come in pairs: the key is what a position advertises, and the value is the content that position hands over when selected.\n\nGive the two counts names. Say there are $n$ queries and $m$ key-value pairs. Then $Q$ is $n \\times d_k$, $K$ is $m \\times d_k$, and $V$ is $m \\times d_v$.\n\nNow read the formula from the inside out, starting with the innermost product.\n\n$QK^T$ multiplies an $n \\times d_k$ matrix by a $d_k \\times m$ one, so the result is $n \\times m$. Entry $(i,j)$ of it is the dot product of query row $i$ with key row $j$ — the [[compatibility-function|compatibility score]] for that query-key pair. One matrix product therefore produces all $n \\times m$ scores at once, with no loop over pairs.\n\nThe next step is the scaling. Every entry of that score matrix is divided by $\\sqrt{d_k}$.\n\nThe paper's footnote gives the reason, and the reason is about magnitude. Suppose the components of a query $q$ and a key $k$ are independent, each with mean $0$ and variance $1$. Their dot product is $q \\cdot k = \\sum_{i=1}^{d_k} q_i k_i$, a sum of $d_k$ such products, so it has mean $0$ and variance $d_k$.\n\nThe consequence is that scores spread further apart as $d_k$ grows. The authors suspect that large scores push [[softmax]] into regions with extremely small gradients. Dividing by $\\sqrt{d_k}$ divides the variance by $d_k$, bringing it back to roughly $1$, and that division is exactly what the [[sqrt-dk-scaling|$1/\\sqrt{d_k}$ factor]] does. They state this as a suspicion, not a proof.\n\nSoftmax is then applied per row of the scaled $n \\times m$ matrix, not over the whole matrix. Each row becomes non-negative weights that sum to $1$.\n\nSo each query ends up with its own distribution over the $m$ key-value pairs.\n\nMultiplying by $V$ turns each of those weight rows into a weighted sum of value vectors. The result is $n \\times d_v$: one output vector per query.\n\nStrip the scaling out and what remains is exactly [[dot-product-attention|dot-product attention]], the standard variant. The paper prefers it over [[additive-attention|additive attention]] because it can be run as an optimized matrix multiplication.\n\nIn the base model this function is not run once but eight times in parallel, inside [[multi-head-attention|multi-head attention]]. The model width is [[d-model|$d_{model} = 512$]] and there are [[num-heads-h|$h = 8$]] heads, so each head works in $512/8 = 64$ dimensions. That makes $d_k = 64$, and $\\sqrt{64} = 8$, so in the base model the divisor in Equation (1) is $8$.",
+   "latex": "\\mathrm{Attention}(Q, K, V) = \\mathrm{softmax}\\!\\left(\\frac{QK^{T}}{\\sqrt{d_k}}\\right)V",
+   "terms": [
+    {
+     "term": "Attention(Q, K, V)",
+     "definition": "The function being defined: it maps a set of queries plus a set of key-value pairs to one output vector per query. Each output is a weighted sum of value vectors.",
+     "conceptId": "attention-mechanism"
+    },
+    {
+     "term": "Q",
+     "definition": "The query matrix. Each row is one query vector of dimension $d_k$; the paper packs a whole set of queries into $Q$ so the attention function runs on all of them simultaneously.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "K",
+     "definition": "The key matrix. Each row is one key vector of dimension $d_k$, advertising what the corresponding position holds so a query can match against it.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "V",
+     "definition": "The value matrix. Each row is one value vector of dimension $d_v$, the content actually returned; the output is a weighted average of these rows.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "K^T",
+     "definition": "The transpose of the key matrix. Transposing lets the single product $QK^T$ produce the dot product of every query with every key.",
+     "conceptId": null
+    },
+    {
+     "term": "QK^T",
+     "definition": "The matrix of raw compatibility scores: entry $(i,j)$ is the dot product of query $i$ with key $j$. Its shape is (number of queries) x (number of keys).",
+     "conceptId": "compatibility-function"
+    },
+    {
+     "term": "softmax",
+     "definition": "Applied to each row of the scaled score matrix: exponentiate the scores and divide by their sum, turning one query's scores into non-negative weights that sum to 1.",
+     "conceptId": "softmax"
+    },
+    {
+     "term": "d_k",
+     "definition": "The dimension of the query and key vectors. It sets both the length of the dot product and, through $\\sqrt{d_k}$, the scaling factor.",
+     "conceptId": "dk-dv-dimensions"
+    },
+    {
+     "term": "d_v",
+     "definition": "The dimension of the value vectors, and therefore of each output vector. It does not appear in the formula's scaling but determines the output width.",
+     "conceptId": "dk-dv-dimensions"
+    },
+    {
+     "term": "sqrt(d_k)",
+     "definition": "The divisor applied to every dot product before the softmax. It is the square root of the key dimension, chosen to cancel the growth of dot-product magnitude with dimension.",
+     "conceptId": "sqrt-dk-scaling"
+    },
+    {
+     "term": "1/sqrt(d_k)",
+     "definition": "The scaling factor written as a multiplier in the surrounding text. The paper says this factor is the only difference between its attention and plain dot-product attention.",
+     "conceptId": "sqrt-dk-scaling"
+    },
+    {
+     "term": "(1)",
+     "definition": "The paper's equation number for this formula; later sections refer back to it as equation (1).",
+     "conceptId": null
+    },
+    {
+     "term": "Scaled Dot-Product Attention",
+     "definition": "The name the paper gives this particular attention function, distinguishing it from unscaled dot-product attention and from additive attention.",
+     "conceptId": "scaled-dot-product-attention"
+    },
+    {
+     "term": "q, k (footnote)",
+     "definition": "A single query vector and a single key vector, used in footnote 4's variance argument for why unscaled dot products grow large.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "q · k",
+     "definition": "The dot product of one query with one key, $\\sum_{i=1}^{d_k} q_i k_i$: a single entry of $QK^T$ before scaling.",
+     "conceptId": "compatibility-function"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "d_k = 64",
+     "meaning": "The key and query dimension in the base model. It follows from the multi-head setup: $d_{model} = 512$ split across $h = 8$ heads gives $d_k = d_v = 512/8 = 64$."
+    },
+    {
+     "value": "sqrt(64) = 8",
+     "meaning": "The actual divisor in the base model: every query-key dot product is divided by 8 before the softmax."
+    },
+    {
+     "value": "mean 0, variance 1",
+     "meaning": "Footnote 4's assumption about the components of $q$ and $k$: independent random variables with mean 0 and unit variance. This is an illustrative assumption, not a measured fact."
+    },
+    {
+     "value": "variance d_k",
+     "meaning": "The result of footnote 4: under that assumption $q \\cdot k$ has mean 0 and variance $d_k$, so the standard deviation is $\\sqrt{d_k}$ — which is exactly what the equation divides by, restoring variance to about 1."
+    },
+    {
+     "value": "(1)",
+     "meaning": "The equation number assigned to this formula in the paper."
+    }
+   ],
+   "sources": {
+    "sections": [
+     {
+      "id": "3.2.1",
+      "title": "Scaled Dot-Product Attention",
+      "start": 4,
+      "end": 4
+     }
+    ],
+    "pages": [
+     4
+    ]
+   }
+  },
+  {
+   "id": "eq-multihead",
+   "kind": "equation",
+   "number": null,
+   "caption": "Multi-head attention / head_i",
+   "page": null,
+   "asset": null,
+   "section": "3.2.2",
+   "title": "Attention in h parallel subspaces",
+   "takeaway": "Instead of one attention function over full-width 512-dimensional vectors, the Transformer runs $h=8$ attention functions in parallel. Each one works on its own learned 64-dimensional projection of the queries, keys, and values. Their outputs are concatenated and projected once more. Because each head is narrower by a factor of $h$, the paper says the total computational cost stays similar to one full-width head.",
+   "walkthrough": "You are looking at the definition of [[multi-head-attention|multi-head attention]]. It has three parts: two lines of math, and below them the shapes of the four learned matrices the math uses.\n\nThe two lines are easiest to read inside out, so start with the second one and work back up to the first.\n\n$Q$, $K$, and $V$ are the [[queries-keys-values|query, key, and value]] matrices. Each has one row per sequence position. Each row is $d_{\\text{model}}$ numbers wide.\n\nThe second line builds a single [[attention-head|head]]. It multiplies $Q$, $K$, and $V$ by three separate learned matrices, $W^Q_i$, $W^K_i$, and $W^V_i$, one set per head. Those multiplications shrink the three inputs into a lower-dimensional subspace belonging to that head. Then ordinary [[scaled-dot-product-attention|scaled dot-product attention]] runs on the shrunk versions, not on the originals.\n\nThe result is that head $i$ emits one $d_v$-dimensional vector for every position in the sequence.\n\nNow the first line. It takes the $h$ heads' outputs and stacks them side by side — that is what Concat does — then multiplies the stacked result by a fourth learned matrix, $W^O$.\n\nThe [[attention-projection-matrices|shapes]] are what make that bookkeeping close. $W^Q_i$ and $W^K_i$ live in $\\mathbb{R}^{d_{\\text{model}} \\times d_k}$, and $W^V_i$ lives in $\\mathbb{R}^{d_{\\text{model}} \\times d_v}$, so all three map from model width down into a head's narrower space. Going the other way, concatenating $h$ heads of width $d_v$ produces $h d_v$ columns. That is why $W^O \\in \\mathbb{R}^{h d_v \\times d_{\\text{model}}}$: it takes those $h d_v$ columns back to model width.\n\n$W^O$ is doing more than a reshape. Up to that point each head has computed in isolation, on its own projection. $W^O$ is the only place where information from different heads mixes.\n\nThe sizing is the point of the whole construction. The base model uses [[num-heads-h|$h=8$]] heads and a model width of [[d-model|$d_{\\text{model}}=512$]]. The paper divides the width evenly among the heads, so [[dk-dv-dimensions|each head gets $512/8 = 64$ dimensions for both keys and values]], giving $d_k = d_v = 64$.\n\nFollow the cost through that division. A head operating at 64 dimensions instead of 512 does roughly $1/h$ of the work a full-width head would do. There are $h$ such heads running in parallel, and $h \\times 1/h$ is 1. So the paper reports that the total cost is similar to that of single-head attention at full dimensionality.\n\nPut plainly: on this accounting, extra heads are close to free compared with one wide head.\n\nThat leaves the question of why to split at all. The paper's answer is that multiple heads let the model attend jointly to information from different representation subspaces at different positions. With a single head, it says, [[attention-averaging-resolution-cost|averaging inhibits this]].",
+   "latex": "\\begin{aligned}\n\\text{MultiHead}(Q, K, V) &= \\text{Concat}(\\text{head}_1, ..., \\text{head}_\\text{h})W^O \\\\\n\\text{where } \\text{head}_\\text{i} &= \\text{Attention}(QW^Q_i, KW^K_i, VW^V_i) \\\\[6pt]\nW^Q_i \\in \\mathbb{R}^{d_{\\text{model}} \\times d_k},\\quad &W^K_i \\in \\mathbb{R}^{d_{\\text{model}} \\times d_k},\\quad W^V_i \\in \\mathbb{R}^{d_{\\text{model}} \\times d_v},\\quad W^O \\in \\mathbb{R}^{h d_v \\times d_{\\text{model}}}\n\\end{aligned}",
+   "terms": [
+    {
+     "term": "MultiHead(Q, K, V)",
+     "definition": "The multi-head attention function being defined: it takes the full-width queries, keys, and values and returns one $d_{\\text{model}}$-dimensional output vector per query position. It replaces a single attention call everywhere attention appears in the Transformer.",
+     "conceptId": "multi-head-attention"
+    },
+    {
+     "term": "Q",
+     "definition": "The queries: a matrix whose rows are the $d_{\\text{model}}$-dimensional vectors asking for information, one row per position that needs an output.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "K",
+     "definition": "The keys: a matrix whose rows are $d_{\\text{model}}$-dimensional vectors, one per position that can be attended to, used to score how well each position matches a query.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "V",
+     "definition": "The values: a matrix whose rows are the $d_{\\text{model}}$-dimensional contents retrieved from each attended position, averaged using the attention weights.",
+     "conceptId": "queries-keys-values"
+    },
+    {
+     "term": "head_i",
+     "definition": "The output of the $i$-th parallel attention function: ordinary attention run on this head's own projected queries, keys, and values, producing one $d_v$-dimensional vector per position.",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "i",
+     "definition": "The head index, running from 1 to $h$. Each head has its own separate $W^Q_i$, $W^K_i$, $W^V_i$; nothing is shared between heads except the final $W^O$.",
+     "conceptId": "attention-head"
+    },
+    {
+     "term": "h",
+     "definition": "The number of parallel attention heads. In the base model $h = 8$.",
+     "conceptId": "num-heads-h"
+    },
+    {
+     "term": "Concat",
+     "definition": "Concatenation along the feature dimension: the $h$ head outputs, each $d_v$ wide, are laid side by side per position to form a single $h d_v$-wide vector.",
+     "conceptId": null
+    },
+    {
+     "term": "Attention",
+     "definition": "The scaled dot-product attention function defined earlier in the paper: softmax of the query-key dot products divided by $\\sqrt{d_k}$, used to weight the values.",
+     "conceptId": "scaled-dot-product-attention"
+    },
+    {
+     "term": "W_i^Q",
+     "definition": "The learned matrix that projects the full-width queries into head $i$'s query subspace; shape $d_{\\text{model}} \\times d_k$.",
+     "conceptId": "attention-projection-matrices"
+    },
+    {
+     "term": "W_i^K",
+     "definition": "The learned matrix that projects the full-width keys into head $i$'s key subspace; shape $d_{\\text{model}} \\times d_k$. It must match $W^Q_i$'s output width so query-key dot products are defined.",
+     "conceptId": "attention-projection-matrices"
+    },
+    {
+     "term": "W_i^V",
+     "definition": "The learned matrix that projects the full-width values into head $i$'s value subspace; shape $d_{\\text{model}} \\times d_v$. It sets the width of head $i$'s output.",
+     "conceptId": "attention-projection-matrices"
+    },
+    {
+     "term": "W^O",
+     "definition": "The single learned output matrix applied after concatenation; shape $h d_v \\times d_{\\text{model}}$. It brings the stacked head outputs back to model width and is the only step that mixes information across heads.",
+     "conceptId": "attention-projection-matrices"
+    },
+    {
+     "term": "d_model",
+     "definition": "The model width: the dimension of the vectors flowing between sub-layers, and the input and output width of multi-head attention. 512 in the base model.",
+     "conceptId": "d-model"
+    },
+    {
+     "term": "d_k",
+     "definition": "The dimension of each head's projected queries and keys, i.e. the width of the space in which that head's dot products are taken. 64 here.",
+     "conceptId": "dk-dv-dimensions"
+    },
+    {
+     "term": "d_v",
+     "definition": "The dimension of each head's projected values, and therefore of that head's output vector. 64 here.",
+     "conceptId": "dk-dv-dimensions"
+    },
+    {
+     "term": "hd_v",
+     "definition": "The width of the concatenated head outputs, and the number of rows of $W^O$. With $h = 8$ and $d_v = 64$ this equals 512.",
+     "conceptId": null
+    },
+    {
+     "term": "R^{a x b}",
+     "definition": "Standard notation for the set of real matrices with $a$ rows and $b$ columns; used here only to state the shape of each projection matrix.",
+     "conceptId": null
+    },
+    {
+     "term": "representation subspaces",
+     "definition": "The lower-dimensional spaces that the projection matrices map into. The paper's stated motivation is that separate heads let the model attend jointly to information from different such subspaces at different positions.",
+     "conceptId": "multi-head-attention"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "h = 8",
+     "meaning": "The number of parallel attention layers, or heads, in the base model. The paper states this choice without deriving it; a later ablation reports that both fewer and many more heads score worse."
+    },
+    {
+     "value": "d_model = 512",
+     "meaning": "The model width: the input and output dimension of multi-head attention, fixed across the whole model so residual connections can add sub-layer inputs to outputs."
+    },
+    {
+     "value": "d_k = d_v = d_model / h = 64",
+     "meaning": "The per-head key/query and value dimension. It is set to the model width divided by the number of heads so that the concatenated heads come back out to exactly 512, and so that each head is $1/h$ as wide as a full-dimensional head."
+    },
+    {
+     "value": "512 / 8 = 64",
+     "meaning": "The arithmetic behind the head width in the base model."
+    },
+    {
+     "value": "h d_v = 8 x 64 = 512",
+     "meaning": "The row count of $W^O$: the width of the concatenated head outputs. Because it equals $d_{\\text{model}}$, $W^O$ is a square 512 x 512 matrix in the base model."
+    },
+    {
+     "value": "1 to h (head_1, ..., head_h)",
+     "meaning": "The index range in the Concat: all $h$ heads are computed in parallel and all are concatenated, so head 1 through head 8 in the base model."
+    },
+    {
+     "value": "3 projections per head, 3h + 1 matrices total",
+     "meaning": "Each head owns $W^Q_i$, $W^K_i$, $W^V_i$, and one $W^O$ is shared; with $h = 8$ that is 25 learned matrices per multi-head attention sub-layer, though in practice the per-head projections are usually fused."
+    },
+    {
+     "value": "cost ~ 1/h per head",
+     "meaning": "The paper's cost argument: because each head's dimension is reduced by the factor $h$, the total computational cost across all $h$ heads is similar to that of single-head attention with full dimensionality."
+    }
+   ],
+   "sources": {
+    "sections": [
+     {
+      "id": "3.2.2",
+      "title": "Multi-Head Attention",
+      "start": 4,
+      "end": 5
+     }
+    ],
+    "pages": [
+     4,
+     5
+    ]
+   }
+  },
+  {
+   "id": "eq-ffn",
+   "kind": "equation",
+   "number": null,
+   "caption": "Position-wise feed-forward network, eq. (2)",
+   "page": null,
+   "asset": null,
+   "section": "3.3",
+   "title": "The per-position feed-forward block",
+   "takeaway": "Equation (2) defines the second sub-layer in every encoder and decoder layer: a two-layer MLP with a ReLU in between, applied to each position's vector on its own. It widens each 512-dimensional vector to 2048, rectifies, and projects back to 512. The weights are shared across positions but not across layers.",
+   "walkthrough": "### What you are looking at\n\nEquation (2) is the full definition of the [[position-wise-feed-forward-network|position-wise feed-forward network]]. This is the one [[sub-layer]] in the architecture that is not attention.\n\nIt appears in every layer of the [[encoder-stack|encoder]] and every layer of the [[decoder-stack|decoder]]. The paper describes it as \"a fully connected feed-forward network, which is applied to each position separately and identically.\"\n\n### How to read it\n\n$x$ is one position's vector. Concretely, that is a single token's representation, of width [[d-model|$d_{\\text{model}} = 512$]], arriving from the attention sub-layer below.\n\nThe formula reads left to right as three steps. Take them one at a time.\n\nFirst, the affine map $xW_1 + b_1$. It takes the 512 numbers in $x$ and produces a wider vector, of the inner width [[d-ff|$d_{ff} = 2048$]]. That is four times the model width: $4 \\times 512 = 2048$.\n\nSecond, $\\max(0, \\cdot)$. Applied entrywise, it zeroes every negative entry in those 2048 numbers and leaves the positive ones untouched. That operation is the [[relu|ReLU]], and it is the only nonlinearity in the block.\n\nThird, $W_2$ and $b_2$ project the 2048 numbers back down to 512. So the output vector is exactly as wide as the input vector was.\n\nThe matching width is not incidental. Each sub-layer is wrapped in a [[residual-connection|residual connection]], which adds the sub-layer's input straight onto its output, and then in [[layer-normalization|layer normalization]]. That addition only typechecks if input and output are the same shape.\n\nNow look at what the formula does *not* contain. There is no sum over positions and no second index $j$ anywhere in it.\n\nNothing here mixes tokens. In the [[transformer|Transformer]], all cross-position mixing happens in [[self-attention]] and [[multi-head-attention|multi-head attention]]. This block only reshapes each position on its own.\n\n### What it shows\n\nTwo sharing rules, and they point in opposite directions.\n\nWithin a single layer, every position runs through the *same* $W_1, b_1, W_2, b_2$. One token's transformation is the transformation every token gets.\n\nAcross layers, the parameters differ. Each of the six encoder layers and each of the six decoder layers holds its own separate copy of the four parameter tensors.\n\nThe paper then offers a second reading of the very same computation: \"two convolutions with kernel size 1.\"\n\nConsider what a 1x1 convolution over a sequence does. Its kernel spans exactly one position, so it never sees a neighbor, and the kernel weights are the same wherever it is applied along the sequence.\n\nThat is precisely the sharing pattern described above — identical weights everywhere, no cross-position reach. The MLP view and the convolution view describe the same arithmetic, and which one you prefer is a matter of implementation habit.",
+   "latex": "\\text{FFN}(x) = \\max(0, xW_1 + b_1)W_2 + b_2",
+   "terms": [
+    {
+     "term": "FFN(x)",
+     "definition": "The name the paper gives this function: the position-wise feed-forward network applied to a single position's vector x. It returns a vector of the same width as x.",
+     "conceptId": "position-wise-feed-forward-network"
+    },
+    {
+     "term": "x",
+     "definition": "The input to the block: one position's representation, a row vector of dimension d_model. In the encoder and decoder it is the output of the attention sub-layer directly below.",
+     "conceptId": null
+    },
+    {
+     "term": "W_1",
+     "definition": "The first weight matrix, mapping from d_model = 512 up to the inner width d_ff = 2048. Written on the right of x, so x is treated as a row vector.",
+     "conceptId": null
+    },
+    {
+     "term": "b_1",
+     "definition": "The bias vector added after the first linear map; it has d_ff = 2048 entries.",
+     "conceptId": null
+    },
+    {
+     "term": "W_2",
+     "definition": "The second weight matrix, mapping the 2048-dimensional rectified hidden vector back down to d_model = 512.",
+     "conceptId": null
+    },
+    {
+     "term": "b_2",
+     "definition": "The bias vector added after the second linear map; it has d_model = 512 entries.",
+     "conceptId": null
+    },
+    {
+     "term": "max(0, ·)",
+     "definition": "Elementwise maximum against zero — the ReLU nonlinearity applied to the hidden vector. Negative entries become 0, non-negative entries pass through unchanged.",
+     "conceptId": "relu"
+    },
+    {
+     "term": "ReLU activation",
+     "definition": "The rectified linear unit, the standard nonlinearity written here as max(0, ·). It is the only nonlinearity in this sub-layer; without it the two linear maps would collapse into one.",
+     "conceptId": "relu"
+    },
+    {
+     "term": "Linear transformation",
+     "definition": "An affine map of the form (vector)(matrix) + (bias). The paper describes the block as \"two linear transformations with a ReLU activation in between.\"",
+     "conceptId": null
+    },
+    {
+     "term": "d_model",
+     "definition": "The model's shared width, 512 in the base model. It is both the input and output dimension of this block, so the sub-layer can be dropped into a residual connection.",
+     "conceptId": "d-model"
+    },
+    {
+     "term": "d_ff",
+     "definition": "The width of the hidden (inner) layer inside this block, 2048 in the base model. Only W_1's output and W_2's input have this size.",
+     "conceptId": "d-ff"
+    },
+    {
+     "term": "Position",
+     "definition": "One slot in the sequence — one token's vector. \"Position-wise\" means the block runs on each of these independently, with no information passing between them.",
+     "conceptId": null
+    },
+    {
+     "term": "Layer",
+     "definition": "One of the N identical blocks in the encoder or decoder stack. Each layer contains attention sub-layer(s) plus one copy of this feed-forward network, with its own W_1, b_1, W_2, b_2.",
+     "conceptId": "sub-layer"
+    },
+    {
+     "term": "Sub-layer",
+     "definition": "A component inside a Transformer layer — either an attention mechanism or this feed-forward network — each wrapped in a residual connection followed by layer normalization.",
+     "conceptId": "sub-layer"
+    },
+    {
+     "term": "Encoder",
+     "definition": "The half of the model that reads the input sequence; each of its layers contains self-attention followed by this feed-forward network.",
+     "conceptId": "encoder-stack"
+    },
+    {
+     "term": "Decoder",
+     "definition": "The half of the model that generates the output sequence; each of its layers contains masked self-attention, encoder-decoder attention, and this feed-forward network.",
+     "conceptId": "decoder-stack"
+    },
+    {
+     "term": "Convolution with kernel size 1",
+     "definition": "A convolution whose window covers exactly one position. The paper says the block can equivalently be described as two such convolutions, since a 1x1 kernel applies the same weights at every position without mixing neighbors.",
+     "conceptId": null
+    },
+    {
+     "term": "(2)",
+     "definition": "The paper's equation number for this formula, used to refer back to it elsewhere in the text.",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "512",
+     "meaning": "d_model, the input and output dimension of FFN(x). The paper states \"the dimensionality of input and output is d_model = 512\"; it is the shared width of every sub-layer and embedding in the base model, which is what lets residual connections add sub-layer inputs to outputs."
+    },
+    {
+     "value": "2048",
+     "meaning": "d_ff, the dimensionality of the inner layer — the width after W_1 and before W_2. The paper states the value but does not argue for it here; it is four times d_model."
+    },
+    {
+     "value": "4x",
+     "meaning": "The ratio d_ff / d_model = 2048 / 512. Arithmetic from the two stated numbers; the paper does not comment on the ratio itself."
+    },
+    {
+     "value": "0",
+     "meaning": "The threshold inside max(0, ·): the ReLU clamps every negative hidden unit to zero. It is a fixed constant, not a learned value."
+    },
+    {
+     "value": "2",
+     "meaning": "Appears twice with different meanings. As the equation label \"(2)\" it is the paper's numbering. As a count, it is the number of linear transformations in the block — equivalently the number of kernel-size-1 convolutions in the alternative description."
+    },
+    {
+     "value": "1",
+     "meaning": "Two roles. As the subscript in W_1 and b_1, it indexes the first linear transformation. As \"kernel size 1\", it is the width of the convolution window in the alternative reading — one position, so no neighboring positions are mixed."
+    },
+    {
+     "value": "2 (subscript)",
+     "meaning": "The subscript in W_2 and b_2, indexing the second linear transformation — the projection from 2048 back to 512."
+    }
+   ],
+   "sources": {
+    "sections": [
+     {
+      "id": "3.3",
+      "title": "Position-wise Feed-Forward Networks",
+      "start": 5,
+      "end": 5
+     }
+    ],
+    "pages": [
+     5
+    ]
+   }
+  },
+  {
+   "id": "eq-posenc",
+   "kind": "equation",
+   "number": null,
+   "caption": "Sinusoidal positional encoding pair",
+   "page": null,
+   "asset": null,
+   "section": "3.5",
+   "title": "Position as a bank of sinusoids",
+   "takeaway": "A model with no recurrence and no convolution has no idea what order its tokens are in. So the paper adds a fixed vector to each input embedding, whose entries are sines and cosines of the position at geometrically spaced wavelengths. The paper says it picked this over learned position vectors because relative offsets become linear functions of the encoding, and because it may extrapolate to sequences longer than those seen in training.",
+   "walkthrough": "This equation defines one [[positional-encoding|positional encoding]] vector: the vector that gets added to the token sitting at position $pos$. That vector has the same width as the token embeddings, $d_{model}$.\n\nThe two formulas are not two competing encodings. They are one vector, and each formula fills in half of its entries.\n\nRead the subscript on $PE$ as a pair — (position, dimension). The first index, $pos$, picks out the token in the sequence: 0 for the first, 1 for the second, and so on. The second index picks out a slot inside the $d_{model}$-wide vector.\n\n$i$ is the counter over those slots, and it moves two at a time. Entry $2i$ — the even slots — takes the sine. Entry $2i+1$ — the odd slots — takes the cosine.\n\nBoth use the same value of $i$, and therefore the same divisor inside the argument. So the vector's dimensions come in couples: a sine and a cosine sharing a single frequency. With $d_{model} = 512$ in the base model, $i$ runs from 0 up to 255, which gives 256 such couples. The paper's own phrasing is that \"each dimension of the positional encoding corresponds to a sinusoid.\"\n\nWhat remains is the divisor, $10000^{2i/d_{model}}$, and it is the piece that sets one couple apart from the next. Work it at both ends.\n\nTake the first couple, $i = 0$. The exponent $2 \\cdot 0 / 512$ is 0, so the divisor is $10000^0 = 1$. The angle is then just $pos$ itself, and the sinusoid completes a full cycle every $2\\pi$ positions — it turns over every few tokens.\n\nNow the other end. As $i$ climbs toward $d_{model}/2$, which is 256 here, the exponent $2i/d_{model}$ approaches 1, so the divisor approaches $10000^1 = 10000$. Dividing $pos$ by ten thousand before taking the sine stretches the cycle by that same factor, to a wavelength of $10000 \\cdot 2\\pi$.\n\nIn between, the exponent steps up evenly, so the wavelengths grow by a constant multiplicative factor rather than by a constant amount. That is what the paper means when it describes the wavelengths as a geometric progression from $2\\pi$ to $10000\\cdot2\\pi$.\n\nThe result is a division of labour across the vector. Low dimensions turn over quickly and carry fine position detail. High dimensions barely change from one token to the next, and instead separate distant regions of the sequence.\n\nTwo claims motivate choosing this construction over the alternative.\n\nThe first is about offsets. The paper hypothesized that this encoding makes attention by [[relative-position-linearity|relative position]] easy to learn, because for any fixed offset $k$, $PE_{pos+k}$ is a linear function of $PE_{pos}$. The mechanism is the couple structure: within one sine/cosine pair, shifting the position by $k$ rotates that pair's two numbers by a fixed angle. There is one such rotation per pair, and none of them depends on $pos$. So a single linear map carries every position to the position $k$ steps ahead of it.\n\nThe second is about length. [[sinusoidal-positional-encoding|The sinusoids]] are defined for any $pos$ — nothing in the formula requires having seen that position during training. On that basis the paper says the model \"may\" extrapolate to sequence lengths longer than those in training.\n\nThe contrast there is with [[learned-positional-embedding|learned positional embeddings]], the obvious alternative: one trainable vector per position, learned like any other parameter. That scheme simply has no vector for a position it never saw.\n\nThe paper tried both. In its [[transformer-ablations|ablations]] the two gave nearly identical results (Table 3 row (E)).\n\nOne mechanical point closes this out. The encoding is summed with the [[token-embeddings|token embedding]], not concatenated onto it, and the addition happens once, at the bottom of both the [[encoder-stack|encoder]] and [[decoder-stack|decoder]] stacks.\n\nSumming is why the encoding must be exactly $d_{model}$ wide. It has to line up entry for entry with the embedding it is added to.",
+   "latex": "\\begin{aligned}\nPE_{(pos,2i)} &= sin(pos/10000^{2i/d_{\\text{model}}}) \\\\\nPE_{(pos,2i+1)} &= cos(pos/10000^{2i/d_{\\text{model}}})\n\\end{aligned}",
+   "terms": [
+    {
+     "term": "PE",
+     "definition": "The positional encoding: a table of fixed (non-learned) vectors, one per sequence position, added to the input embeddings so the model can use token order.",
+     "conceptId": "positional-encoding"
+    },
+    {
+     "term": "PE_(pos, 2i)",
+     "definition": "The value stored at even dimension 2i of the positional encoding vector for position pos. It is a sine.",
+     "conceptId": "sinusoidal-positional-encoding"
+    },
+    {
+     "term": "PE_(pos, 2i+1)",
+     "definition": "The value stored at odd dimension 2i+1 of the positional encoding vector for position pos. It is a cosine at the same frequency as its partner at 2i.",
+     "conceptId": "sinusoidal-positional-encoding"
+    },
+    {
+     "term": "pos",
+     "definition": "The position of the token in the sequence — the paper says simply 'pos is the position'. It is the input to the sine and cosine, so shifting a token later in the sentence advances the phase of every sinusoid.",
+     "conceptId": null
+    },
+    {
+     "term": "i",
+     "definition": "The dimension index within the encoding vector, which the paper calls 'the dimension'. It selects which sine/cosine pair you are computing, and therefore which frequency.",
+     "conceptId": null
+    },
+    {
+     "term": "d_model",
+     "definition": "The shared width of the model — every embedding and sub-layer output is a vector of this size. The positional encoding has this same dimension so it can be summed with the embeddings.",
+     "conceptId": "d-model"
+    },
+    {
+     "term": "sin",
+     "definition": "The sine function, applied to the scaled position. It fills the even dimensions of the encoding.",
+     "conceptId": null
+    },
+    {
+     "term": "cos",
+     "definition": "The cosine function, applied to the same scaled position as its sine partner. It fills the odd dimensions. Having both means each frequency's contribution is a point on a circle, which is what makes an offset a rotation.",
+     "conceptId": null
+    },
+    {
+     "term": "k",
+     "definition": "An arbitrary fixed offset between two positions, used in the paper's hypothesis: for any k, PE_{pos+k} can be represented as a linear function of PE_{pos}.",
+     "conceptId": "relative-position-linearity"
+    },
+    {
+     "term": "wavelength",
+     "definition": "How many positions it takes for one sinusoid to complete a full cycle. Here wavelengths run from 2*pi in the lowest dimensions to 10000*2*pi in the highest.",
+     "conceptId": "sinusoidal-positional-encoding"
+    },
+    {
+     "term": "geometric progression",
+     "definition": "Successive wavelengths are multiplied by a constant ratio rather than increased by a constant amount — the effect of putting i in the exponent of 10000.",
+     "conceptId": null
+    },
+    {
+     "term": "input embeddings",
+     "definition": "The learned vectors that represent each token; the positional encoding is added to them at the bottom of the encoder and decoder stacks.",
+     "conceptId": "token-embeddings"
+    },
+    {
+     "term": "learned positional embeddings",
+     "definition": "The alternative the paper tested: a trainable vector per position instead of a fixed formula. It gave nearly identical results but is undefined for positions beyond the training range.",
+     "conceptId": "learned-positional-embedding"
+    },
+    {
+     "term": "encoder and decoder stacks",
+     "definition": "The two halves of the Transformer. The positional encoding is added to the inputs at the bottom of both, not inside every layer.",
+     "conceptId": "encoder-decoder-architecture"
+    },
+    {
+     "term": "Table 3 row (E)",
+     "definition": "The ablation row the paper points to as evidence that sinusoidal and learned positional encodings perform about the same.",
+     "conceptId": "transformer-ablations"
+    }
+   ],
+   "numbers": [
+    {
+     "value": "10000",
+     "meaning": "The base of the frequency scale. Raising it to 2i/d_model sets the divisor for the position, so it fixes the ratio between the shortest and longest wavelength in the encoding. The paper does not justify this constant beyond the wavelength range it produces."
+    },
+    {
+     "value": "2i",
+     "meaning": "The even dimension indices of the encoding vector (0, 2, 4, ...), which hold sine values. The factor of 2 is what makes each frequency occupy a pair of adjacent dimensions."
+    },
+    {
+     "value": "2i+1",
+     "meaning": "The odd dimension indices (1, 3, 5, ...), which hold cosine values at the same frequency as the sine at 2i."
+    },
+    {
+     "value": "2i/d_model",
+     "meaning": "The exponent applied to 10000. It ranges from 0 (first dimension pair) to nearly 1 (last pair), so the divisor sweeps from 1 up to nearly 10000."
+    },
+    {
+     "value": "2*pi",
+     "meaning": "The shortest wavelength, at i = 0 where the divisor is 10000^0 = 1. The sinusoid completes a cycle every ~6.28 positions, encoding fine-grained position."
+    },
+    {
+     "value": "10000 * 2*pi",
+     "meaning": "The longest wavelength, reached as 2i/d_model approaches 1 and the divisor approaches 10000. About 62,832 positions per cycle — over any realistic sentence this dimension barely changes, giving a slow, near-monotonic signal."
+    },
+    {
+     "value": "i ranges 0 to d_model/2 - 1",
+     "meaning": "There are half as many distinct frequencies as dimensions, because each frequency uses two slots (one sine, one cosine)."
+    },
+    {
+     "value": "d_model = 512",
+     "meaning": "The base model's width, stated elsewhere in the paper. The positional encoding must match it to be summed with the embeddings, giving 256 sine/cosine pairs."
+    },
+    {
+     "value": "k (any fixed integer offset)",
+     "meaning": "The paper's claim holds for every fixed offset, not a particular one: PE_{pos+k} is a linear function of PE_{pos}, with the linear map depending on k but not on pos."
+    }
+   ],
+   "sources": {
+    "sections": [
+     {
+      "id": "3.5",
+      "title": "Positional Encoding",
+      "start": 6,
+      "end": 6
+     }
+    ],
+    "pages": [
+     6
+    ]
+   }
+  },
+  {
+   "id": "eq-lrate",
+   "kind": "equation",
+   "number": null,
+   "caption": "Learning-rate schedule, eq. (3)",
+   "page": null,
+   "asset": null,
+   "section": "5.3",
+   "title": "The warmup-then-decay learning rate",
+   "takeaway": "Equation (3) makes the learning rate a function of the training step rather than a constant. It rises linearly for the first warmup_steps steps, then falls as the inverse square root of the step number, with the whole curve scaled by $d_{model}^{-0.5}$. The two branches meet at step = warmup_steps = 4000, and that crossover is where the rate peaks.",
+   "walkthrough": "You are looking at the learning-rate schedule from Section 5.3. The learning rate here is not a fixed number chosen once and left alone.\n\nIt is recomputed at every training step. The value it produces is then handed to the [[adam-optimizer|Adam optimizer]], which the paper runs with [[transformer-adam-settings|$\\beta_1 = 0.9$, $\\beta_2 = 0.98$, $\\epsilon = 10^{-9}$]].\n\nRead the formula inside-out, starting with the innermost piece. `step_num` is the current update count, and it starts at 1. The `min` around the two expressions picks whichever of them is smaller at that step:\n\n- $step\\_num \\cdot warmup\\_steps^{-1.5}$ — a straight line through the origin. Since $warmup\\_steps$ is a fixed constant, this term simply grows in proportion to the step count.\n- $step\\_num^{-0.5}$ — a decaying curve. Written out, it is $1/\\sqrt{step\\_num}$.\n\nEarly in training the line sits below the decay curve, so the `min` selects it and the rate climbs linearly. Later the decay term is the smaller of the two, so it takes over and the rate falls.\n\nThe handover point is easy to locate. Set the two expressions equal and solve, and you get $step\\_num = warmup\\_steps$.\n\nSo with the paper's setting the crossover sits exactly at step 4000. That crossover is also the peak of the whole schedule, because the rate is rising up to it and falling after it. Now the name for this shape can land: that linear ramp followed by inverse-square-root decay is what the [[learning-rate-warmup-schedule|warmup schedule]] refers to.\n\nThat covers the step-dependent part. The remaining factor, $d_{model}^{-0.5}$, does not depend on the step at all — it scales the entire curve up or down according to the model's width.\n\nFor the base model, [[d-model|$d_{model} = 512$]]. So the prefactor is $512^{-0.5} \\approx 0.0442$. Because it is an inverse square root, wider models get proportionally smaller learning rates.\n\nThe two parts together give concrete numbers. At the peak, the schedule evaluates to $0.0442 \\times 4000^{-0.5} \\approx 7.0 \\times 10^{-4}$. During the ramp, the rate grows by about $1.75 \\times 10^{-7}$ per step.\n\nWhat the equation shows is that the model is not trained at a constant rate. It starts near zero and works its way up before decaying.\n\nThe paper states this plainly and does not argue for warmup. It gives the formula, describes its shape, and reports [[warmup-steps-4000|warmup_steps = 4000]].\n\nThe common reading is worth separating from what the paper claims. Adam's second-moment estimate is unreliable in the first steps, when it has seen few gradients. With $\\beta_2 = 0.98$, together with [[layer-normalization]] and [[residual-connection|residual connections]], large early steps can destabilize training. On that account, the ramp keeps the steps small until the estimates settle.\n\nThat rationale is not in the paper. Treat it as context, not as a claim the authors make.\n\nThe schedule is one component of the [[transformer-training-recipe|training recipe]], and it applies to both the base and the big models.",
+   "latex": "lrate = d_{\\text{model}}^{-0.5} \\cdot \\min(step\\_num^{-0.5},\\ step\\_num \\cdot warmup\\_steps^{-1.5})",
+   "terms": [
+    {
+     "term": "lrate",
+     "definition": "The learning rate handed to the optimizer at the current training step. It is recomputed every step rather than being a fixed hyperparameter.",
+     "conceptId": "learning-rate-warmup-schedule"
+    },
+    {
+     "term": "d_model",
+     "definition": "The shared width of the model — every sub-layer and embedding outputs vectors of this dimension. It is 512 in the base Transformer, and it appears here only as a scaling factor on the learning rate.",
+     "conceptId": "d-model"
+    },
+    {
+     "term": "step_num",
+     "definition": "The index of the current training step (parameter update), counting from 1. Both branches of the min are functions of it.",
+     "conceptId": null
+    },
+    {
+     "term": "warmup_steps",
+     "definition": "The number of initial steps over which the learning rate ramps up linearly. It also fixes where the peak sits, since the two branches cross at step_num = warmup_steps.",
+     "conceptId": "warmup-steps-4000"
+    },
+    {
+     "term": "min",
+     "definition": "The two-argument minimum. It selects the linear ramp while the ramp is the smaller value (early training) and the inverse-square-root decay afterwards, producing one continuous curve with no explicit branch.",
+     "conceptId": null
+    },
+    {
+     "term": "Adam optimizer",
+     "definition": "The gradient-descent variant this learning rate feeds. It adapts a per-parameter step size using running averages of the gradient and its square; the schedule scales those steps.",
+     "conceptId": "adam-optimizer"
+    },
+    {
+     "term": "beta_1",
+     "definition": "Adam's decay rate for the running average of the gradient (first moment). Set to 0.9 here, the standard value.",
+     "conceptId": "transformer-adam-settings"
+    },
+    {
+     "term": "beta_2",
+     "definition": "Adam's decay rate for the running average of the squared gradient (second moment). Set to 0.98 here, lower than Adam's usual 0.999, so the estimate tracks recent gradients more closely.",
+     "conceptId": "transformer-adam-settings"
+    },
+    {
+     "term": "epsilon",
+     "definition": "The small constant Adam adds to the denominator to avoid dividing by zero when the second-moment estimate is tiny. Set to 10^-9.",
+     "conceptId": "transformer-adam-settings"
+    },
+    {
+     "term": "linear warmup",
+     "definition": "The first phase of the schedule, where the learning rate grows in proportion to the step number from near zero up to the peak.",
+     "conceptId": "learning-rate-warmup-schedule"
+    },
+    {
+     "term": "inverse square root decay",
+     "definition": "The second phase, where the learning rate falls as 1/sqrt(step_num) — a slow decay with no fixed end point, so the schedule does not need to know the total training length in advance.",
+     "conceptId": "learning-rate-warmup-schedule"
+    },
+    {
+     "term": "Equation (3)",
+     "definition": "The paper's label for this formula, in Section 5.3 (Optimizer).",
+     "conceptId": null
+    }
+   ],
+   "numbers": [
+    {
+     "value": "4000",
+     "meaning": "warmup_steps: the length of the linear ramp in training steps, and therefore the step at which the learning rate peaks. The paper states 'We used warmup_steps = 4000' without giving a derivation."
+    },
+    {
+     "value": "-0.5 (on d_model)",
+     "meaning": "The exponent on the model width. It makes the learning rate scale as 1/sqrt(d_model), so wider models get proportionally smaller steps."
+    },
+    {
+     "value": "-0.5 (on step_num)",
+     "meaning": "The decay exponent: after the peak the rate falls as the inverse square root of the step number, which the paper describes in words as 'decreasing it thereafter proportionally to the inverse square root of the step number'."
+    },
+    {
+     "value": "-1.5 (on warmup_steps)",
+     "meaning": "The exponent that sets the slope of the linear ramp. It is chosen so the ramp term equals the decay term exactly at step_num = warmup_steps, making the curve continuous at the peak."
+    },
+    {
+     "value": "512",
+     "meaning": "d_model for the base Transformer. Substituted into the prefactor it gives 512^-0.5."
+    },
+    {
+     "value": "≈ 0.0442",
+     "meaning": "The value of d_model^-0.5 for d_model = 512 (that is, 1/sqrt(512) = 1/22.63). This constant multiplies the whole schedule."
+    },
+    {
+     "value": "≈ 7.0e-4",
+     "meaning": "The peak learning rate for the base model: 0.0442 x 4000^-0.5 = 0.0442 x 0.0158. Reached at step 4000. Derived from the formula; the paper does not print this number."
+    },
+    {
+     "value": "≈ 1.75e-7",
+     "meaning": "The per-step increment during warmup for the base model: d_model^-0.5 x warmup_steps^-1.5 = 0.0442 x 3.95e-6. Derived, not printed in the paper."
+    },
+    {
+     "value": "0.9",
+     "meaning": "Adam's beta_1, the first-moment decay rate. The standard default."
+    },
+    {
+     "value": "0.98",
+     "meaning": "Adam's beta_2, the second-moment decay rate. Lower than Adam's usual 0.999; the paper reports the value but does not explain the choice."
+    },
+    {
+     "value": "1e-9",
+     "meaning": "Adam's epsilon, the numerical-stability constant in the denominator. Smaller than Adam's usual 1e-8."
+    },
+    {
+     "value": "100,000 / 300,000",
+     "meaning": "Context from Section 5.2: total training steps for base and big models. The 4000-step warmup is 4% of base training and about 1.3% of big-model training, and the inverse-square-root tail covers the rest."
+    }
+   ],
+   "sources": {
+    "sections": [
+     {
+      "id": "5.3",
+      "title": "Optimizer",
+      "start": 7,
+      "end": 7
+     }
+    ],
+    "pages": [
+     7
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=end-to-end-memory-networks ---
+NAME: End-to-end memory networks
+OWNER: 1706.03762
+SUMMARY (leave alone): Prior models built on a recurrent attention mechanism instead of sequence-aligned recurrence.
+
+EXPLANATION:
+Section 2 cites these as related work: rather than stepping through the sequence position by position, they apply attention over a memory repeatedly. The paper says they performed well on simple-language question answering and language modeling. They serve as evidence that attention-centric computation was viable before the Transformer, though not for full transduction.
+
+--- CONCEPT id=layer-comparison-desiderata ---
+NAME: Three criteria for comparing layer types
+OWNER: 1706.03762
+SUMMARY (leave alone): Section 4's framework: judge self-attention, recurrent, and convolutional layers by per-layer complexity, minimum sequential operations, and maximum path length.
+
+EXPLANATION:
+To motivate self-attention, the paper compares layer types on three axes. First, total computational complexity per layer — how much arithmetic one layer costs. Second, parallelizability, measured as the minimum number of operations that must run one after another. Third, the maximum path length between any two input and output positions, which the paper links to how easily the network learns long-range dependencies. Table 1 summarizes the comparison; the headline is that self-attention wins on sequential operations ($O(1)$ vs $O(n)$ for recurrence) and path length, and wins on complexity whenever sequence length $n$ is smaller than representation dimension $d$.
+
+--- CONCEPT id=complexity-per-layer ---
+NAME: Computational complexity per layer
+OWNER: 1706.03762
+SUMMARY (leave alone): The total amount of computation one layer performs, as a function of sequence length n, representation dimension d, and kernel width k.
+
+EXPLANATION:
+A self-attention layer compares every position with every other, so its cost scales with $n^2 \cdot d$; a recurrent layer's cost scales with $n \cdot d^2$. Self-attention is therefore cheaper when $n < d$, which the paper says is the common case for the sentence representations used in state-of-the-art translation, such as word-piece and byte-pair representations. Convolutional layers are generally a factor of $k$ more expensive than recurrent layers, though separable convolutions reduce this.
+
+--- CONCEPT id=minimum-sequential-operations ---
+NAME: Minimum sequential operations
+OWNER: 1706.03762
+SUMMARY (leave alone): The number of operations that must run one after another rather than in parallel; the paper's measure of parallelizability.
+
+EXPLANATION:
+A self-attention layer connects all positions with a constant number of sequentially executed operations — everything else runs in parallel — so it scores $O(1)$. A recurrent layer must process positions in order, requiring $O(n)$ sequential operations for a sequence of length $n$. This gap is the concrete form of the sequential-computation bottleneck and the source of the Transformer's training-speed advantage.
+
+--- CONCEPT id=maximum-path-length ---
+NAME: Maximum path length
+OWNER: 1706.03762
+SUMMARY (leave alone): The longest path a signal must travel through the network between any two input and output positions; shorter paths make long-range dependencies easier to learn.
+
+EXPLANATION:
+For a network to relate position $i$ to position $j$, forward and backward signals must traverse some path of operations between them. The paper's argument, citing prior work on gradient flow, is that the shorter these paths, the easier it is to learn long-range dependencies. Self-attention connects any pair of positions in a single step, so its maximum path length is $O(1)$. A recurrent layer needs $O(n)$ steps to carry a signal across the sequence; stacked contiguous convolutions need $O(n/k)$ layers and dilated ones $O(\log_k(n))$. This is the third and, in the paper's framing, most learning-relevant criterion.
+
+--- CONCEPT id=long-range-dependencies ---
+NAME: Long-range dependencies
+OWNER: 1706.03762
+SUMMARY (leave alone): Relationships between symbols far apart in a sequence, which the paper calls a key challenge in sequence transduction.
+
+EXPLANATION:
+In language, a word can depend on another word many positions away — an agreeing verb, a resolved pronoun. The paper cites earlier analysis showing that such dependencies are hard for networks to learn when gradient signals must pass through many intermediate steps: the longer the path between the two positions, the weaker the learning signal. Attention sidesteps this because it models dependencies without regard to distance. This difficulty is the paper's main learning-theoretic argument for self-attention over recurrence and convolution.
+
+--- CONCEPT id=byte-pair-encoding ---
+NAME: Byte-pair encoding (BPE)
+OWNER: 1706.03762
+SUMMARY (leave alone): A subword tokenization scheme that builds a vocabulary by repeatedly merging the most frequent pair of symbols, so rare words split into known pieces.
+
+EXPLANATION:
+BPE starts from characters and greedily merges the most frequent adjacent symbol pairs until the vocabulary reaches a target size. Common words end up as single tokens; rare words break into subword units, so any text can be encoded without an out-of-vocabulary token. The paper uses BPE for the WMT 2014 English-German data with a single vocabulary of about 37000 tokens shared between source and target languages. BPE also appears in section 4's complexity argument: byte-pair sentence representations are cited as the kind state-of-the-art translation models use, supporting the claim that sequence length $n$ is usually smaller than representation dimension $d$.
+
+--- CONCEPT id=word-piece-encoding ---
+NAME: Word-piece vocabulary
+OWNER: 1706.03762
+SUMMARY (leave alone): A subword tokenization scheme similar in spirit to BPE, from Google's neural machine translation system; the paper uses a 32000-token word-piece vocabulary for English-French.
+
+EXPLANATION:
+Word-pieces are another way to split words into subword units so a fixed, modest vocabulary can encode any text. Like BPE, the vocabulary is built from data, but the unit-selection criterion comes from the GNMT work (a language-model objective) rather than pair-frequency merging. The paper does not describe the algorithm; it reuses the approach from [38] with 32000 tokens for the English-French experiments. Section 4 also cites word-piece representations, alongside byte-pair ones, as the standard sentence representations in state-of-the-art translation — supporting the claim that typical sequence lengths satisfy $n < d$.
+
+--- CONCEPT id=bleu ---
+NAME: BLEU score
+OWNER: 1706.03762
+SUMMARY (leave alone): The standard automatic metric for translation quality: n-gram overlap precision against reference translations with a penalty for overly short outputs. Higher is better.
+
+EXPLANATION:
+BLEU compares machine output to one or more human reference translations. It computes, for n-gram sizes 1 through 4, what fraction of the n-grams in the machine output also appear in the references (clipped so repeating a word cannot inflate the count), combines the four precisions by geometric mean, and multiplies by a brevity penalty that punishes outputs shorter than the references. Scores are usually reported on a 0-100 scale; differences of 1-2 BLEU on standard test sets are considered meaningful. It is a proxy: it measures overlap of the produced text, not fluency, meaning, or the model's probabilities — the reason label smoothing can help BLEU while hurting perplexity. All of the paper's translation claims — 28.4 on WMT 2014 English-German (more than 2.0 above prior best, including ensembles) and 41.8 on English-French for the final big model — are stated in BLEU.
+
+--- CONCEPT id=perplexity ---
+NAME: Perplexity
+OWNER: 1706.03762
+SUMMARY (leave alone): A measure of how well a model predicts the true next tokens: the exponentiated average negative log-probability. Lower is better.
+
+EXPLANATION:
+Perplexity is $\exp$ of the average per-token cross-entropy between the model's predicted distribution and the actual tokens. Intuitively it is the effective number of choices the model is 'hesitating between' at each step; a perfect predictor has perplexity 1. Because it scores the probabilities themselves rather than the final output text, a deliberately less-confident model (e.g. one trained with label smoothing) can have worse perplexity while producing better translations. Table 3 reports per-wordpiece perplexities, which the paper notes should not be compared to per-word numbers.
+
+--- CONCEPT id=tensor2tensor ---
+NAME: tensor2tensor
+OWNER: 1706.03762
+SUMMARY (leave alone): The open-source codebase the authors used to train and evaluate the Transformer.
+
+EXPLANATION:
+The conclusion points to https://github.com/tensorflow/tensor2tensor as the released training and evaluation code. The author-contribution footnote credits several authors with building it; it replaced the team's earlier codebase.
+
+--- CONCEPT id=transformer-training-recipe ---
+NAME: Transformer training recipe
+OWNER: 1706.03762
+SUMMARY (leave alone): The complete set of choices the paper used to train its models: data, batching, hardware, optimizer schedule, and regularization.
+
+EXPLANATION:
+Section 5 is the paper's reproducibility record. It specifies the datasets and tokenization (section 5.1), the hardware and number of training steps (5.2), the Adam optimizer with a warmup-then-decay learning rate (5.3), and two regularizers: residual dropout and label smoothing (5.4). The results in section 6 depend on this exact recipe, and the ablations in section 6.2 vary pieces of it. Each piece is a child concept.
+

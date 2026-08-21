@@ -1,0 +1,57 @@
+PAGE FOR CONCEPT: supervised-fine-tuning
+NAME: Supervised Fine-Tuning (Stage Two)
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Run labelled inputs through the pre-trained model, take the final block's activation at the last token, and train a linear layer on it to predict the label.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+The labelled dataset $C$ holds instances made of a token sequence $x_1,\dots,x_m$ and a label $y$. The whole sequence is passed through the pre-trained transformer.
+
+The activation of the final transformer block at the last token, written $h_l^m$, is taken as the representation of the instance.
+
+A linear layer with parameters $W_y$ maps that vector to one score per class, and a softmax turns the scores into $P(y \mid x_1,\dots,x_m)$.
+
+Training maximizes $L_2(C)$, the summed log-probability of the correct labels, with gradients flowing back through the entire pre-trained stack. The pre-trained representations are adjusted by the task, not merely consulted by it.
+
+The word discriminative marks the change of objective: the model now predicts a label given an input rather than predicting the input itself.
+
+This stage is short. The paper reports a learning rate of 6.25e-5, batches of 32, and three epochs sufficient for most tasks.
+
+THEME IT BELONGS TO: theme-stage-two-fine-tuning-and-input-shapes | Stage Two: Fine-Tuning and Reshaping Task Inputs - Stage two runs a labelled input through the pre-trained stack, takes the final block's activation at the last token, and multiplies it by one added matrix to score labels. The language modelling loss is not dropped: it keeps being optimized alongside the task loss, scaled by a weight the paper sets to 0.5. Tasks whose inputs have several parts are handled by writing those parts into one ordered sequence with a start token, an end token and a delimiter between parts, rather than by building an architecture that mirrors the structure. The chapter ends with the settings actually used, which are the pre-training settings with a smaller learning rate and three passes over the task data.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - labeled-dataset-c | Labelled Dataset $C$: $C$ denotes a target task's labelled data: input token sequences each paired with one label.
+  - final-token-activation | Final Block Activation $h_l^m$: The representation fed to the classifier is the final transformer block's output at the last input token.
+  - linear-output-layer-wy | Added Linear Output Layer $W_y$: The one parameter matrix added on top of the pre-trained model, mapping the final activation to label scores.
+  - supervised-objective-l2 | Supervised Objective $L_2$: $L_2(C) = \sum_{(x,y)} \log P(y \mid x_1,\dots,x_m)$: the summed log-probability of the correct labels over the labelled data.
+  - auxiliary-lm-objective | Auxiliary Language Modelling Objective: During fine-tuning the paper keeps optimizing the language modelling loss alongside the task loss: $L_3(C) = L_2(C) + \lambda\, L_1(C)$.
+    - auxiliary-objective-weight | Auxiliary Objective Weight $\lambda = 0.5$: $\lambda$ scales the auxiliary language modelling term against the classification term. The paper sets it to 0.5.
+  - minimal-extra-parameters | Minimal Extra Fine-Tuning Parameters: Adapting to a new task adds only the linear layer $W_y$ and embeddings for the delimiter tokens.
+  - fine-tuning-hyperparameters | Fine-Tuning Hyperparameters: Fine-tuning reuses the pre-training settings except for a learning rate of 6.25e-5, batch size 32, three epochs, classifier dropout 0.1, and a short warmup.
+    - classifier-dropout | Classifier Dropout: An extra dropout at rate 0.1 applied to the task-specific classifier head added during fine-tuning.
+    - fine-tuning-lr-and-batch | Learning Rate 6.25e-5, Batch Size 32: The optimization settings used for most fine-tuning runs, notably a learning rate about four times smaller than pre-training's peak.
+    - three-epochs-fine-tuning | Three Epochs of Fine-Tuning: The paper reports that three passes over a task's training set were enough for most datasets.
+    - fine-tuning-lr-schedule | Linear Decay with 0.2% Warmup: During fine-tuning the learning rate warms up over the first 0.2% of updates, then decays linearly to zero.
+
+PREREQUISITES:
+  - generative-pretraining | Generative Pre-Training (Stage One): Train a multi-layer transformer decoder to predict each next token on a large unlabelled corpus, and keep the weights rather than the outputs.
+  - final-token-activation | Final Block Activation $h_l^m$: The representation fed to the classifier is the final transformer block's output at the last input token.
+  - generative-vs-discriminative-training | Generative vs Discriminative Training: Two ways of framing what a model predicts: the data itself, or a label given the data.
+
+EDGES TOUCHING THIS CONCEPT (5) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] -> generative-pretraining (Generative Pre-Training (Stage One)) | depends-on | fine-tuning starts from pre-trained weights: Stage two does not train a fresh network; it continues training the exact parameters stage one produced. The ablation puts a number on how much of the result comes from that starting point: training the same transformer directly on the supervised tasks costs 14.8% across the board.
+  [load-bearing] -> eq-task-head (The Linear Task Head on the Last Token (eq-task-head)) | supported-by | whole task head in one equation: Equation 3 says the task-specific part is: take the final block's activation at the last token, multiply by one matrix, softmax. The paper's claim of minimal architectural change is checkable directly against this line.
+  [load-bearing] <- generative-pretraining (Generative Pre-Training (Stage One)) | contrasts-with | predict the text versus predict the label: The two stages train the same weights against opposite kinds of target. Stage one maximizes the probability of the next token over unlabelled text; stage two maximizes the probability of the correct label given the input.
+  [supporting] <- elmo-deep-contextualized-word-representations (Deep Contextualized Word Representations (ELMo)) | contrasts-with | features added versus network adapted: ELMo supplies hidden states from a pre-trained bidirectional language model as extra features to a task model that is trained from scratch. Fine-tuning here does the opposite: no new task network, and every pre-trained weight is updated on the labelled data.
+  [supporting] <- zero-shot-behaviors (Zero-Shot Behaviours) | contrasts-with | heuristics with no labelled training: The zero-shot section runs the same evaluation tasks through the pre-trained model with hand-built scoring rules and no fine-tuning at all. It is a weaker way of getting answers, used as a diagnostic for how much task-relevant behaviour pre-training alone produces.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-1 | One Stack, Four Input Shapes: The figure shows that a single decoder-only transformer, pre-trained once, serves every task in the paper: the left panel draws the block that is repeated twelve times and the two heads that sit on it, and the right panel shows that adapting to a new task means rewriting its input as one token sequence rather than redesigning the network. The only task-specific machinery is the added linear layer and the special tokens marking where the parts of an input begin and end.
+  - fig-2 | Layer Transfer and Zero-Shot Growth: Two diagnostics for why the recipe works. The left panel says every pre-trained layer carries transferable value: dev accuracy on RACE and MultiNLI rises steadily as more of the twelve-layer stack is carried into fine-tuning, up to about 9% on MultiNLI for full transfer. The right panel says the pre-trained language model is already learning task-relevant behaviour before any fine-tuning: heuristic zero-shot scores on four tasks climb steadily across pre-training, and do so more smoothly for the transformer than for an LSTM trained the same way.
+
+PAPER SECTIONS TO READ (in papers/gpt-1/data/ingest/sections/):
+  - 01-abstract-abstract.txt
+  - 02-1-introduction.txt
+  - 04-3-framework.txt
+  - 06-3.2-supervised-fine-tuning.txt
+  - 12-6-conclusion.txt

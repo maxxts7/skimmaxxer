@@ -1,0 +1,21 @@
+ITEM: eq-ffn (equation) - The per-position feed-forward block
+
+TAKEAWAY:
+Equation (2) defines the second sub-layer in every encoder and decoder layer: a two-layer MLP with a ReLU in between, applied to each position's vector on its own. It widens each 512-dimensional vector to 2048, rectifies, and projects back to 512, with weights shared across positions but not across layers.
+
+WALKTHROUGH:
+### What you are looking at
+
+Equation (2) is the full definition of the [[position-wise-feed-forward-network|position-wise feed-forward network]], the non-attention [[sub-layer]] that sits inside every layer of the [[encoder-stack|encoder]] and [[decoder-stack|decoder]]. The paper calls it "a fully connected feed-forward network, which is applied to each position separately and identically."
+
+### How to read it
+
+$x$ is one position's vector — a single token's representation, of width $d_{\text{model}} = 512$, coming out of the attention sub-layer below. Read the formula left to right as three steps. First, an affine map $xW_1 + b_1$ expands the vector to the inner width $d_{ff} = 2048$. Second, $\max(0, \cdot)$ is the [[relu|ReLU]]: it zeroes every negative entry and leaves positive ones alone. Third, $W_2, b_2$ project the 2048 numbers back down to 512, so the output is the same width as the input. That matters because the sub-layer is wrapped in a [[residual-connection|residual connection]] and [[layer-normalization|layer normalization]], which need matching shapes.
+
+Note what is absent: no sum over positions, no index $j$. Nothing in the formula mixes tokens. All cross-position mixing in the [[transformer|Transformer]] happens in [[self-attention]] and [[multi-head-attention|multi-head attention]]; this block only reshapes each position independently.
+
+### What it shows
+
+Two sharing rules. Within one layer, every position runs through the *same* $W_1, b_1, W_2, b_2$. Across layers, the parameters differ — each of the six encoder layers and six decoder layers has its own copy.
+
+The paper offers a second reading of the same computation: "two convolutions with kernel size 1." A 1x1 convolution over the sequence touches one position at a time and applies identical weights everywhere, which is exactly the sharing pattern above. The MLP view and the convolution view describe the same arithmetic; which one you prefer is a matter of implementation habit.

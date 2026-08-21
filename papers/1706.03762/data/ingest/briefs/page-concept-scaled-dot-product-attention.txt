@@ -1,0 +1,36 @@
+PAGE FOR CONCEPT: scaled-dot-product-attention
+NAME: Scaled dot-product attention
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+The Transformer's attention: dot the query with every key, divide by $\sqrt{d_k}$, softmax the scores, and use them to weight the values.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Inputs are queries and keys of dimension $d_k$ and values of dimension $d_v$. For each query, the model computes its dot product with all keys, divides each score by $\sqrt{d_k}$, and applies a softmax to get weights on the values. With queries, keys, and values packed into matrices $Q$, $K$, $V$, the whole thing is $\mathrm{Attention}(Q, K, V) = \mathrm{softmax}(QK^T / \sqrt{d_k})\,V$. The paper picks this over additive attention because it runs as plain matrix multiplication, which is much faster and more memory-efficient in practice even though the two have similar theoretical complexity. The $\sqrt{d_k}$ divisor is the one change from standard dot-product attention.
+
+THEME IT BELONGS TO: theme-how-attention-is-computed | How attention is computed - The one operation the model is built from. Attention maps a query and a set of key-value pairs to a weighted sum of the values, with the weights coming from how well the query matches each key. The paper's version scores with a dot product, divides by the square root of the key dimension, and softmaxes; it then runs eight of these in parallel on lower-dimensional projections and concatenates the results. This is the mechanical core, so it comes before the places it gets used.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - dk-dv-dimensions | d_k and d_v (key and value dimensions): The dimensions of the key/query vectors ($d_k$) and value vectors ($d_v$) inside attention; in the base model each head uses $d_k = d_v = 64$.
+  - sqrt-dk-scaling | The 1/sqrt(d_k) scaling factor: Dividing the query-key dot products by $\sqrt{d_k}$ so their magnitude stays controlled as the dimension grows, keeping the softmax out of its flat, tiny-gradient regions.
+
+PREREQUISITES:
+  - queries-keys-values | Queries, keys, and values: The three roles vectors play in attention: a query asks for information, keys advertise what each position holds, and values carry the content that actually gets mixed into the output.
+  - compatibility-function | Compatibility function: The scoring function that measures how well a query matches a key; its scores become the attention weights after a softmax.
+  - softmax | Softmax: The standard function that turns a vector of scores into a probability distribution: exponentiate each score and normalize by the sum.
+
+EDGES TOUCHING THIS CONCEPT (7) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] <- multi-head-attention (Multi-head attention) | depends-on | provides the per-head unit: Each of the h heads is one call to the scaled dot-product attention function of Equation (1). Multi-head attention only adds the projections around it and the concatenation after it, so the inner function has to be understood first.
+  [load-bearing] -> eq-attention (The scaled dot-product attention formula (eq-attention)) | supported-by | states the mechanism in one line: Equation (1) is the definition, not an illustration of it: softmax(QK^T/sqrt(d_k))V. Everything else in Section 3.2 refers back to this line, including the masked and encoder-decoder uses.
+  [load-bearing] -> eq-attention (The scaled dot-product attention formula (eq-attention)) | instance-of | defined by Equation (1): Equation (1) is the whole definition: dot every query against every key, divide by sqrt(d_k), softmax, and weight the values. Everything the paper says about attention refers back to this line.
+  [load-bearing] -> dot-product-attention (Dot-product (multiplicative) attention) | contrasts-with | one scaling factor apart: The paper's attention is identical to plain dot-product attention except for the 1/sqrt(d_k) factor. The suspected reason for adding it: with d_k large the dot products grow in magnitude and push the softmax into a region of very small gradients, which is where unscaled dot-product attention was losing to additive attention.
+  [supporting] -> dot-product-attention (Dot-product (multiplicative) attention) | depends-on | adds one factor to plain dot-product: The paper defines its attention by difference: identical to dot-product attention except for the 1/sqrt(d_k) factor. The baseline variant is the definition the paper builds on.
+  [supporting] <- causal-masking (Causal masking) | depends-on | implemented inside the attention function: Section 3.2.3 says masking is done inside scaled dot-product attention, on the input to the softmax. It is a stage of the existing attention block (the optional Mask box in Figure 2), not a separate layer.
+  [supporting] -> fig-2 (Attention as a wiring diagram (fig-2)) | supported-by | left panel as data flow: The left half of Figure 2 redraws Equation (1) as boxes in order: MatMul of queries and keys, Scale, optional Mask, SoftMax, MatMul with values. It shows where the mask sits, which the equation itself does not.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-2 | Attention as a wiring diagram: The figure draws the paper's attention math as data flow: on the left, Equation (1) box by box (dot queries against keys, scale, optionally mask, softmax, weight the values); on the right, that whole block used as a reusable unit, run $h$ times in parallel on separately projected copies of Q, K and V, then concatenated and projected once more.
+  - eq-attention | The scaled dot-product attention formula: This is the paper's whole attention function in one line: score every query against every key with a dot product, shrink the scores by $\sqrt{d_k}$, softmax them into weights, and return the weighted sum of the values. The $1/\sqrt{d_k}$ factor is the only thing separating it from ordinary dot-product attention, and the paper adds it because it suspects large dot products push the softmax into regions with very small gradients.
+  - eq-multihead | Attention in h parallel subspaces: Instead of one attention function over full-width 512-dimensional vectors, the Transformer runs $h=8$ attention functions in parallel, each on its own learned 64-dimensional projection of the queries, keys, and values, then concatenates the results and projects them once more. Because each head is narrower by a factor of $h$, the paper says the total computational cost stays similar to one full-width head.
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 07-3.2.1-scaled-dot-product-attention.txt

@@ -1,0 +1,23 @@
+PAGE FOR: etheme-parsing-test (edge-theme)
+
+Everything the paper claims about working outside translation rests on this one experiment. Read as a chain, it establishes less than the abstract's "generalizes well to other tasks" suggests: the task had to be converted into the paper's own problem format before the architecture could be run on it at all, and the headline result arrives with a named exception.
+
+### The task has to be reshaped first
+
+[[constituency-parsing|English constituency parsing]] produces a nested tree, not a string. The [[transformer|Transformer]] decoder emits one token at a time and nothing else, so parsing can only count as [[sequence-transduction]] after the tree is flattened. That is done by [[parse-tree-linearization]], a depth-first traversal emitting bracket-and-label tokens, taken unchanged from the cited setup. The paper does not restate the scheme or defend it, which is worth noticing: the step that makes the generalization test possible is not part of the contribution being tested. The model never handles a tree. It handles a string that happens to decode into one, and nothing in the architecture enforces that the brackets balance.
+
+The paper does say what makes this harder than translation: the output is under strong structural constraints and is much longer than the input.
+
+### Two regimes, and what separates them
+
+Both use the [[wsj-parsing-protocol|standard WSJ protocol]] — tune on Section 22, report F1 on Section 23 — which is what makes [[table-4|the table]] comparable to prior parsers at all. The first regime trains on the [[penn-treebank-wsj|WSJ treebank]] alone, about 40K hand-parsed sentences, with a 4-layer model at [[d-model|$d_{model}$]] = 1024 and a 16K vocabulary. It reaches 91.3 F1. The [[semi-supervised-parsing|semi-supervised regime]] adds roughly 17M machine-parsed sentences from the [[semi-supervised-parsing-corpora|high-confidence and BerkeleyParser corpora]] and reaches 92.7.
+
+The small-data row is the one carrying the argument. RNN sequence-to-sequence models had not reached state of the art with 40K sentences; the classical [[berkeley-parser|BerkeleyParser]] was the reference point there, and the Transformer passes it. That comparison is the paper's own, and it is the specific thing translation results could not have shown.
+
+### What the numbers do not settle
+
+The tuning claim is qualified in the paper itself. "Only a small number of experiments" still means [[residual-dropout|residual]] and [[attention-dropout|attention dropout]], learning rate, and [[beam-search|beam size]] were selected on Section 22; the rest was inherited from the [[base-vs-big-transformer|base translation model]]. "Little task-specific tuning" is a fair summary, not "none."
+
+Each regime is a single reported run. There are no seeds, no variance, no ablation of which architectural property helped — the parsing section tests the whole model or nothing. The two regimes also differ in vocabulary (16K versus 32K), so the +1.4 F1 gap is not a clean measurement of what 17M extra sentences buy.
+
+And the ceiling is explicit: [[recurrent-neural-network-grammar|RNNG]], which builds trees with tree-structured operations, scores higher. The paper states this plainly; the abstract does not. So the honest reading of the cluster is narrower than "generalizes": a generic sequence model, barely tuned, is competitive with specialized parsers on one English task, and a model with structure built in still wins.

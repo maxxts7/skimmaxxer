@@ -1,0 +1,23 @@
+PAGE FOR: etheme-translation-numbers (edge-theme)
+
+The claim these links add up to is that one [[transformer|Transformer]], trained once, beats prior systems on translation *and* costs less to train — and that the model's specific settings were picked by measurement rather than derived from anything. The evidence thins as you follow the chain down: [[table-2]] is a benchmark result, [[table-3]] is a development-set sweep on one language pair, and [[fig-4]] and [[fig-5]] are two hand-picked pictures.
+
+### Quality and cost as two axes
+
+[[machine-translation|Translation]] is the paper's instance of [[sequence-transduction]], and [[wmt-2014-en-de]] — about 4.5M sentence pairs, shared 37000-token byte-pair vocabulary — carries the headline. The big model reports 28.4 [[bleu|BLEU]], more than 2.0 above the best previously reported result including ensembles. On [[wmt-2014-en-fr]] (36M pairs) Section 6.1 says 41.0 while the abstract and the table say 41.8; read the French number off the table.
+
+Next to every score Table 2 puts a [[training-flops-estimate]], and that column is what converts a quality claim into a quality-per-cost claim: 41.0 at less than a quarter of the previous state of the art's training cost. The figure is training time × GPU count × an *assumed* sustained throughput (2.8/3.7/6.0/9.5 TFLOPS for K80/K40/M40/P100), not a measured op count. The cost axis is therefore softer than the BLEU axis, and two of the paper's comparisons ride on it: a single model against [[model-ensembling|ensembles]], and the Transformer against [[convs2s]], which is how the paper argues that dropping convolutions as well as recurrence cost nothing. [[base-vs-big-transformer|Base and big]] appear as separate rows, which supports the weaker, cheaper claim — even the base model surpasses all previously published models and ensembles.
+
+### Where the base model's constants come from
+
+Table 3 changes one thing at a time. Rows (A) sweep head count with total computation held fixed, which is only possible because each head's width is $d_{model}/h$ and shrinks as $h$ grows — see [[dk-dv-dimensions]]. Single-head attention is 0.9 BLEU below the best setting and quality also falls off with too many heads. That sweep is the whole basis for [[num-heads-h|h = 8]] and for the [[attention-heads-ablation|middle-is-best reading]]. It is one dev set, one language pair.
+
+Rows (B) give [[key-size-ablation]]. The paper's move from that number to "determining [[compatibility-function|compatibility]] is not easy, and something more sophisticated than [[dot-product-attention|the dot product]] may be beneficial" is an interpretation, not something the table tests — a caveat the authors place on their own choice. Rows (C) and (D) get one sentence: [[size-and-dropout-ablation|bigger is better, dropout helps]]. (D) is what justifies $P_{drop} = 0.1$ for [[residual-dropout]], but it varies a single rate, so it does not separate residual dropout from dropout applied anywhere else. Row (E) swaps in [[learned-positional-embedding|learned positions]] for nearly identical results, which removes any quality argument for the sinusoids; they are kept on an untested hope about extrapolating past training lengths.
+
+### Where the metrics disagree
+
+[[label-smoothing]] of 0.1 makes [[perplexity]] worse and BLEU better, and the paper keeps it. That is not a contradiction — perplexity grades confidence on the reference token, BLEU grades the tokens decoding actually emits — but it is the one place the two measures point opposite ways, and a reason to report translation quality in BLEU rather than likelihood. Note that Section 6.2's prose about Table 3 discusses dropout and never mentions smoothing, so this trade-off is asserted more firmly than it is demonstrated.
+
+### What the figures do not show
+
+[[attention-averaging-resolution-cost|Averaging blurs position-specific information]] is the paper's stated reason for using several heads, and [[fig-4]] is its illustration: heads 5 and 6 put "its" on different words. [[attention-interpretability]] rests on [[fig-5]]. Both are selected examples with no quantitative analysis, hedged as "apparently" and "seems related". Nothing measured connects head diversity to the 0.9 BLEU that rows (A) report.

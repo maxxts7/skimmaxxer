@@ -1,0 +1,15 @@
+PAGE FOR: byte-pair-encoding (concept)
+
+Byte-pair encoding is how the paper turns raw text into the integer sequence the model actually consumes. It is in the recipe because the model needs a closed vocabulary, and BPE gives one that can encode any string — including words never seen in training — without an unknown-token escape hatch.
+
+The construction is a greedy loop over the training corpus: split everything into characters, count adjacent symbol pairs, merge the most frequent pair everywhere, repeat ([[bpe-merge-algorithm]]). The final vocabulary is the starting character set plus one entry per merge, which makes the number of merges the only real hyperparameter ([[bpe-vocabulary-size]]). New text is segmented by replaying the learned merges in the order they were learned ([[bpe-segmentation-at-test-time]]).
+
+For [[wmt-2014-en-de|WMT 2014 English-German]] (4.5M sentence pairs) the paper reports a single vocabulary of about 37000 tokens shared between source and target. Shared means the merges were learned over English and German text together ([[joint-bpe-shared-vocabulary]]), so one token id means the same string on both sides. That is what makes the rest of the setup coherent: a single $37000 \times 512$ embedding matrix ([[d-model]]) serves the encoder input, the decoder input, and the pre-softmax projection ([[embedding-softmax-weight-sharing]]). The BPE token is also the unit of batching — roughly 25000 source and 25000 target tokens per batch ([[length-based-batching]]), not a fixed sentence count.
+
+### What it costs
+
+Subword segmentation trades vocabulary size against sequence length ([[vocabulary-vs-sequence-length-tradeoff]]). Fewer merges means a smaller softmax and smaller embeddings, but longer token sequences, and self-attention cost grows as $n^2 \cdot d$. So the choice of 37000 is a point on that curve, not a free win. Section 4 leans on the short-sequence end of it: self-attention is cheaper per layer than recurrence only when $n < d$ ([[complexity-per-layer]], [[table-1]]), and the paper's support for that condition is a pointer at byte-pair and [[word-piece-encoding|word-piece]] representations being what state-of-the-art translation models use.
+
+### How strong the evidence is
+
+Thin, and the paper does not claim otherwise. No experiment isolates BPE. [[table-3]] varies head count, $d_k$, depth, dropout, and positional encoding one knob at a time; vocabulary and tokenization are never among the knobs. [[wmt-2014-en-fr|English-French]] uses 32000 word pieces instead, so the two schemes are never compared under matched conditions. And the $n < d$ claim in section 4 is asserted with a citation — no table in the paper reports actual tokenized sentence lengths. BPE here is an inherited, sensible default that the results are consistent with, not a tested design decision.

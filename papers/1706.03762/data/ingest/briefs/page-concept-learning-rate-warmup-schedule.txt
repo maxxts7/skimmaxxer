@@ -1,0 +1,31 @@
+PAGE FOR CONCEPT: learning-rate-warmup-schedule
+NAME: Warmup learning-rate schedule
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+The learning rate rises linearly for the first warmup_steps steps, then decays as the inverse square root of the step number, all scaled by the model width.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+The paper varies the learning rate by the formula $lrate = d_{model}^{-0.5} \cdot \min(step\_num^{-0.5},\ step\_num \cdot warmup\_steps^{-1.5})$. For the first $warmup\_steps$ steps the second term is smaller, giving a linear ramp from zero; after that the first term takes over, decaying like $1/\sqrt{step\_num}$. The $d_{model}^{-0.5}$ factor makes wider models use proportionally smaller learning rates. The paper gives the schedule without justifying it; a common motivation for warmup is that very early in training Adam's moment estimates are built from few samples and the randomly initialized network produces large, noisy gradients, so starting small avoids destabilizing updates. The Table 3 ablations keep this optimizer setup fixed.
+
+THEME IT BELONGS TO: theme-training-the-thing | Training the thing - Everything needed to reproduce a trained model: the translation datasets, subword vocabularies built with byte-pair encoding or word pieces, batching by sequence length, and eight GPUs on one machine. The learning rate is not fixed — it ramps up linearly for the first 4000 steps and then decays as the inverse square root of the step. Label smoothing, dropout, and averaging the last several checkpoints round out the recipe, and the code was released as tensor2tensor.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - warmup-steps-4000 | warmup_steps = 4000: The number of initial steps over which the learning rate ramps up linearly; the paper uses 4000.
+
+PREREQUISITES:
+  - adam-optimizer | Adam optimizer: A standard gradient-descent variant that adapts the step size per parameter using running averages of gradients and squared gradients.
+  - transformer-adam-settings | Adam settings (beta2 = 0.98): The paper runs Adam with beta1 = 0.9, beta2 = 0.98, and epsilon = 10^-9, a lower-than-default beta2.
+  - d-model | d_model = 512 (model dimension): The shared width of the model: every sub-layer and embedding layer outputs vectors of dimension $d_{model} = 512$.
+
+EDGES TOUCHING THIS CONCEPT (5) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [supporting] -> d-model (d_model = 512 (model dimension)) | depends-on | schedule scales with model width: Equation (3) multiplies the whole schedule by d_model^-0.5, so a wider model automatically gets smaller steps. The schedule is not a fixed set of numbers; it is tied to the architecture's width.
+  [supporting] -> adam-optimizer (Adam optimizer) | depends-on | overrides Adam's step size: The formula sets the learning rate that Adam then scales per parameter. The paper also runs Adam with beta2 = 0.98 rather than the usual default, so the schedule and the optimizer settings are chosen together.
+  [supporting] -> eq-lrate (The warmup-then-decay learning rate (eq-lrate)) | supported-by | defines warmup then inverse-sqrt decay: Equation (3) is the schedule: d_model^-0.5 * min(step^-0.5, step * warmup_steps^-1.5), with warmup_steps = 4000. It rises linearly during warmup and decays as the inverse square root after. The paper gives no ablation of this schedule, so it is a stated recipe rather than a measured choice.
+  [supporting] <- warmup-steps-4000 (warmup_steps = 4000) | instance-of | fixes the ramp length: Equation (3) leaves warmup_steps as a free parameter of the schedule. The paper uses warmup_steps = 4000, so the learning rate rises linearly for the first 4000 steps and then decays as the inverse square root of the step.
+  [supporting] -> eq-lrate (The warmup-then-decay learning rate (eq-lrate)) | instance-of | defined by Equation (3): Equation (3) is the schedule itself: the learning rate scales with d_model^-0.5 and takes the smaller of step^-0.5 and step * warmup_steps^-1.5, giving a linear ramp then an inverse-square-root decay.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - eq-lrate | The warmup-then-decay learning rate: Equation (3) makes the learning rate a function of the training step: it rises linearly for the first warmup_steps steps, then falls as the inverse square root of the step number, all scaled by $d_{model}^{-0.5}$. The two branches meet at step = warmup_steps = 4000, which is where the rate peaks.
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 17-5.3-optimizer.txt

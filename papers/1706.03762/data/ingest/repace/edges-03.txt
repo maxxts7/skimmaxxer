@@ -1,0 +1,102 @@
+EDGE EXPLANATIONS (20)
+
+--- EDGE id=e041 ---
+attention-heads-ablation --supported-by--> table-3 | label: rows (A) sweep the head count
+
+Rows (A) vary h with total computation held constant. Single-head attention is 0.9 BLEU below the best setting, and quality also falls off with too many heads. This is the whole evidence for h=8 being a middle choice rather than more-is-better.
+
+--- EDGE id=e042 ---
+num-heads-h --supported-by--> table-3 | label: where h = 8 comes from
+
+The base model's eight heads are not derived from anything; rows (A) of Table 3 are the measurement that picks the value. The sweep is on the English-to-German development set only, so it is one task's answer.
+
+--- EDGE id=e043 ---
+key-size-ablation --supported-by--> table-3 | label: rows (B) shrink d_k
+
+Rows (B) reduce the attention key dimension and quality drops. The paper reads this as a hint that the dot product may be too simple a compatibility function, which is an interpretation of the number, not something the table tests.
+
+--- EDGE id=e044 ---
+size-and-dropout-ablation --supported-by--> table-3 | label: rows (C) and (D) vary size and dropout
+
+Rows (C) change model dimensions and rows (D) change the dropout rate. The paper summarizes them in one sentence: bigger models are better, and dropout is very helpful in avoiding over-fitting.
+
+--- EDGE id=e045 ---
+residual-dropout --supported-by--> table-3 | label: row (D) shows the cost of removing it
+
+P_drop = 0.1 in the base model is justified by the (D) rows, where turning dropout off or raising it degrades development-set quality. The table varies a single rate, so it does not separate the residual dropout from any other place dropout is applied.
+
+--- EDGE id=e046 ---
+label-smoothing --supported-by--> table-3 | label: reports BLEU and perplexity together
+
+Section 5.4 claims label smoothing of 0.1 hurts perplexity but improves accuracy and BLEU. Table 3 is the only place both quantities are reported per configuration, so it is where that trade-off would be visible. The paper's prose about Table 3 comments on dropout and not on smoothing, so the claim is stated more firmly than it is demonstrated.
+
+--- EDGE id=e047 ---
+learned-positional-embedding --supported-by--> table-3 | label: row (E) finds no difference
+
+Row (E) swaps sinusoids for learned positional embeddings and gets nearly identical results. This undercuts any quality argument for the sinusoids: the paper keeps them on the untested hope that they extrapolate to longer sequences than seen in training.
+
+--- EDGE id=e048 ---
+constituency-parsing --supported-by--> table-4 | label: reports the WSJ Section 23 F1
+
+The generalization claim is carried entirely by this table: a 4-layer Transformer trained on the ~40K-sentence WSJ treebank reaches 91.3 F1 with almost no task-specific tuning, beating the BerkeleyParser in the same small-data setting.
+
+--- EDGE id=e049 ---
+semi-supervised-parsing --supported-by--> table-4 | label: lists the 17M-sentence result
+
+Table 4 separates WSJ-only from semi-supervised rows, so the reader can see what the extra ~17M automatically parsed sentences buy. It is one run per setting, with dropout, learning rate, and beam size tuned on Section 22.
+
+--- EDGE id=e050 ---
+recurrent-neural-network-grammar --supported-by--> table-4 | label: the one row the Transformer loses to
+
+Table 4 also records the limit of the claim: RNNG scores higher, so the paper says its model beats all previously reported models with that one exception. Worth showing readers, because it is the qualification the abstract leaves out.
+
+--- EDGE id=e051 ---
+encoder-decoder-architecture --supported-by--> fig-1 | label: draws both stacks and their link
+
+Figure 1 puts the whole model in one picture: an N-layer encoder tower, an N-layer decoder tower, and the arrows carrying encoder output into each decoder layer's second attention sub-layer. It is a schematic, so it fixes wiring, not sizes.
+
+--- EDGE id=e052 ---
+scaled-dot-product-attention --supported-by--> fig-2 | label: left panel as data flow
+
+The left half of Figure 2 redraws Equation (1) as boxes in order: MatMul of queries and keys, Scale, optional Mask, SoftMax, MatMul with values. It shows where the mask sits, which the equation itself does not.
+
+--- EDGE id=e053 ---
+multi-head-attention --supported-by--> fig-2 | label: right panel shows h parallel heads
+
+The right half of Figure 2 shows the projections into h heads, the parallel attention blocks, the concatenation, and the final linear map. It makes the parallelism of the heads visible in a way the equation's Concat notation does not.
+
+--- EDGE id=e054 ---
+long-range-dependencies --supported-by--> fig-3 | label: a distant dependency, drawn
+
+Figure 3 shows many heads in encoder layer 5 attending from 'making' to a far-away word that completes 'making...more difficult'. This is one hand-picked word in one sentence, so it illustrates that long-distance attention happens; it does not measure how often.
+
+--- EDGE id=e055 ---
+attention-averaging-resolution-cost --supported-by--> fig-4 | label: two heads split one word's attention
+
+For the word 'its', head 5 and head 6 in the same layer put almost all their weight on different words. A single head would have averaged those two into one blurred distribution, which is the paper's stated reason for using several. The figure is a qualitative example, and the paper only says the heads are 'apparently' doing anaphora resolution.
+
+--- EDGE id=e056 ---
+attention-interpretability --supported-by--> fig-5 | label: two heads with different patterns
+
+Figure 5 shows two heads from encoder layer 5 producing visibly different attention patterns on the same sentence, which is the basis for the claim that heads learn distinct, sometimes syntax-related roles. These are selected examples with no quantitative analysis, and the paper hedges with 'seems related'.
+
+--- EDGE id=e057 ---
+scaled-dot-product-attention --supported-by--> eq-attention | label: states the mechanism in one line
+
+Equation (1) is the definition, not an illustration of it: softmax(QK^T/sqrt(d_k))V. Everything else in Section 3.2 refers back to this line, including the masked and encoder-decoder uses.
+
+--- EDGE id=e058 ---
+sqrt-dk-scaling --supported-by--> eq-attention | label: the divisor inside the softmax
+
+The 1/sqrt(d_k) term appears in Equation (1) itself, and the footnote argues for it: with unit-variance components, a dot product over d_k dimensions has variance d_k. The paper says it 'suspects' large dot products flatten the softmax gradient and runs no ablation on the scaling factor.
+
+--- EDGE id=e059 ---
+multi-head-attention --supported-by--> eq-multihead | label: defines heads, concat, and W^O
+
+The multi-head equation spells out that each head runs Equation (1) on its own projected queries, keys, and values, and that the outputs are concatenated and mapped back through W^O. With d_k = d_v = d_model/h = 64, it is also the reason the paper can say total cost is close to single-head attention at full width.
+
+--- EDGE id=e060 ---
+position-wise-feed-forward-network --supported-by--> eq-ffn | label: defines the second sub-layer
+
+Equation (2), max(0, xW1 + b1)W2 + b2, is the whole feed-forward sub-layer. It shows the network sees one position at a time: there is no mixing across positions here, so all cross-position work happens in the attention sub-layers.
+

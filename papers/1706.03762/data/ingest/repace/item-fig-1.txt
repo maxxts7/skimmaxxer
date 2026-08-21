@@ -1,0 +1,19 @@
+ITEM: fig-1 (figure) - The two-stack data path
+
+TAKEAWAY:
+The figure shows the entire model in one picture: two towers of identical layers, each layer built only from attention and a position-wise feed-forward network, every sub-layer wrapped in a residual connection plus layer normalization. There is no recurrence and no convolution anywhere, so order information has to be injected once, at the bottom of each tower.
+
+WALKTHROUGH:
+**What you are looking at.** One diagram of the whole [[transformer|Transformer]]. Data flows bottom to top. The left tower is the [[encoder-stack|encoder]]; it reads the source sentence. The right tower is the [[decoder-stack|decoder]]; it emits the target sentence. The grey rounded box around each tower is one layer, and the "N×" beside it means that layer is stacked $N=6$ times, each copy with its own weights.
+
+**How to read it.** Every arrow carries a sequence of vectors, one per token, each of width [[d-model|$d_{model}=512$]]. An arrow that leaves a box, bypasses the next box, and rejoins at an **Add & Norm** is a [[residual-connection|residual connection]]: that box computes $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$, using [[layer-normalization|layer normalization]]. A three-arrow fan into an attention box is the queries, keys and values. Where all three legs come from the same place below, the box is [[self-attention]].
+
+**Bottom.** *Inputs* go through *Input Embedding*, a learned lookup to 512 dimensions. The circle with the sine wave is the fixed [[sinusoidal-positional-encoding|sinusoidal]] [[positional-encoding]]; the $\oplus$ adds it to the embedding elementwise. The right tower repeats this on *Outputs (shifted right)*.
+
+**Left tower.** [[multi-head-attention|Multi-Head Attention]] over the previous layer, Add & Norm, then a [[position-wise-feed-forward-network|Feed Forward]] network applied at each position separately ($512 \to 2048 \to 512$ with ReLU), Add & Norm. Two [[sub-layer|sub-layers]].
+
+**Right tower.** Three sub-layers. *Masked* Multi-Head Attention is [[masked-decoder-self-attention|decoder self-attention]] with [[causal-masking|causal masking]]: scores for later positions are set to $-\infty$ before the softmax. The middle Multi-Head Attention is [[encoder-decoder-attention]] — the two arrows arriving from the top of the left tower are the keys and values from the final encoder layer; the query arrow comes from below.
+
+**Top.** *Linear* projects 512 dimensions to the vocabulary size; [[softmax|Softmax]] turns those scores into *Output Probabilities* for the next token. That matrix is [[embedding-softmax-weight-sharing|shared]] with both embedding layers.
+
+**Shifted right.** The decoder input is the target sequence displaced one position, so position $i$ is fed only tokens before $i$. In training, the full target is fed at once and the mask makes every position predictable in parallel. At inference the encoder runs once, then the decoder runs one step per token, consuming its own previous outputs — [[auto-regressive-generation|auto-regressive]] decoding.

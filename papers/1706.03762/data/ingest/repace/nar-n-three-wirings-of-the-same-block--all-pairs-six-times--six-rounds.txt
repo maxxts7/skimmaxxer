@@ -1,0 +1,42 @@
+NARRATIVE NODE: n-three-wirings-of-the-same-block--all-pairs-six-times--six-rounds
+TITLE: Six rounds, and what the stack carries forward
+
+INTRO:
+The parent gave the wrapper as a formula. This level opens it: what layer normalization actually computes, where dropout sits inside the wrapper, what the residual addition forces on every other width in the model, how much of an encoder layer the feed-forward block really is, and how thin the evidence is that position survives the climb.
+
+--- CHAPTER id=inside-add-and-norm ---
+TITLE: Inside the Add & Norm box
+
+The paper writes $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$ and stops. [[layer-normalization]] arrives by citation; the formula never appears in this paper at all. What the cited work defines is: take one position's 512 activations, compute their mean and standard deviation *across those 512 units*, standardize, then apply a learned per-unit gain and bias ([[layer-normalization-statistics]], [[gain-and-bias-parameters]]). The statistics come from a single position's features, never from the batch. That is what makes it usable here — [[layer-norm-vs-batch-norm|batch normalization]] computes each unit's statistics across examples, which is awkward when the examples in a batch are sentences of different lengths, and [[per-timestep-normalization|independent per-step normalization]] is the property the cited paper claims for sequence models specifically. The cited work also argues the normalization makes the layer invariant to rescaling its whole weight matrix and changes the effective learning rate ([[normalization-invariance-properties]]); this paper does not repeat that argument or test it.
+
+The ordering matters and is easy to skim past. The addition comes first, the normalization second, so what gets standardized is the residual sum — the identity path is renormalized every time, not carried through untouched. The paper does not discuss the alternative ordering.
+
+One piece is missing from Section 3.1 and only turns up in Section 5.4: dropout is applied to each [[sub-layer]]'s output *before* the addition. So at training time the wrapper is $\mathrm{LayerNorm}(x + \mathrm{Dropout}(\mathrm{Sublayer}(x)))$, at [[residual-dropout|$P_{drop} = 0.1$]] for the base model. The [[residual-connection|identity term]] is never dropped; only the increment is. Group (D) of [[table-3]] puts the cost of removing it at 1.2 BLEU.
+
+--- CHAPTER id=the-width-the-addition-forces ---
+TITLE: The width the addition forces
+
+$x + \mathrm{Sublayer}(x)$ is elementwise, so both operands must have the same shape. Section 3.1 states the consequence in one sentence: to facilitate the residual connections, all sub-layers in the model, as well as the embedding layers, produce outputs of dimension [[d-model|$d_{model} = 512$]]. It reads like a specification. It is a constraint, and it propagates.
+
+[[multi-head-attention]] may split however it likes internally, but its concatenated output must land back on 512, which is why with [[num-heads-h|$h = 8$]] the paper sets [[dk-dv-dimensions|$d_k = d_v = 512/8 = 64$]] — the eight head outputs already sum to 512 before $W^O$ acts. [[token-embeddings|Embeddings]] must be 512, and because one matrix serves as both embeddings and the pre-softmax projection ([[embedding-softmax-weight-sharing]]), that matrix is pinned too. [[positional-encoding]] is summed rather than concatenated, so it is 512 wide as well. The feed-forward block's inner 2048 is the only width inside an encoder layer allowed to differ, and only because it comes back down before the add.
+
+The cost is that width is not a per-layer knob. Group (C) of [[table-3]] can only move $d_{model}$ as a single number for the entire model: 256 loses 1.3 BLEU, 1024 gains 0.2 BLEU and takes the parameter count from 65M to 168M ([[size-and-dropout-ablation]]). There is no row that narrows a late layer or widens an early one, because the architecture has no way to express it. [[fig-1]] draws one arrow width throughout for exactly this reason.
+
+--- CHAPTER id=where-the-weights-actually-are ---
+TITLE: Where the encoder's weights actually are
+
+The parent gave the formula. It did not say how much of an encoder layer this block is. Per layer, [[eq-ffn|the two matrices]] are $512 \times 2048$ and $2048 \times 512$: about 2.1M parameters with biases. The attention sub-layer beside it holds four $512 \times 512$ projections — [[attention-projection-matrices|$W^Q, W^K, W^V, W^O$]] — about 1.05M. So roughly two thirds of every encoder layer sits in the part that never looks at another position, and across six layers that is about 12.6M of the encoder's ~19M. This is arithmetic from the paper's stated numbers; the paper never breaks the count down itself.
+
+[[d-ff|2048]] is four times [[d-model|512]] and the paper gives no argument for the ratio. It does test it. Group (C) of [[table-3]] tries 1024 and 4096 and gets 25.4 and 26.2 BLEU against the base's 25.8. That 26.2 is the best figure any base-depth variant in the table reaches — ahead of doubling $d_{model}$, and at 90M parameters against that row's 168M. The paper reports it under "bigger models are better" and keeps 2048 anyway.
+
+The [[relu]] is the only nonlinearity in an encoder layer outside the attention softmax. Drop it and the two maps collapse into one $512 \to 512$ linear, leaving a layer that is weighted averaging and affine maps. The paper's alternative reading — two convolutions of kernel size 1 — is the same arithmetic described in the vocabulary of [[convolutional-sequence-models|the convolutional models]] it is displacing. [[position-wise-feed-forward-network|The block's own page]] works through the sharing rules.
+
+--- CHAPTER id=what-position-has-to-survive ---
+TITLE: What position has to survive
+
+Injected once, at the bottom — the parent said that. The part it left out is scale. Section 3.4 multiplies the embedding weights by [[sqrt-dmodel-embedding-multiplier|$\sqrt{d_{model}} \approx 22.6$]], and [[eq-posenc|the sinusoids]] have entries bounded in $[-1, 1]$. The order signal is therefore small next to the content it rides on when the two are summed. Then that sum passes through dropout at 0.1 in both stacks ([[residual-dropout]], Section 5.4) — the order signal is thinned before layer 1 has seen it. The paper states both facts in separate sections and never puts them together.
+
+After that, nothing re-injects. Every later [[sub-layer]] can only move order information forward along the residual path, and every attention sub-layer that touches it does so by averaging over positions with softmax weights.
+
+On whether it holds up, the paper offers nothing direct. Row (E) of [[table-3]] swaps [[sinusoidal-positional-encoding|sinusoids]] for [[learned-positional-embedding|learned positional embeddings]] and reports 4.92 PPL / 25.7 BLEU against the base's 4.92 / 25.8. That is evidence the two encodings are interchangeable, not evidence that either one reaches layer 6 intact. The stated reasons for keeping sinusoids are a hypothesis — that [[relative-position-linearity|a fixed offset becomes a linear map]], so attending by relative position should be easy to learn — and a "may" about extrapolating past training lengths. Neither is tested. The frequency argument is worked out on [[positional-encoding|the encoding's page]].
+

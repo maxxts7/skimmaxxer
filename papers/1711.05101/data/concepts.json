@@ -1,0 +1,84 @@
+{
+ "concepts": [
+  {
+   "id": "l2-regularization-vs-weight-decay",
+   "name": "L2 regularization vs. weight decay",
+   "tier": "minor",
+   "parent": null,
+   "summary": "L2 regularization adds a penalty term to the loss so the regularizer flows through the gradient; weight decay instead multiplies the weights by a factor slightly below 1 at every step, outside the gradient. For plain SGD the two coincide after rescaling, which is why the names are often used interchangeably.",
+   "explanation": "Weight decay in its original form (attributed here to Hanson & Pratt, 1988) is the update theta_{t+1} = (1 - lambda) theta_t - alpha grad f_t(theta_t): the weights shrink exponentially at rate lambda per step, and the gradient of the batch loss f_t is applied separately with learning rate alpha. L2 regularization instead optimizes a modified loss f_reg(theta) = f(theta) + (lambda'/2) ||theta||_2^2, so the penalty enters only through its gradient lambda' theta. Proposition 1 states that for standard SGD these are the same algorithm provided lambda' = lambda / alpha, since the L2 iterate expands to theta_t - alpha grad f_t(theta_t) - alpha lambda' theta_t. The paper's point about that equality is the coupling it exposes: because lambda' must equal lambda / alpha, changing the learning rate changes the effective amount of shrinkage per step, so the two hyperparameters cannot be tuned independently even in the SGD case. This equivalence is the reason deep learning libraries commonly implement the L2 form and call it weight decay, which the paper argues is misleading. The distinction only becomes consequential once the optimizer applies a non-scalar transformation to the gradient. For intuition on the shared part: in the SGD case both mechanisms push every weight toward zero at the same rate, so the difference is entirely about what happens when the gradient is preconditioned.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 2 (Decoupling the weight decay from the gradient-based update), Equation 1 and Proposition 1; proof at Appendix A, Equations 5-6.",
+   "ownerPaper": "1711.05101",
+   "sources": {
+    "paperId": "1711.05101",
+    "note": "Section 2 (Decoupling the weight decay from the gradient-based update), Equation 1 and Proposition 1; proof at Appendix A, Equations 5-6.",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "adaptive-preconditioner-dilutes-l2",
+   "name": "Why adaptive gradients break the equivalence",
+   "tier": "minor",
+   "parent": null,
+   "summary": "When the optimizer divides the gradient by a per-parameter scale, the L2 penalty's gradient gets divided too, so weights with historically large gradients are shrunk less than the same lambda would shrink them under true weight decay.",
+   "explanation": "Adam scales each coordinate's update by its running gradient magnitudes. If the regularizer is folded into the loss, its gradient lambda' theta is summed with grad f before that scaling, so it is normalized by the same denominator: a weight whose gradients in f have been large gets a large denominator and therefore receives proportionally less shrinkage. Proposition 2 makes this formal for any optimizer with iterates theta_{t+1} = theta_t - alpha M_t grad f_t(theta_t): matching the L2 iterate to the weight-decay iterate would require lambda theta_t = alpha lambda' M_t theta_t for all theta_t, which is impossible unless the preconditioner M_t is a scalar multiple of the identity. So for adaptive methods no choice of L2 coefficient reproduces a given decoupled decay lambda. Proposition 3 puts a shape on the discrepancy for the tractable case of a fixed diagonal preconditioner M_t = diag(s)^{-1}: running that optimizer with decoupled decay lambda is equivalent to running it without decay on the scale-adjusted loss f(theta) + (lambda'/2) || theta (elementwise-times) sqrt(s) ||_2^2, with lambda' = lambda / alpha. That is, decoupled weight decay corresponds to an L2 penalty whose per-coordinate strength is proportional to sqrt(s_i) — it regularizes coordinates with historically large gradients more than ordinary L2 does. The paper notes this proposition does not apply directly to real adaptive methods, whose preconditioner changes every step, and offers it as intuition about the loss being effectively optimized at each step rather than as a proof about Adam. The practical upshot claimed is that with L2 in Adam the shrinkage a weight actually experiences depends on its gradient history, while decoupled decay applies the same rate lambda to every weight.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 2, Propositions 2 and 3 with Equation 2, and the discussion paragraph between them; proofs at Appendix A, Equations 7-13.",
+   "ownerPaper": "1711.05101",
+   "sources": {
+    "paperId": "1711.05101",
+    "note": "Section 2, Propositions 2 and 3 with Equation 2, and the discussion paragraph between them; proofs at Appendix A, Equations 7-13.",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "decoupled-weight-decay-update",
+   "name": "The AdamW update rule",
+   "tier": "minor",
+   "parent": null,
+   "summary": "AdamW keeps Adam's moment estimates and adaptive step exactly as they are, but removes lambda*theta from the gradient and instead subtracts it directly from the weights at the end of the step.",
+   "explanation": "Algorithm 2 presents both variants side by side; the L2 version computes g_t = grad f_t(theta_{t-1}) + lambda theta_{t-1} at line 6 and the decoupled version does not. Everything in between is unchanged Adam: m_t = beta_1 m_{t-1} + (1 - beta_1) g_t, v_t = beta_2 v_{t-1} + (1 - beta_2) g_t^2 elementwise, bias corrections m_hat_t = m_t / (1 - beta_1^t) and v_hat_t = v_t / (1 - beta_2^t). The decoupled update is line 12: theta_t = theta_{t-1} - eta_t ( alpha * m_hat_t / (sqrt(v_hat_t) + epsilon) + lambda * theta_{t-1} ). The decay term sits outside the adaptive ratio, so it is never divided by sqrt(v_hat_t); it is multiplied by the schedule multiplier eta_t (from a user-defined SetScheduleMultiplier, which may be constant) but not by the base learning rate alpha, which is what separates lambda from alpha. Stated defaults are alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, epsilon = 1e-8, with lambda a free hyperparameter. The same modification applied to SGD with momentum gives SGDW (Algorithm 1, line 9), where the decay term -eta_t lambda theta_{t-1} is applied alongside the momentum step rather than being added to the gradient — this changes nothing about which algorithm SGD implements, only how lambda and alpha relate to each other. Implementation-wise the change is two lines, and it is the entire proposed method.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Algorithm 2 (Adam with L2 regularization and AdamW), line 6 versus line 12; Algorithm 1 lines 6 and 9 for the SGDW counterpart.",
+   "ownerPaper": "1711.05101",
+   "sources": {
+    "paperId": "1711.05101",
+    "note": "Algorithm 2 (Adam with L2 regularization and AdamW), line 6 versus line 12; Algorithm 1 lines 6 and 9 for the SGDW counterpart.",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "normalized-weight-decay",
+   "name": "Normalized weight decay",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The optimal lambda shifts with the training budget, so the paper reparameterizes it as lambda = lambda_norm * sqrt(b / (B*T)), where b is batch size, B the dataset size and T the number of epochs.",
+   "explanation": "Preliminary experiments reported here found that the best weight decay factor depends on the computational budget measured in batch passes: the more updates performed, the smaller the optimal lambda, because the shrinkage compounds over steps. Related work (Li et al., 2017) had observed that a smaller batch size at fixed epoch count makes the shrinking effect of weight decay more pronounced, for the same reason. To reduce this dependence the paper replaces lambda with a normalized hyperparameter lambda_norm and sets lambda = lambda_norm * sqrt(b / (B * T)), where b is the batch size, B the total number of training points and T the total number of epochs (or the epochs in the current restart, for the warm-restart variant). Under this reading lambda_norm is the weight decay one would use if only a single batch pass were allowed, and the same lambda_norm can be carried across short and long runs. The paper is explicit that this particular normalization is one possibility informed by few experiments, and that the more durable claim is only that some normalization helps. This matters when reading a reported weight decay value: whether a quoted number is the per-step lambda from the update rule or a normalized lambda_norm changes what the actual per-step shrinkage is by the factor sqrt(b / (B*T)).",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Appendix B.1 (Normalized weight decay), the lambda = lambda_norm sqrt(b/(BT)) definition and its footnote; referenced from Section 4.3.",
+   "ownerPaper": "1711.05101",
+   "sources": {
+    "paperId": "1711.05101",
+    "note": "Appendix B.1 (Normalized weight decay), the lambda = lambda_norm sqrt(b/(BT)) definition and its footnote; referenced from Section 4.3.",
+    "sections": [],
+    "pages": []
+   }
+  }
+ ]
+}

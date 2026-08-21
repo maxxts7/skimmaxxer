@@ -1,0 +1,15 @@
+PAGE FOR: positional-encoding (concept)
+
+A positional encoding is a vector added to each token embedding at the bottom of the [[encoder-stack]] and the [[decoder-stack]], carrying nothing but which slot in the sequence that token sits in. It is there because [[self-attention]] is order-blind — permute the input positions and the outputs permute with them, unchanged — and unlike a [[recurrent-neural-network|recurrent model]], which gets order for free from the order it consumes positions in, the Transformer has no recurrence and no convolution to supply that signal. The encoding is the patch for what was removed.
+
+### The operation
+
+Build a matrix $PE$ of shape $n \times d_{model}$, where $n$ is sequence length and [[d-model|$d_{model} = 512$]]. Row $pos$ depends only on the integer $pos$, never on the token. [[eq-posenc|Equation 3.5]] fills it: even dimensions get $\sin(pos/10000^{2i/d_{model}})$, odd dimensions the matching cosine, so the 512 slots are 256 sine/cosine pairs whose wavelengths climb geometrically from $2\pi$ to $10000 \cdot 2\pi$. See [[sinusoidal-positional-encoding]] for what that bank of frequencies looks like.
+
+Then add — do not concatenate. The [[token-embeddings|embedding]] lookup, [[sqrt-dmodel-embedding-multiplier|scaled by $\sqrt{d_{model}}$]] (which matters here: sinusoid entries live in $[-1,1]$, so the scaling keeps content from being swamped by position), plus the row of $PE$, then [[residual-dropout|dropout]] at $p=0.1$ on the sum. That sum is the layer-1 input. Position is injected exactly once; every one of the six layers above sees it only through whatever survives the [[residual-connection|residual stream]]. [[fig-1]] shows this as the one place either tower touches anything positional.
+
+### Why sinusoids, and how thin the evidence is
+
+The paper gives two reasons, and hedges the first: it "hypothesized" sinusoids let the model attend by relative position, because $PE_{pos+k}$ is a linear function of $PE_{pos}$ for fixed $k$ — see [[relative-position-linearity]]. The second is that fixed functions may extrapolate to sequences longer than any seen in training, which a per-position lookup table cannot do at all.
+
+Neither reason is tested. What is tested is row (E) of [[table-3]], which swaps in [[learned-positional-embedding|learned position vectors]] and reports "nearly identical results". So the ablation shows the slot must be filled, not that sinusoids fill it better; the extrapolation argument is a stated motivation with no length-generalization experiment behind it. The cost of adding rather than concatenating is also unmeasured: position and content share all 512 dimensions, and the model has to pull them apart from a single sum.

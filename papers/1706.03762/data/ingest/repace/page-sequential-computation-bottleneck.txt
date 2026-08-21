@@ -1,0 +1,17 @@
+PAGE FOR: sequential-computation-bottleneck (concept)
+
+An [[recurrent-neural-network|RNN]] computes $h_t = f(h_{t-1}, x_t)$, so position $t$ cannot start until position $t-1$ has finished. The paper opens with this because the [[transformer|Transformer]] is the attempt to delete that dependency, and everything else in the architecture follows from deleting it.
+
+### What is actually serialized
+
+Take a batch of $B$ sentences of length $n$ with hidden width $d$. A recurrent layer's per-step work — $W_{hh}h_{t-1} + W_{xh}x_t$ plus whatever gates the [[lstm|LSTM]] or [[gated-recurrent-unit|GRU]] adds — is $O(d^2)$, giving $O(n \cdot d^2)$ for the layer ([[complexity-per-layer]]). Total FLOPs are not the issue; a GPU is happy with lots of arithmetic. The issue is the shape of each launch. At step $t$ you multiply a $B \times d$ activation by a $d \times d$ matrix, and you do that $n$ times back to back. Only $B$ is parallel. With $d = 512$ and a modest $B$, each of those matmuls underfills the device, and you pay $n$ kernel launches plus $n$ points of latency.
+
+The paper's second clause matters as much as the first: memory constraints limit batching across examples. Long sequences hold more activations for backprop, so $B$ has to shrink exactly when $n$ grows. The one axis of parallelism you had left gets narrower as the axis you cannot parallelize gets longer. (This is also why the paper batches by length — see [[length-based-batching]].)
+
+[[factorization-tricks]] and [[conditional-computation]] are the prior work the introduction credits, and the paper is careful about what they bought: real efficiency gains, and in the conditional-computation case better quality too. But both shrink the cost of a step. Neither reduces the number of steps, which is why the paper says the fundamental constraint remains.
+
+### How strong the evidence is
+
+The direct evidence is [[table-1]], whose [[minimum-sequential-operations|sequential-operations]] column reads $O(n)$ for a recurrent layer against $O(1)$ for [[self-attention]]. Read it for what it is: a count of operations in the abstract, not a wall-clock measurement, and no timing experiment in the paper isolates this variable. The same table gives self-attention $O(n^2 \cdot d)$ per layer, so the trade only pays on total compute when $n < d$ — which the paper argues holds for word-piece sentences, and which stops holding for long documents. [[convolutional-sequence-models|Convolutional models]] had already removed the sequential dependency; what they kept was a growing [[maximum-path-length]], which Section 4 treats as the separate complaint.
+
+Two costs. Order information disappears with recurrence and has to be re-injected by [[positional-encoding]]. And parallelism here is a *training* property: [[auto-regressive-generation|decoding]] still runs one token at a time.

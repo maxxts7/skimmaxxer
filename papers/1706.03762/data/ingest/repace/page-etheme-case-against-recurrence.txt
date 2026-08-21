@@ -1,0 +1,21 @@
+PAGE FOR: etheme-case-against-recurrence (edge-theme)
+
+The case for dropping recurrence is an argument from three numbers in a table, not from an experiment. Section 4 proposes [[layer-comparison-desiderata|three criteria]] for any layer that maps a length-$n$ sequence to another length-$n$ sequence — [[complexity-per-layer]], [[minimum-sequential-operations]], and [[maximum-path-length]] — and claims self-attention wins on two of them, while the third turns out to be conditional, conceded, or tradeable.
+
+### The chain
+
+The criterion the paper actually cares about is path length. [[long-range-dependencies]] are called "a key challenge in many sequence transduction tasks," and the stated mechanism is distance: the shorter the forward and backward signal path between two positions, the easier the dependency is to learn. That premise is cited to prior work, not tested here. Every conclusion downstream rests on it.
+
+[[table-1]] is the framework filled in, and without it Section 4 is a list of assertions. Its path-length column gives $O(1)$ for [[self-attention]], $O(n)$ for a [[recurrent-neural-network|recurrent]] layer, and $O(\log_k n)$ for dilated convolutions. Its sequential-operations column gives $O(1)$ against $O(n)$ — the [[sequential-computation-bottleneck]] restated as a complexity class. So self-attention connects any two positions in one step and computes all positions at once; recurrence does neither.
+
+[[convolutional-sequence-models]] are the intermediate case, and the paper treats them as a partial fix that stopped short. They parallelize across positions, but a kernel of width $k < n$ does not connect all pairs, so reaching them takes $O(n/k)$ layers, or $O(\log_k n)$ dilated. [[bytenet]] pays logarithmically in distance, [[convs2s]] linearly. Neither reaches constant, which is why the background section lists them together.
+
+### Where the criteria disagree
+
+The three criteria do not rank the layer types consistently, and the paper says so. On per-layer cost, self-attention is $O(n^2 \cdot d)$ against recurrence's $O(n \cdot d^2)$ — recurrence is cheaper whenever $n > d$. The paper's answer is that $n < d$ holds for sentence-length subword representations, pointing at [[byte-pair-encoding]] and [[word-piece-encoding|word-piece]] vocabularies (37000 and 32000 tokens in its own experiments, against $d_{model} = 512$). That is a condition, not a result, and it is a condition set by a tokenizer: the BPE paper's own [[vocabulary-vs-sequence-length-tradeoff]] says finer subwords lengthen every sentence, pushing $n$ back up.
+
+Two further moves in the same direction. The paper concedes that [[separable-convolutions]] cost $O(k \cdot n \cdot d + n \cdot d^2)$, and that even at $k = n$ this equals a self-attention layer plus a point-wise feed-forward layer — the exact combination the Transformer uses. And [[restricted-self-attention]] buys a cheaper layer on long sequences by raising path length to $O(n/r)$. Read together: cost is not what carries the case. Parallelism and path length are.
+
+### What the argument does not establish
+
+Table 1 shows the path is short. It does not show that models with short paths learn distant dependencies better — that link is the cited premise, reused as a conclusion. The sequential-operations column counts operations abstractly, not wall-clock time on a GPU. The r-neighborhood row is analysis; the paper never trains it. [[fig-3]] is the only picture of a long dependency actually being tracked, and it is one query word in one sentence in one encoder layer — it shows long-distance attention happens, not how often or how reliably. And the constant-length path is not free: the paper admits [[attention-averaging-resolution-cost]], with multi-head attention introduced as the counteraction. No ablation isolates path length from everything else the architecture changed at once.

@@ -1,0 +1,55 @@
+NARRATIVE NODE: n-training-the-thing--data-and-vocabulary
+TITLE: The data, and what the token counts hide
+
+INTRO:
+The level above gave the numbers: 37000, 32000, 25000. This one gives the procedures that produce them — what the merge loop does step by step, what happens when it meets a word it has never seen, what the vocabulary size costs in each direction, and what a batch measured in tokens is actually holding constant.
+
+--- CHAPTER id=the-merge-loop ---
+TITLE: The merge loop, and what 37000 buys
+
+The cited procedure starts before any merging. Each word in the corpus is written out as a sequence of characters with an end-of-word marker attached, so a piece that ends a word stays a different symbol from the same letters sitting mid-word. Then the loop: count every adjacent symbol pair across the corpus, weighted by how often its word occurs; replace every occurrence of the most frequent pair with one new symbol; repeat. [[bpe-merge-algorithm|The loop]] is greedy and never backtracks. It is Gage's byte-level compression algorithm with characters standing in for bytes.
+
+Two things follow that a merge count alone does not tell you. Frequent words get merged all the way up and end as a single symbol. Rare words run out of frequent pairs partway and stop as two or three pieces. The starting character inventory is never removed from the vocabulary, so there is no cliff at the tail — the segmentation just gets finer as words get rarer. That is why [[byte-pair-encoding|BPE]] needs no unknown-word token at all.
+
+The second is that [[bpe-vocabulary-size|the merge budget]] is a model-size knob as well as a segmentation knob. 37000 rows at [[d-model|$d_{model} = 512$]] is close to 19 million parameters. In this model that table is used three times over — encoder input embedding, decoder input embedding, and the pre-softmax projection are [[embedding-softmax-weight-sharing|one matrix]], the [[three-way-weight-tying|three-way case]] of the cited work on [[weight-tying|tied embeddings]]. Untied, that would be three separate copies. The paper adds one wrinkle and no reason for it: in the embedding layers the shared weights are scaled by [[sqrt-dmodel-embedding-multiplier|$\sqrt{d_{model}}$]].
+
+--- CHAPTER id=replaying-the-list ---
+TITLE: Replaying the list on text you have never seen
+
+What the merge loop leaves behind is not a lookup table of 37000 strings. It is an ordered list of merge operations, and that ordering is the whole of the encoder. [[bpe-segmentation-at-test-time|To segment any word]], split it into characters and replay the merges in the order they were learned, applying each one wherever it fits. No search, no probability model, no fallback branch. Two properties fall out. The segmentation of a given string is the same everywhere it appears, because nothing about the surrounding sentence enters the procedure. And the worst case is a word that survives as a string of single characters, all of which are already in the vocabulary — which is the actual reason there is no unknown token, rather than any claim about coverage. The one real failure is a character absent from the training corpus, which has no symbol to fall back to.
+
+That determinism is what makes [[joint-bpe-shared-vocabulary|joint BPE]] worth the trouble. With merges learned over both languages' text at once, an English name and its German copy pass through the same replay and come out as the same pieces, so a decoder that has to reproduce or transliterate a source-side string is copying pieces it can see. The cited work names the catch: two languages that do not share an alphabet need transliteration first, or the vocabulary is shared in name only. [[wmt-2014-en-de|English and German]] share Latin script, so the paper never has to raise it.
+
+Sharing also changes what the tied table sees. [[tied-embedding-update-dynamics|Every row now takes gradient]] from both languages' [[token-embeddings|embedding lookups]] and from every output softmax.
+
+--- CHAPTER id=the-trade-priced ---
+TITLE: The trade, priced in both directions
+
+[[vocabulary-vs-sequence-length-tradeoff|The trade]] is real but not symmetric, and the asymmetry is what makes a middling budget the right answer. Cut the merge count and the vocabulary shrinks: fewer embedding rows, a cheaper output [[softmax]], both costs linear in vocabulary size. But every sentence lengthens, because more words break into more pieces — and sequence length is charged quadratically. A [[self-attention]] layer costs [[complexity-per-layer|$O(n^2 \cdot d)$]] per layer against a recurrent layer's $O(n \cdot d^2)$, the comparison [[table-1|laid out row by row]] under Section 4's [[layer-comparison-desiderata|three criteria]].
+
+So the two arms are not interchangeable. The saving from a smaller vocabulary is linear and lands in one place; the cost is quadratic and lands in every layer of both stacks. Section 4's whole cost claim rides on staying on the good side of $n < d$, which with $d_{model} = 512$ means sentences under 512 tokens.
+
+Hedge with the paper here. It says $n < d$ "is most often the case with sentence representations used by state-of-the-art models," and supports that by pointing at word-piece and byte-pair representations — a citation, not a measurement. No length distribution for the WMT corpora is reported anywhere in the paper. The margin is almost certainly large, since subword-split newswire sentences run to tens of tokens rather than hundreds, but the reader is asked to take it.
+
+Where it does not hold, the paper offers only a plan: [[restricted-self-attention|attend to a neighborhood of size $r$]], accepting a [[maximum-path-length|path length]] of $O(n/r)$, marked as future work. [[theme-why-self-attention]] has the full comparison.
+
+--- CHAPTER id=the-other-vocabulary ---
+TITLE: The other vocabulary, and a sentence the paper does not write
+
+For [[wmt-2014-en-fr|English-French]] the scheme changes. [[word-piece-encoding|Word-piece]] is subword tokenization built on the same premise — a fixed set of common units, no out-of-vocabulary token — but it picks its units by a different rule. BPE merges the pair that occurs most often. [[wordpiece-model|The word-piece model]] from Google's NMT system merges the pair that most improves the likelihood of the training data under a language model over the current units. Frequency against likelihood. Neither the cited work nor this paper reports a controlled comparison of the two at a fixed vocabulary size, so "32000 word-piece" versus "37000 BPE" is not a result about anything; it is two teams' conventions landing in one experiments section.
+
+There is also something the paper says for one dataset and not the other. Section 5.1 calls the English-German vocabulary shared between source and target. For English-French it says only that tokens were split into a 32000 word-piece vocabulary. Sharing is not stated. Since the one-matrix embedding scheme is described in Section 3.4 as a property of the model rather than of a dataset, the English-French vocabulary is presumably shared too — but the reader has to infer it.
+
+Both vocabularies arrive the same way: by citation, unmodified, unjustified. So does [[adam-optimizer|the optimizer]], so does [[label-smoothing|the label smoothing]], so does [[beam-search|the beam search]]. The paper's invention budget goes to the architecture; the rest of [[transformer-training-recipe|the recipe]] is assembled from other people's defaults, which [[etheme-borrowed-recipe]] tracks piece by piece.
+
+--- CHAPTER id=batches-in-tokens ---
+TITLE: What a token-counted batch holds constant
+
+[[length-based-batching|Counting a batch in tokens]] means the number of sentences in it is not fixed. At roughly 25000 target tokens per batch, a batch of ten-token sentences holds around 2500 pairs and a batch of fifty-token sentences holds around 500. What stays constant across steps is the number of predictions the loss averages over — which is what the gradient's scale and variance actually depend on, and what makes one step comparable to the next.
+
+Grouping by approximate length is not a tidiness preference. Padding in an attention model is charged at full price: a batch padded to width $n$ costs $n^2$ score computations per example whether or not the positions are real. Put a five-token sentence in the same batch as a sixty-token one and the short sentence is padded to sixty, costing about 144 times the attention work it needs. Bucketing keeps the padded width near the true width, so the token count and the work done stay proportional.
+
+The two together are what make a step count meaningful. [[training-hardware-and-schedule|100,000 steps]] for the base model, [[warmup-steps-4000|4000 of them warmup]] under [[learning-rate-warmup-schedule|the ramp-and-decay rule]], all denominated in roughly equal slices of data.
+
+One number the paper does not give: how many passes over the corpus that is. 100,000 steps at 25000 target tokens is about 2.5 billion target tokens. Against 4.5 million English-German sentence pairs, at a plausible thirty target tokens each, that is on the order of twenty epochs — and about three times that for [[base-vs-big-transformer|the big model]]. The exact figure depends on the token counts the paper never reports; [[tensor2tensor]] is where you would go to recover them.
+

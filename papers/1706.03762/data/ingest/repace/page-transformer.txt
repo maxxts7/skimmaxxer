@@ -1,0 +1,19 @@
+PAGE FOR: transformer (concept)
+
+The Transformer is an [[encoder-decoder-architecture|encoder-decoder]] for [[sequence-transduction|sequence transduction]] in which every recurrent layer has been replaced by [[self-attention]] and a per-position MLP. The reason is parallelism: an RNN's hidden state at position $t$ waits on position $t-1$, so [[sequential-computation-bottleneck|the positions inside one training example cannot be computed at once]], and this model removes that dependency entirely.
+
+### What actually runs
+
+[[fig-1]] is the whole thing in one picture. Tokens go through [[token-embeddings|embedding tables]] into vectors of width $d_{model} = 512$ (scaled by [[sqrt-dmodel-embedding-multiplier|$\sqrt{d_{model}}$]]), a [[positional-encoding]] is added — without it the model is order-blind, since nothing left in it can tell position 3 from position 30 — and the resulting $n \times 512$ matrix goes up the [[encoder-stack]]: [[n-layers|six]] identical layers, each a [[multi-head-attention]] [[sub-layer]] followed by a [[position-wise-feed-forward-network]] ($512 \to 2048 \to 512$, ReLU between). Every sub-layer computes
+
+$$\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$$
+
+which is why every sub-layer and every embedding layer emits the same width: that shared 512 is what makes [[residual-connection|the residual add]] type-check, and it is why [[d-model]] is one number rather than one per layer. The [[decoder-stack]] is the same six layers with a third sub-layer inserted — [[masked-decoder-self-attention|self-attention masked]] so position $i$ sees only positions $< i$, then [[encoder-decoder-attention]], queries from the decoder, keys and values from the encoder's top layer. That is the only place the two towers touch.
+
+### What the swap buys and costs
+
+Section 4 argues it on [[layer-comparison-desiderata|three axes]] ([[table-1]]): sequential operations fall from $O(n)$ to $O(1)$, and the path between any two positions falls to a constant — against linear for [[convs2s|ConvS2S]] and logarithmic for [[bytenet|ByteNet]]. The costs are stated too. Per-layer compute is $O(n^2 \cdot d)$, cheaper than recurrence only while $n < d$, which holds for word-piece sentences and stops holding for long inputs; the paper offers [[restricted-self-attention|windowed attention]] as future work, not as a result. And a single attention output is [[attention-averaging-resolution-cost|an average over positions, which blurs resolution]] — [[multi-head-attention]] is the paper's stated counter to a cost it created, not a separate idea.
+
+### How strong the evidence is
+
+[[table-2]]: 28.4 [[bleu]] on WMT14 English-German, over 2.0 above anything published including [[model-ensembling|ensembles]], and 41.8 English-French, from the [[base-vs-big-transformer|big]] model after 3.5 days on eight P100s. Take the French number from the table; Section 6.1 prints 41.0. This is two language pairs, single runs, no variance, and the training-cost column is an estimate of GPU-hours times assumed throughput. Generalization rests on one further task: [[table-4]], 91.3 F1 on WSJ parsing, beating every listed discriminative parser except [[recurrent-neural-network-grammar|the RNN Grammar]] at 91.7, which builds trees explicitly. Three tasks, all text.

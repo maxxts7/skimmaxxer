@@ -1,0 +1,46 @@
+PAGE FOR CONCEPT: zero-shot-behaviors
+NAME: Zero-Shot Behaviours
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Heuristics that make the pre-trained generative model perform the evaluation tasks with no supervised fine-tuning at all, tracked across pre-training.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+The paper wants to know why language model pre-training of transformers works, and puts forward a hypothesis: the generative model learns to perform many of the evaluation tasks in the course of improving its language modelling.
+
+To test this it strips out the supervised part entirely. It designs one heuristic per task that reads an answer directly off the generative model, with no fine-tuning and no trained classifier head.
+
+It then runs those heuristics at checkpoints across pre-training and plots how they do as a function of updates.
+
+The reported pattern is that performance is stable and steadily increases, which the paper takes as evidence that pre-training builds task-relevant functionality rather than fine-tuning acquiring it.
+
+The same heuristics are also run against an LSTM, which the paper reports shows higher variance in zero-shot performance.
+
+These are heuristics the authors designed, so the absolute numbers say as much about the heuristic as about the model. The trend across updates is what the paper actually leans on.
+
+THEME IT BELONGS TO: theme-taking-the-recipe-apart | Taking the Recipe Apart - Three diagnostics ask which parts of the recipe are doing the work. Transferring more pre-trained layers keeps helping rather than saturating early, and hand-built heuristics show the pre-trained model already doing several tasks at some level with no supervised training at all, improving steadily as pre-training runs. The removals are blunter: no pre-training costs the most, swapping the transformer for an LSTM costs less, and dropping the auxiliary language modelling loss helps on some datasets and hurts on others. The paper's reading of why attention transfers better than recurrence is stated as a hypothesis, and the zero-shot heuristics are hand-designed, so both carry less weight than the ablation numbers.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - average-token-log-probability-scoring | Average Token Log-Probability Scoring: The common device behind three of the four heuristics: score a candidate string by the mean log-probability the language model assigns its tokens.
+  - cola-zero-shot-heuristic | CoLA Zero-Shot Heuristic: Score each sentence by the generative model's average token log-probability and predict acceptability by thresholding that score.
+  - sst2-zero-shot-heuristic | SST-2 Zero-Shot Heuristic: Append the token 'very' to the example, restrict the output distribution to 'positive' and 'negative', and take whichever scores higher.
+  - race-zero-shot-heuristic | RACE Zero-Shot Heuristic: Condition the generative model on the document and question, then pick the answer with the highest average token log-probability.
+  - dprd-winograd-heuristic | DPRD Winograd-Schema Zero-Shot Heuristic: Substitute each possible referent for the definite pronoun and choose the resolution under which the rest of the sentence scores higher.
+  - transformer-inductive-bias | Structured Attentional Memory and Inductive Bias: The paper's hypothesis that the transformer's attention gives it a more structured memory than an LSTM, which helps transfer.
+
+PREREQUISITES:
+  - generative-pretraining | Generative Pre-Training (Stage One): Train a multi-layer transformer decoder to predict each next token on a large unlabelled corpus, and keep the weights rather than the outputs.
+  - language-modeling-objective | Language Modelling Objective $L_1$: The pre-training loss $L_1(U)=\sum_i \log P(u_i \mid u_{i-k},\dots,u_{i-1};\Theta)$: maximize the log-probability the model gives each token given the tokens before it.
+  - labeled-dataset-c | Labelled Dataset $C$: $C$ denotes a target task's labelled data: input token sequences each paired with one label.
+
+EDGES TOUCHING THIS CONCEPT (4) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] -> average-token-log-probability-scoring (Average Token Log-Probability Scoring) | depends-on | heuristics need a scoring rule: A generative model does not emit labels, so making it answer a task without fine-tuning requires turning it into a scorer. Three of the four heuristics do the same thing: score a candidate string by the mean log-probability the model assigns its tokens, then pick or threshold. Without that device there is no zero-shot curve to plot.
+  [supporting] <- transformer-inductive-bias (Structured Attentional Memory and Inductive Bias) | depends-on | hypothesis rests on zero-shot variance: The paper's suggestion that the transformer's attention gives a more structured memory than an LSTM is supported by an observation inside this analysis: the LSTM shows higher variance in its zero-shot performance over the course of pre-training. That is one qualitative comparison, and the paper words it as a hypothesis rather than a finding.
+  [supporting] -> fig-2 (Layer Transfer and Zero-Shot Growth (fig-2)) | supported-by | heuristic scores rise during pre-training: The right panel tracks four fine-tuning-free heuristics across pre-training updates and shows their performance rising steadily and staying stable. The curves are relative trends, not absolute task scores, so they show the ability growing rather than showing it is competitive.
+  [supporting] -> supervised-fine-tuning (Supervised Fine-Tuning (Stage Two)) | contrasts-with | heuristics with no labelled training: The zero-shot section runs the same evaluation tasks through the pre-trained model with hand-built scoring rules and no fine-tuning at all. It is a weaker way of getting answers, used as a diagnostic for how much task-relevant behaviour pre-training alone produces.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-2 | Layer Transfer and Zero-Shot Growth: Two diagnostics for why the recipe works. The left panel says every pre-trained layer carries transferable value: dev accuracy on RACE and MultiNLI rises steadily as more of the twelve-layer stack is carried into fine-tuning, up to about 9% on MultiNLI for full transfer. The right panel says the pre-trained language model is already learning task-relevant behaviour before any fine-tuning: heuristic zero-shot scores on four tasks climb steadily across pre-training, and do so more smoothly for the transformer than for an LSTM trained the same way.
+
+PAPER SECTIONS TO READ (in papers/gpt-1/data/ingest/sections/):
+  - 02-1-introduction.txt
+  - 11-5-analysis.txt

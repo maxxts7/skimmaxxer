@@ -1,0 +1,18 @@
+ITEM: eq-lrate (equation) - The warmup-then-decay learning rate
+
+TAKEAWAY:
+Equation (3) makes the learning rate a function of the training step: it rises linearly for the first warmup_steps steps, then falls as the inverse square root of the step number, all scaled by $d_{model}^{-0.5}$. The two branches meet at step = warmup_steps = 4000, which is where the rate peaks.
+
+WALKTHROUGH:
+You are looking at the learning-rate schedule from Section 5.3. It is not a fixed number; it is recomputed at every training step and fed to the [[adam-optimizer|Adam optimizer]], which the paper runs with $\beta_1 = 0.9$, $\beta_2 = 0.98$, $\epsilon = 10^{-9}$.
+
+Read it inside-out. `step_num` is the current update count, starting at 1. The `min` picks whichever of two expressions is smaller:
+
+- $step\_num \cdot warmup\_steps^{-1.5}$ — a straight line through the origin, growing with the step count.
+- $step\_num^{-0.5}$ — a decaying curve, $1/\sqrt{step\_num}$.
+
+Early on the line is smaller, so it wins: the rate climbs linearly. Later the decay term is smaller and wins. Setting the two equal gives $step\_num = warmup\_steps$, so the crossover — the peak — is exactly at step 4000 with the paper's setting. That is what the [[learning-rate-warmup-schedule|warmup schedule]] is: linear ramp up, then inverse-square-root decay.
+
+The prefactor $d_{model}^{-0.5}$ scales the whole curve by the model width. For the base model, [[d-model|$d_{model} = 512$]], so $512^{-0.5} \approx 0.0442$. Wider models get proportionally smaller learning rates. Plugging the peak in: $0.0442 \times 4000^{-0.5} \approx 7.0 \times 10^{-4}$. The ramp rate is about $1.75 \times 10^{-7}$ per step.
+
+What it shows: the model is not trained at a constant rate. It starts near zero and works up. The paper states this plainly and does not argue for warmup — it gives the formula, describes its shape, and reports [[warmup-steps-4000|warmup_steps = 4000]]. The common reading is that Adam's second-moment estimate is unreliable in the first steps, and with $\beta_2 = 0.98$ plus [[layer-normalization]] and [[residual-connection|residual connections]], large early steps can destabilize training; the ramp keeps them small until the estimates settle. That rationale is not in the paper, so treat it as context, not a claim the authors make. The schedule is part of the [[transformer-training-recipe|training recipe]] and applies to both base and big models.

@@ -1,0 +1,102 @@
+EDGE EXPLANATIONS (20)
+
+--- EDGE id=e081 ---
+penn-treebank-wsj --instance-of--> wsj-parsing-protocol | label: follows the standard WSJ split
+
+The parsing experiment uses the WSJ portion of the Penn Treebank, about 40K sentences, tunes on Section 22 and reports on Section 23 - the protocol defined in the cited work, which is what makes Table 4 comparable to prior parsers.
+
+--- EDGE id=e082 ---
+semi-supervised-parsing --instance-of--> semi-supervised-parsing-corpora | label: reuses the cited machine-parsed data
+
+The second parsing regime adds the high-confidence and BerkeleyParser corpora from the cited work, roughly 17M sentences, and switches the vocabulary from 16K to 32K tokens.
+
+--- EDGE id=e083 ---
+length-penalty --instance-of--> length-normalization-penalty | label: sets the cited penalty to 0.6
+
+Beam search needs a way to compare hypotheses of different lengths; the cited system defines a length-normalization divisor with a strength parameter alpha. The paper uses alpha = 0.6 with beam size 4, chosen on the development set.
+
+--- EDGE id=e084 ---
+scaled-dot-product-attention --instance-of--> eq-attention | label: defined by Equation (1)
+
+Equation (1) is the whole definition: dot every query against every key, divide by sqrt(d_k), softmax, and weight the values. Everything the paper says about attention refers back to this line.
+
+--- EDGE id=e085 ---
+multi-head-attention --instance-of--> eq-multihead | label: defined by the MultiHead equation
+
+The equation says what running h heads means concretely: project Q, K and V with per-head matrices, apply Equation (1) in each subspace, concatenate, then project with W^O.
+
+--- EDGE id=e086 ---
+position-wise-feed-forward-network --instance-of--> eq-ffn | label: defined by Equation (2)
+
+Equation (2) fixes the second sub-layer of every encoder and decoder layer as a two-layer MLP with a ReLU between, applied to each position separately with the same weights.
+
+--- EDGE id=e087 ---
+sinusoidal-positional-encoding --instance-of--> eq-posenc | label: defined by the PE equations
+
+The PE(pos, 2i) and PE(pos, 2i+1) formulas give the exact sinusoid per dimension. They are what makes the relative-offset claim checkable: for a fixed offset k, PE(pos+k) is a linear function of PE(pos).
+
+--- EDGE id=e088 ---
+learning-rate-warmup-schedule --instance-of--> eq-lrate | label: defined by Equation (3)
+
+Equation (3) is the schedule itself: the learning rate scales with d_model^-0.5 and takes the smaller of step^-0.5 and step * warmup_steps^-1.5, giving a linear ramp then an inverse-square-root decay.
+
+--- EDGE id=e089 ---
+self-attention --contrasts-with--> recurrent-neural-network | label: constant vs O(n) sequential steps
+
+Section 4 sets these two layer types against each other on the same job: mapping one length-n sequence to another. A self-attention layer connects all positions with a constant number of sequentially executed operations, while a recurrent layer needs O(n) steps that cannot be parallelized. This is the paper's main reason for dropping recurrence.
+
+--- EDGE id=e090 ---
+self-attention --contrasts-with--> convolutional-sequence-models | label: one layer vs stacked layers
+
+A single convolutional layer with kernel width k < n does not connect all pairs of positions; reaching all pairs needs O(n/k) layers, or O(log_k n) with dilated convolutions. Self-attention connects every pair in one layer, so the path between distant positions stays constant instead of growing with distance.
+
+--- EDGE id=e091 ---
+convolutional-sequence-models --contrasts-with--> recurrent-neural-network | label: parallel positions, longer paths
+
+Convolutions were the earlier answer to the same problem: they compute all positions in parallel, unlike recurrence, but the number of operations relating two positions grows with the distance between them. The paper also notes convolutional layers are generally more expensive than recurrent ones, by a factor of the kernel width k.
+
+--- EDGE id=e092 ---
+bytenet --contrasts-with--> convs2s | label: logarithmic vs linear distance growth
+
+Both replace recurrence with convolutions, but the cost of relating two positions grows logarithmically with distance in ByteNet and linearly in ConvS2S. Neither reaches the constant cost the Transformer claims, which is the point of listing them together in the background section.
+
+--- EDGE id=e093 ---
+separable-convolutions --contrasts-with--> self-attention | label: the concession on layer cost
+
+The paper concedes that separable convolutions cut complexity to O(k*n*d + n*d^2), and that even at k = n this equals the cost of a self-attention layer plus a point-wise feed-forward layer -- the exact combination the Transformer uses. So the cost argument against convolutions is not what carries the case; the path-length and parallelism arguments are.
+
+--- EDGE id=e094 ---
+complexity-per-layer --contrasts-with--> maximum-path-length | label: two criteria that pull apart
+
+Two of Section 4's three criteria trade against each other. Buying a shorter path between distant positions means each layer looks at more pairs and costs more; making a layer cheaper (a narrow convolution kernel, a restricted attention window) lengthens the path. Table 1 is a comparison across that trade-off, not a single ranking.
+
+--- EDGE id=e095 ---
+complexity-per-layer --contrasts-with--> minimum-sequential-operations | label: cheap layer vs parallel layer
+
+Self-attention costs O(n^2 * d) per layer against a recurrent layer's O(n * d^2), so on per-layer cost recurrence wins whenever n is larger than d. The paper argues n < d holds for the sentence-length word-piece and byte-pair representations used in machine translation, and that self-attention wins outright on the sequential-operations criterion regardless.
+
+--- EDGE id=e096 ---
+restricted-self-attention --contrasts-with--> self-attention | label: cheaper window, longer path
+
+For very long sequences the paper proposes limiting each position to a neighborhood of size r, which cuts per-layer cost but raises the maximum path length from constant to O(n/r). It is offered as future work, not something the paper tested.
+
+--- EDGE id=e097 ---
+dot-product-attention --contrasts-with--> additive-attention | label: faster vs stabler at large d_k
+
+These are the two commonly used attention functions and the paper picks between them. They are similar in theoretical complexity, but dot-product attention is much faster and more space-efficient in practice because it maps onto optimized matrix multiplication; additive attention outperforms unscaled dot-product attention at larger d_k.
+
+--- EDGE id=e098 ---
+scaled-dot-product-attention --contrasts-with--> dot-product-attention | label: one scaling factor apart
+
+The paper's attention is identical to plain dot-product attention except for the 1/sqrt(d_k) factor. The suspected reason for adding it: with d_k large the dot products grow in magnitude and push the softmax into a region of very small gradients, which is where unscaled dot-product attention was losing to additive attention.
+
+--- EDGE id=e099 ---
+key-size-ablation --contrasts-with--> dot-product-attention | label: evidence the dot product is thin
+
+Table 3 row (B) shows that shrinking d_k hurts quality. The paper reads this as a hint that determining compatibility is not easy and that a more sophisticated compatibility function than the dot product may be beneficial -- a caveat on its own choice.
+
+--- EDGE id=e100 ---
+attention-head --contrasts-with--> multi-head-attention | label: single head vs h subspaces
+
+With one attention head, averaging over positions inhibits attending to different representation subspaces at once; h = 8 heads at d_k = d_v = 64 keep total cost about the same as one full-width head. Table 3 row (A) puts a number on it: single-head attention is 0.9 BLEU worse than the best setting, and quality also drops off with too many heads.
+

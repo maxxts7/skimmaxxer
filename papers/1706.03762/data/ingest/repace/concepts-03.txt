@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=causal-masking ---
+NAME: Causal masking
+OWNER: 1706.03762
+SUMMARY (leave alone): Setting the attention scores for forbidden (future) positions to $-\infty$ before the softmax, so those positions receive zero attention weight.
+
+EXPLANATION:
+Inside scaled dot-product attention, the scores feeding the softmax are computed for every query-key pair, including illegal ones where a decoder position would look at a later position. The mask sets those illegal entries to $-\infty$; after the softmax, $e^{-\infty} = 0$, so the corresponding values contribute nothing to the output. This lets the model compute attention for all positions in parallel as matrix operations while still behaving as if future tokens do not exist.
+
+--- CONCEPT id=restricted-self-attention ---
+NAME: Restricted (local) self-attention
+OWNER: 1706.03762
+SUMMARY (leave alone): A proposed variant where each position attends only to a neighborhood of size r around it, trading path length for cheaper computation on very long sequences.
+
+EXPLANATION:
+Full self-attention costs grow with $n^2$, which hurts on very long sequences. Section 4 sketches a fix: restrict attention to a window of size $r$ centered on each output position. Cost drops, but a signal now needs several hops to cross the sequence, raising the maximum path length to $O(n/r)$. The paper does not evaluate this; it is flagged as future work, and the conclusion repeats the plan for handling images, audio, and video.
+
+--- CONCEPT id=encoder-decoder-attention ---
+NAME: Encoder-decoder attention
+OWNER: 1706.03762
+SUMMARY (leave alone): The decoder sub-layer where queries come from the decoder and the keys and values come from the encoder's output, letting every decoder position look at the whole input sentence.
+
+EXPLANATION:
+In these layers the queries come from the previous decoder layer, while the memory keys and values come from the output of the encoder stack. Every position in the decoder can therefore attend over all positions in the input sequence — this is how information gets from the source sentence into the generation process. The paper notes this mimics the typical encoder-decoder attention mechanisms in earlier sequence-to-sequence models. It is the third of the Transformer's three uses of multi-head attention, and the only one that is not self-attention.
+
+--- CONCEPT id=encoder-stack ---
+NAME: Encoder stack
+OWNER: 1706.03762
+SUMMARY (leave alone): The Transformer's encoder: $N=6$ identical layers, each containing a multi-head self-attention sub-layer followed by a position-wise feed-forward sub-layer.
+
+EXPLANATION:
+The encoder is a stack of $N = 6$ identical layers. Each layer has two sub-layers: first a multi-head self-attention mechanism, then a position-wise fully connected feed-forward network. Around each sub-layer there is a residual connection followed by layer normalization, so each sub-layer's output is $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$. To make the residual additions line up, every sub-layer and the embedding layers all output vectors of the same dimension, $d_{model} = 512$.
+
+--- CONCEPT id=decoder-stack ---
+NAME: Decoder stack
+OWNER: 1706.03762
+SUMMARY (leave alone): The Transformer's decoder: $N=6$ identical layers, each with masked self-attention, attention over the encoder output, and a feed-forward sub-layer.
+
+EXPLANATION:
+The decoder is also a stack of $N = 6$ identical layers. Each layer has the same two sub-layers as an encoder layer, plus a third sub-layer inserted between them that performs multi-head attention over the encoder stack's output (encoder-decoder attention). As in the encoder, every sub-layer is wrapped in a residual connection followed by layer normalization. The decoder's self-attention sub-layer is modified with a mask so positions cannot attend to later positions; combined with shifting the output embeddings right by one position, this guarantees the prediction for position $i$ depends only on known outputs at positions before $i$.
+
+--- CONCEPT id=sub-layer ---
+NAME: Sub-layer
+OWNER: 1706.03762
+SUMMARY (leave alone): One of the components inside a Transformer layer — an attention mechanism or a feed-forward network — each wrapped in its own residual connection and layer normalization.
+
+EXPLANATION:
+The paper calls the pieces inside each encoder or decoder layer 'sub-layers'. Encoder layers have two (self-attention, then feed-forward); decoder layers have three (masked self-attention, encoder-decoder attention, then feed-forward). Every sub-layer computes $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$: the sub-layer's own function applied to the input, added back to the input, then layer-normalized.
+
+--- CONCEPT id=residual-connection ---
+NAME: Residual connection
+OWNER: 1706.03762
+SUMMARY (leave alone): A shortcut that adds a layer's input directly to its output, so the layer only has to learn a change (residual) on top of the identity.
+
+EXPLANATION:
+Instead of computing $\mathrm{Sublayer}(x)$ alone, the model computes $x + \mathrm{Sublayer}(x)$: the input is added back to the sub-layer's output. This gives gradients a direct path through deep stacks and makes each sub-layer learn an adjustment rather than a full transformation. The Transformer puts a residual connection around every sub-layer in both stacks. A practical consequence: all sub-layers and the embeddings must produce outputs of the same size, $d_{model} = 512$, so the addition is well-defined.
+
+--- CONCEPT id=layer-normalization ---
+NAME: Layer normalization
+OWNER: 1706.03762
+SUMMARY (leave alone): A normalization step that rescales each position's activation vector to have a standard mean and variance, computed across the features of that single vector.
+
+EXPLANATION:
+Layer normalization normalizes the activations of one layer for one input independently: it takes a vector, subtracts the mean of its components, divides by their standard deviation, and applies a learned per-feature scale and shift. Unlike batch normalization it does not depend on other examples in the batch, which makes it suited to sequence models. The Transformer applies it after every residual addition: the output of each sub-layer is $\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$. This paper uses it as a given and does not restate its definition.
+
+--- CONCEPT id=n-layers ---
+NAME: N = 6 (number of layers)
+OWNER: 1706.03762
+SUMMARY (leave alone): The number of identical layers stacked in each of the encoder and the decoder in the base model: six.
+
+EXPLANATION:
+Both the encoder and the decoder are stacks of $N = 6$ identical layers. Depth comes from repeating the same layer design, not from varying it. Six is the base-model choice; the paper varies it in later experiments.
+
+--- CONCEPT id=d-model ---
+NAME: d_model = 512 (model dimension)
+OWNER: 1706.03762
+SUMMARY (leave alone): The shared width of the model: every sub-layer and embedding layer outputs vectors of dimension $d_{model} = 512$.
+
+EXPLANATION:
+Because residual connections add a sub-layer's input to its output, every sub-layer must produce vectors of the same size as its input. The Transformer fixes this size at $d_{model} = 512$ for all sub-layers and for the token embeddings and positional encodings. Many other quantities are defined relative to it: each attention head uses $d_k = d_v = d_{model}/h$, and the feed-forward inner layer expands to $d_{ff} = 2048$ before projecting back down. The same quantity appears as the representation dimension $d$ in section 4's complexity comparison, where self-attention beats recurrence whenever sequence length $n < d$.
+
+--- CONCEPT id=position-wise-feed-forward-network ---
+NAME: Position-wise feed-forward network
+OWNER: 1706.03762
+SUMMARY (leave alone): A two-layer fully connected network applied to each sequence position independently and identically: expand to $d_{ff}=2048$, apply ReLU, project back to $d_{model}=512$.
+
+EXPLANATION:
+Besides attention, every encoder and decoder layer contains a feed-forward network applied to each position separately and identically: $\mathrm{FFN}(x) = \max(0, xW_1 + b_1)W_2 + b_2$ — a linear transformation up to the inner dimension, a ReLU, and a linear transformation back down. 'Position-wise' means the same weights process every position of the sequence, but each position is processed on its own; no information moves between positions here (attention handles that). The weights are shared across positions within a layer but differ from layer to layer. The paper notes an equivalent view: two convolutions with kernel size 1. In section 4 it also appears in a cost comparison: a self-attention layer plus a point-wise feed-forward layer together match the complexity of a separable convolution with kernel width $k = n$.
+
+--- CONCEPT id=d-ff ---
+NAME: d_ff = 2048 (feed-forward inner dimension)
+OWNER: 1706.03762
+SUMMARY (leave alone): The width of the hidden layer inside the position-wise feed-forward network: 2048, four times $d_{model}$.
+
+EXPLANATION:
+The feed-forward network expands each position's $d_{model} = 512$ vector to $d_{ff} = 2048$ dimensions, applies the ReLU there, and projects back to 512. The 4x expansion is where much of the model's parameter count sits.
+

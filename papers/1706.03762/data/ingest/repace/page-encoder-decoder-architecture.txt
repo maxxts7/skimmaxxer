@@ -1,0 +1,17 @@
+PAGE FOR: encoder-decoder-architecture (concept)
+
+The encoder-decoder split is the one part of the design the paper inherits rather than proposes: every competitive [[sequence-transduction|sequence transduction]] model of the time, recurrent or convolutional, already had this shape, and the paper keeps it while swapping out what the two halves are built from. It is here first because it is the frame — the attention math only makes sense once you know which vectors are flowing where.
+
+Concretely: the encoder takes $n$ input symbols and emits $z = (z_1, \dots, z_n)$, one vector per input position, each of width $d_{model} = 512$. So its output is an $n \times 512$ matrix, not a single summary vector — nothing is squeezed through a bottleneck. The decoder then emits $(y_1, \dots, y_m)$, and $m$ is free: output length is decided by the decoder, not by $n$. Both halves are stacks of $N = 6$ identical layers ([[encoder-stack]], [[decoder-stack]]).
+
+### Where the two halves touch
+
+There is exactly one channel between them. [[encoder-decoder-attention]] takes its queries from the decoder and its keys and values from the encoder's final output — the same $n \times 512$ matrix is handed to all six decoder layers. Cut that channel and you are left with two unrelated language models. The other two attention sites stay inside their own half: [[encoder-self-attention]] over all $n$ positions unmasked, and [[masked-decoder-self-attention]], which uses [[causal-masking]] so position $i$ cannot see position $i+1$.
+
+That mask is what makes [[auto-regressive-generation]] trainable in parallel. During training the whole target sequence is fed in at once and all $m$ positions are computed in one pass; the mask, not the loop, enforces the ordering. At inference there is no such trick — you run $m$ sequential steps, one per token, each conditioned on what was emitted before.
+
+### What it costs
+
+The paper's parallelism claim is about computation within a training example. Generation is still strictly step-by-step, and the conclusion lists making generation less sequential as future work rather than something solved here. Second cost: with recurrence gone, nothing in either stack knows what order its tokens are in, so position has to be reinserted by hand at the inputs — see [[eq-posenc]].
+
+[[fig-1]] is the map for all of this, but it is a schematic: it fixes the wiring, not the sizes. And no experiment isolates this choice. The frame is held constant in every result — [[table-2]] and [[table-3]] measure what fills the two halves, not the split itself.

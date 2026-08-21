@@ -1,0 +1,33 @@
+PAGE FOR: theme-training-the-thing (theme)
+
+The architecture is settled by now. This theme answers a different question: what do you actually have to do to get the reported numbers, and which of those choices are doing work rather than just being reported?
+
+### Data, tokens, and what counts as a batch
+
+The [[transformer-training-recipe]] starts with two datasets. [[wmt-2014-en-de|WMT 2014 English-German]] (~4.5M sentence pairs) is the main task; [[wmt-2014-en-fr|English-French]] (36M pairs) is the larger-data check. Neither is tokenized into words. English-German uses [[byte-pair-encoding]] with a shared source-target vocabulary of about 37000 tokens, built by the greedy [[bpe-merge-algorithm|merge loop]] of repeatedly joining the most frequent adjacent pair. English-French uses a 32000-token [[word-piece-encoding|word-piece vocabulary]].
+
+Subwords are not a side detail. They keep the sequence length $n$ small relative to $d_{model}$, which is exactly the condition under which the paper's [[layer-comparison-desiderata|cost comparison]] says a self-attention layer is cheaper than a recurrent one. The tokenizer choice and the architecture argument lean on each other.
+
+Because attention cost grows with the longest sequence in a batch, padding is expensive. So [[length-based-batching]] groups pairs of similar length together and sizes a batch in tokens — roughly 25000 source and 25000 target tokens — not in sentences. Every step then sees about the same amount of real signal.
+
+### The learning rate is a schedule, not a number
+
+[[training-hardware-and-schedule]] is one machine with 8 P100 GPUs: 100,000 steps (12 hours) for base, 300,000 (3.5 days) for big — see [[base-vs-big-transformer]]. Those step counts are small enough that the early steps matter, which is where [[learning-rate-warmup-schedule|the warmup schedule]] comes in ([[eq-lrate]]):
+
+$$lrate = d_{model}^{-0.5}\cdot\min(step^{-0.5},\ step\cdot warmup\_steps^{-1.5})$$
+
+The rate rises linearly, peaks at [[warmup-steps-4000|step 4000]], then decays as $step^{-0.5}$. The $d_{model}^{-0.5}$ factor is why the same formula transfers from base to big: a wider model gets proportionally smaller steps without retuning ([[d-model]]).
+
+[[transformer-adam-settings|Adam is run with]] $\beta_2 = 0.98$ rather than the usual 0.999 — a shorter memory for the squared-gradient average, so the optimizer reacts faster to changing gradient scale. The paper states this and the warmup schedule as settings. It offers no ablation for either, so treat "this is why they work" as inference, not a paper claim.
+
+### Regularization, and the last thing before decoding
+
+Three regularizers ride along. [[residual-dropout]] is applied to each sub-layer output before the residual add, and to the embedding-plus-position sums; 0.1 for base, higher for the big English-German model. This is the one recipe item with real evidence behind it: [[table-3]] varies it directly and the paper reports dropout as very helpful against overfitting.
+
+[[label-smoothing]] with $\epsilon_{ls}=0.1$ replaces the one-hot target with the mixture from [[label-smoothing-regularization]]. The paper is candid about the trade: it hurts [[perplexity]], because the model is trained to be less certain, but improves accuracy and [[bleu]]. That is a single reported sentence, not an isolated experiment.
+
+[[checkpoint-averaging]] then averages the last 5 (base) or 20 (big) checkpoints, written 10 minutes apart, into the weights that get evaluated. Also unablated.
+
+Everything here ran in [[tensor2tensor]], which the authors released.
+
+You can now read [[table-2]] for what it is — quality plotted against training cost, where the cost side is the schedule above — and ask which of these knobs are specific to this model (warmup, $\beta_2$, the $d_{model}$ scaling) and which are ordinary practice carried over.

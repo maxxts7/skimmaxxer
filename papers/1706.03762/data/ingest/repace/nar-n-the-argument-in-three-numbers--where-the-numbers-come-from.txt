@@ -1,0 +1,65 @@
+NARRATIVE NODE: n-the-argument-in-three-numbers--where-the-numbers-come-from
+TITLE: Where the numbers in the table come from
+
+INTRO:
+The parent gave you the three numbers. This level does the arithmetic behind them: what each count actually multiplies, what the $O(\cdot)$ throws away, and why the second column is a count of waiting rather than of work. It ends on everything the table has no column for.
+
+--- CHAPTER id=counting-attention ---
+TITLE: Counting one self-attention layer
+
+Write the layer's input as a matrix $X$ with $n$ rows of width $d$. [[queries-keys-values|Queries, keys and values]] are then all $n \times d$, and [[eq-attention|the attention equation]] contains exactly two matrix multiplies.
+
+$QK^{T}$ is $(n \times d)(d \times n)$: $n^2$ output entries, each a length-$d$ dot product, so $n^2 d$ multiply-adds. The [[softmax]] then runs over those $n^2$ entries at constant work each — $O(n^2)$, dominated by the term before it and dropped. Weighting the values is $(n \times n)(n \times d)$, which is $n^2 d$ again. Total $2n^2d$, reported as $O(n^2 \cdot d)$.
+
+[[multi-head-attention|Running eight heads]] does not change the entry. Each head works at [[dk-dv-dimensions|$d_k = d_v = d/h$]], so its two multiplies cost $n^2 d/h$ apiece and $h$ of them add back to $n^2 d$. The row prices single-head and multi-head attention identically — the same accounting the paper uses when it says $h$ narrow heads cost about what one full-width head costs.
+
+What the row does not carry is the projections. Producing $Q$, $K$ and $V$ from $X$ means three $(n \times d)(d \times d)$ multiplies through [[attention-projection-matrices|the learned matrices]], $O(n \cdot d^2)$ each, with $W^O$ a fourth on the way out. Written in full, one [[self-attention]] layer is $O(n^2 d + n d^2)$. [[table-1]] reports the first term only. The [[complexity-per-layer|complexity column]] is pricing the attention operation, not everything a layer does.
+
+--- CHAPTER id=counting-recurrence ---
+TITLE: Counting one recurrent layer
+
+The recurrent row prices a different shape of computation. Take the layer in its plainest form, $h_t = f(W h_{t-1} + U x_t)$, with $h_t$ and $x_t$ of width $d$ and both $W$ and $U$ of size $d \times d$. One step is two matrix-vector products, $2d^2$ multiply-adds, plus $O(d)$ of elementwise work for $f$. There are $n$ steps. That is $O(n \cdot d^2)$.
+
+Two things about that count. Nothing in it is quadratic in $n$, because a [[recurrent-neural-network|recurrent layer]] never forms an object indexed by two positions at once — position $t$ sees position $t-1$ and nothing else. And $d$ appears squared because each step pushes a full-width state through a full-width matrix, once per position.
+
+The variants people actually use sit inside the constant. An [[lstm]] computes four gate blocks per step, a [[gated-recurrent-unit|GRU]] three, each with its own pair of $d \times d$ matrices; a bidirectional layer doubles it again. All of that is a factor in front of $n d^2$, and $O(\cdot)$ drops it. The same goes for the efficiency work the paper cites and then sets aside: [[factorization-tricks]] and [[conditional-computation]] cut that constant, and the paper's line is that the [[sequential-computation-bottleneck|fundamental constraint]] survives them.
+
+So the two rows are not one cost larger than another. They are two different products of the same two numbers: $n \cdot n \cdot d$ against $n \cdot d \cdot d$. [[complexity-per-layer|The complexity column]] on its own cannot say which layer is cheaper without knowing which of $n$ and $d$ is bigger, and [[table-1]] does not say.
+
+--- CHAPTER id=what-must-wait ---
+TITLE: The column that counts waiting, not work
+
+The second column measures the shape of the computation rather than its size. [[minimum-sequential-operations|Minimum sequential operations]] counts the longest chain of steps that must happen in order, as a function of $n$. Two layers with identical arithmetic can differ here, which is why [[layer-comparison-desiderata|the framework]] carries it as a separate criterion.
+
+Trace the chain for [[self-attention]]. Project the layer input into $Q$, $K$ and $V$; multiply $Q$ by $K^{T}$; [[softmax]]; multiply by $V$; project out. Five steps, and none of their lengths depends on $n$. The chain does not grow because a query at position $i$ is computed from the layer's input at position $i$, never from another position's output — so all $n$ rows are ready for the first multiply at the same moment.
+
+For a recurrent layer the chain is the layer's definition: $h_t$ cannot be formed until $h_{t-1}$ exists, so it is $n$ long. This is the introduction's complaint about recurrence rewritten as a column of [[table-1]] — that positions inside one training example cannot be computed in parallel.
+
+Two things to hold onto when reading it. It counts operations in the abstract, with no claim about time on hardware: an $O(1)$ chain of large matrix multiplies can take longer than an $O(n)$ chain of small ones. And it prices one layer — [[n-layers|six]] stacked layers make the chain six times longer, a constant that does not move with $n$.
+
+The decoder is not an exception. Its restriction is applied by [[causal-masking|writing $-\infty$ into forbidden score positions]] inside the same matrix, so [[masked-decoder-self-attention|masked self-attention]] still passes all $n$ positions through together during training.
+
+--- CHAPTER id=path-in-hops ---
+TITLE: Path length is counted in hops through a stack
+
+The third column's wording matters: the maximum path length between any two input and output positions, in networks composed of the given layer type. Two readings hide in that phrase.
+
+*Maximum* means the worst pair, not the average one. For a sequence of length $n$ the worst pair is the two ends, so the column is asking how far apart the ends are. *Networks composed of* means you count across as many layers as it takes to connect that pair, not within one layer — the number is a property of a stack, not of a single layer. That distinction does no work in the two rows here, and a great deal of work in the rows below them.
+
+For [[self-attention]] the answer is 1 and stays 1 at any $n$: one [[encoder-self-attention|encoder self-attention]] layer already puts every position into every other position's key set, so the ends are adjacent. In a [[recurrent-neural-network|recurrent layer]] the only route from position 1 to position $n$ runs through the $n-1$ states between them, so the count is $n$ and grows with the sentence.
+
+The column is about learning, not speed. The paper counts the paths forward *and* backward signals traverse — the same edges a gradient travels — and its stated reason for caring is that shorter paths make [[long-range-dependencies]] easier to learn. That reason arrives by citation. Section 4 runs no experiment isolating path length from the other two criteria, so [[maximum-path-length|the column]] states the paper's most direct case against recurrence while borrowing the premise that makes it matter. [[etheme-case-against-recurrence]] follows that argument end to end.
+
+--- CHAPTER id=never-priced ---
+TITLE: What the three columns never price
+
+Three columns, three asymptotics, and nothing else. Start with the constants every row has swallowed: the gate blocks inside an [[lstm]], the $h$ projection matrices behind [[multi-head-attention|multi-head attention]], the six layers of the stack. The larger omission is structural. [[table-1]] prices one layer of each type, but a Transformer layer is not one row of it — every attention [[sub-layer]] is followed by a [[position-wise-feed-forward-network]], and with [[d-ff|$d_{ff} = 2048$]] against $d_{model} = 512$ that sub-layer costs $O(n \cdot d^2)$, the same shape as the entire recurrent row. It appears nowhere in the table.
+
+Memory gets no column. The first column counts the $n \times n$ score matrix as arithmetic; the layer also has to hold it, and hold it again for the backward pass, which is quadratic in $n$ where a recurrent layer's stored activations are linear.
+
+Wall-clock gets none either, and the paper's own practical-speed argument lives outside this table. When it picks [[dot-product-attention|dot-product]] over [[additive-attention|additive attention]] it says the two are similar in theoretical complexity and that the dot product wins in practice because it compiles to optimized matrix-multiply code. An $O(\cdot)$ entry cannot see that.
+
+Nor is there a column for what the one-hop path costs. [[attention-averaging-resolution-cost|Blending positions into a single weighted average]] loses resolution, and multiple heads are the stated repair — a design decision forced by something the [[complexity-per-layer|columns]] do not price.
+
+No cell here is a measurement. Section 4 argues about how three quantities scale and offers that as motivation; the experiments arrive later and test something else. [[theme-why-self-attention]] holds the comparison in full.
+

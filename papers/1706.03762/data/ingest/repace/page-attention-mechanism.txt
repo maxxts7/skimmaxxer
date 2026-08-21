@@ -1,0 +1,17 @@
+PAGE FOR: attention-mechanism (concept)
+
+Attention is a soft lookup: a query is compared against a set of keys, and the result is a weighted average of the values attached to those keys. It is on this page first because it is the only operation in the Transformer that moves information between positions — remove it and every token is processed in isolation by its own feed-forward network ([[fig-1]]).
+
+### The operation
+
+Pack the queries into a matrix $Q$ of shape $n \times d_k$, the keys into $K$ ($m \times d_k$), the values into $V$ ($m \times d_v$). Then $QK^\top$ is an $n \times m$ score matrix — every query scored against every key. Divide by $\sqrt{d_k}$, [[softmax]] each row, multiply by $V$. The output is $n \times d_v$; row $i$ is query $i$'s blend of the values. That single line is [[eq-attention]], and [[fig-2]] draws it box by box. Note what is *not* in it: no learned parameters. All the learning sits in the linear maps that produce $Q$, $K$ and $V$ ([[attention-projection-matrices]]), which is why the same function serves three different jobs — [[encoder-self-attention]], [[masked-decoder-self-attention]], and [[encoder-decoder-attention]] — by changing only where the three inputs come from ([[queries-keys-values]]).
+
+### The three choices, and their costs
+
+The [[compatibility-function|compatibility function]] is a plain dot product rather than [[additive-attention|a small feed-forward net]]. The paper's argument is speed, not accuracy: comparable theoretical complexity, but a dot product is a matrix multiply with heavily optimised kernels behind it.
+
+The $\sqrt{d_k}$ is the only difference from ordinary [[dot-product-attention]], and the paper hedges on why it helps — it *suspects* large $d_k$ makes dot products large, pushing softmax into flat-gradient regions, backed by a footnote variance argument rather than an experiment ([[sqrt-dk-scaling]]).
+
+Averaging is the real cost. Section 2 states it plainly: a constant-length path between positions comes "at the cost of reduced effective resolution due to averaging attention-weighted positions." [[multi-head-attention]] with $h=8$ and $d_k = d_v = d_{model}/h = 64$ is the stated counter, keeping total compute roughly constant ([[attention-averaging-resolution-cost]]).
+
+The evidence is uneven. [[table-3]] row A holds compute fixed and finds single-head 0.9 BLEU worse than the best setting, with quality also falling when heads get too numerous — direct support, though on one dev set. Row B shows shrinking $d_k$ hurts, which the authors read as a hint that the dot product may be too crude a scorer — an argument against their own choice. [[fig-3]] and [[fig-5]] are single hand-picked sentences; the paper says heads "seem" to track structure and measures nothing ([[attention-interpretability]]).

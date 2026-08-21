@@ -1,0 +1,34 @@
+PAGE FOR CONCEPT: model-specification
+NAME: Model Specification
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+The exact architecture trained: a 12-layer decoder-only transformer with 768-dimensional states, 12 attention heads and 3072-dimensional inner feed-forward states.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+This is the concrete configuration behind every number in the results. The paper says it largely follows the original transformer work, then lists where it fixes the free parameters.
+
+The stack is 12 layers deep. Each layer carries a 768-dimensional hidden state per position, splits attention into 12 heads, and expands to 3072 dimensions inside its position-wise feed-forward sublayer.
+
+Two choices depart from the original. The stack is decoder-only with masked self-attention rather than an encoder-decoder pair, and positions are represented by learned embeddings rather than fixed sinusoids.
+
+Layer normalization is used extensively throughout the model, and the paper reports that a simple $\mathcal{N}(0, 0.02)$ weight initialization was sufficient because of it.
+
+Everything downstream — the fine-tuning results, the layer-transfer curve, the ablations — is this one model, so the spec is the fixed point the experiments vary around.
+
+THEME IT BELONGS TO: theme-stage-one-next-token-prediction | Stage One: Predicting the Next Token - Stage one trains on a single loss: the log-probability the model assigns each token given a window of preceding tokens, summed over the corpus. The window here is 512 contiguous tokens, which is what lets a prediction condition on material several sentences back. The network is a stack of transformer blocks used as a decoder alone, with self-attention masked so each position sees only itself and its past, learned position vectors rather than fixed sinusoids, and an output layer that reuses the token embedding matrix transposed. This chapter also fixes the exact sizes trained, and closes with the claim the paper makes about what such training leaves behind.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - twelve-layer-depth | 12 Layers: The stack is twelve decoder blocks deep, and the analysis section treats that depth as a dial the transfer experiments turn.
+  - hidden-state-dimension-768 | 768-Dimensional States: Each token is represented by a 768-dimensional vector at every layer of the stack.
+  - twelve-attention-heads | 12 Attention Heads: Each layer's self-attention is split into twelve parallel heads, each attending in a 64-dimensional subspace.
+  - position-wise-feedforward-3072 | 3072-Dimensional Inner Feed-Forward States: The feed-forward sublayer in each block expands from 768 to 3072 dimensions and projects back down.
+  - gelu | Gaussian Error Linear Unit (GELU): The activation function used in place of ReLU. It gates each input by the probability that a standard normal draw falls below it.
+  - layer-normalization-gpt1 | Layer Normalization: Per-position normalization of activations to zero mean and unit variance, with learned gain and bias. Used throughout the stack.
+  - weight-initialization | $\mathcal{N}(0, 0.02)$ Weight Initialization: All weights are drawn from a normal distribution with standard deviation 0.02, which the paper says was sufficient because layernorm is used throughout.
+
+PREREQUISITES:
+  - multi-layer-transformer-decoder | Multi-Layer Transformer Decoder: The language model is a stack of transformer blocks used as a decoder only: masked multi-head self-attention over the context, then position-wise feedforward layers.
+  - decoder-only-stack | Decoder-Only Stack: The model drops the encoder half of the original encoder-decoder transformer and keeps one stack that attends only to its own past tokens.
+
+PAPER SECTIONS TO READ (in papers/gpt-1/data/ingest/sections/):
+  - 09-4.1-setup.txt

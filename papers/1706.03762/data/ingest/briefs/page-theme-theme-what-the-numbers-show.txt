@@ -1,0 +1,47 @@
+PAGE FOR THEME: theme-what-the-numbers-show
+NAME: What the numbers show
+
+THEME SUMMARY (shown above your page as the lede - do not repeat verbatim):
+How outputs are produced at test time and what they score. Decoding uses beam search with a length penalty; quality is reported as BLEU, with perplexity and an estimated training FLOP count alongside it so quality can be read against cost. The ablations change one design choice at a time to see which parts matter, and a constituency-parsing experiment tests whether the architecture carries to a different task. This comes last because it is the evidence for the claims made earlier.
+
+PREVIOUS THEME: theme-training-the-thing | Training the thing
+
+MEMBER CONCEPTS (6) - each has its own page or expandable section; your job is the connective tissue between them, not to restate each one:
+  - beam-search | Beam search [major]: A decoding procedure that keeps the k best partial output sequences at each step instead of committing to a single best token; the paper uses beam size 4.
+      · length-penalty | Length penalty (alpha = 0.6): A normalization applied to beam-search scores so that longer output sequences are not unfairly penalized; the 
+      · inference-length-limit | Maximum output length rule: During inference the output is capped at input length + 50 tokens, with early termination when possible.
+  - bleu | BLEU score [major]: The standard automatic metric for translation quality: n-gram overlap precision against reference translations with a penalty for overly short outputs. Higher is better.
+  - perplexity | Perplexity [minor]: A measure of how well a model predicts the true next tokens: the exponentiated average negative log-probability. Lower is better.
+  - training-flops-estimate | Training-cost FLOPs estimate [minor]: The paper estimates each model's training cost as training time x number of GPUs x an assumed sustained single-precision throughput per GPU.
+  - transformer-ablations | Model variation ablations (Table 3) [major]: Experiments that change one component of the base model at a time and measure the effect on English-to-German translation, to see which parts matter.
+      · attention-heads-ablation | Number of heads sweet spot: Varying the head count with total computation held constant shows single-head attention is 0.9 BLEU worse than
+      · key-size-ablation | Reducing d_k hurts quality: Shrinking the attention key dimension d_k lowers translation quality, suggesting the dot product may be too si
+      · size-and-dropout-ablation | Model size and dropout effects: Bigger models translate better, and dropout is very helpful in preventing over-fitting.
+  - constituency-parsing | English constituency parsing [major]: The task of producing a sentence's syntactic tree — nested phrases like noun phrases and verb phrases — used as a generalization test for the Transformer beyond translation.
+      · penn-treebank-wsj | Penn Treebank (WSJ portion): The standard constituency-parsing dataset: about 40K hand-parsed sentences from the Wall Street Journal.
+      · semi-supervised-parsing | Semi-supervised parsing setting: A second training regime that adds about 17M automatically parsed sentences from the high-confidence and Berke
+      · recurrent-neural-network-grammar | Recurrent Neural Network Grammar (RNNG): A parsing model that builds trees with explicit tree-structured operations; the one prior model the Transforme
+      · berkeley-parser | BerkeleyParser: A classical (non-neural) grammar-based parser used as a baseline; the Transformer beats it even with only 40K 
+
+EDGES BETWEEN MEMBERS OF THIS THEME:
+  [supporting] perplexity --contrasts-with--> bleu | metrics that disagree here: Label smoothing is the case where the two measures point in opposite directions, which is a reason the paper reports translation quality in BLEU rather than in likelihood. A better-calibrated probability model is not automatically a better translator.
+  [supporting] training-flops-estimate --contrasts-with--> bleu | the two axes of Table 2: Table 2 plots quality against training cost, estimated as training time times GPU count times an assumed sustained throughput per GPU. The claim the paper wants is winning on both axes at once: 41.0 BLEU on English-to-French at less than a quarter of the previous state of the art's training cost.
+
+LOAD-BEARING EDGES LEAVING THIS THEME (use these to point forward/back):
+  constituency-parsing --depends-on--> parse-tree-linearization | trees must become token sequences
+  constituency-parsing --supported-by--> table-4 | reports the WSJ Section 23 F1
+  label-smoothing --contrasts-with--> bleu | same change helps BLEU
+
+EVIDENCE ITEMS RELATED TO THIS THEME (link as [[item-id]]):
+  - table-2 | Translation quality against training cost: On the WMT 2014 newstest2014 benchmarks, the big Transformer reports the best English-to-German BLEU in the table (28.4, more than 2.0 BLEU above every earlier model listed, ensembles included) and a competitive English-to-French score, while its estimated training cost is at least a few times lower than any competitive baseline. The base Transformer, at roughly 3.3e18 FLOPs, already scores above every prior row on English-to-German.
+  - table-3 | One-knob-at-a-time ablations: Table 3 changes one design choice of the base Transformer at a time and reports the effect on English-to-German development-set quality. It shows a middling head count (around 8-16) is best, shrinking the attention key dimension $d_k$ hurts, bigger models are better, dropout matters a lot, and learned positional embeddings match sinusoids almost exactly.
+  - table-4 | The parsing leaderboard: Trained on the ~40K-sentence WSJ treebank with almost no task-specific tuning, a 4-layer Transformer reaches 91.3 F1 on WSJ Section 23 — above every listed discriminative parser except Dyer et al.'s RNN Grammar (91.7) — and 92.7 F1 when the extra ~17M auto-parsed sentences are added, the best semi-supervised number in the table. It also beats the RNN sequence-to-sequence parser (Vinyals & Kaiser et al.) whose experimental setup it borrows, in both regimes.
+  - eq-posenc | Position as a bank of sinusoids: A model with no recurrence and no convolution has no idea what order its tokens are in, so the paper adds a fixed vector to each input embedding whose entries are sines and cosines of the position at geometrically spaced wavelengths. The paper says it picked this over learned position vectors because relative offsets become linear functions of the encoding, and because it may extrapolate to sequences longer than those seen in training.
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 18-5.4-regularization.txt
+  - 20-6.1-machine-translation.txt
+  - 21-6.2-model-variations.txt
+  - 22-6.3-english-constituency-parsing.txt
+  - 23-7-conclusion.txt
+  - 01-abstract-abstract.txt

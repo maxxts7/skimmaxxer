@@ -1,0 +1,53 @@
+NARRATIVE NODE: n-what-this-establishes
+TITLE: What this establishes, and what it does not
+
+INTRO:
+The verdict is already in: the architecture claim holds, the evidence under it is thin in specific places. This level does the accounting number by number — what the headline comparison actually controls for, how much weight each ablation row can carry, where the cost axis comes from, and which of the paper's own mechanisms it labels as guesses.
+
+--- CHAPTER id=what-the-comparison-controls ---
+TITLE: What the comparison controls for
+
+The headline configuration is specific. The big [[transformer|Transformer]] is 300,000 steps at about 1.0 seconds per step on [[training-hardware-and-schedule|eight P100 GPUs in one machine]] — 3.5 days. The [[base-vs-big-transformer|base model]] is 100,000 steps, 12 hours, same machine, and it already sits above every earlier row on English-German. Those two rows are the only ones in [[table-2]] produced by one group under one procedure.
+
+Every other row came from a different lab, with its own preprocessing, vocabulary, tuning budget, hardware and year. Two of them are [[model-ensembling|ensembles]] sharing the same [[bleu|BLEU]] column as single models, separated by a horizontal rule and nothing else. [[convs2s|ConvS2S]] and GNMT+RL were tuned by people optimizing their own architectures, not calibrated against this one. That is the normal standard for reporting on [[wmt-2014-en-de|WMT 2014]] — the test set is fixed, so the numbers are comparable in the sense a leaderboard needs — but it is not a controlled experiment on architecture. Nowhere in the paper is the Transformer's attention swapped for recurrence with everything else held fixed.
+
+So the supported statement is narrower than "attention beats recurrence": on newstest2014, with each system run under its own authors' best reported setup, this architecture posts the highest published number, and the cost its authors spent is below the costs the other groups reported. On [[wmt-2014-en-de|English-German]] the margin is over 2.0 BLEU, large enough that pipeline differences are an unlikely full explanation. On [[wmt-2014-en-fr|English-French]] the margin is under a point, and there the caveat bites much harder.
+
+--- CHAPTER id=one-run-per-row ---
+TITLE: One run per row
+
+Everything in [[table-3]] is measured on newstest2013, the English-German development set, without [[checkpoint-averaging]] — so none of these figures line up with the test numbers in Table 2. The base row sits at 25.8 BLEU and 4.92 [[perplexity|per-wordpiece perplexity]]. Every other row is one training run of one variant.
+
+Rows (A) are the fairest comparison in the paper. [[num-heads-h|$h$]] varies while [[dk-dv-dimensions|$d_k = d_v = d_{model}/h$]], so total attention compute stays roughly constant and only the partition changes. [[attention-heads-ablation|One head scores 24.9, eight scores 25.8, thirty-two falls back to 25.4]]. The entire case for a middling head count is a 0.9-point gap and a 0.4-point gap, each between two single runs on a dev set, with no repeat and no interval. Take the shape — too few is worse, too many is worse — not the location of the peak.
+
+Row (E) is the same problem at smaller scale. [[learned-positional-embedding|Learned position embeddings]] give 25.7 against the [[sinusoidal-positional-encoding|sinusoids']] 25.8 at the same perplexity. "Nearly identical" is the paper's phrase and it is the honest one; nothing in the row separates the two schemes.
+
+Two results survive the thinness because their effects are larger than any plausible run-to-run wobble. Removing [[dropout]] costs 1.2 BLEU ([[size-and-dropout-ablation]]). And [[key-size-ablation|shrinking $d_k$ on its own hurts]] — the one measurement in the paper that argues against its own design, since it hints the [[compatibility-function|dot-product compatibility function]] may be too simple.
+
+--- CHAPTER id=the-cost-axis ---
+TITLE: The cost axis, and the number that moves
+
+[[training-flops-estimate|The cost column]] is arithmetic, not instrumentation: training time times GPU count times an assumed sustained single-precision rate, with footnote 5 fixing those rates at 2.8, 3.7, 6.0 and 9.5 TFLOPS for K80, K40, M40 and P100. For [[base-vs-big-transformer|the base model]] that is $8 \times 43{,}200 \times 9.5 \times 10^{12} \approx 3.3 \times 10^{18}$; 3.5 days gives roughly $2.3 \times 10^{19}$ for the big one.
+
+Nothing was profiled. The rate is nominal capacity, applied at full value to every system in [[table-2]], including models trained years earlier on other clusters. If sustained utilization differs between a model that is mostly large batched matmuls and one that is mostly small sequential ones — and there is no reason to assume it does not — the estimate is biased in a direction the paper cannot report. What needs no assumption is the wall-clock statement underneath: [[training-hardware-and-schedule|12 hours and 3.5 days on eight GPUs]], against baselines whose own papers report training in GPU-days.
+
+Then the English-French number. The abstract says 41.8 [[bleu|BLEU]]; Section 6.1 says 41.0 for the same model; neither is reconciled. The gap decides exactly one comparison. The best earlier [[wmt-2014-en-fr|English-French]] entry listed is a [[convs2s|ConvS2S]] [[model-ensembling|ensemble]] at 41.29. At 41.8 the big model clears it. At 41.0 it does not — which is why Section 6.1's own sentence claims only to beat previously published *single* models. That run also used dropout 0.1 instead of 0.3, a per-task adjustment no ablation covers.
+
+--- CHAPTER id=how-much-parsing-buys ---
+TITLE: How much the parsing result buys
+
+The [[constituency-parsing|parsing]] run is the only evidence that any of this is not translation-specific, so it is worth being exact about what it beats. [[table-4]] reports F1 on [[penn-treebank-wsj|WSJ Section 23]] in two regimes. Trained on the roughly 40K-sentence treebank alone, the 4-layer Transformer reaches 91.3 — above [[berkeley-parser|the BerkeleyParser]] at 90.4, below [[recurrent-neural-network-grammar|Dyer et al.'s RNN Grammar]] at 91.7, an exception the paper names itself. In the [[semi-supervised-parsing|semi-supervised]] regime it reaches 92.7, the top number in the table.
+
+Two things qualify that second figure. The extra ~17M sentences are [[semi-supervised-parsing-corpora|not hand-annotated]] — they are existing parsers' output over news text, so the regime partly measures how well the model absorbs another parser's decisions. And the comparison the paper leans on is against the [[recurrent-neural-network|RNN]] sequence-to-sequence parser whose [[wsj-parsing-protocol|protocol it borrowed]] wholesale: same splits, same [[parse-tree-linearization|linearization]], same evaluation. It wins by 3.0 F1 with the small data and 0.6 with the large. That is a clean like-for-like against one baseline, inside a setup another group designed for a recurrent model.
+
+The claim it supports is narrow and real: with only dropout, learning rate and beam size touched on the Section 22 dev set, and every other hyperparameter carried over from the English-German base model, the architecture transfers to a task whose output is longer than its input and must satisfy hard structural constraints. It does not test another modality, another language, or anything longer than a sentence.
+
+--- CHAPTER id=marked-as-guesses ---
+TITLE: The parts the paper marks as guesses
+
+Read the verbs and a short list of mechanisms turns out to be unmeasured. On the [[sqrt-dk-scaling|$1/\sqrt{d_k}$ divisor]]: "we suspect" large dot products push the softmax into a flat region. On [[eq-posenc|the sinusoid bank]]: "we hypothesized" that a fixed offset would be a linear function of the encoding ([[relative-position-linearity]]), and the reason given for keeping [[sinusoidal-positional-encoding|sinusoids]] after row (E) came out level is that they "may allow" extrapolation past training lengths — a property nobody tested by feeding the model a longer sequence. The head-behaviour material carries "appear to exhibit" and "seems related": [[fig-3]], [[fig-4]] and [[fig-5]] are three hand-picked sentences with no quantity attached, and [[attention-interpretability]] is offered as a side benefit rather than a finding.
+
+[[restricted-self-attention|Restricted attention]] gets its $O(n/r)$ path length written down and is then left as future work. That one matters, because it is the paper's only answer to the $O(n^2 \cdot d)$ per-layer cost once $n$ stops being smaller than $d$.
+
+And one constraint is not removed at all. [[sequential-computation-bottleneck|The bottleneck the paper attacks]] is a training-time one. Generation is untouched: [[auto-regressive-generation|the decoder still emits one token at a time]] across $n$ steps, and the conclusion lists making generation less sequential as a goal, not a result. The offset is that the code ships as part of [[tensor2tensor]] — so every number above is checkable by anyone with eight GPUs, even where the paper itself reports no variance.
+

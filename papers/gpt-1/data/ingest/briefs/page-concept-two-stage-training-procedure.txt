@@ -1,0 +1,104 @@
+PAGE FOR CONCEPT: two-stage-training-procedure
+NAME: Two-Stage Training Procedure
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+The paper's recipe: learn the network's initial parameters with a language modelling objective on unlabelled text, then adapt those same parameters to each target task with its supervised objective.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Stage one trains a high-capacity language model on a large corpus of plain text. No labels are involved, and the product the paper cares about is a set of weights rather than any prediction.
+
+Stage two takes those weights as the starting point and continues training on a labelled dataset using that task's loss.
+
+Both stages train the same model. The second begins from the first's parameters rather than from scratch, which is what makes this transfer rather than feature extraction.
+
+The architecture stays essentially fixed across the two stages and across target tasks. That is what lets one pre-trained model serve twelve evaluations with only a small per-task addition.
+
+The paper states the goal as learning a universal representation that transfers with little adaptation, and adds an assumption that keeps the recipe cheap: the target tasks need not come from the same domain as the unlabelled corpus.
+
+THEME IT BELONGS TO: theme-one-model-two-stages | One Model, Two Stages - The recipe in outline: train a network to predict next tokens on a large unlabelled corpus, then take those same weights as the starting point for supervised training on a target task. Nothing is frozen and no task-specific network is built on top, so the same architecture is what gets fine-tuned every time. The paper also states that the unlabelled corpus need not come from the target task's domain. This chapter is the hinge between the problem and the machinery, and the two stages that follow are its halves.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - transfer-learning | Transfer Learning Here: Reusing parameters learned on one task as the starting point for another. Here the pre-trained language model's weights initialize every target task.
+  - domain-mismatch-tolerance | No Domain Match Required: The stated assumption that the unlabelled pre-training corpus need not come from the same domain as the target tasks.
+  - generative-pretraining | Generative Pre-Training (Stage One): Train a multi-layer transformer decoder to predict each next token on a large unlabelled corpus, and keep the weights rather than the outputs.
+    - language-modeling-objective | Language Modelling Objective $L_1$: The pre-training loss $L_1(U)=\sum_i \log P(u_i \mid u_{i-k},\dots,u_{i-1};\Theta)$: maximize the log-probability the model gives each token given the tokens before it.
+      - maximum-likelihood-training | Maximum-Likelihood Training: Fitting parameters by maximizing the log-probability the model assigns to the observed data. Assumed known.
+      - context-window-512-tokens | 512-Token Context Window: The window $k$ of preceding tokens a prediction may condition on, fixed at 512 contiguous tokens in the trained model.
+    - world-knowledge | World Knowledge from Pre-Training: The conclusion's claim that predicting text over a large corpus leaves the model with facts and expectations about the world.
+    - multi-layer-transformer-decoder | Multi-Layer Transformer Decoder: The language model is a stack of transformer blocks used as a decoder only: masked multi-head self-attention over the context, then position-wise feedforward layers.
+      - decoder-only-stack | Decoder-Only Stack: The model drops the encoder half of the original encoder-decoder transformer and keeps one stack that attends only to its own past tokens.
+      - masked-self-attention | Masked Self-Attention: Self-attention restricted so each position attends only to itself and earlier positions, never to later ones.
+      - input-representation-h0 | Input Representation $h_0$: The layer-zero input is the token embeddings of the context plus the position embeddings: $h_0 = UW_e + W_p$.
+      - token-embedding-matrix | Token Embedding Matrix $W_e$: $W_e$ maps each vocabulary token to a dense vector, and its transpose is reused at the output to score candidate next tokens.
+      - learned-position-embeddings | Learned Position Embeddings: Position information comes from a trained matrix $W_p$, one vector per slot, rather than from the fixed sinusoids of the original transformer.
+      - output-softmax-tied-embeddings | Output Distribution $P(u) = \mathrm{softmax}(h_n W_e^T)$: The top block's states are multiplied by the transpose of the token embedding matrix and softmaxed to give a distribution over the vocabulary.
+      - model-specification | Model Specification: The exact architecture trained: a 12-layer decoder-only transformer with 768-dimensional states, 12 attention heads and 3072-dimensional inner feed-forward states.
+        - twelve-layer-depth | 12 Layers: The stack is twelve decoder blocks deep, and the analysis section treats that depth as a dial the transfer experiments turn.
+        - hidden-state-dimension-768 | 768-Dimensional States: Each token is represented by a 768-dimensional vector at every layer of the stack.
+        - twelve-attention-heads | 12 Attention Heads: Each layer's self-attention is split into twelve parallel heads, each attending in a 64-dimensional subspace.
+        - position-wise-feedforward-3072 | 3072-Dimensional Inner Feed-Forward States: The feed-forward sublayer in each block expands from 768 to 3072 dimensions and projects back down.
+        - gelu | Gaussian Error Linear Unit (GELU): The activation function used in place of ReLU. It gates each input by the probability that a standard normal draw falls below it.
+        - layer-normalization-gpt1 | Layer Normalization: Per-position normalization of activations to zero mean and unit variance, with learned gain and bias. Used throughout the stack.
+        - weight-initialization | $\mathcal{N}(0, 0.02)$ Weight Initialization: All weights are drawn from a normal distribution with standard deviation 0.02, which the paper says was sufficient because layernorm is used throughout.
+    - bookscorpus | BooksCorpus: The pre-training corpus: over 7,000 unpublished books across genres. Its selling point in this paper is long stretches of contiguous text.
+      - long-range-contiguous-text | Long-Range Contiguous Text: Text kept in its original order across sentences and paragraphs, so a context window can span far more than one sentence.
+      - one-billion-word-benchmark | 1B Word Benchmark: An alternative pre-training corpus of roughly the same size as BooksCorpus, but shuffled at the sentence level. The paper names it as the corpus ELMo uses.
+      - token-level-perplexity | Token-Level Perplexity of 18.4: The paper reports its language model reaching a token-level perplexity of 18.4 on BooksCorpus, offered as evidence pre-training fit the corpus.
+      - text-preprocessing-pipeline | Text Preprocessing Pipeline: Raw BooksCorpus text is cleaned with ftfy, tokenized with spaCy, then converted to subword units by byte-pair encoding with 40,000 merges.
+        - ftfy | ftfy: A library used to clean the raw BooksCorpus text and standardize some punctuation and whitespace.
+        - spacy-tokenizer | spaCy Tokenizer: The word-level tokenizer applied to the cleaned text before byte-pair encoding.
+        - byte-pair-encoding-gpt1 | Byte-Pair Encoding (BPE): A subword vocabulary built by repeatedly merging the most frequent adjacent symbol pair, so common words stay whole and rare words split into pieces.
+          - bpe-merges-40000 | 40,000 Merges: The number of merge operations used to build the vocabulary, the single knob controlling how coarse the subword units are.
+    - pre-training-optimization | Pre-Training Optimization Setup: How the language model was actually trained: Adam, a warmup-then-cosine schedule peaking at 2.5e-4, and 100 epochs of 64-sequence minibatches.
+      - adam-optimizer-gpt1 | Adam Optimizer: The adaptive gradient method used for pre-training, with a maximum learning rate of 2.5e-4.
+      - linear-warmup | Linear Warmup Over 2000 Updates: The learning rate is raised linearly from zero to 2.5e-4 across the first 2000 updates instead of starting at full size.
+      - cosine-annealing | Cosine Learning Rate Annealing: After warmup, the learning rate follows a cosine curve from 2.5e-4 down to zero over the remainder of training.
+      - pretraining-schedule | 100 Epochs of 64-Sequence Minibatches: Pre-training makes 100 passes over BooksCorpus with minibatches of 64 randomly sampled contiguous sequences.
+      - regularization-setup | Regularization Setup: Three regularizers during pre-training: dropout at 0.1 in three places, a modified L2 weight decay at $w = 0.01$, and no decay on biases or gains.
+        - dropout-gpt1 | Dropout: Randomly zeroing activations during training to discourage co-adaptation. Assumed known.
+        - residual-embedding-attention-dropout | Residual, Embedding and Attention Dropout at 0.1: Dropout with rate 0.1 applied at three points: residual branches, the embedding layer, and attention.
+        - decoupled-weight-decay | Modified L2 Regularization (Decoupled Weight Decay): A variant of L2 regularization designed for Adam, applied with $w = 0.01$ to all non-bias and non-gain weights.
+  - supervised-fine-tuning | Supervised Fine-Tuning (Stage Two): Run labelled inputs through the pre-trained model, take the final block's activation at the last token, and train a linear layer on it to predict the label.
+    - labeled-dataset-c | Labelled Dataset $C$: $C$ denotes a target task's labelled data: input token sequences each paired with one label.
+    - final-token-activation | Final Block Activation $h_l^m$: The representation fed to the classifier is the final transformer block's output at the last input token.
+    - linear-output-layer-wy | Added Linear Output Layer $W_y$: The one parameter matrix added on top of the pre-trained model, mapping the final activation to label scores.
+    - supervised-objective-l2 | Supervised Objective $L_2$: $L_2(C) = \sum_{(x,y)} \log P(y \mid x_1,\dots,x_m)$: the summed log-probability of the correct labels over the labelled data.
+    - auxiliary-lm-objective | Auxiliary Language Modelling Objective: During fine-tuning the paper keeps optimizing the language modelling loss alongside the task loss: $L_3(C) = L_2(C) + \lambda\, L_1(C)$.
+      - auxiliary-objective-weight | Auxiliary Objective Weight $\lambda = 0.5$: $\lambda$ scales the auxiliary language modelling term against the classification term. The paper sets it to 0.5.
+    - minimal-extra-parameters | Minimal Extra Fine-Tuning Parameters: Adapting to a new task adds only the linear layer $W_y$ and embeddings for the delimiter tokens.
+    - fine-tuning-hyperparameters | Fine-Tuning Hyperparameters: Fine-tuning reuses the pre-training settings except for a learning rate of 6.25e-5, batch size 32, three epochs, classifier dropout 0.1, and a short warmup.
+      - classifier-dropout | Classifier Dropout: An extra dropout at rate 0.1 applied to the task-specific classifier head added during fine-tuning.
+      - fine-tuning-lr-and-batch | Learning Rate 6.25e-5, Batch Size 32: The optimization settings used for most fine-tuning runs, notably a learning rate about four times smaller than pre-training's peak.
+      - three-epochs-fine-tuning | Three Epochs of Fine-Tuning: The paper reports that three passes over a task's training set were enough for most datasets.
+      - fine-tuning-lr-schedule | Linear Decay with 0.2% Warmup: During fine-tuning the learning rate warms up over the first 0.2% of updates, then decays linearly to zero.
+  - task-specific-input-transformations | Task-Specific Input Transformations: Structured task inputs are rewritten as one ordered token sequence, so the pre-trained model can read them without architectural change.
+    - structured-inputs | Structured Inputs: Task inputs made of several distinct parts — ordered sentence pairs, or document/question/answer triplets — rather than one run of text.
+    - traversal-style-approach | Traversal-Style Approach: The strategy of walking the parts of a structured input into one ordered sequence, instead of building an architecture that mirrors the structure.
+    - start-and-end-tokens | Start and End Tokens $\langle s\rangle$, $\langle e\rangle$: Every transformed input is bracketed by a randomly initialized start token and end token.
+    - delimiter-token | Delimiter Token ($): A special `$` symbol inserted between the parts of a transformed input to mark where one part ends and the next begins.
+    - entailment-input-transformation | Entailment Input Transformation: The premise and hypothesis token sequences are concatenated with a delimiter between them.
+    - similarity-input-transformation | Similarity Input Transformation: Both sentence orderings are built and processed separately, and their two final activations are added element-wise before the linear output layer.
+    - qa-and-commonsense-input-transformation | Question Answering and Commonsense Transformation: Each candidate answer is concatenated onto the document and question to form its own sequence, and the resulting scores are normalized across candidates.
+
+PREREQUISITES:
+  - unsupervised-pretraining | Unsupervised Pre-Training as a Category: The branch of semi-supervised learning where unlabelled data chooses a starting point for the weights instead of changing the supervised objective.
+  - generative-vs-discriminative-training | Generative vs Discriminative Training: Two ways of framing what a model predicts: the data itself, or a label given the data.
+
+EDGES TOUCHING THIS CONCEPT (5) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] -> labeled-data-scarcity (Scarcity of Labelled Data) | depends-on | recipe presupposes scarce labels: The two-stage recipe only earns its complexity if labelled data for each task is small while raw text is plentiful. If every task had enough annotated examples, there would be nothing for a pre-training stage to buy. The paper opens from that asymmetry and designs backwards from it.
+  [load-bearing] -> table-5 (Three Ablations Against the Full Model (table-5)) | supported-by | ablation without pre-training loses 14.8: The whole recipe rests on the claim that stage one matters. Table 5 trains the same transformer directly on the supervised tasks with no pre-training and reports a 14.8% drop across the board. That single row is the paper's strongest direct evidence for the two-stage design.
+  [load-bearing] -> semi-supervised-learning-for-nlp (Semi-Supervised Learning for NLP) | instance-of | the paper's semi-supervised recipe: Semi-supervised learning for NLP is the general family: a large unlabelled corpus plus a small labelled dataset. The paper's two-stage recipe is one specific member of that family, where the unlabelled corpus is used first to set the weights and the labelled data second to adjust them. The paper places itself inside this family explicitly rather than claiming a new category.
+  [load-bearing] -> feature-based-transfer (Feature-Based Transfer) | contrasts-with | fine-tune weights versus frozen features: Feature-based transfer keeps the pre-trained model fixed and feeds its hidden states into a separate task model as extra inputs. The paper instead carries the pre-trained weights themselves into the target task and keeps training them, which is the difference it draws with the closest competing line of work.
+  [supporting] -> lm-pretraining-then-finetuning-predecessors (Language-Model Pre-Training Then Fine-Tuning) | instance-of | another entry in this line: The paper names a line of prior work that pre-trains with a language modelling objective and then fine-tunes the whole network on a supervised task. Its own procedure is a further instance of exactly that shape. What changes is the backbone and the scale, not the shape of the recipe.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - table-2 | NLI Benchmark Scoreboard: Table 2 compares one fine-tuned general model against task-built baselines on five natural language inference datasets, and reports it ahead on four of them — by 1.5 points on MNLI, 5 on SciTail, 5.8 on QNLI and 0.6 on SNLI — while losing on RTE, the smallest dataset, where a multi-task biLSTM scores 61.7 against this model's 56.0.
+  - table-3 | RACE and Story Cloze Results: On the paper's two reading-and-reasoning benchmarks, a single fine-tuned transformer language model beats every previously published system, by 8.9 accuracy points on the Story Cloze Test and 5.7 points on RACE overall. The RACE baselines it passes are 9-model ensembles, while the paper's entry is one model.
+  - table-4 | Classification and Similarity Results: On the five GLUE tasks outside natural language inference, one fine-tuned transformer beats the previous best published number on CoLA, STS-B and QQP, and raises the overall GLUE score from 68.9 to 72.8. It does not win everywhere: on SST-2 and MRPC it stays below specialist systems that were built for those single datasets.
+  - table-5 | Three Ablations Against the Full Model: Removing pre-training costs the most by far (14.8 average points), swapping the transformer for an LSTM costs 5.6, and dropping the auxiliary language modelling loss during fine-tuning actually gains 0.3 on average — helping only on the larger datasets (QQP and the two NLI sets) and hurting on the smaller ones.
+
+PAPER SECTIONS TO READ (in papers/gpt-1/data/ingest/sections/):
+  - 01-abstract-abstract.txt
+  - 02-1-introduction.txt
+  - 04-3-framework.txt
+  - 12-6-conclusion.txt

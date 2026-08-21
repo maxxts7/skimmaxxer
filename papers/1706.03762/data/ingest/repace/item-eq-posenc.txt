@@ -1,0 +1,15 @@
+ITEM: eq-posenc (equation) - Position as a bank of sinusoids
+
+TAKEAWAY:
+A model with no recurrence and no convolution has no idea what order its tokens are in, so the paper adds a fixed vector to each input embedding whose entries are sines and cosines of the position at geometrically spaced wavelengths. The paper says it picked this over learned position vectors because relative offsets become linear functions of the encoding, and because it may extrapolate to sequences longer than those seen in training.
+
+WALKTHROUGH:
+You are looking at the definition of one [[positional-encoding|positional encoding]] vector: the vector added to the token at position $pos$. It has the same width as the embeddings, $d_{model}$, and the two formulas fill in its entries.
+
+Read the subscript as (position, dimension). $pos$ indexes the token in the sequence — 0, 1, 2, and so on. $i$ indexes into the vector: entry $2i$ (even slots) gets the sine, entry $2i+1$ (odd slots) gets the cosine, so the dimensions pair up into sine/cosine couples that share one frequency. The paper's phrasing is that "each dimension of the positional encoding corresponds to a sinusoid."
+
+The frequency comes from the divisor $10000^{2i/d_{model}}$. At $i=0$ the exponent is 0, the divisor is 1, and the sinusoid has wavelength $2\pi$ — it cycles every few tokens. As $i$ climbs toward $d_{model}/2$, the exponent approaches 1 and the divisor approaches 10000, stretching the wavelength to $10000\cdot 2\pi$. The paper describes these wavelengths as a geometric progression from $2\pi$ to $10000\cdot2\pi$. Low dimensions carry fine position detail; high dimensions vary slowly and separate distant regions of the sequence.
+
+Two claims motivate the choice. First, the paper hypothesized this makes attention by [[relative-position-linearity|relative position]] easy to learn: for any fixed offset $k$, $PE_{pos+k}$ is a linear function of $PE_{pos}$ (a rotation, one per sine/cosine pair, independent of $pos$). Second, [[sinusoidal-positional-encoding|the sinusoids]] are defined for any $pos$, so the paper says the model "may" extrapolate to sequence lengths longer than those in training — [[learned-positional-embedding|learned positional embeddings]] have no vector for unseen positions. In their [[transformer-ablations|ablations]] the two gave nearly identical results (Table 3 row (E)).
+
+Note the encoding is summed with the [[token-embeddings|token embedding]], not concatenated, at the bottom of both the [[encoder-stack|encoder]] and [[decoder-stack|decoder]] stacks — which is why it must have dimension $d_{model}$.

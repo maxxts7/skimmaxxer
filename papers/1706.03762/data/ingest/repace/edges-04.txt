@@ -1,0 +1,102 @@
+EDGE EXPLANATIONS (20)
+
+--- EDGE id=e061 ---
+sinusoidal-positional-encoding --supported-by--> eq-posenc | label: gives the sine and cosine formulas
+
+The pair of PE formulas defines the encoding: even dimensions sine, odd dimensions cosine, with wavelengths in a geometric progression from 2*pi to 10000*2*pi. Nothing is learned here, which is what makes the scheme extendable to unseen positions.
+
+--- EDGE id=e062 ---
+learning-rate-warmup-schedule --supported-by--> eq-lrate | label: defines warmup then inverse-sqrt decay
+
+Equation (3) is the schedule: d_model^-0.5 * min(step^-0.5, step * warmup_steps^-1.5), with warmup_steps = 4000. It rises linearly during warmup and decays as the inverse square root after. The paper gives no ablation of this schedule, so it is a stated recipe rather than a measured choice.
+
+--- EDGE id=e063 ---
+encoder-self-attention --instance-of--> multi-head-attention | label: first of three attention uses
+
+Section 3.2.3 lists three ways the Transformer uses multi-head attention. In the encoder, queries, keys and values all come from the previous encoder layer, so every position can attend to every position, with no mask.
+
+--- EDGE id=e064 ---
+masked-decoder-self-attention --instance-of--> multi-head-attention | label: second of three attention uses
+
+The decoder runs the same multi-head attention over its own previous layer, but each position may only attend up to and including itself. The paper says this is needed to preserve the auto-regressive property.
+
+--- EDGE id=e065 ---
+encoder-decoder-attention --instance-of--> multi-head-attention | label: third of three attention uses
+
+Here the queries come from the previous decoder layer and the keys and values come from the encoder output, so every decoder position can look at the whole input. The paper says this mimics the encoder-decoder attention of earlier sequence-to-sequence models.
+
+--- EDGE id=e066 ---
+num-heads-h --instance-of--> multi-head-attention | label: sets h for the base model
+
+Multi-head attention is defined for any number of parallel heads h. The base model fixes h = 8.
+
+--- EDGE id=e067 ---
+dk-dv-dimensions --instance-of--> attention-head | label: gives each head its width
+
+Each head works in its own projected subspace, and the base model sets d_k = d_v = d_model/h = 512/8 = 64. The paper notes that because each head is this narrow, the total cost is similar to one full-width attention.
+
+--- EDGE id=e068 ---
+n-layers --instance-of--> encoder-stack | label: fixes the stack depth at six
+
+The encoder is described as a stack of N identical layers; the base model uses N = 6. The decoder uses the same depth.
+
+--- EDGE id=e069 ---
+d-model --instance-of--> transformer | label: fixes the shared model width
+
+Section 3.1 says every sub-layer and embedding layer outputs vectors of the same dimension so residual connections can be added, and sets that dimension to d_model = 512 in the base model.
+
+--- EDGE id=e070 ---
+warmup-steps-4000 --instance-of--> learning-rate-warmup-schedule | label: fixes the ramp length
+
+Equation (3) leaves warmup_steps as a free parameter of the schedule. The paper uses warmup_steps = 4000, so the learning rate rises linearly for the first 4000 steps and then decays as the inverse square root of the step.
+
+--- EDGE id=e071 ---
+base-vs-big-transformer --instance-of--> transformer | label: two configurations of one architecture
+
+The paper trains the same architecture at two sizes: a base model (100,000 steps, about 12 hours) and a big model (300,000 steps, about 3.5 days). Reported results are always tagged as one or the other.
+
+--- EDGE id=e072 ---
+sinusoidal-positional-encoding --instance-of--> positional-encoding | label: the fixed encoding actually used
+
+Section 3.5 says there are many choices of positional encoding, learned and fixed. The paper's choice is a bank of sines and cosines whose wavelengths run from 2*pi to 10000*2*pi.
+
+--- EDGE id=e073 ---
+learned-positional-embedding --instance-of--> positional-encoding | label: the learned alternative tested
+
+The other instance of the same slot: a trainable vector per position. The paper reports it gave nearly identical results (Table 3 row E), and says it chose sinusoids because they may let the model extrapolate to longer sequences than it saw in training.
+
+--- EDGE id=e074 ---
+machine-translation --instance-of--> sequence-transduction | label: the paper's main transduction task
+
+Translation is the concrete sequence-to-sequence problem the paper trains and reports on. All of Table 2 is translation.
+
+--- EDGE id=e075 ---
+constituency-parsing --instance-of--> sequence-transduction | label: a second, non-translation task
+
+The paper treats parsing as sequence transduction too, generating a linearized tree from a sentence. It is run to test whether the Transformer generalizes beyond translation, and the paper notes the output is structurally constrained and longer than the input.
+
+--- EDGE id=e076 ---
+wmt-2014-en-de --instance-of--> machine-translation | label: the main benchmark instance
+
+About 4.5 million sentence pairs, encoded with a shared 37000-token byte-pair vocabulary. This is the task behind the headline 28.4 BLEU and behind all the Table 3 ablations.
+
+--- EDGE id=e077 ---
+wmt-2014-en-fr --instance-of--> machine-translation | label: the larger-data benchmark instance
+
+36M sentence pairs with a 32000 word-piece vocabulary, used to check the model at a bigger data scale. The big model reports 41.0 BLEU there.
+
+--- EDGE id=e078 ---
+embedding-softmax-weight-sharing --instance-of--> three-way-weight-tying | label: applies the cited tying scheme
+
+The cited work shares one matrix across the encoder input embedding, the decoder input embedding and the pre-softmax projection. Section 3.4 does exactly that, and additionally multiplies the shared weights by sqrt(d_model) in the embedding layers.
+
+--- EDGE id=e079 ---
+label-smoothing --instance-of--> label-smoothing-regularization | label: applies LSR at eps = 0.1
+
+The cited scheme replaces the one-hot target with a mixture of it and a fixed distribution, controlled by eps. The paper sets eps_ls = 0.1 and reports it hurts perplexity but improves accuracy and BLEU.
+
+--- EDGE id=e080 ---
+byte-pair-encoding --instance-of--> joint-bpe-shared-vocabulary | label: uses joint BPE across both languages
+
+The cited BPE paper describes learning merges over the combined source and target text so both languages share one vocabulary. The English-German setup does this, with a shared vocabulary of about 37000 tokens.
+

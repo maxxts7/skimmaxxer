@@ -1,0 +1,55 @@
+NARRATIVE NODE: n-three-wirings-of-the-same-block--all-pairs-six-times--the-layer-it-opens
+TITLE: The only layer the paper opens
+
+INTRO:
+The parent said what the three appendix pictures show. This level is about how they are drawn and what that drawing can carry: the encoding, what each figure discards to stay legible, what the layer-5 restriction leaves unexamined, and how the one measured statement about heads in Table 3 fails to line up with them.
+
+--- CHAPTER id=reading-the-lines ---
+TITLE: One drawing convention, three pictures
+
+All three panels use the same device, and pinning it down bounds what can be read off them.
+
+Each panel prints the sentence twice, top and bottom. The top copy holds the querying positions; the bottom copy holds the positions being attended to. The two copies are identical because this is [[encoder-self-attention]], where [[queries-keys-values|queries, keys and values]] all come from the layer below. A line from a top token to a bottom token is one attention weight, and its opacity is that weight's only representation. No axis, no tick, no printed number.
+
+The weights leaving any one query are a [[softmax]] output, so they sum to 1 across every bottom position. In [[fig-3]] that means 33 slots, including `<EOS>` and six `<pad>`. Padding sits inside the distribution and takes weight like anything else.
+
+Two consequences follow. A line's darkness is interpretable only against the other lines from the same query in the same head; comparing opacity across heads, queries or figures is eyeballing. And a head that spreads its 1.0 thinly over thirty positions draws thirty lines faint enough to disappear — a missing line is not a zero. Figure 3 softens this with the colored strip under its bottom sentence: one row per [[attention-head|head]], one column per word, shade for weight. Same numbers, still no scale.
+
+Color identifies which head drew a line, never how much. With [[num-heads-h|eight]] heads live at once, a complete map is eight overlaid distributions per query, times every query. So each figure throws something away to stay legible: Figure 3 keeps one query, [[fig-4]] one word, [[fig-5]] one head per panel. Full [[multi-head-attention]] on a whole sentence is never drawn.
+
+--- CHAPTER id=one-query-eight-heads ---
+TITLE: One query row, and what it is evidence for
+
+[[fig-3]] is placed where it is to make an earlier argument concrete rather than to say something new about heads. "Making" and "difficult" are seven tokens apart. In a [[recurrent-neural-network|recurrent]] encoder the forward signal between them crosses seven steps and the gradient crosses seven on the way back; here it is one dot product, which is the constant [[maximum-path-length]] that [[table-1]] tabulates and the third of Section 4's [[layer-comparison-desiderata|three criteria]] in a single picture.
+
+Look at which heads land where and the tidy reading loosens. Four colors converge on "more" and four on "difficult", and two of them — blue and green — are in both groups. A head is not one target and one job. A purple head sends weight back to "making" itself, a self-link that carries no dependency at all; a pink head goes to "2009" and "laws", which are not the verb's complement and are not what the caption is about. What those heads are doing is not addressed.
+
+The deeper caveat is the layer. This is layer 5 of [[n-layers|six]] in the [[encoder-stack]], not the embedding layer. The vector querying at the "making" slot has already been through four rounds of all-pairs mixing plus four feed-forward blocks, so it is a mixture of the whole sentence carried in that slot, not the word. "Making attends to difficult" is shorthand for a relation between two positions whose contents are already blended. The figure supports the [[long-range-dependencies|long-distance]] claim as an example; it does not isolate the word.
+
+--- CHAPTER id=holding-the-word-fixed ---
+TITLE: Sharpness, and the panel that gets discarded
+
+[[fig-4]]'s top panel is head 5's complete map, and it is mostly a haze of faint lines with a few dark ones. It is shown and then set aside. The bottom panel does the actual work by deleting everything except the lines leaving "its" — and only then can you see head 5 going almost entirely to "Law" and head 6 almost entirely to "application". The readable claim exists because of a filter the authors chose: this word, these two of eight heads. Which is what the caption's "apparently" is doing.
+
+What is genuinely notable is the sharpness the caption flags. A near-one-hot distribution at layer 5 is not something the architecture asks for. There is no sparsity penalty and no temperature knob; the $1/\sqrt{d_k}$ divisor in [[scaled-dot-product-attention|Equation 1]] exists to stop the softmax saturating, and [[dk-dv-dimensions|$d_k=64$]] bounds how large the logits usually get. Concentration on one position is a learned outcome, and it is the one property of these plots you can judge without comparing across heads.
+
+The training signal is [[machine-translation]] alone — no annotation of any kind names an antecedent. The paper does not go further than that observation, and neither should the reader: this is one pronoun in one sentence, offered as an illustration of [[attention-interpretability|what inspecting the distributions suggests]], with the hedge in the caption doing the load-bearing work. No count says how often heads 5 and 6 split this way, or whether they do it on any other sentence.
+
+--- CHAPTER id=what-is-not-drawn ---
+TITLE: What layer 5 leaves unexamined
+
+[[fig-5]] drops the filtering and shows two whole maps, which is the strongest visual claim in the appendix and also the loosest. The green head is diffuse: a faint wash over nearly every pair with heavy fans converging on "Law", "application", "missing" and "opinion". The red head is sparse and short-range, most queries picking one or two nearby tokens. Same sentence, same layer, same model, so the difference is the heads. Both panels also carry a dark self-link on `<pad>`. A [[softmax]] must place its mass somewhere, and not every heavy line is linguistic.
+
+Then the scope. All three figures come from layer 5. Layers 1 through 4 and layer 6 are never shown, so nothing indicates whether this behavior develops with depth or is peculiar to one place in the [[encoder-stack|stack]]. Neither [[masked-decoder-self-attention]] nor [[encoder-decoder-attention]] appears at all, and those are two of the three wirings [[multi-head-attention|the block]] is used in. Two sentences, both English, one trained model, no parse annotation, no tally over a corpus.
+
+So the licensed claim is existence: these heads, on these sentences, did this. Not frequency, not reliability, not that any head does this in general. Section 4's wording matches — [[attention-interpretability|interpretability]] is filed as a side benefit, and heads "appear to exhibit" structure-related behavior. Figure 5's caption splits the same way, stating that the heads learned different tasks flatly and hedging only the tie to structure. Section 4's actual argument for the swap rests elsewhere, on the counts in [[theme-why-self-attention|complexity, parallelism and path length]].
+
+--- CHAPTER id=the-only-number ---
+TITLE: The one measured claim, and what it misses
+
+[[table-3]] rows (A) are the only place heads are tested rather than illustrated. The sweep holds computation fixed by setting $d_k=d_v=d_{model}/h$, so as [[num-heads-h|$h$]] rises the heads get narrower. Single-head attention with $d_k=512$ gives 5.29 [[perplexity|PPL]] and 24.9 [[bleu|BLEU]]; $h=8$ gives 4.92 and 25.8, $h=16$ gives 4.91 and 25.8, and $h=32$ with $d_k=16$ falls back to 25.4. Flat across the middle, worse at both ends — [[attention-heads-ablation|0.9 BLEU between one head and the best]].
+
+The sweep is not clean. Head count and head width move together by construction, and rows (B) show separately that [[key-size-ablation|cutting $d_k$ on its own hurts]]. So the drop at 32 heads has two candidate causes — too many heads, or 16-dimensional keys — and the paper reports both rows without reconciling them. Each row is one training run on newstest2013, with per-wordpiece perplexity that does not travel outside the paper.
+
+What the number supports is narrow: several heads beat one, which is the [[attention-averaging-resolution-cost|averaging argument]] of Section 3.2.2 getting a value attached. It says nothing about specialization. No experiment removes one head and measures the cost, none counts how many heads do anything describable, and none connects a picture in the appendix to a BLEU point. The figures and the ablation are two separate kinds of statement about [[multi-head-attention]], and the paper never joins them. The other knobs turned the same way are in [[transformer-ablations]].
+

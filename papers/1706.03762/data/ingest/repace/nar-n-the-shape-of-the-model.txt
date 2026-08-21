@@ -1,0 +1,46 @@
+NARRATIVE NODE: n-the-shape-of-the-model
+TITLE: The shape of the model
+
+INTRO:
+The outline is already in place: two stacks, six layers each, every sub-layer wrapped in a residual connection and layer normalization. This level fills in what the outline skipped — what actually moves along the arrows, what "six identical layers" does and does not mean, the exact order of operations inside the wrapper, and how far the single-width constraint reaches.
+
+--- CHAPTER id=what-flows-through-the-figure ---
+TITLE: What flows through the figure
+
+Read [[fig-1]] as a data path and the wiring gets concrete. Every arrow in it carries the same kind of object: a sequence of vectors, one per token, each 512 wide. Nothing else moves between boxes. No hidden state, no cell, nothing handed sideways from one position to the next.
+
+The [[encoder-stack|left tower]] runs once. It [[token-embeddings|embeds]] the source tokens and passes the whole sequence up through six layers, ending with $z = (z_1, \ldots, z_n)$, one vector per source position. That output is then fixed for the rest of the forward pass. Notice where it goes: not into the bottom of the [[decoder-stack|right tower]], but sideways into each of its six layers, as the keys and values of that layer's [[encoder-decoder-attention]] sub-layer. The decoder's own input arrives at its own bottom — the target sequence, offset one position to the right. The top of the right tower is ordinary: a linear map from 512 to vocabulary size, then a [[softmax]] giving the distribution over the next token.
+
+The split between training and inference is worth stating outright, because the [[sequential-computation-bottleneck|parallelism claim]] lives entirely on one side of it. In training, the full target sentence goes in at once and every position is computed simultaneously; nothing waits on anything. At inference the model is still [[auto-regressive-generation|auto-regressive]]: the encoder runs once, then the decoder runs one step per output token, each step consuming what it has already emitted. Dropping recurrence buys parallelism across positions while training. It does not make generation parallel, and the paper does not claim it does.
+
+--- CHAPTER id=one-layer-stacked-six-times ---
+TITLE: One layer, stacked six times
+
+"Identical" means identical in structure, not in weights. The N× box in the figure stands for six separate copies, each with its own parameters; nothing is shared up the stack.
+
+Structurally the two towers differ by exactly one piece. An encoder layer is [[self-attention]] then a [[position-wise-feed-forward-network|feed-forward network]]. A decoder layer inserts [[encoder-decoder-attention]] between those two. So the model holds $6 \times 2 + 6 \times 3 = 30$ [[sub-layer|sub-layers]], each with its own residual wrapper. The depth a signal travels from input embedding to logits is thirty of those, not six layers — which is the number that matters when you ask whether the thing trains.
+
+Why six? Section 3.1 states [[n-layers|$N = 6$]] and does not argue for it. The only evidence anywhere is the depth rows of [[transformer-ablations|the ablation table]], measured on the English-German development set: $N = 2$ gives 23.7 [[bleu|BLEU]] at 36M parameters, $N = 4$ gives 25.3 at 50M, the base $N = 6$ gives 25.8 at 65M, and $N = 8$ gives 25.5 at 80M with the best [[perplexity|perplexity]] of the four, 4.88 against the base's 4.92. So depth buys quality up to six and then stops separating — at eight the two metrics disagree, and each figure is a single run. [[size-and-dropout-ablation|"Bigger is better"]] is the summary in [[table-3]], but the depth column stops supporting it right where the base model sits.
+
+The scaled-up configuration keeps six layers and grows sideways instead, which is where this leads next.
+
+--- CHAPTER id=add-then-normalize ---
+TITLE: Add, then normalize
+
+$\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$ hides an ordering that matters. Written out for one [[sub-layer]]: compute $\mathrm{Sublayer}(x)$, apply [[residual-dropout|dropout]] to that output — before the addition, not after — add the untouched input $x$, then normalize the sum. Normalization sits on the trunk, after the merge. The [[residual-connection|residual branch]] itself is never normalized and never dropped, so there is a path from the embedding to the logits that passes through addition alone. That is what makes thirty stacked sub-layers trainable: each one only has to learn a change on top of what arrived.
+
+What [[layer-normalization]] computes, the paper never writes down; it cites. The operation is per position: take one token's 512 activations, [[layer-normalization-statistics|take their mean and variance across those 512 units]], standardize, then apply a [[gain-and-bias-parameters|learned per-unit gain and bias]]. The cited work already frames this for sequence models as [[per-timestep-normalization|normalizing independently at each step]] with one shared set of gain and bias parameters. No statistic crosses positions or examples.
+
+That is the reason it is used here rather than batch normalization. [[layer-norm-vs-batch-norm|Batch norm takes each neuron's statistics across the mini-batch]], so its arithmetic depends on how sentences of differing lengths were packed together and changes at inference time. Layer norm does the same thing to a full training batch and to a single sentence being decoded. The cited paper adds that this makes a layer's output [[normalization-invariance-properties|invariant to rescaling its weight matrix]], with a knock-on effect on the effective step size, which is the ground for its faster-training claim.
+
+Nothing in the paper compares this post-norm ordering against alternatives, and no ablation touches it.
+
+--- CHAPTER id=why-everything-is-512-wide ---
+TITLE: Why everything is 512 wide
+
+The residual addition is the reason there is only one width, and the constraint reaches further than it first looks. If $x$ and $\mathrm{Sublayer}(x)$ must be summed, every sub-layer output is [[d-model|512]]. That fixes the [[token-embeddings|embedding]] width, the output width of [[multi-head-attention|the attention block]], and — because the concatenated heads get mapped back to 512 — the per-head width through [[dk-dv-dimensions|$d_k = d_v = d_{model}/h$]] as soon as [[num-heads-h|$h$]] is chosen. It fixes one side of the [[embedding-softmax-weight-sharing|shared vocabulary matrix]] too. Inside a layer, only two widths are genuinely free: [[d-ff|$d_{ff}$]] and the head count.
+
+The arithmetic is worth doing once, because it accounts for the 65M parameters reported in [[table-3]]. An encoder layer holds four $512 \times 512$ attention projections, about 1.05M, plus two $512 \times 2048$ feed-forward matrices, about 2.1M: roughly 3.1M. A decoder layer carries a second attention block, so about 4.2M. Six of each comes to about 44M. The shared matrix over the ~37000-token vocabulary adds about 19M. That lands near 65M, with gains, biases and rounding making up the difference.
+
+It also explains the shape of the size ablations. Changing $d_{ff}$ alone moves the count to 53M or 90M. Changing $d_{model}$ moves everything at once: 256 gives 28M and 24.5 BLEU, 1024 gives 168M and 26.0. [[base-vs-big-transformer|The big model]] takes that second road — same six layers, $d_{model} = 1024$, $d_{ff} = 4096$, 16 heads, 213M parameters. Depth stayed put. Width is the knob the paper turned.
+

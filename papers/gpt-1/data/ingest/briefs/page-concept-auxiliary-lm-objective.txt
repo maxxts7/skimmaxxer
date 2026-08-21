@@ -1,0 +1,45 @@
+PAGE FOR CONCEPT: auxiliary-lm-objective
+NAME: Auxiliary Language Modelling Objective
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+During fine-tuning the paper keeps optimizing the language modelling loss alongside the task loss: $L_3(C) = L_2(C) + \lambda\, L_1(C)$.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+The next-token loss does not disappear when stage two begins. It is recomputed on the fine-tuning data $C$ — the same task inputs, scored simply as text — and added to the classification loss with weight $\lambda$.
+
+The paper reports two effects from including it: better generalization of the supervised model, and faster convergence.
+
+Both are stated as empirical findings. No mechanism is offered, and the paper notes prior work observed similar gains from adding a language modelling term to a supervised objective.
+
+Section 5 puts a limit on the claim. Ablating the term shows it helps on the natural language inference tasks and on QQP, while smaller datasets do not benefit.
+
+So the reported trend is that larger fine-tuning sets gain from it and smaller ones do not.
+
+THEME IT BELONGS TO: theme-stage-two-fine-tuning-and-input-shapes | Stage Two: Fine-Tuning and Reshaping Task Inputs - Stage two runs a labelled input through the pre-trained stack, takes the final block's activation at the last token, and multiplies it by one added matrix to score labels. The language modelling loss is not dropped: it keeps being optimized alongside the task loss, scaled by a weight the paper sets to 0.5. Tasks whose inputs have several parts are handled by writing those parts into one ordered sequence with a start token, an end token and a delimiter between parts, rather than by building an architecture that mirrors the structure. The chapter ends with the settings actually used, which are the pre-training settings with a smaller learning rate and three passes over the task data.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - auxiliary-objective-weight | Auxiliary Objective Weight $\lambda = 0.5$: $\lambda$ scales the auxiliary language modelling term against the classification term. The paper sets it to 0.5.
+
+PREREQUISITES:
+  - language-modeling-objective | Language Modelling Objective $L_1$: The pre-training loss $L_1(U)=\sum_i \log P(u_i \mid u_{i-k},\dots,u_{i-1};\Theta)$: maximize the log-probability the model gives each token given the tokens before it.
+  - supervised-objective-l2 | Supervised Objective $L_2$: $L_2(C) = \sum_{(x,y)} \log P(y \mid x_1,\dots,x_m)$: the summed log-probability of the correct labels over the labelled data.
+  - auxiliary-training-objectives | Auxiliary Training Objectives: The other branch: add a second unsupervised loss term alongside the supervised loss, so the model keeps learning from raw text while it learns the task.
+
+EDGES TOUCHING THIS CONCEPT (7) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] <- ablation-no-auxiliary-objective (Ablation: No Auxiliary LM Objective) | contrasts-with | auxiliary loss helps some, hurts others: Dropping the language modelling loss during fine-tuning does not simply degrade the model. It helps on the NLI tasks and QQP and hurts elsewhere, with the paper reading the trend as larger datasets benefiting and smaller ones not. The design choice is conditional, not settled.
+  [supporting] -> output-softmax-tied-embeddings (Output Distribution $P(u) = \mathrm{softmax}(h_n W_e^T)$) | depends-on | LM head survives into fine-tuning: $L_3(C) = L_2(C) + \lambda L_1(C)$ keeps computing the pre-training loss on the task's own inputs during fine-tuning. That costs nothing extra in parameters because the language modelling head is just $W_e^T$, which is still there. A model with a separately trained output projection would have to carry it along deliberately.
+  [supporting] -> table-5 (Three Ablations Against the Full Model (table-5)) | supported-by | help is mixed, not uniform: The paper keeps the language modelling loss during fine-tuning, but Table 5 shows removing it helps on some datasets and hurts on others. The reported pattern is that the NLI tasks and QQP benefit while smaller datasets do not, so the evidence supports a size-dependent rule rather than a general one.
+  [supporting] -> eq-combined-objective (The Combined Fine-Tuning Objective (eq-combined-objective)) | supported-by | combined loss written explicitly: Equation 5 gives L3 = L2 + lambda times L1, showing that fine-tuning optimizes both losses at once rather than switching between them. The weight lambda is where the balance between task fitting and continued language modelling is set.
+  [supporting] -> auxiliary-training-objectives (Auxiliary Training Objectives) | instance-of | second loss kept during fine-tuning: The other branch of semi-supervised learning adds an unsupervised loss term alongside the supervised one. The paper's L3(C) = L2(C) + lambda*L1(C) is a concrete instance of that branch, used during stage two. So the method takes something from both branches the related-work section separates.
+  [supporting] -> supervised-objective-l2 (Supervised Objective $L_2$) | contrasts-with | two losses competing during fine-tuning: Fine-tuning optimizes the sum of the label loss and the language modelling loss, so gradient capacity is split between predicting labels and predicting the next token. The weight of 0.5 is the paper's chosen balance between the two pulls.
+  [supporting] -> auxiliary-training-objectives (Auxiliary Training Objectives) | contrasts-with | auxiliary loss as branch versus supplement: Prior work treats an added unsupervised loss as the transfer mechanism itself. Here it is a secondary term on top of pre-training, and the paper says pre-training has already learned the linguistic aspects the auxiliary objective would otherwise supply.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - table-5 | Three Ablations Against the Full Model: Removing pre-training costs the most by far (14.8 average points), swapping the transformer for an LSTM costs 5.6, and dropping the auxiliary language modelling loss during fine-tuning actually gains 0.3 on average — helping only on the larger datasets (QQP and the two NLI sets) and hurting on the smaller ones.
+  - eq-supervised-objective | Supervised Fine-Tuning Objective $L_2$: Equation 4 is the loss used in the second training stage: over a target task's labelled dataset $\mathcal{C}$, sum the log-probability the model assigns to each instance's correct label. It is ordinary maximum-likelihood classification training, written so that the only thing separating one task from another is which labelled set $\mathcal{C}$ you plug in.
+  - eq-combined-objective | The Combined Fine-Tuning Objective: During fine-tuning the paper does not drop the language modelling loss; it keeps optimizing it alongside the classification loss, scaled by a weight $\lambda$, and computes it on the labelled task data rather than on the pre-training corpus. The paper reports this helped by improving generalization and speeding convergence, and its own ablation later qualifies that: the gain shows up on larger datasets, not on smaller ones.
+
+PAPER SECTIONS TO READ (in papers/gpt-1/data/ingest/sections/):
+  - 03-2-related-work.txt
+  - 06-3.2-supervised-fine-tuning.txt
+  - 11-5-analysis.txt

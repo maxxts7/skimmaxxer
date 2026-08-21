@@ -1,0 +1,69 @@
+NARRATIVE NODE: n-per-position-parts--one-matrix-three-jobs--one-vocabulary
+TITLE: One vocabulary, or nothing to share
+
+INTRO:
+Section 5.1 reports one number and no method. The method sits in the cited [[byte-pair-encoding|BPE]] paper: a counting loop, exactly one hyperparameter, and a trade-off that quietly fixes the sequence length $n$ the Transformer's own cost argument leans on. This level walks the procedure, then checks what the English-French vocabulary actually is.
+
+--- CHAPTER id=the-merge-loop ---
+TITLE: The merge loop, in full
+
+[[byte-pair-encoding|BPE]] learns nothing by gradient descent. [[bpe-merge-algorithm|The learning step]] is a counting loop over training text, and what it produces is an ordered list.
+
+Write every word as a sequence of characters with a special end-of-word symbol appended, so word boundaries survive decoding. Initialise the symbol vocabulary to the character set. Then repeat $k$ times: count how often each adjacent symbol pair occurs across the corpus, take
+
+$$(A,B) = \arg\max_{(x,y)} \mathrm{count}(x,y)$$
+
+and rewrite every occurrence of the bigram $A\,B$ as one new symbol $AB$. One merge, one new symbol, no exceptions.
+
+Two implementation facts do a lot of work. Pairs never cross word boundaries, so the loop never has to scan the corpus — it runs over a word-frequency dictionary, weighting each word's pair counts by that word's corpus frequency. And the whole thing fits in a short Python listing in the cited paper: `get_stats` counts weighted pairs over a dictionary of space-separated symbols, `merge_vocab` rewrites the winning pair with a whitespace-boundary regex, and the outer loop runs `num_merges` times, recording each chosen pair in order.
+
+The toy run trains on {low, lowest, newer, wider} and learns, in order: `r·` (r plus end-of-word), then `l o → lo`, then `lo w → low`, then `e r· → er·`. Frequent character n-grams become symbols first; run long enough and frequent whole words collapse to single symbols while rare ones stay in pieces.
+
+That ordered list is the entire model. No probabilities, no likelihood, no learned parameters. [[joint-bpe-shared-vocabulary|Joint BPE]] changes only which pile of text the counts are taken over — the loop itself is identical, which is why the two variants cost the same to run and differ only in what comes out.
+
+--- CHAPTER id=replaying-the-merges ---
+TITLE: Replaying the merges on a word you have not seen
+
+Learning the merges and applying them are separate steps, and the second is what makes a fixed vocabulary behave like an open one.
+
+[[bpe-segmentation-at-test-time|To segment any word]], split it into characters, append the end-of-word marker, and replay the learned merges in the order they were learned. Every symbol that comes out is by construction in the fixed symbol set. In the toy example, `lower` never appears in training, and the merges learned from {low, lowest, newer, wider} still turn it into `low er·`. The cited paper reports zero unknown tokens on its test set under this scheme.
+
+The guarantee is not quite airtight, and the cited paper says where it leaks. A character not seen during training has no symbol to start from. And a symbol can exist in the list yet never survive as a standalone piece, because every training occurrence of it got merged into something larger — so it is in the vocabulary but the model has never had to embed it alone. The authors report observing neither at test time, and note the first could be handled by recursively reversing specific merges.
+
+For [[wmt-2014-en-de|the English-German model]] this is the property that makes the whole scheme viable. [[embedding-softmax-weight-sharing|The single tied matrix]] has a fixed number of rows, decided before training. Without test-time replay you would need an UNK row and a back-off story for rare names; with it, the row count is genuinely all the vocabulary the model ever needs. Decoding runs backwards: concatenate pieces, cut at the end-of-word markers.
+
+--- CHAPTER id=where-37000-comes-from ---
+TITLE: Where a number like 37000 comes from
+
+[[bpe-vocabulary-size|The size identity]] is exact: each merge adds one symbol, so after $k$ merges
+
+$$|V| = |V_{\text{chars}}| + k$$
+
+where $V_{\text{chars}}$ is the character set of the training data. Choosing $k$ chooses the vocabulary size directly, and $k$ is the only knob the method has. No shortlist, no frequency cutoff, no separate segmentation model with its own parameters to fit. That is the cited paper's stated selling point over the alternatives it compares against.
+
+Its own experiments set $k = 59{,}500$ for per-language BPE and $k = 89{,}500$ for [[joint-bpe-shared-vocabulary|joint BPE]]. Those are the numbers behind the roughly 80K-of-94K overlap figure, and they are an order of magnitude apart from nothing — a joint run needs more merges than either language alone would, because the same budget is being spread over two languages' text.
+
+One wrinkle stops the identity from being invertible in practice. The cited paper drops infrequent subword symbols that come out of corpus noise, mostly stray foreign-alphabet characters, so the network vocabulary ends up slightly below $|V_{\text{chars}}| + k$. "About 37000 tokens" therefore cannot be read backwards to a specific merge count, and [[wmt-2014-en-de|Section 5.1]] never states one.
+
+What the figure does fix, exactly, is model shape. 37000 rows is the height of the tied matrix in [[embedding-softmax-weight-sharing|the three-way sharing]] and the width of the output softmax — around 19M parameters at [[d-model|$d_{model} = 512$]], which is a sizeable fraction of the base model's 65M. The tokenizer setting is a model-size decision.
+
+--- CHAPTER id=the-knob-is-sequence-length ---
+TITLE: The knob is really sequence length
+
+The merge count is presented in the cited paper as a position on a curve, not a free choice. [[vocabulary-vs-sequence-length-tradeoff|The trade-off]] has two sides pulling opposite ways: a neural model wants a small vocabulary for time and space and to avoid back-off dictionaries, but it also wants compact text, because longer token sequences slow training and decoding and stretch the distance information has to travel. The cited paper notes that encoder-decoder time complexity is at least linear in sequence length.
+
+The endpoints are measured. On a 100M-token German corpus, full character segmentation gives a vocabulary of about 3,000 types and inflates the corpus to 550M tokens. Around 60K merged types gives 112M tokens — roughly 12% longer than word-level tokenization — while still leaving zero unknowns. Same text, five-fold difference in $n$, decided by one integer.
+
+That integer lands in the middle of Section 4. [[table-1]] puts a self-attention layer at $O(n^2 \cdot d)$ per layer against a recurrent layer's $O(n \cdot d^2)$, so on [[complexity-per-layer|per-layer cost]] self-attention wins only when $n < d$. The paper's defence of that condition is a pointer: it says $n < d$ is most often the case for the sentence representations state-of-the-art translation models use, "such as word-piece and byte-pair representations", and cites the two tokenizer papers.
+
+So the cost argument rests on a tokenizer setting. At $d = 512$, a 25-word sentence has to come out as tens of tokens, not hundreds — which BPE at tens of thousands of merges delivers and character segmentation would not. The paper never sweeps the merge count, and never says how long its tokenized sentences actually are.
+
+--- CHAPTER id=the-french-vocabulary ---
+TITLE: The French vocabulary, and what its own paper does
+
+[[wmt-2014-en-fr|The English-French run]] uses a 32000-token [[word-piece-encoding|word-piece vocabulary]], and that is a different algorithm, not a rebranded one.
+
+[[wordpiece-model|The cited scheme]] selects a fixed set of $D$ sub-word strings by a greedy search that maximises the language-model likelihood of the training data under the evolving vocabulary — roughly, the $D$ pieces that segment the corpus into the fewest total tokens. Frequency of adjacent pairs is not the criterion. The seed is the basic character set, capped at a manageable size (around 500 for Western languages, more for Asian ones), with the remaining rare characters mapped to a single unknown-character symbol; so unlike [[byte-pair-encoding|BPE]], this scheme has one escape hatch at the character level rather than none. Word boundaries are recovered from a marker prepended at the start of each word only, not at both ends: `Jet makers feud over seat width` becomes `_J et _makers _fe ud _over _seat _width`. The cited system reports 8k to 32k pieces as a good trade between accuracy and decoding speed, and 32000 sits at the top of that band.
+
+On the loose end the parent flagged: the cited system states that for translation it trains a single shared vocabulary over both source and target text, so an identical string segments identically on both sides — the same property [[joint-bpe-shared-vocabulary|joint BPE]] buys, reached by a different route. Following the scheme as its own paper describes it therefore yields a shared vocabulary by default. [[embedding-softmax-weight-sharing|Section 3.4]] states the sharing with no exception, and this is consistent with it. Neither paper confirms it for this model, and that is where the evidence stops.
+

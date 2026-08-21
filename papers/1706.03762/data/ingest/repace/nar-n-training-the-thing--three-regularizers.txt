@@ -1,0 +1,73 @@
+NARRATIVE NODE: n-training-the-thing--three-regularizers
+TITLE: Three Regularizers, and Where Each One Acts
+
+INTRO:
+The parent gave the three settings and their placement. This level gives the machinery: exactly how many masks fall and what the normalization sees afterwards, a fourth knob Section 5.4 never lists, the arithmetic behind the one rate that changes between models, and the cited definition of label smoothing that the paper applies without restating.
+
+--- CHAPTER id=where-the-masks-fall ---
+TITLE: Thirty-two places the mask falls
+
+Count the sites. Every [[sub-layer]] gets its own mask — two per encoder layer, three per decoder layer — so with [[n-layers|$N=6$]] that is 12 masks in the [[encoder-stack]] and 18 in the [[decoder-stack]]. Add the two embedding sums and one forward pass applies [[dropout]] in 32 places, all of them driven by the single reported rate. The [[position-wise-feed-forward-network]] gets no special handling; it is a sub-layer like any other.
+
+The order inside the wrapper is fixed: compute $\mathrm{Sublayer}(x)$, mask it, add $x$, normalize. What [[layer-normalization]] receives is therefore $\mathrm{LayerNorm}(x + \mathrm{Dropout}(\mathrm{Sublayer}(x)))$. Two consequences fall out of that ordering.
+
+First, the worst case is bounded. If a mask happened to zero a sub-layer's entire output, the layer collapses to $\mathrm{LayerNorm}(x)$ — still a usable representation, and gradient still reaches earlier layers through the [[residual-connection]]. Masking after the addition instead would zero the identity path too, and a whole layer could stop passing signal backwards.
+
+Second, normalization is not the same function at train and test time. It computes mean and variance per position across features, and at training time it computes them on a sum whose non-identity half has been thinned. Some of the variance the mask removes is absorbed by the rescaling rather than propagating.
+
+The embedding site is the one with a side effect. [[residual-dropout|Dropout there]] applies to the sum of [[token-embeddings]] and the [[positional-encoding|positional encoding]], not to either separately, because [[eq-posenc|the sinusoid vector]] has already been added. A masked coordinate removes what that token is and where it sits in the same stroke. The order signal has no protected channel.
+
+--- CHAPTER id=the-fourth-knob ---
+TITLE: The knob Section 5.4 does not list
+
+Section 5.4 opens by saying the paper employs three types of regularization. It then prints two headings: Residual Dropout and Label Smoothing. Whether the third is the embedding-sum application counted separately, or something else, the section does not say.
+
+[[attention-dropout]] appears exactly once in the paper, and not in the [[regularization]] section. It surfaces in [[constituency-parsing|the parsing experiments]], where the authors report running a small number of experiments to select "the dropout, both attention and residual", along with learning rates and beam size, on the Section 22 development set. That sentence points back to 5.4 for a rate 5.4 never gives.
+
+Two things follow. The implementation carries a knob the recipe does not document. And the value used for the translation models is never stated — the parsing section says everything except those four items stayed unchanged from the English-German base model, which implies a translation-side setting exists, but no number is printed for it anywhere.
+
+Placement is also unstated. The site that would make sense in [[eq-attention]] is the softmax output, masking the attention weights before they multiply $V$ — which would mean a [[attention-head|head]] loses access to positions it had just selected, and the surviving weights no longer sum to one. The paper does not say this. [[scaled-dot-product-attention|The equation]] is given with no dropout term in it.
+
+Where it was tuned is the tell: 40K WSJ sentences, and a [[semi-supervised-parsing|17M-sentence]] variant, reported in [[table-4]]. A small-data regime is exactly where a second, independently tunable dropout rate would be worth the search.
+
+--- CHAPTER id=one-rate-that-moves ---
+TITLE: Why one rate moves and the others don't
+
+Do the arithmetic the rate is tracking. [[length-based-batching|Batches hold roughly 25000 target tokens]], and the big models run 300,000 steps ([[training-hardware-and-schedule|3.5 days on 8 P100s]]). That is about 7.5 billion target tokens consumed. [[wmt-2014-en-de]] is 4.5M sentence pairs; at something like 25–30 [[byte-pair-encoding|BPE]] tokens per sentence, the training set is on the order of $10^8$ target tokens. So the big English-German model makes roughly fifty passes over it. [[wmt-2014-en-fr]], 36M sentences under a [[word-piece-encoding|word-piece vocabulary]], is about eight times bigger, so the same 300,000 steps is closer to seven passes. Fifty passes at $P_{drop} = 0.3$; seven at 0.1.
+
+The average sentence length is not reported, so these are order-of-magnitude figures. But they sharpen the parent's claim: what the rate tracks is not dataset size directly, it is how many times each sentence is seen. Note that the same logic separates base from big on identical data — the [[base-vs-big-transformer|base model]] runs 100,000 steps, about twenty passes, and stays at 0.1.
+
+The evidence behind this is thinner than the choice. Rows (C) and (D) of [[table-3]] are base-size runs on the English-German development set. Section 6.2 reads the result as "as expected, bigger models are better, and dropout is very helpful in avoiding over-fitting" — the ablation confirms a prior rather than discovering anything. None of the table's dropout variations is 0.3, and none is run at big-model size, so [[size-and-dropout-ablation|the row supports the direction, not the number]]. Every entry in [[transformer-ablations|the table]] is a single run.
+
+--- CHAPTER id=what-the-citation-says ---
+TITLE: What the citation actually says
+
+The paper gives a value and a reference number. Here is what the reference contains.
+
+[[label-smoothing-regularization|LSR]] replaces the one-hot target $q$ with a mixture:
+
+$$q'(k) = (1-\epsilon)\,\delta_{k,y} + \epsilon\,u(k)$$
+
+With $u$ uniform over a vocabulary of size $K$, the reference token's target is $1 - \epsilon + \epsilon/K$ and every other token gets $\epsilon/K$. At $\epsilon = 0.1$ against the roughly 37000-token vocabulary the [[embedding-softmax-weight-sharing|pre-softmax projection]] scores over, that is about $0.9$ on the right token and about $2.7 \times 10^{-6}$ on each of the other 37 thousand — including tokens that could not legally appear there.
+
+[[smoothing-parameter-epsilon|There are two knobs]], $\epsilon$ and $u$, and $u$ need not be uniform; the cited work discusses using the corpus prior over classes instead. The Transformer paper reports only $\epsilon$, so uniform $u$ is an assumption the reader supplies.
+
+[[lsr-as-two-cross-entropy-losses|The loss splits]], because cross entropy is linear in the target:
+
+$$H(q',p) = (1-\epsilon)H(q,p) + \epsilon H(u,p)$$
+
+The first term is the ordinary objective, scaled down. The second is a fixed pull of the predicted distribution toward $u$, equal up to a constant to a KL divergence from $u$. That second term is identical for every training example, which is what makes it a regularizer — there is nothing in it to memorize.
+
+[[overconfidence-and-bounded-logit-gradient|The stated motive]]: at finite logits the softmax never returns exactly 1, so a one-hot target is only approached as the correct logit runs away from the rest. The cited argument is that chasing it overfits and leaves the model less able to adapt, and it notes the per-logit gradient of the cross entropy is bounded. Smoothing supplies a target with a finite optimum instead. None of this reasoning appears in [[label-smoothing|the paragraph that uses it]], which is [[transformer-training-recipe|recipe reporting, not derivation]].
+
+--- CHAPTER id=two-metrics-diverging ---
+TITLE: Two metrics pointing opposite ways
+
+The perplexity loss is close to mechanical. The model has been trained to put about $0.9$, not $1.0$, on the reference token. [[perplexity]] is the exponentiated mean negative log probability of exactly those reference tokens. Cap the peak and the average NLL rises. The paper's phrasing — the model "learns to be more unsure" — describes the objective doing what it was told, not a training failure. The loss itself now has a floor too: the smoothed cross entropy cannot fall below the entropy of the smoothed target.
+
+[[bleu]] can still improve because it scores strings, and the strings come out of [[beam-search]]. Two things determine those and neither is peak probability: which token ranks first at each [[auto-regressive-generation|decoding step]], and how the summed log probabilities of whole hypotheses compare once [[length-penalty|the length penalty]] has divided them. A flatter distribution changes the second one. A beam that would have been dominated early by a single confident continuation keeps alternatives alive longer. So smoothing can move the tokens actually emitted while the score on the reference token gets worse.
+
+On evidence: Section 5.4 asserts the whole thing in one sentence with no numbers attached. It also names a third metric, accuracy, which is never tabulated — not in [[table-2]], not anywhere. [[table-3]] is where the split is visible, since it prints development perplexity and development BLEU in adjacent columns for every row.
+
+The practical reading: a single-number model-selection criterion would have deleted this regularizer. If you tune on held-out perplexity, smoothing looks like a mistake every time.
+

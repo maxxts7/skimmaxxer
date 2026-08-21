@@ -1,0 +1,63 @@
+NARRATIVE NODE: n-the-argument-in-three-numbers--where-the-numbers-come-from--never-priced
+TITLE: What the three columns never price
+
+INTRO:
+The parent listed what the table leaves out. This level does the arithmetic on each omission: what the dropped constants actually weigh, how much of a real layer's work sits in the row that does not exist, and where in the paper each unpriced cost eventually gets settled.
+
+--- CHAPTER id=constants-by-hand ---
+TITLE: Doing the constants by hand
+
+Big-O drops the constants, so put them back one row at a time.
+
+The recurrent row, $O(n \cdot d^2)$, is one $d \times d$ multiply per step in the simplest case. A plain [[recurrent-neural-network|RNN]] cell does roughly that. An [[lstm]] computes four gated pre-activations per step, each with its own input and recurrent matrix, so its constant is several times larger; a [[gated-recurrent-unit|GRU]] sits somewhere between. All three land in the same cell of [[table-1]].
+
+The self-attention row, $O(n^2 \cdot d)$, hides something more interesting: a term of a different shape. [[multi-head-attention]] does not attend directly to the incoming vectors. It first applies [[attention-projection-matrices|$W^Q$, $W^K$, $W^V$]] and, after concatenating, $W^O$. Across all [[num-heads-h|eight heads]] those are four full $512 \times 512$ maps, about 1.05M multiply-adds per position — an $n \cdot d^2$ term sitting inside a row labelled $n^2 \cdot d$. The paper's own justification for not writing it down is a claim about the constant: because [[dk-dv-dimensions|$d_k = d_v = d_{model}/h = 64$]], [[eq-multihead|the total cost]] is *similar* to single-head attention at full width. Similar, not equal.
+
+And every row prices one layer. The [[encoder-stack]] is [[n-layers|six]] of them, the [[decoder-stack]] six more, each decoder layer carrying two attention [[sub-layer|sub-layers]] rather than one. Nothing in the table multiplies by that. The [[complexity-per-layer|per-layer]] framing is stated honestly in the column heading; it is simply not the number you pay.
+
+--- CHAPTER id=row-that-isnt-there ---
+TITLE: The sub-layer with no row
+
+Now the larger gap. Count the [[position-wise-feed-forward-network]] the way the table counts everything else.
+
+[[eq-ffn|The block]] widens each position from [[d-model|512]] to [[d-ff|2048]], applies a [[relu|ReLU]], and projects back. That is $512 \times 2048$ twice, about 2.1M multiply-adds per position, or roughly $8 n d^2$ per layer since $d_{ff} = 4 d_{model}$. Compare it to the part of the attention sub-layer the table does price: $n^2$ dot products of length $d$, plus $n^2$ weighted value additions, about $2 n^2 d$.
+
+Set them equal and the crossover is $n \approx 4d$, near 2048 tokens. Below that the feed-forward sub-layer is doing more arithmetic than the attention it follows. The paper's sequences are nothing like 2048 — sentence pairs batched to about 25000 tokens in total, individual sentences far shorter. So on the paper's own workload, most of the multiply-adds in a layer live in a row that does not appear.
+
+Section 4 does acknowledge the pairing once, and not in the table. Arguing about [[convolutional-sequence-models|convolutions]], it notes that [[separable-convolutions|a separable convolution]] at $k = n$ costs $O(k \cdot n \cdot d + n \cdot d^2)$, which it calls equal to "the combination of a self-attention layer and a point-wise feed-forward layer, the approach we take in our model." That sentence adds the two together because the comparison would otherwise be unfair. The rows of [[table-1]] never do.
+
+--- CHAPTER id=holding-the-scores ---
+TITLE: Holding the score matrix
+
+The first column counts the $n \times n$ scores as arithmetic and then forgets them. They also have to exist.
+
+Count what is resident. Each [[attention-head|head]] produces its own $n \times n$ matrix of scores, so one [[encoder-self-attention|encoder self-attention]] sub-layer holds $8 n^2$ floats before the [[softmax]] and the same shape after. Six encoder layers, six decoder layers with two attention sub-layers each, all of it multiplied by the examples in the batch, and all of it kept alive for the backward pass because the [[eq-attention|weighted sum]] needs its weights again to produce gradients. Against that, a recurrent layer stores $n \cdot d$ activations. Quadratic in $n$ against linear in $n$, at exactly the sequence lengths where the arithmetic columns say self-attention is the cheaper of the two.
+
+The paper is not unaware of memory. "Space-efficient" appears once, in the [[dot-product-attention|dot-product]] versus [[additive-attention|additive]] comparison, and it is about the implementation rather than the layer. Section 4's only response to anything quadratic is [[restricted-self-attention]] — attend within a window of size $r$ — and it is offered as a computation fix for very long sequences, with the cost booked in the [[maximum-path-length|path-length]] column as $O(n/r)$. Its effect on stored activations goes unmentioned, as does whether the authors ran it; they say they plan to investigate it in future work.
+
+A fourth column would make the sequence-length ceiling a practitioner actually hits visible in [[table-1]]. There are three.
+
+--- CHAPTER id=no-clock ---
+TITLE: The column for the clock
+
+Three asymptotic columns cannot break a tie between two designs that scale the same way. The paper does break one, elsewhere, on grounds the table cannot express.
+
+Choosing between [[additive-attention]] and [[dot-product-attention]] in Section 3.2.1, it says the two are "similar in theoretical complexity" — that is the [[complexity-per-layer|first column]] declining to decide — and picks the dot product because it "is much faster and more space-efficient in practice, since it can be implemented using highly optimized matrix multiplication code." The argument is about what the hardware does with the operation, not how many operations there are. Additive attention's hidden-layer score does not collapse into one dense matmul; the dot product does.
+
+The same section carries a second correction that costs nothing in any column. Unscaled dot products grow in magnitude with $d_k$ and push the [[softmax]] into a region of very small gradients, so [[scaled-dot-product-attention]] divides by [[sqrt-dk-scaling|$\sqrt{d_k}$]]. One free multiply, and the paper suspects training turns on it. The three columns rank it exactly level with doing nothing.
+
+The real clock numbers arrive in Sections 5 and 6: the base model runs 100,000 steps in about twelve hours on [[training-hardware-and-schedule|eight P100s]], roughly 0.4 seconds a step, and [[table-2]]'s cost axis is a [[training-flops-estimate|FLOPs estimate]] rather than measured throughput. Those describe one implementation, in [[tensor2tensor]], on one machine. They belong to a different argument than the one Section 4 is making.
+
+--- CHAPTER id=price-of-one-hop ---
+TITLE: What one hop costs in resolution
+
+The last omission is not a resource. It is quality.
+
+A path of length 1 means one position reaches another in a single step. That step is a weighted average over every position at once, and [[attention-averaging-resolution-cost|averaging blurs]]: Section 3.2.2 says flatly that with a single attention head, averaging inhibits attending to information from different representation subspaces at different positions. The one-hop entry in [[table-1]] prices the reach and not the blur.
+
+[[multi-head-attention]] is the stated repair, and its shape is one the [[layer-comparison-desiderata|three criteria]] could never have motivated — eight heads at width 64 instead of one at width 512, sized so that total computation stays roughly fixed and the first column reads the same either way. The design pressure came from somewhere the columns do not look.
+
+What it buys is measured later. In [[table-3]] rows (A), [[attention-heads-ablation|single-head attention is 0.9 BLEU worse]] than the best setting, and quality also drops off with too many heads. Rows (B) show that [[key-size-ablation|shrinking $d_k$ hurts]], which the paper reads as a hint that a dot product may be too simple a [[compatibility-function]]. Both are single runs on a development set, and both arrive two sections after the decision they bear on.
+
+So each unpriced cost is settled somewhere else, or not at all: head count by ablation, speed by the implementation and [[table-2]]'s cost axis, memory by nothing published here. [[etheme-case-against-recurrence]] and [[theme-why-self-attention]] put the three columns back in their place in the argument.
+

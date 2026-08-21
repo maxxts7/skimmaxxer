@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=length-penalty ---
+NAME: Length penalty (alpha = 0.6)
+OWNER: 1706.03762
+SUMMARY (leave alone): A normalization applied to beam-search scores so that longer output sequences are not unfairly penalized; the paper uses strength alpha = 0.6 from the GNMT paper.
+
+EXPLANATION:
+A sequence's beam-search score is a sum of log-probabilities, each of which is negative, so longer sequences accumulate lower scores and plain beam search favors short outputs. The length penalty divides each candidate's score by a term that grows with its length, with an exponent $\alpha$ controlling the strength ($\alpha = 0$ means no correction). The paper takes the formulation and the value $\alpha = 0.6$ from [38] without restating the formula.
+
+--- CONCEPT id=inference-length-limit ---
+NAME: Maximum output length rule
+OWNER: 1706.03762
+SUMMARY (leave alone): During inference the output is capped at input length + 50 tokens, with early termination when possible.
+
+EXPLANATION:
+A safety bound on decoding: generation never runs past the input length plus 50 tokens, but stops earlier when the beam finishes naturally (following the procedure of [38]). This prevents runaway generation and bounds inference cost.
+
+--- CONCEPT id=checkpoint-averaging ---
+NAME: Checkpoint averaging
+OWNER: 1706.03762
+SUMMARY (leave alone): The final model's weights are the elementwise average of the last several saved checkpoints: 5 for base models, 20 for big models, written at 10-minute intervals.
+
+EXPLANATION:
+A checkpoint is a snapshot of all model weights saved during training. Instead of evaluating the very last checkpoint, the paper averages the parameters of the last 5 checkpoints for base models and the last 20 for big models (checkpoints were written every 10 minutes). Averaging smooths out the step-to-step noise in the weights near the end of training and acts like a cheap ensemble that still costs a single model at inference time. All reported translation results use these averaged models.
+
+--- CONCEPT id=training-flops-estimate ---
+NAME: Training-cost FLOPs estimate
+OWNER: 1706.03762
+SUMMARY (leave alone): The paper estimates each model's training cost as training time x number of GPUs x an assumed sustained single-precision throughput per GPU.
+
+EXPLANATION:
+To compare training cost across papers that used different hardware, the paper converts everything to estimated floating point operations: wall-clock training time multiplied by GPU count multiplied by an assumed sustained throughput of 2.8, 3.7, 6.0, and 9.5 TFLOPS for K80, K40, M40, and P100 GPUs respectively. This is an estimate, not a measurement. On this basis the paper claims its models cost a fraction of competing models to train — e.g. the big English-French model at less than 1/4 the previous state of the art's cost.
+
+--- CONCEPT id=transformer-ablations ---
+NAME: Model variation ablations (Table 3)
+OWNER: 1706.03762
+SUMMARY (leave alone): Experiments that change one component of the base model at a time and measure the effect on English-to-German translation, to see which parts matter.
+
+EXPLANATION:
+Section 6.2 varies the base Transformer along several axes, holding the rest fixed, and reports perplexity and BLEU for each variant. The findings: the number of attention heads has a sweet spot (rows A); shrinking the attention key size $d_k$ hurts quality (rows B); bigger models are better and dropout is very helpful against over-fitting (rows C and D); and swapping the sinusoidal positional encoding for learned positional embeddings changes almost nothing (row E). Each finding is a child concept.
+
+--- CONCEPT id=attention-heads-ablation ---
+NAME: Number of heads sweet spot
+OWNER: 1706.03762
+SUMMARY (leave alone): Varying the head count with total computation held constant shows single-head attention is 0.9 BLEU worse than the best setting, but too many heads also degrades quality.
+
+EXPLANATION:
+In Table 3 rows (A) the paper changes the number of attention heads $h$ while shrinking the per-head key and value dimensions $d_k, d_v$ in proportion, so total computation stays constant (as set up in section 3.2.2). One head is 0.9 BLEU below the best configuration, showing multi-head attention earns its place; but quality also drops with too many heads, where each head becomes very low-dimensional. The base model's $h = 8$ sits in the effective middle.
+
+--- CONCEPT id=key-size-ablation ---
+NAME: Reducing d_k hurts quality
+OWNER: 1706.03762
+SUMMARY (leave alone): Shrinking the attention key dimension d_k lowers translation quality, suggesting the dot product may be too simple a compatibility function.
+
+EXPLANATION:
+In Table 3 rows (B), reducing $d_k$ — the dimension of the query and key vectors whose dot product decides how much attention one position pays to another — hurts model quality. The paper reads this as evidence that 'determining compatibility is not easy': the dot product in a smaller space loses capacity to express which positions should attend to which, and the paper suggests a more sophisticated compatibility function than dot product may be beneficial. This is a hedge, not a demonstrated result.
+
+--- CONCEPT id=size-and-dropout-ablation ---
+NAME: Model size and dropout effects
+OWNER: 1706.03762
+SUMMARY (leave alone): Bigger models translate better, and dropout is very helpful in preventing over-fitting.
+
+EXPLANATION:
+Table 3 rows (C) and (D) confirm what the paper calls expected: increasing model size (dimensions like $d_{model}$ and the feed-forward width) improves quality, and removing or reducing dropout hurts it, which the paper attributes to over-fitting. These findings justify the big model configuration and the $P_{drop}$ choices in the training recipe.
+
+--- CONCEPT id=constituency-parsing ---
+NAME: English constituency parsing
+OWNER: 1706.03762
+SUMMARY (leave alone): The task of producing a sentence's syntactic tree — nested phrases like noun phrases and verb phrases — used as a generalization test for the Transformer beyond translation.
+
+EXPLANATION:
+Constituency parsing maps a sentence to a tree that groups its words into nested labeled phrases (e.g. a noun phrase inside a verb phrase inside a sentence). Framed as sequence-to-sequence, the output is the tree written out as a bracketed sequence, which is significantly longer than the input and must obey strong structural constraints — brackets have to nest and close correctly. The paper picks this task precisely because it stresses the model differently from translation, and because RNN sequence-to-sequence models had not reached state-of-the-art results in small-data regimes. A 4-layer Transformer with $d_{model}=1024$, with only dropout, learning rate, and beam size re-tuned (on the WSJ Section 22 development set), outperforms all previously reported models except the Recurrent Neural Network Grammar, and beats the BerkeleyParser even when trained only on the 40K-sentence WSJ set — a regime where RNN seq2seq models had struggled.
+
+--- CONCEPT id=penn-treebank-wsj ---
+NAME: Penn Treebank (WSJ portion)
+OWNER: 1706.03762
+SUMMARY (leave alone): The standard constituency-parsing dataset: about 40K hand-parsed sentences from the Wall Street Journal.
+
+EXPLANATION:
+The Penn Treebank is a corpus of English sentences annotated with syntactic trees by linguists. Its Wall Street Journal portion, about 40K training sentences, is the standard supervised training set for English constituency parsing, and its Section 22 serves as the development set the paper tuned on. 40K sentences is small by neural standards, which is what makes the WSJ-only result a small-data test. The paper uses a 16K-token vocabulary for this setting.
+
+--- CONCEPT id=semi-supervised-parsing ---
+NAME: Semi-supervised parsing setting
+OWNER: 1706.03762
+SUMMARY (leave alone): A second training regime that adds about 17M automatically parsed sentences from the high-confidence and BerkeleyParser corpora on top of the WSJ data.
+
+EXPLANATION:
+Beyond the 40K hand-annotated WSJ sentences, the paper also trains on roughly 17 million sentences whose parse trees were produced by existing parsers rather than humans — the 'high-confidence' and BerkeleyParser corpora used in prior sequence-to-sequence parsing work. This is semi-supervised in the sense that the extra labels are machine-generated. The vocabulary grows to 32K tokens for this setting. The setup follows [37], which this paper does not re-describe.
+
+--- CONCEPT id=recurrent-neural-network-grammar ---
+NAME: Recurrent Neural Network Grammar (RNNG)
+OWNER: 1706.03762
+SUMMARY (leave alone): A parsing model that builds trees with explicit tree-structured operations; the one prior model the Transformer does not beat on parsing.
+
+EXPLANATION:
+RNNG is a model designed specifically for parsing: it generates a sentence and its tree jointly through a sequence of tree-building actions, baking the tree structure into the architecture. It appears here only as the strongest baseline — the single previously reported result the Transformer's parsing numbers do not exceed.
+

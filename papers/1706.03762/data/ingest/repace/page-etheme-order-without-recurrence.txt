@@ -1,0 +1,24 @@
+PAGE FOR: etheme-order-without-recurrence (edge-theme)
+
+Take recurrence out of a sequence model and you lose more than sequential compute — you lose order itself. These links are the paper's accounting of that debt: [[self-attention]] cannot see order, so [[positional-encoding]] has to put it back, and the particular scheme the paper ships is picked on a hypothesis rather than on a measurement.
+
+### Order was a side effect, not a feature
+
+A [[recurrent-neural-network|recurrent layer]] never represents position explicitly. It gets order for free from the order in which it consumes tokens; position is implicit in the shape of the computation. Self-attention computes a weighted sum over all positions at once. Permute the inputs and the outputs permute with them — the layer has no handle on who came first. Section 3.5 says it flatly: since the model contains no recurrence and no convolution, information about relative or absolute position "must" be injected some other way. So the positional encoding is not an extra feature bolted onto the design. It is a repair for something the design removed, and it is the one place in the architecture where that trade shows up as a cost rather than a saving.
+
+### What gets added
+
+[[eq-posenc|Equation (4)]] fixes the repair as a bank of sinusoids. Each of the $d_{model} = 512$ dimensions is one sine or cosine of the position — even dimensions sine, odd dimensions cosine:
+
+$$PE_{(pos, 2i)} = \sin\!\left(pos/10000^{2i/d_{model}}\right), \qquad PE_{(pos, 2i+1)} = \cos\!\left(pos/10000^{2i/d_{model}}\right)$$
+
+Wavelengths run in a geometric progression from $2\pi$ to $10000 \cdot 2\pi$. Nothing here is learned, which is what lets [[sinusoidal-positional-encoding|the scheme]] produce a vector for a position it has never seen. The vector is *added* to the token embedding, not concatenated, so content and position share the same 512 dimensions and the model has to separate them itself. The paper's stated reason for this family is [[relative-position-linearity|the offset property]]: for any fixed $k$, $PE_{pos+k}$ is a linear function of $PE_{pos}$, which the authors "hypothesized would allow the model to easily learn to attend by relative positions." Hypothesized is their word. The linearity is a fact about the formula — a per-frequency rotation, checkable on paper. That the trained model actually exploits it is not shown anywhere: no probe, no ablation isolating it.
+
+### The comparison that came out flat
+
+[[learned-positional-embedding|A trainable vector per position]] is the obvious alternative, and the paper tried it. [[table-3|Table 3]] row (E) reports nearly identical results. That matters because the same ablation table does separate other choices — the [[attention-heads-ablation|head-count sweep]] moves BLEU by 0.9 between single-head and the best setting. Here it moves nothing worth reporting. Quality did not decide the question.
+
+The tiebreak was extrapolation: sinusoids "may allow" the model to handle sequences longer than any seen in training. The paper does not test this. Both translation benchmarks are sentence-level, and the plan for genuinely long inputs is deferred to future work ([[restricted-self-attention]], and the conclusion's note about local attention for images and audio).
+
+So the chain has two halves of unequal strength. That positional information must be injected is argued directly from the architecture and is not in doubt. That it should be injected *this way* rests on one flat comparison and one untested property of the formula.
+

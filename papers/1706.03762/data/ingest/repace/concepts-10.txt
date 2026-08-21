@@ -1,0 +1,26 @@
+CONCEPT EXPLANATIONS (3)
+
+--- CONCEPT id=wsj-parsing-protocol ---
+NAME: WSJ Penn Treebank Evaluation Protocol
+OWNER: 1412.7449
+SUMMARY (leave alone): The standard constituency-parsing benchmark: train on the Wall Street Journal portion of the Penn Treebank (about 40K sentences), tune on section 22, test on section 23, and report bracketing F1 computed by the EVALB tool.
+
+EXPLANATION:
+The Penn Treebank's Wall Street Journal section is the long-standing benchmark for English constituency parsing. The conventional split trains on roughly 40K annotated sentences (about 1M tokens), uses section 22 as the development set (about 1700 sentences) and section 23 as the test set. Scoring uses the EVALB program, which compares predicted and gold labeled brackets and reports precision, recall, and their harmonic mean F1; part-of-speech tags are not part of this score, which is why POS labels can be discarded during training. By neural-network standards 40K sentences is a very small supervised set — smaller than MNIST — so results on "WSJ only" measure data efficiency, and results using extra machine-parsed data are reported separately. Additional gold treebanks can be pooled with WSJ to reach about 90K human-annotated sentences: OntoNotes v5 (which itself contains the WSJ material), the English Web Treebank, and the corrected Question Treebank. Held-out generalization sets used alongside WSJ include 1000 Question Treebank sentences (QTB) and the first half of each English Web Treebank domain (WEB, 8310 sentences), which test whether a news-trained parser transfers to questions and web text.
+
+--- CONCEPT id=semi-supervised-parsing-corpora ---
+NAME: Machine-Parsed Semi-Supervised Corpora
+OWNER: 1412.7449
+SUMMARY (leave alone): Two large synthetic training sets built by running existing parsers over unlabeled web news: a ~7M-sentence corpus labeled by one parser, and a ~11M-sentence "high-confidence" corpus kept only where two different parsers produced identical trees. Both are pooled with the ~90K gold sentences.
+
+EXPLANATION:
+The recipe replaces human annotation with parser output. Unlabeled sentences are sampled from news appearing on the web and passed through existing constituency parsers; the parsers' trees become the training targets. The first, simpler corpus uses a single parser — a reimplementation of the BerkeleyParser — over about 7M sentences; combined with the ~90K gold sentences this is called the BerkeleyParser corpus. The second applies tri-training-style filtering: two independently built parsers, a BerkeleyParser reimplementation and a ZPar reimplementation, parse the same sentences, and only sentences where both produce exactly the same tree are kept. Agreement is a cheap proxy for correctness, but it is length-biased — parsers agree far more often on short sentences — so the kept sentences are re-sampled to match the sentence-length distribution of the WSJ training corpus. The result is about 11M sentences (250M tokens), again pooled with the ~90K gold sentences; this is the high-confidence corpus. Together the two corpora amount to roughly 17-18M machine-parsed sentences. The claim these corpora support is that a student model trained on imperfect teacher labels can beat the teacher: the reported model reaches higher F1 than the parsers that generated its training data, attributed to the student treating the teachers' errors as noise. Because these sets contain hundreds of millions of tokens, they are not directly comparable to prior supervised numbers; published semi-supervised and self-training results are the intended comparison points.
+
+--- CONCEPT id=parsing-baseline-scores ---
+NAME: Reference F1 Scores on WSJ
+OWNER: 1412.7449
+SUMMARY (leave alone): The F1 numbers this line of work is compared against, on WSJ section 22 (dev) and section 23 (test), split into WSJ-only supervised parsers and semi-supervised ones trained with extra unlabeled or machine-parsed data.
+
+EXPLANATION:
+Comparisons in constituency parsing are made against a fixed table of published section-23 F1 scores. On WSJ-only supervised training: the latent-variable BerkeleyParser scores 90.4, the linear-time shift-reduce parser of Zhu et al. (2013) also 90.4, and a product-of-grammars ensemble 91.8. In the semi-supervised column, where parsers use self-training or extra unlabeled data: Zhu et al. 91.3, Huang and Harper (2009) 91.3, McClosky et al. (2006) 92.1, and a Huang and Harper (2010) ensemble 92.4. The sequence-to-sequence results reported alongside these are 88.3 for a single attention model trained on WSJ only, 90.5 for a 5-model ensemble on WSJ only, 90.5 for a non-attention baseline trained on the single-parser synthetic corpus, 92.5 for a single attention model trained on the high-confidence corpus, and 92.8 for its 5-model ensemble. A plain sequence-to-sequence model without attention, trained on WSJ only, does not reach a usable score (below 70) even with dropout and early stopping, which is the main evidence offered for attention's data efficiency. Decoding uses a beam; beam size 10 is reported, with beam 2 costing 0.2 F1 and greedy decoding 0.5 F1, so the search matters little.
+

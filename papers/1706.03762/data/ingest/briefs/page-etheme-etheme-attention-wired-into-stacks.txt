@@ -1,0 +1,61 @@
+PAGE FOR EDGE-THEME: etheme-attention-wired-into-stacks
+NAME: Where attention is wired into the two stacks
+
+THEME SUMMARY (shown above your page as the lede - do not repeat verbatim):
+The same multi-head block appears in three places: encoder self-attention over the whole input, masked decoder self-attention, and encoder-decoder attention whose keys and values come from the encoder output. The mask is what separates the second use from the first — forbidden positions get minus infinity before the softmax, so they get zero weight, and that is what keeps generation auto-regressive. Around each attention or feed-forward sub-layer sits the same wrapper: a residual connection and layer normalization, which is where the cited layer-norm formula enters and why every sub-layer and embedding is forced to the single width d_model = 512. Equation (2) defines the other sub-layer, the per-position feed-forward network, and N = 6 fixes how many times the pair is stacked. Figure 1 shows the whole arrangement at once.
+
+MEMBER EDGES (17) - these render as a list BELOW your page. Your page is the argument they add up to, not a re-listing:
+  e007 [load-bearing] causal-masking (Causal masking) --depends-on--> softmax (Softmax) | minus-infinity becomes zero weight: The mask sets forbidden scores to minus infinity before the softmax. It works only because exponentiating minus infinity gives zero, so those positions get no weight at all.
+  e008 [load-bearing] masked-decoder-self-attention (Masked decoder self-attention) --depends-on--> auto-regressive-generation (Auto-regressive generation) | masking preserves auto-regression: The mask exists to stop leftward information flow so the auto-regressive property holds. Together with the one-position offset of the output embeddings, it ensures the prediction at position i uses only outputs before i.
+  e009 [supporting] causal-masking (Causal masking) --depends-on--> scaled-dot-product-attention (Scaled dot-product attention) | implemented inside the attention function: Section 3.2.3 says masking is done inside scaled dot-product attention, on the input to the softmax. It is a stage of the existing attention block (the optional Mask box in Figure 2), not a separate layer.
+  e010 [load-bearing] encoder-decoder-attention (Encoder-decoder attention) --depends-on--> encoder-stack (Encoder stack) | keys and values are encoder output: In this sub-layer the queries come from the previous decoder layer but the memory keys and values come from the encoder's output. There is nothing to attend over until the encoder stack has run.
+  e012 [load-bearing] d-model (d_model = 512 (model dimension)) --depends-on--> residual-connection (Residual connection) | residuals force one shared width: Section 3.1 gives the reason directly: to facilitate the residual connections, all sub-layers and the embedding layers produce outputs of dimension 512. The uniform width is a consequence of adding inputs to outputs everywhere.
+  e013 [load-bearing] sub-layer (Sub-layer) --depends-on--> layer-normalization (Layer normalization) | every sub-layer output is normalized: The wrapper around each sub-layer is LayerNorm(x + Sublayer(x)). The normalization is part of the sub-layer's definition, not an optional extra.
+  e014 [load-bearing] layer-normalization (Layer normalization) --depends-on--> layer-normalization-statistics (Layer normalization statistics) | reuses the cited normalization formula: The paper uses layer normalization by citation and never writes the formula. The mean and standard deviation are computed across the hidden units of one position, which is what makes it work on variable-length sequences.
+  e051 [supporting] encoder-decoder-architecture (Encoder-decoder architecture) --supported-by--> fig-1 (The two-stack data path (fig-1)) | draws both stacks and their link: Figure 1 puts the whole model in one picture: an N-layer encoder tower, an N-layer decoder tower, and the arrows carrying encoder output into each decoder layer's second attention sub-layer. It is a schematic, so it fixes wiring, not sizes.
+  e060 [load-bearing] position-wise-feed-forward-network (Position-wise feed-forward network) --supported-by--> eq-ffn (The per-position feed-forward block (eq-ffn)) | defines the second sub-layer: Equation (2), max(0, xW1 + b1)W2 + b2, is the whole feed-forward sub-layer. It shows the network sees one position at a time: there is no mixing across positions here, so all cross-position work happens in the attention sub-layers.
+  e063 [load-bearing] encoder-self-attention (Encoder self-attention) --instance-of--> multi-head-attention (Multi-head attention) | first of three attention uses: Section 3.2.3 lists three ways the Transformer uses multi-head attention. In the encoder, queries, keys and values all come from the previous encoder layer, so every position can attend to every position, with no mask.
+  e064 [load-bearing] masked-decoder-self-attention (Masked decoder self-attention) --instance-of--> multi-head-attention (Multi-head attention) | second of three attention uses: The decoder runs the same multi-head attention over its own previous layer, but each position may only attend up to and including itself. The paper says this is needed to preserve the auto-regressive property.
+  e065 [load-bearing] encoder-decoder-attention (Encoder-decoder attention) --instance-of--> multi-head-attention (Multi-head attention) | third of three attention uses: Here the queries come from the previous decoder layer and the keys and values come from the encoder output, so every decoder position can look at the whole input. The paper says this mimics the encoder-decoder attention of earlier sequence-to-sequence models.
+  e068 [supporting] n-layers (N = 6 (number of layers)) --instance-of--> encoder-stack (Encoder stack) | fixes the stack depth at six: The encoder is described as a stack of N identical layers; the base model uses N = 6. The decoder uses the same depth.
+  e069 [supporting] d-model (d_model = 512 (model dimension)) --instance-of--> transformer (The Transformer) | fixes the shared model width: Section 3.1 says every sub-layer and embedding layer outputs vectors of the same dimension so residual connections can be added, and sets that dimension to d_model = 512 in the base model.
+  e086 [supporting] position-wise-feed-forward-network (Position-wise feed-forward network) --instance-of--> eq-ffn (The per-position feed-forward block (eq-ffn)) | defined by Equation (2): Equation (2) fixes the second sub-layer of every encoder and decoder layer as a two-layer MLP with a ReLU between, applied to each position separately with the same weights.
+  e104 [supporting] masked-decoder-self-attention (Masked decoder self-attention) --contrasts-with--> encoder-self-attention (Encoder self-attention) | masked past vs full sequence: Same operation, different visibility: encoder self-attention lets every position attend to all positions, while decoder self-attention masks out future positions. The restriction is what keeps generation auto-regressive, so the decoder gives up the encoder's full context by design.
+  e114 [supporting] layer-norm-vs-batch-norm (Contrast with batch normalization) --contrasts-with--> layer-normalization (Layer normalization) | across features vs across batch: From the Layer Normalization paper: batch normalization computes each neuron's statistics across the examples in a mini-batch, layer normalization across the features of a single example. The second does not depend on batch size or composition, which is why it fits per-position sequence models.
+
+NODES INVOLVED (link them as [[id]]):
+  - auto-regressive-generation | Auto-regressive generation: Producing an output sequence one symbol at a time, where each new symbol is conditioned on all previously generated symbols.
+  - causal-masking | Causal masking: Setting the attention scores for forbidden (future) positions to $-\infty$ before the softmax, so those positions receive zero att
+  - d-model | d_model = 512 (model dimension): The shared width of the model: every sub-layer and embedding layer outputs vectors of dimension $d_{model} = 512$.
+  - encoder-decoder-architecture | Encoder-decoder architecture: A two-part model design: an encoder turns the input sequence into continuous representations, and a decoder generates the output s
+  - encoder-decoder-attention | Encoder-decoder attention: The decoder sub-layer where queries come from the decoder and the keys and values come from the encoder's output, letting every de
+  - encoder-self-attention | Encoder self-attention: The self-attention layers in the encoder, where each position can attend to all positions in the previous encoder layer, with no m
+  - encoder-stack | Encoder stack: The Transformer's encoder: $N=6$ identical layers, each containing a multi-head self-attention sub-layer followed by a position-wi
+  - eq-ffn | The per-position feed-forward block (evidence): Equation (2) defines the second sub-layer in every encoder and decoder layer: a two-layer MLP with a ReLU in between, applied to e
+  - fig-1 | The two-stack data path (evidence): The figure shows the entire model in one picture: two towers of identical layers, each layer built only from attention and a posit
+  - layer-norm-vs-batch-norm | Contrast with batch normalization [from Layer Normalization]: Batch normalization computes each neuron's statistics across the training cases in a mini-batch; layer normalization computes them
+  - layer-normalization | Layer normalization: A normalization step that rescales each position's activation vector to have a standard mean and variance, computed across the fea
+  - layer-normalization-statistics | Layer normalization statistics [from Layer Normalization]: Layer normalization standardizes a layer's activations using a mean and standard deviation computed across the hidden units of tha
+  - masked-decoder-self-attention | Masked decoder self-attention: The decoder's self-attention, restricted by a mask so each position can only attend to itself and earlier positions.
+  - multi-head-attention | Multi-head attention: Running $h$ attention functions in parallel on different learned linear projections of the queries, keys, and values, then concate
+  - n-layers | N = 6 (number of layers): The number of identical layers stacked in each of the encoder and the decoder in the base model: six.
+  - position-wise-feed-forward-network | Position-wise feed-forward network: A two-layer fully connected network applied to each sequence position independently and identically: expand to $d_{ff}=2048$, appl
+  - residual-connection | Residual connection: A shortcut that adds a layer's input directly to its output, so the layer only has to learn a change (residual) on top of the iden
+  - scaled-dot-product-attention | Scaled dot-product attention: The Transformer's attention: dot the query with every key, divide by $\sqrt{d_k}$, softmax the scores, and use them to weight the 
+  - softmax | Softmax: The standard function that turns a vector of scores into a probability distribution: exponentiate each score and normalize by the 
+  - sub-layer | Sub-layer: One of the components inside a Transformer layer — an attention mechanism or a feed-forward network — each wrapped in its own resi
+  - transformer | The Transformer: The architecture this paper proposes: an encoder-decoder built entirely from stacked self-attention and position-wise feed-forward
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 02-1-introduction.txt
+  - 03-2-background.txt
+  - 04-3-model-architecture.txt
+  - 05-3.1-encoder-and-decoder-stacks.txt
+  - 06-3.2-attention.txt
+  - 07-3.2.1-scaled-dot-product-attention.txt
+  - 08-3.2.2-multi-head-attention.txt
+  - 09-3.2.3-applications-of-attention-in-our-model.txt
+  - 10-3.3-position-wise-feed-forward-networks.txt
+  - 11-3.4-embeddings-and-softmax.txt
+  - 12-3.5-positional-encoding.txt
+  - 13-4-why-self-attention.txt

@@ -1,0 +1,49 @@
+PAGE FOR CONCEPT: attention-mechanism
+NAME: Attention mechanism (query, key, value)
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A function that maps a query vector and a set of key-value vector pairs to an output: a weighted sum of the values, with weights set by how well the query matches each key.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Given one query vector and a set of key-value pairs (all vectors), attention outputs a weighted sum of the values. Each value's weight comes from a compatibility function that scores the query against that value's key — a high score means 'this value is relevant to this query' — and the scores become weights through a softmax. Before this paper, attention was mostly used to connect an encoder and decoder: at each decoding step the decoder looks back over all encoder states and pulls in the relevant ones. The introduction stresses the key property: attention models dependencies without regard to their distance in the input or output sequences. It also notes that, with few exceptions, attention had been used together with a recurrent network rather than instead of one. Everything in the Transformer's attention machinery is a particular choice of compatibility function (scaled dot product) plus a particular choice of where the queries, keys, and values come from.
+
+THEME IT BELONGS TO: theme-how-attention-is-computed | How attention is computed - The one operation the model is built from. Attention maps a query and a set of key-value pairs to a weighted sum of the values, with the weights coming from how well the query matches each key. The paper's version scores with a dot product, divides by the square root of the key dimension, and softmaxes; it then runs eight of these in parallel on lower-dimensional projections and concatenates the results. This is the mechanical core, so it comes before the places it gets used.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - queries-keys-values | Queries, keys, and values: The three roles vectors play in attention: a query asks for information, keys advertise what each position holds, and values carry the content that actually gets mixed into the output.
+  - compatibility-function | Compatibility function: The scoring function that measures how well a query matches a key; its scores become the attention weights after a softmax.
+  - scaled-dot-product-attention | Scaled dot-product attention: The Transformer's attention: dot the query with every key, divide by $\sqrt{d_k}$, softmax the scores, and use them to weight the values.
+    - dk-dv-dimensions | d_k and d_v (key and value dimensions): The dimensions of the key/query vectors ($d_k$) and value vectors ($d_v$) inside attention; in the base model each head uses $d_k = d_v = 64$.
+    - sqrt-dk-scaling | The 1/sqrt(d_k) scaling factor: Dividing the query-key dot products by $\sqrt{d_k}$ so their magnitude stays controlled as the dimension grows, keeping the softmax out of its flat, tiny-gradient regions.
+  - dot-product-attention | Dot-product (multiplicative) attention: An attention variant that scores each query-key pair by their plain dot product; identical to the Transformer's attention except for the $1/\sqrt{d_k}$ factor.
+  - additive-attention | Additive attention: An attention variant that scores each query-key pair with a small feed-forward network with one hidden layer, instead of a dot product.
+  - multi-head-attention | Multi-head attention: Running $h$ attention functions in parallel on different learned linear projections of the queries, keys, and values, then concatenating and projecting the results.
+    - attention-head | Attention head: One of the parallel attention functions inside multi-head attention, operating on its own learned low-dimensional projection of the queries, keys, and values.
+    - num-heads-h | h = 8 (number of heads): The number of parallel attention heads in the base model: eight.
+    - attention-projection-matrices | Attention projection matrices (W^Q, W^K, W^V, W^O): The learned linear maps that create each head's queries, keys, and values, and the final matrix that mixes the concatenated head outputs back to $d_{model}$.
+    - attention-averaging-resolution-cost | Averaging cost of single-head attention: A single attention operation blends many positions into one weighted average, which can blur position-specific information.
+    - attention-interpretability | Interpretability of attention: The paper's observation that inspecting attention distributions suggests individual heads learn distinct, sometimes linguistically meaningful, roles.
+  - self-attention | Self-attention (intra-attention): Attention where the queries, keys, and values all come from the same sequence, so every position can gather information from every other position in that sequence.
+    - encoder-self-attention | Encoder self-attention: The self-attention layers in the encoder, where each position can attend to all positions in the previous encoder layer, with no masking.
+    - masked-decoder-self-attention | Masked decoder self-attention: The decoder's self-attention, restricted by a mask so each position can only attend to itself and earlier positions.
+      - causal-masking | Causal masking: Setting the attention scores for forbidden (future) positions to $-\infty$ before the softmax, so those positions receive zero attention weight.
+    - restricted-self-attention | Restricted (local) self-attention: A proposed variant where each position attends only to a neighborhood of size r around it, trading path length for cheaper computation on very long sequences.
+  - encoder-decoder-attention | Encoder-decoder attention: The decoder sub-layer where queries come from the decoder and the keys and values come from the encoder's output, letting every decoder position look at the whole input sentence.
+
+PREREQUISITES:
+  - encoder-decoder-architecture | Encoder-decoder architecture: A two-part model design: an encoder turns the input sequence into continuous representations, and a decoder generates the output sequence from them, one symbol at a time.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-1 | The two-stack data path: The figure shows the entire model in one picture: two towers of identical layers, each layer built only from attention and a position-wise feed-forward network, every sub-layer wrapped in a residual connection plus layer normalization. There is no recurrence and no convolution anywhere, so order information has to be injected once, at the bottom of each tower.
+  - fig-2 | Attention as a wiring diagram: The figure draws the paper's attention math as data flow: on the left, Equation (1) box by box (dot queries against keys, scale, optionally mask, softmax, weight the values); on the right, that whole block used as a reusable unit, run $h$ times in parallel on separately projected copies of Q, K and V, then concatenated and projected once more.
+  - fig-3 | Heads tracking "making … more difficult": This is one query word's attention pattern in a single encoder self-attention layer, drawn as lines from the word to the positions it attends to, colored by head. Several of the eight heads put most of their weight on "more" and "difficult", six and seven tokens away from "making" — the paper's illustration that self-attention can link distant, grammatically related words in a single step.
+  - fig-5 | Two heads, one sentence: Two attention heads from the same encoder self-attention layer, run on the same sentence, produce visibly different attention patterns: one fans many positions into a few words, the other makes sparse, short, word-to-word links. The paper offers this as a qualitative illustration that heads specialize, and says only that the patterns "seem related" to sentence structure — nothing here is measured.
+  - eq-attention | The scaled dot-product attention formula: This is the paper's whole attention function in one line: score every query against every key with a dot product, shrink the scores by $\sqrt{d_k}$, softmax them into weights, and return the weighted sum of the values. The $1/\sqrt{d_k}$ factor is the only thing separating it from ordinary dot-product attention, and the paper adds it because it suspects large dot products push the softmax into regions with very small gradients.
+
+PAPER SECTIONS TO READ (in papers/1706.03762/data/ingest/sections/):
+  - 01-abstract-abstract.txt
+  - 02-1-introduction.txt
+  - 03-2-background.txt
+  - 06-3.2-attention.txt
+  - 13-4-why-self-attention.txt
+  - 23-7-conclusion.txt

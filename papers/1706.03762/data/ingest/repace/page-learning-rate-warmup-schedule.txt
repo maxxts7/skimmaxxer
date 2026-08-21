@@ -1,0 +1,19 @@
+PAGE FOR: learning-rate-warmup-schedule (concept)
+
+The learning rate in this paper is a function of the step number, not a constant you tune. Section 5.3 gives it as [[eq-lrate|Equation (3)]]:
+
+$$lrate = d_{model}^{-0.5} \cdot \min(step\_num^{-0.5},\ step\_num \cdot warmup\_steps^{-1.5})$$
+
+This is the number handed to [[adam-optimizer|Adam]] each step, before Adam does its own per-parameter rescaling. The two branches of the $\min$ cross exactly at $step\_num = warmup\_steps$, so the schedule is one linear ramp up followed by an inverse-square-root decay, with the peak at the crossover.
+
+### The actual numbers
+
+With [[d-model|$d_{model} = 512$]] the outer factor is $512^{-0.5} \approx 0.0442$. With [[warmup-steps-4000|$warmup\_steps = 4000$]] the ramp adds about $1.7 \times 10^{-7}$ per step, so the rate climbs from roughly zero to a peak near $7 \times 10^{-4}$ at step 4000. After that it falls off slowly: about $1.4 \times 10^{-4}$ at step 100{,}000, where the base model stops, and about $8 \times 10^{-5}$ at step 300{,}000 for the big model — see [[training-hardware-and-schedule|the training schedule]] for those step counts. So the warmup occupies the first 4% of base training and the first ~1.3% of big training; the decay is what the model spends nearly all of its steps under.
+
+The $d_{model}^{-0.5}$ factor is the part that is easy to skip over. It ties the schedule to the architecture rather than to the run: widen the model and every step gets proportionally smaller, with no retuning. That matters because the paper trains [[base-vs-big-transformer|two sizes]] with the same formula.
+
+### What the paper does and does not show
+
+The paper states the schedule and moves on. It gives no derivation and no ablation of it — no curve of BLEU against $warmup\_steps$, no comparison against a constant rate or a step decay. The [[table-3|Table 3 ablations]] vary heads, $d_k$, depth, dropout and positional encodings while holding this optimizer setup fixed, so nothing in the paper isolates the schedule's contribution. Likewise the [[table-2|Table 2]] headline BLEU numbers come from runs that all used it. Treat it as a reported recipe, not a measured result.
+
+One thing the section does make explicit is that the schedule and the optimizer settings were chosen together: [[transformer-adam-settings|$\beta_2 = 0.98$]] instead of the usual 0.999. A lower $\beta_2$ means Adam's second-moment estimate forgets faster and adapts more quickly to changing gradient scale. The paper offers no reason for either choice. The usual argument for warmup — that Adam's moment estimates are unreliable over the first handful of steps, and a randomly initialised network produces large noisy gradients — is not in this paper. It is inference, not something Section 5.3 claims. What the paper does hand you is a reproducible piece of the [[transformer-training-recipe|training recipe]] with every constant filled in.

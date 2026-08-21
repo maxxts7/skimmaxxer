@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=berkeley-parser ---
+NAME: BerkeleyParser
+OWNER: 1706.03762
+SUMMARY (leave alone): A classical (non-neural) grammar-based parser used as a baseline; the Transformer beats it even with only 40K WSJ training sentences.
+
+EXPLANATION:
+The BerkeleyParser is a pre-neural statistical parser based on learned refinements of a probabilistic grammar. Its role here is as a benchmark for the small-data claim: RNN sequence-to-sequence parsers had failed to beat it when trained only on the 40K-sentence WSJ set, but the Transformer outperforms it in that same regime. The same name also labels one of the machine-parsed corpora in the semi-supervised setting.
+
+--- CONCEPT id=layer-normalization-statistics ---
+NAME: Layer normalization statistics
+OWNER: 1607.06450
+SUMMARY (leave alone): Layer normalization standardizes a layer's activations using a mean and standard deviation computed across the hidden units of that layer, separately for each training case.
+
+EXPLANATION:
+Let $a^l$ be the vector of summed inputs to the $H$ neurons in layer $l$ for one training case. Layer normalization computes two scalars from that single vector: $$\mu^l = \frac{1}{H}\sum_{i=1}^{H} a_i^l, \qquad \sigma^l = \sqrt{\frac{1}{H}\sum_{i=1}^{H}\left(a_i^l - \mu^l\right)^2}$$ and standardizes each unit as $(a_i^l - \mu^l)/\sigma^l$. Every hidden unit in the layer shares the same $\mu$ and $\sigma$, but different training cases get different normalization terms. Because the statistics come from one example alone, no dependency is introduced between training cases: there is no mini-batch size constraint, it works with batch size 1, and the computation is exactly the same at training and test time. The paper packages the whole operation as a function $\mathrm{LN}: \mathbb{R}^D \to \mathbb{R}^D$ with learned gain $\alpha$ (also written $g$) and bias $\beta$ (also written $b$): $$\mathrm{LN}(z; \alpha, \beta) = \frac{z - \mu}{\sigma} \odot \alpha + \beta$$ where $\odot$ is element-wise multiplication. This is the operation applied around each sub-layer in architectures that write LayerNorm(x + Sublayer(x)).
+
+--- CONCEPT id=gain-and-bias-parameters ---
+NAME: Learned gain and bias
+OWNER: 1607.06450
+SUMMARY (leave alone): After standardization, each neuron gets its own learned multiplicative gain and additive bias, applied before the non-linearity, so the layer can recover any scale and shift the normalization removed.
+
+EXPLANATION:
+Normalizing to zero mean and unit variance would fix the layer's output distribution and could limit what the layer can represent. Layer normalization therefore adds two learned parameter vectors of the same dimension as the layer: a gain $g$ and a bias $b$. The normalized activation of unit $i$ becomes $$h_i = f\!\left(\frac{g_i}{\sigma}\left(a_i - \mu\right) + b_i\right)$$ where $f$ is the non-linearity and $\mu, \sigma$ are the per-case layer statistics. The gain rescales each dimension independently and the bias re-shifts it, so the network can learn to undo the normalization where that helps. In the paper's experiments the default initialization is gain $= 1$ and bias $= 0$, i.e. the layer starts as a pure standardization. When the same layer is applied at every position of a sequence, one set of gain and bias parameters is shared across all time steps. The paper also reports that layer normalization is not sensitive to the initial gain scale in the way recurrent batch normalization is (1.0 worked better than 0.1 in their reading-comprehension experiment).
+
+--- CONCEPT id=layer-norm-vs-batch-norm ---
+NAME: Contrast with batch normalization
+OWNER: 1607.06450
+SUMMARY (leave alone): Batch normalization computes each neuron's statistics across the training cases in a mini-batch; layer normalization computes them across the neurons within one case. This removes batch-size dependence and the train/test mismatch.
+
+EXPLANATION:
+Batch normalization standardizes the summed input $a_i^l$ of each neuron using a mean $\mu_i^l = \mathbb{E}_{x \sim P(x)}[a_i^l]$ and standard deviation $\sigma_i^l = \sqrt{\mathbb{E}[(a_i^l - \mu_i^l)^2]}$ taken over the data distribution, estimated in practice from the current mini-batch. Each neuron gets its own $\mu_i, \sigma_i$, shared across cases. Layer normalization transposes this: all neurons in a layer share one $\mu, \sigma$, computed per case. The consequences the paper draws out: batch normalization's quality depends on mini-batch size and it cannot be used in the pure online regime (batch size 1) or with the very small per-device batches of large distributed models; it also needs running averages of statistics for use at test time, so training and inference compute different functions. Layer normalization has none of these issues -- it performs exactly the same computation at training and test time. For sequence models, batch normalization needs separate statistics per time step, which breaks when a test sequence is longer than any training sequence; layer normalization's statistics depend only on the current step's activations. The paper notes one caveat: in convolutional networks batch normalization still outperformed layer normalization in their preliminary experiments, because the assumption that all units in a layer contribute similarly does not hold there.
+
+--- CONCEPT id=per-timestep-normalization ---
+NAME: Per-step normalization in sequence models
+OWNER: 1607.06450
+SUMMARY (leave alone): In a recurrent or sequential model, layer normalization is applied independently at each time step, using only that step's activations, with one shared set of gain and bias parameters.
+
+EXPLANATION:
+For a recurrent layer with summed inputs $a^t = W_{hh} h^{t-1} + W_{xh} x^t$, the layer-normalized update is $$h^t = f\!\left[\frac{g}{\sigma^t} \odot \left(a^t - \mu^t\right) + b\right]$$ with $\mu^t = \frac{1}{H}\sum_i a_i^t$ and $\sigma^t = \sqrt{\frac{1}{H}\sum_i (a_i^t - \mu^t)^2}$ recomputed at every step from that step's activation vector alone. The gain $g$ and bias $b$ are single vectors shared over all time steps, so sequence length at test time is unconstrained. The paper's motivation is stability: in a standard RNN the average magnitude of summed inputs tends to grow or shrink at every step, driving exploding or vanishing gradients, and the normalization makes the layer invariant to any re-scaling of its summed inputs, stabilizing the hidden-state dynamics. The same principle carries to any model that processes a sequence position by position: each position is normalized using only its own activation vector, which is how layer normalization applies cleanly to variable-length inputs.
+
+--- CONCEPT id=normalization-invariance-properties ---
+NAME: Invariance and learning-rate effects
+OWNER: 1607.06450
+SUMMARY (leave alone): Layer normalization makes the model's output invariant to re-scaling and re-shifting of a layer's whole weight matrix and to re-scaling of an individual input case, and the normalizer implicitly damps the effective learning rate of large-norm weights.
+
+EXPLANATION:
+The paper compares invariance properties of batch, weight, and layer normalization (Table 1). Layer normalization is invariant to scaling the entire weight matrix and to shifting all incoming weights by a constant vector: if $W' = \delta W + \mathbf{1}\gamma^\top$, the normalized output is unchanged, because $\mu$ and $\sigma$ absorb the scale and shift. It is also invariant to re-scaling a single training case, since the statistics depend only on the current input. It is not invariant to re-scaling one neuron's individual weight vector (batch and weight normalization are). Through a Fisher-information analysis of generalized linear models, the paper argues that the normalizer $\sigma$ in the denominator implicitly reduces the effective learning rate on weight vectors as their norm grows: doubling the norm of $w_i$ doubles $\sigma_i$, halving the curvature along that direction, so large-norm weight vectors become harder to rotate. The paper describes this as an implicit early-stopping effect that stabilizes learning toward convergence. This analysis is the paper's account of why normalization speeds up and stabilizes training rather than merely re-parameterizing the network.
+
+--- CONCEPT id=bpe-merge-algorithm ---
+NAME: BPE Merge Algorithm
+OWNER: 1508.07909
+SUMMARY (leave alone): A greedy loop that builds a subword vocabulary by repeatedly merging the most frequent adjacent symbol pair in the training corpus. Adapted from Gage's 1994 byte-pair compression algorithm, with characters in place of bytes.
+
+EXPLANATION:
+The algorithm starts by representing every word in the training corpus as a sequence of characters, plus a special end-of-word symbol '·' appended to each word so the original tokenization can be restored after decoding. The symbol vocabulary is initialized to the character vocabulary. Then, for a fixed number of iterations, it counts the frequency of every adjacent symbol pair across the corpus and replaces every occurrence of the most frequent pair with a single new symbol: pick $(A, B) = \arg\max_{(x,y)} \mathrm{count}(x, y)$, then rewrite each occurrence of the bigram $A\,B$ as the merged symbol $AB$. Each merge adds one new symbol representing a character n-gram, so frequent n-grams and eventually whole frequent words become single symbols. Pairs never cross word boundaries, so the loop can run on a word-frequency dictionary extracted from the text, with each word's pair counts weighted by the word's corpus frequency. The paper gives a minimal Python implementation: get_stats counts weighted pairs over the space-separated symbol dictionary, merge_vocab rewrites the winning pair with a whitespace-boundary regex, and the outer loop repeats num_merges times, recording each chosen pair in order. The ordered list of merges is the learned model; a toy run on {low, lowest, newer, wider} learns merges such as r · -> r·, l o -> lo, lo w -> low, e r· -> er·.
+
+--- CONCEPT id=bpe-segmentation-at-test-time ---
+NAME: Applying BPE Merges to New Text
+OWNER: 1508.07909
+SUMMARY (leave alone): At test time, words are split into characters and the learned merge operations are replayed in order, producing a segmentation of any word into known subword symbols. This makes a fixed vocabulary effectively open.
+
+EXPLANATION:
+Learning and applying BPE are separate steps. Once the ordered merge list is learned from training data, any word — including one never seen in training — is first split into its character sequence (with the end-of-word marker) and then the merges are applied to combine characters into progressively larger known symbols. In the paper's toy example, the out-of-vocabulary word 'lower' becomes 'low er·' under merges learned from {low, lowest, newer, wider}. Because every symbol produced this way is in the fixed symbol vocabulary, the model never emits or receives an UNK token for words made of known characters; the paper reports zero unknown tokens on its test set with per-language BPE (Table 1). The only theoretical gaps are unseen characters, or symbols whose every training occurrence was merged into something larger; the authors observed none at test time and note the issue could be fixed by recursively reversing specific merges. This property is what lets a translation model with a modest fixed vocabulary handle open-vocabulary input, and downstream systems that report a 'BPE vocabulary' of size V mean this fixed symbol set, not a word list.
+
+--- CONCEPT id=bpe-vocabulary-size ---
+NAME: Vocabulary Size as the Single Hyperparameter
+OWNER: 1508.07909
+SUMMARY (leave alone): The final BPE symbol vocabulary size equals the initial character vocabulary size plus the number of merge operations. The merge count is the algorithm's only hyperparameter, so the vocabulary size is chosen directly.
+
+EXPLANATION:
+Every merge operation creates exactly one new symbol, so after $k$ merges the symbol vocabulary has size $|V| = |V_{\mathrm{chars}}| + k$, where $V_{\mathrm{chars}}$ is the set of characters in the training data. Choosing $k$ therefore sets the vocabulary size, and it is the only knob the method has: there is no shortlist, no frequency cutoff, and no separate segmentation model to tune. Smaller $k$ gives shorter symbols and longer token sequences; larger $k$ folds frequent words into single symbols and shortens sequences. The paper runs 59,500 merges for per-language BPE and 89,500 for joint BPE in its experiments. In practice the network vocabulary is slightly smaller than the symbol count, because the authors drop infrequent subword symbols that arise from noise such as foreign-alphabet characters. When a later system says it used 'BPE with a vocabulary of about 37,000 tokens', that number is the direct product of this choice of merge count over its own training corpus.
+
+--- CONCEPT id=joint-bpe-shared-vocabulary ---
+NAME: Joint BPE and the Shared Source-Target Vocabulary
+OWNER: 1508.07909
+SUMMARY (leave alone): Joint BPE learns one set of merge operations on the union (in practice, the concatenation) of the source and target training text, giving both languages a single shared subword vocabulary and consistent segmentations.
+
+EXPLANATION:
+The paper evaluates two ways to apply BPE to a translation pair: learn two independent encodings, one per language, or learn a single encoding on the union of the two vocabularies, which it calls joint BPE — implemented by simply concatenating the source and target sides of the training set before learning merges. Independent encodings are more compact and guarantee every subword was seen in its own language's text, but they can segment the same string differently in the two languages; the paper shows the name Mirzayeva split as Mirz|ayeva on the English side but Mir|za|eva on the Russian side under independent BPE, which makes the subword-to-subword mapping harder to learn and causes copy and transliteration errors. Joint BPE makes the segmentations consistent, and in the paper's analysis it improves both precision and recall on out-of-vocabulary words relative to independent BPE. The cost is that joint BPE can produce a few segments that occur only in one language's text (0.05% of test tokens in the paper's data). A shared vocabulary is also what makes it possible for an encoder-decoder model to share one embedding matrix between source input, target input, and output softmax. For English-German the paper uses joint BPE with 89,500 merges; the practice of learning one joint BPE model over a concatenated English-German WMT corpus is exactly how later work builds a shared source-target subword vocabulary of a chosen size.
+
+--- CONCEPT id=vocabulary-vs-sequence-length-tradeoff ---
+NAME: Vocabulary Size vs. Sequence Length Trade-off
+OWNER: 1508.07909
+SUMMARY (leave alone): Subword segmentation trades vocabulary size against tokenized sequence length: finer splits shrink the vocabulary but lengthen every sentence, and encoder-decoder cost grows at least linearly with sequence length.
+
+EXPLANATION:
+The paper frames segmentation choice as a two-sided efficiency problem. Neural models want a small vocabulary, for time and space efficiency and to avoid back-off dictionaries, but they also want compact text, because longer token sequences slow training and decoding and increase the distances over which the network must pass information; the authors note the time complexity of encoder-decoder architectures is at least linear in sequence length, so oversplitting harms efficiency. Character-level segmentation sits at one extreme: on the paper's 100M-token German corpus, full character segmentation gives a 3,000-type vocabulary but inflates the corpus from 100M to 550M tokens. BPE sits near the other: with about 60K merged types the corpus is only 112M tokens, a roughly 12% length increase over word-level tokenization, while still leaving zero unknown tokens. The number of merges positions a system anywhere on this curve. This trade-off is why the tokenizer choice directly determines the sequence length n that appears in any per-layer or per-step cost analysis of a sequence model: the same sentence has a different n under different segmentations, and BPE is chosen precisely to keep n close to the word count while keeping the vocabulary small and closed.
+
+--- CONCEPT id=label-smoothing-regularization ---
+NAME: Label-Smoothing Regularization (LSR)
+OWNER: 1512.00567
+SUMMARY (leave alone): Replace the one-hot training target with a mixture of that one-hot target and a fixed label distribution, so the correct class gets mass $1-\epsilon$ and the rest of the mass $\epsilon$ is spread over all classes. The paper calls this label-smoothing regularization, or LSR.
+
+EXPLANATION:
+For a training example $x$ the model produces a distribution $p(k)$ over labels $k \in \{1 \dots K\}$, and training normally minimizes the cross entropy $\ell = -\sum_{k=1}^{K} q(k)\log p(k)$ against the ground-truth distribution $q$. With a single correct label $y$ that target is the Dirac delta $q(k) = \delta_{k,y}$: one at $k=y$, zero elsewhere. LSR fixes a smoothing parameter $\epsilon$ and a label distribution $u(k)$ that does not depend on $x$, and replaces the target with $$q'(k \mid x) = (1-\epsilon)\,\delta_{k,y} + \epsilon\, u(k).$$ The paper suggests using the prior distribution over labels for $u$, and in its experiments uses the uniform distribution $u(k) = 1/K$, giving $$q'(k) = (1-\epsilon)\,\delta_{k,y} + \frac{\epsilon}{K}.$$ So the correct class receives $1-\epsilon+\epsilon/K$ and every other class receives $\epsilon/K$; the smoothed mass is spread over all $K$ classes including the correct one, not only over the wrong ones. The paper gives a sampling reading of the same formula: set the label to $y$, then with probability $\epsilon$ replace it with a draw from $u$ — that is, the marginalized effect of dropping the label during training. Nothing else changes: the loss is still cross entropy, now $-\sum_k q'(k)\log p(k)$, and the per-logit gradient keeps the form $\partial \ell / \partial z_k = p(k) - q'(k)$. Because every $q'(k)$ has a positive lower bound, the target can no longer be matched by driving one logit far above the others.
+

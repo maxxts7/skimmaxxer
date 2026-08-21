@@ -1,0 +1,17 @@
+PAGE FOR: beam-search (concept)
+
+Beam search is the search procedure that turns the trained decoder into an actual output sentence. It is here because every quality number the paper reports — [[table-2|the BLEU table]], [[table-3|the ablations]], [[table-4|the parsing leaderboard]] — is the score of a beam-search decode, not of the model's raw next-token distribution.
+
+### The step, concretely
+
+The decoder is [[auto-regressive-generation|auto-regressive]]: to score token $t$ it needs tokens $1 \dots t-1$ already fixed. Greedy decoding fixes each one as soon as it is generated, so a token that looks best locally can wreck everything after it. Beam search delays the commitment by a few positions.
+
+Keep a set of $k=4$ live hypotheses. At step $t$, run the [[decoder-stack|decoder]] once per hypothesis and take the [[softmax]] over the whole [[word-piece-encoding|word-piece]] vocabulary — 32K–37K tokens — giving a $4 \times V$ grid of roughly 150,000 continuation scores. Score each continuation by the running sum of log-probabilities, keep the top 4 across the whole grid (not 4 per hypothesis), discard the rest. A hypothesis that emits the end-of-sequence symbol is set aside as finished; the best finished hypothesis is the output. The [[inference-length-limit|length cap]] and early termination bound how long this can run.
+
+Raw log-probability sums shrink monotonically with length, so the search would systematically prefer short outputs. The [[length-penalty|length penalty]] divides the score by a function of hypothesis length, $\alpha = 0.6$ here; the exact divisor and the rest of the decoder — including its [[beam-search-pruning-and-termination|pruning and early-termination rules]] and the [[coverage-penalty|coverage penalty]] the Transformer does not use — are defined in GNMT [38], and that is where [[length-normalization-penalty|the formula]] lives.
+
+### What it costs and what the evidence actually shows
+
+Beam 4 costs roughly $4\times$ the decoder compute and KV memory of greedy decoding, and it serializes the same way: no matter the beam, decoding is still $n$ sequential steps. That is the asymmetry the paper lives with — training parallelizes across positions, inference does not.
+
+The paper says beam size and $\alpha$ were picked on the development set and gives no sweep, so how much either buys is not measured here. Beam 4 is also what the baselines in [[table-2]] used, so the comparison is not distorted by decoding. The one visible signal is [[table-4]]: beam size was among the handful of knobs re-tuned for [[constituency-parsing|parsing]], where outputs are long, bracket-balanced and structurally constrained — a hint that the right beam is task-dependent, not a demonstration. Note also that decoding runs on a [[checkpoint-averaging|checkpoint-averaged]] model, so the two test-time choices are entangled in every reported score.

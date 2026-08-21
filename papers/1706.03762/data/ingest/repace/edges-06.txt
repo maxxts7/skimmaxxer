@@ -1,0 +1,82 @@
+EDGE EXPLANATIONS (16)
+
+--- EDGE id=e101 ---
+attention-averaging-resolution-cost --contrasts-with--> maximum-path-length | label: the price of constant-length paths
+
+The background section states the trade plainly: the Transformer reduces relating two positions to a constant number of operations, albeit at the cost of reduced effective resolution from averaging attention-weighted positions. Multi-head attention is introduced as the counteraction, so this cost is what the head split is paying for.
+
+--- EDGE id=e102 ---
+sinusoidal-positional-encoding --contrasts-with--> learned-positional-embedding | label: fixed vs trained position vectors
+
+The paper tried both and reports nearly identical results (Table 3 row (E)), so quality did not decide it. Sinusoids were chosen because they may let the model extrapolate to sequence lengths longer than any seen in training -- a hypothesis the paper does not test here.
+
+--- EDGE id=e103 ---
+positional-encoding --contrasts-with--> recurrent-neural-network | label: order injected vs order implicit
+
+A recurrent model gets word order for free from the order it processes positions in. With no recurrence and no convolution, the Transformer has no such signal, so position information has to be added to the input embeddings explicitly. The encoding exists because of what was removed.
+
+--- EDGE id=e104 ---
+masked-decoder-self-attention --contrasts-with--> encoder-self-attention | label: masked past vs full sequence
+
+Same operation, different visibility: encoder self-attention lets every position attend to all positions, while decoder self-attention masks out future positions. The restriction is what keeps generation auto-regressive, so the decoder gives up the encoder's full context by design.
+
+--- EDGE id=e105 ---
+label-smoothing --contrasts-with--> perplexity | label: smoothing hurts perplexity
+
+Training with label smoothing of 0.1 hurts perplexity, because the model is taught not to put all its probability on the correct token and so scores the true tokens lower. The paper accepts this cost.
+
+--- EDGE id=e106 ---
+label-smoothing --contrasts-with--> bleu | label: same change helps BLEU
+
+The same smoothing that hurts perplexity improves accuracy and BLEU. It is not a contradiction: perplexity grades how confident the model is on the reference token, while BLEU grades the tokens decoding actually picks, and the less confident model ranks candidates better.
+
+--- EDGE id=e107 ---
+perplexity --contrasts-with--> bleu | label: metrics that disagree here
+
+Label smoothing is the case where the two measures point in opposite directions, which is a reason the paper reports translation quality in BLEU rather than in likelihood. A better-calibrated probability model is not automatically a better translator.
+
+--- EDGE id=e108 ---
+transformer --contrasts-with--> model-ensembling | label: one model beats prior ensembles
+
+Table 2 compares a single Transformer against previously published models including ensembles. The big model reports 28.4 BLEU on English-to-German, more than 2.0 above the best previously reported result, and the paper says even the base model surpasses all previously published models and ensembles at a fraction of their training cost.
+
+--- EDGE id=e109 ---
+training-flops-estimate --contrasts-with--> bleu | label: the two axes of Table 2
+
+Table 2 plots quality against training cost, estimated as training time times GPU count times an assumed sustained throughput per GPU. The claim the paper wants is winning on both axes at once: 41.0 BLEU on English-to-French at less than a quarter of the previous state of the art's training cost.
+
+--- EDGE id=e110 ---
+convs2s --contrasts-with--> transformer | label: the convolutional baseline in Table 2
+
+ConvS2S is both a prior attempt at the same goal -- parallel computation across positions -- and a baseline the Transformer is scored against in Table 2. Comparing them is how the paper argues that removing convolutions as well as recurrence was not a loss.
+
+--- EDGE id=e111 ---
+recurrent-neural-network-grammar --contrasts-with--> transformer | label: the one parser it does not beat
+
+On WSJ constituency parsing the Transformer reaches 91.3 F1 and beats every previously reported model in Table 4 except the Recurrent Neural Network Grammar, which builds trees with explicit tree-structured operations. It marks the limit of the generic-architecture argument.
+
+--- EDGE id=e112 ---
+berkeley-parser --contrasts-with--> transformer | label: grammar-based parser, small data
+
+RNN sequence-to-sequence models had not reached state-of-the-art parsing in small-data regimes, and the classical BerkeleyParser was the standard there. The paper reports the Transformer beating it while training on only the 40K WSJ sentences.
+
+--- EDGE id=e113 ---
+penn-treebank-wsj --contrasts-with--> semi-supervised-parsing | label: 40K vs 17M training sentences
+
+The parsing experiment is run in two regimes: the ~40K hand-parsed WSJ sentences alone, and a semi-supervised setting adding about 17M automatically parsed sentences. The pair separates what the architecture does in a small-data regime from what more data buys.
+
+--- EDGE id=e114 ---
+layer-norm-vs-batch-norm --contrasts-with--> layer-normalization | label: across features vs across batch
+
+From the Layer Normalization paper: batch normalization computes each neuron's statistics across the examples in a mini-batch, layer normalization across the features of a single example. The second does not depend on batch size or composition, which is why it fits per-position sequence models.
+
+--- EDGE id=e115 ---
+weight-tying --contrasts-with--> input-and-output-embeddings | label: one shared matrix vs two
+
+The cited work contrasts the usual setup -- a separate input embedding and pre-softmax projection of the same shape -- with tying them into one matrix. The Transformer follows the tied version, sharing weights between both embedding layers and the pre-softmax projection.
+
+--- EDGE id=e116 ---
+vocabulary-vs-sequence-length-tradeoff --contrasts-with--> complexity-per-layer | label: finer subwords lengthen n
+
+The BPE paper's trade-off is vocabulary size against tokenized sequence length: smaller vocabularies mean longer sequences. That pushes against self-attention's O(n^2 * d) cost and against the n < d condition the Transformer paper leans on when it argues self-attention is faster than recurrence.
+

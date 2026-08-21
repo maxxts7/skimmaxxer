@@ -1,0 +1,31 @@
+PAGE FOR: theme-position-embeddings-and-feed-forward (theme)
+
+Attention mixes information across positions. That leaves two gaps: nothing yet transforms a position's own vector, and nothing tells the model which position a token sits in. These three pieces close both gaps and finish the layer.
+
+### The other half of every layer
+
+In [[fig-1|the model diagram]], each layer is an attention [[sub-layer|sub-layer]] followed by a [[position-wise-feed-forward-network]]. [[eq-ffn|Equation 2]] is the whole thing:
+
+$$\mathrm{FFN}(x) = \max(0, xW_1 + b_1)W_2 + b_2$$
+
+Widen each $d_{model}=512$ vector to [[d-ff|$d_{ff}=2048$]], apply [[relu|ReLU]], project back to 512. The same weights run at every position in a layer; different layers get their own. The paper offers a second reading: two convolutions with kernel size 1.
+
+Note what it is not. It never looks sideways. All cross-position mixing already happened in the attention sub-layer, which produces a weighted average of value vectors — linear in those values. The feed-forward block is where per-position nonlinear transformation lives. The paper does not argue this; it states the shape and moves on. It is also not small: two $512 \times 2048$ matrices per layer, roughly double the parameters of that layer's [[multi-head-attention|attention projections]].
+
+### One matrix doing three jobs
+
+[[embedding-softmax-weight-sharing]] means the encoder's [[token-embeddings|input embedding]], the decoder's input embedding, and the pre-softmax output projection are all the same weights. The paper does this by citation, pointing at [[weight-tying]] rather than restating why tying helps. There is no ablation for it here, so treat it as a parameter-count and convention choice the paper inherited, not something this paper tested.
+
+The one wrinkle is the [[sqrt-dmodel-embedding-multiplier]]: in the embedding role, the shared weights are scaled by $\sqrt{d_{model}} \approx 22.6$. The paper states this in one clause and gives no reason. The usual reading is that a matrix whose scale suits producing softmax logits produces embeddings that are too small, and too small relative to what gets added next.
+
+### Telling the model where it is
+
+Self-attention is permutation-equivariant: shuffle the input tokens and the outputs shuffle with them, unchanged. So [[positional-encoding]] exists purely because [[self-attention]] ignores order, and it is added once, at the bottom of each stack — not at every layer.
+
+[[eq-posenc|The encoding used]] is [[sinusoidal-positional-encoding|a bank of fixed sinusoids]]: each dimension is a sine or cosine of the position, with wavelengths in a geometric progression from $2\pi$ to $10000 \cdot 2\pi$. It has width $d_{model}$ so it can be summed with the embedding rather than concatenated, which is why the embedding's scale matters at all.
+
+Two reasons are given, and the paper hedges both. The stated hypothesis is [[relative-position-linearity]]: for a fixed offset $k$, $PE_{pos+k}$ is a linear function of $PE_{pos}$, so attending by relative position should be easy to learn. The second is that fixed sinusoids "may allow" extrapolation to sequences longer than any seen in training — a conjecture the paper does not test. Against [[learned-positional-embedding|learned position vectors]], results are near-identical ([[table-3]], row E), so the choice rests on the untested extrapolation argument.
+
+### What this sets up
+
+The layer is now fully specified: attention, feed-forward, residuals, and one order signal at the bottom. The open question is why the attention half is there instead of recurrence or convolution — which [[layer-comparison-desiderata|three criteria]] and [[table-1]] take up next.

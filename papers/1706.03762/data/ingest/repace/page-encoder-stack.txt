@@ -1,0 +1,23 @@
+PAGE FOR: encoder-stack (concept)
+
+The encoder turns a source sentence of $n$ tokens into $n$ vectors of width 512, computing every position at once instead of one at a time. It exists because the [[encoder-decoder-architecture|encoder-decoder frame]] needs a fixed memory for the decoder to read: [[encoder-decoder-attention]] takes its keys and values from the encoder's final output, so no decoder layer has anything to attend over until the whole stack has run.
+
+### What actually runs
+
+The input is an $n \times 512$ matrix: [[token-embeddings]] plus [[positional-encoding]], with dropout on the sum. Then six ([[n-layers|N = 6]]) identical layers, each made of two [[sub-layer|sub-layers]] wrapped the same way:
+
+$$x \leftarrow \mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))$$
+
+Sub-layer one is [[multi-head-attention]] used as [[self-attention]] — queries, keys and values are all the previous layer's output. There is no mask here, so position $i$ attends over all $n$ positions in both directions; that absence is the only thing separating it from the decoder's version. Sub-layer two is the [[position-wise-feed-forward-network]] of [[eq-ffn|equation (2)]], applied to each row on its own.
+
+Shapes never change: $n \times 512$ in, $n \times 512$ out, for every sub-layer and every layer. Weights are shared across positions but not across layers — twelve sub-layers, twelve separate parameter sets, roughly 1M parameters in the attention projections and 2M in the feed-forward net per layer. [[residual-dropout|Dropout at $p=0.1$]] hits each sub-layer's output before the addition.
+
+### Why this width, and what it costs
+
+[[residual-connection|Residual connections]] force it. Adding $x$ to $\mathrm{Sublayer}(x)$ only works if both are the same width, so the paper pins [[d-model|$d_{model}=512$]] across every sub-layer and embedding layer. That one constraint propagates downward: eight heads means [[dk-dv-dimensions|$d_k = d_v = 64$]] each, and the widening to 2048 inside the feed-forward net has to be undone before the block returns. [[layer-normalization]] then rescales each position's vector using only that vector's own features.
+
+The cost is quadratic attention, $O(n^2 \cdot d)$ per layer, which the paper accepts on the argument in [[table-1]] rather than on a measurement.
+
+### How strong the evidence is
+
+[[fig-1]] shows the left tower and settles the wiring. For what the layers learn, the paper offers only pictures: [[fig-5]], [[fig-3]] and [[fig-4]] are all drawn from encoder self-attention at layer 5 of 6, and the text says the patterns "seem related" to sentence structure. Nothing there is quantified. The depth of six is stated, not defended — the [[table-3|ablations]] vary heads, key size, dropout and model size, and Section 6.2 concludes only that bigger models are better.

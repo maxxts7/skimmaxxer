@@ -1,0 +1,29 @@
+PAGE FOR: etheme-borrowed-recipe (edge-theme)
+
+Almost everything in the training setup arrives by citation, at a fixed number, with no experiment attached. The paper's own measured evidence in [[table-3]] varies the architecture; the recipe wrapped around it is asserted, and the one recipe piece the authors contribute themselves — the learning-rate schedule — is asserted too.
+
+### One borrowed decision constrains the next
+
+The chain starts at tokenization. English-German is encoded with [[byte-pair-encoding]], and its vocabulary is the output of the cited greedy [[bpe-merge-algorithm|merge loop]]; without that loop, "about 37000 tokens" is a number with no procedure behind it. Section 5.1 adds that this vocabulary is shared between source and target, which is the [[joint-bpe-shared-vocabulary|joint-BPE]] variant — merges learned over both languages' text at once.
+
+That shared vocabulary is what makes the next choice available. [[embedding-softmax-weight-sharing|Section 3.4]] puts one matrix in three roles: encoder input embedding, decoder input embedding, pre-softmax projection. It cites [[weight-tying]] and offers no motivation of its own. The cited work's argument is a contrast with the usual arrangement of [[input-and-output-embeddings|two separate matrices of the same shape]]; the three-role version is [[three-way-weight-tying]], and it is only possible when encoder and decoder draw from one vocabulary. Joint BPE is therefore a precondition for the tying, not an independent choice.
+
+English-French breaks the chain. There the vocabulary is 32000 [[word-piece-encoding|word pieces]] from the cited [[wordpiece-model]], and the paper never says it is shared across the two languages. Whether the three-way tie holds for that model is unstated. That gap is my reading of the text, not something the paper flags.
+
+Sitting on top of the tie is [[sqrt-dmodel-embedding-multiplier]]: the shared weights are multiplied by $\sqrt{d_{model}} \approx 22.6$ in the embedding layers only. The paper states this in one clause and gives no reason. It arises only because one matrix does two jobs; the usual explanation, that the two roles want different scales, is a common reading and not in the paper.
+
+The rest of the imports are single settings. [[label-smoothing]] at $\epsilon_{ls} = 0.1$ is the cited [[label-smoothing-regularization|LSR]] target mixture. [[length-penalty]] at $\alpha = 0.6$ is the exponent in the cited [[length-normalization-penalty|length normalizer]], used with beam size 4 and picked on the development set; the paper never says what $\alpha$ does.
+
+### The schedule is the paper's own
+
+Equation (3) is the exception — the [[learning-rate-warmup-schedule|schedule]] shown in [[eq-lrate]]:
+
+$$lrate = d_{model}^{-0.5} \cdot \min(step^{-0.5},\ step \cdot warmup\_steps^{-1.5})$$
+
+Two things follow. The rate peaks where the two terms cross, at [[warmup-steps-4000|warmup_steps = 4000]], then decays as $step^{-0.5}$. And the whole curve scales with [[d-model|$d_{model}$]]$^{-0.5}$, so a wider model automatically takes smaller steps. This sets the global step size that [[adam-optimizer|Adam]] then adapts per parameter, and it was picked together with $\beta_2 = 0.98$, below Adam's usual default. No ablation of the warmup length, the exponent, or $\beta_2$ appears anywhere.
+
+### What is not shown
+
+Table 3 covers heads, $d_k$, model size, dropout, and positional encoding. Its rows (D) do include label-smoothing values, but the prose discusses only dropout, so the claim that smoothing hurts perplexity while improving accuracy and BLEU is stated more firmly than it is demonstrated. Nothing tests BPE against word pieces, the tying against untied embeddings, the multiplier, $\alpha$, or the schedule.
+
+The cost numbers are inference rather than measurement. The [[training-flops-estimate|FLOPs figures]] in [[table-2]] are training time times GPU count times an assumed 9.5 TFLOPS sustained per P100; the [[training-hardware-and-schedule|3.5-day, 8-GPU big-model run]] gives roughly $2.3 \times 10^{19}$. The efficiency comparison holds only if that assumption is equally fair to the baselines' hardware.

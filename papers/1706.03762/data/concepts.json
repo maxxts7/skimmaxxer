@@ -1,0 +1,2521 @@
+{
+ "concepts": [
+  {
+   "id": "transformer",
+   "name": "The Transformer",
+   "tier": "major",
+   "parent": null,
+   "summary": "The architecture this paper proposes: an encoder-decoder built entirely from stacked self-attention and position-wise feed-forward layers, with no recurrence and no convolutions.",
+   "explanation": "The Transformer keeps the standard encoder-decoder shape. What changes is what sits inside it. The recurrent layers — or the convolutional ones, in the more recent alternatives — are replaced by two building blocks: multi-head self-attention, and fully connected layers applied at each position separately. The paper calls that second block point-wise, or position-wise, feed-forward.\n\nThe encoder and the decoder are each a stack of identical layers. Every layer is wrapped in a residual connection and [[layer-normalization]].\n\nThe consequence of dropping recurrence is a change in what can happen at once. No step has to wait for the previous position's hidden state to be computed. Much more of the computation can therefore run in parallel, which the paper says cuts training time substantially.\n\nDropping recurrence and convolution also costs the model something. It no longer has any built-in notion of word order. Order is injected separately, through positional encodings added to the input embeddings.\n\nThe reported results: 28.4 BLEU on WMT 2014 English-to-German, over 2 BLEU above prior results, including ensembles; and 41.8 BLEU on WMT 2014 English-to-French, after 3.5 days on eight GPUs. The paper also shows results on [[constituency-parsing|English constituency parsing]], offered as evidence that the model generalizes beyond translation.",
+   "prerequisites": [
+    "sequence-transduction",
+    "encoder-decoder-architecture",
+    "attention-mechanism",
+    "self-attention",
+    "bleu"
+   ],
+   "sectionIds": [
+    "abstract",
+    "1",
+    "2",
+    "3",
+    "3.1",
+    "3.2",
+    "3.3",
+    "3.4",
+    "3.5",
+    "4",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "sequence-transduction",
+   "name": "Sequence transduction",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The general task of converting one sequence of symbols into another sequence, such as translating a German sentence into English.",
+   "explanation": "A transduction model reads an input sequence $(x_1, ..., x_n)$ and produces an output sequence. The output may have a different length from the input, and it may draw on a different vocabulary.\n\nMachine translation is the paper's main example. Language modeling is the related task of predicting the next symbol in a single sequence.\n\nSection 4 narrows the discussion from whole models down to one layer of such a model. At that level the job is mapping a variable-length sequence of symbol representations $(x_1, ..., x_n)$ to another sequence of equal length $(z_1, ..., z_n)$, with each $x_i, z_i \\in \\mathbb{R}^d$. Fixing the shape going in and coming out is what makes different layer types comparable at all.\n\nEverything else — recurrence, convolutions, attention — is then framed as a competing way to build these layers.",
+   "prerequisites": [],
+   "sectionIds": [
+    "abstract",
+    "1",
+    "2",
+    "3",
+    "4",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "machine-translation",
+   "name": "Machine translation",
+   "tier": "minor",
+   "parent": "sequence-transduction",
+   "summary": "Automatically translating text from one language to another; the paper's main benchmark task.",
+   "explanation": "Machine translation maps a sentence in a source language to a sentence in a target language. It is the canonical sequence transduction task and the one the paper uses to measure the Transformer against prior models, on the WMT 2014 English-to-German and English-to-French benchmarks, judged with BLEU.",
+   "prerequisites": [
+    "sequence-transduction"
+   ],
+   "sectionIds": [
+    "abstract",
+    "1",
+    "6.1",
+    "7"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "language-modeling",
+   "name": "Language modeling",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Predicting the next symbol in a sequence given the symbols so far.",
+   "explanation": "A language model assigns probabilities to sequences, usually by predicting each token from the ones before it. The introduction cites it as a task where recurrent networks were state of the art.",
+   "prerequisites": [],
+   "sectionIds": [
+    "1",
+    "2"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "encoder-decoder-architecture",
+   "name": "Encoder-decoder architecture",
+   "tier": "major",
+   "parent": null,
+   "summary": "A two-part model design: an encoder turns the input sequence into continuous representations, and a decoder generates the output sequence from them, one symbol at a time.",
+   "explanation": "The encoder maps an input sequence of symbols $(x_1, ..., x_n)$ to a sequence of continuous representations $z = (z_1, ..., z_n)$. There is one vector in $z$ per input position.\n\nGiven $z$, the decoder generates the output sequence $(y_1, ..., y_m)$ one element at a time. At each step it also consumes the symbols it has already generated, as extra input alongside $z$.\n\nThe abstract places this in context. The dominant transduction models at the time were recurrent or convolutional encoder-decoders, and the best-performing ones also connected the encoder and the decoder through an attention mechanism.\n\nThe Transformer keeps this overall two-part structure. What it changes is what the encoder and the decoder are made of.",
+   "prerequisites": [
+    "sequence-transduction"
+   ],
+   "sectionIds": [
+    "abstract",
+    "1",
+    "3",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "auto-regressive-generation",
+   "name": "Auto-regressive generation",
+   "tier": "minor",
+   "parent": "encoder-decoder-architecture",
+   "summary": "Producing an output sequence one symbol at a time, where each new symbol is conditioned on all previously generated symbols.",
+   "explanation": "The decoder is auto-regressive. To generate the symbol at position $i$, it takes as input everything it generated at the positions before $i$.\n\nThis property is what the decoder's masking exists to protect during training. Without the mask, nothing would stop a position from reading the target symbols that come after it.\n\nThe rule the mask enforces is exact: the prediction for position $i$ must not be able to look at position $i$ or anything after it.",
+   "prerequisites": [
+    "encoder-decoder-architecture"
+   ],
+   "sectionIds": [
+    "3",
+    "3.2.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "recurrent-neural-network",
+   "name": "Recurrent neural network (RNN)",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A network that processes a sequence one position at a time, carrying a hidden state forward.",
+   "explanation": "An RNN reads a sequence step by step, updating a hidden state at each step. This is assumed background; what matters here is the sequential-computation bottleneck it creates.",
+   "prerequisites": [],
+   "sectionIds": [
+    "abstract",
+    "1",
+    "2",
+    "4",
+    "7"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "lstm",
+   "name": "Long short-term memory (LSTM)",
+   "tier": "minor",
+   "parent": "recurrent-neural-network",
+   "summary": "An RNN variant with gates that help preserve information over long spans.",
+   "explanation": "LSTMs add gating to the recurrent update so gradients survive longer sequences. The introduction names LSTMs as one of the established state-of-the-art recurrent approaches the Transformer aims to replace.",
+   "prerequisites": [
+    "recurrent-neural-network"
+   ],
+   "sectionIds": [
+    "1"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "gated-recurrent-unit",
+   "name": "Gated recurrent unit (GRU)",
+   "tier": "minor",
+   "parent": "recurrent-neural-network",
+   "summary": "A simpler gated RNN variant, an alternative to the LSTM.",
+   "explanation": "GRUs use fewer gates than LSTMs to control what the hidden state keeps and forgets. The introduction lists gated recurrent networks alongside LSTMs as the dominant prior approaches.",
+   "prerequisites": [
+    "recurrent-neural-network"
+   ],
+   "sectionIds": [
+    "1"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "sequential-computation-bottleneck",
+   "name": "Sequential computation bottleneck of RNNs",
+   "tier": "major",
+   "parent": null,
+   "summary": "Because an RNN's hidden state at position t depends on the hidden state at position t-1, positions within one training example cannot be computed in parallel.",
+   "explanation": "Recurrent models align positions in the sequence with steps of computation. They compute a hidden state $h_t$ as a function of two things: the previous state $h_{t-1}$, and the input at position $t$.\n\nThat dependency is the problem. Each step must wait for the one before it, so the work inside a single training example cannot be parallelized.\n\nThe cost is worst for long sequences. There, memory limits also restrict how many examples fit into a batch, which cuts off the other route to parallelism — running many examples at once instead of many positions at once.\n\nThe paper notes that [[factorization-tricks]] and [[conditional-computation]] improved efficiency, but says the fundamental constraint of sequential computation remains.\n\nRemoving that constraint is the Transformer's central motivation.",
+   "prerequisites": [
+    "recurrent-neural-network"
+   ],
+   "sectionIds": [
+    "1",
+    "2",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "factorization-tricks",
+   "name": "Factorization tricks for LSTMs",
+   "tier": "minor",
+   "parent": "sequential-computation-bottleneck",
+   "summary": "Techniques that factor an LSTM's weight matrices into smaller pieces to reduce computation.",
+   "explanation": "The introduction cites this as recent work that improved the computational efficiency of recurrent models.\n\nWhat it changes is the cost of each recurrent step, which gets cheaper. What it leaves untouched is the step-by-step dependency: computing step $t$ still requires step $t-1$ first. So the sequential bottleneck stays.",
+   "prerequisites": [
+    "lstm",
+    "sequential-computation-bottleneck"
+   ],
+   "sectionIds": [
+    "1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[21]",
+    "refText": "Kuchaiev & Ginsburg. Factorization tricks for LSTM networks. arXiv:1703.10722, 2017.",
+    "whyNeeded": "The technique itself is defined only in the cited paper; this paper mentions it as prior efficiency work."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "conditional-computation",
+   "name": "Conditional computation",
+   "tier": "minor",
+   "parent": "sequential-computation-bottleneck",
+   "summary": "Activating only parts of a network per input, so compute is spent selectively.",
+   "explanation": "The introduction cites conditional computation — specifically the sparsely-gated mixture-of-experts layer — as recent work that improved recurrent models on two fronts at once, efficiency and quality.\n\nIt falls in the same category as [[factorization-tricks]]. It makes each step cheaper or better. It does not remove the dependency of one step on the step before it.",
+   "prerequisites": [
+    "sequential-computation-bottleneck"
+   ],
+   "sectionIds": [
+    "1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[32]",
+    "refText": "Shazeer et al. Outrageously large neural networks: The sparsely-gated mixture-of-experts layer. arXiv:1701.06538, 2017.",
+    "whyNeeded": "The mechanism is defined in the cited paper; this paper only names it as prior work."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "attention-mechanism",
+   "name": "Attention mechanism (query, key, value)",
+   "tier": "major",
+   "parent": null,
+   "summary": "A function that maps a query vector and a set of key-value vector pairs to an output: a weighted sum of the values, with weights set by how well the query matches each key.",
+   "explanation": "Given one query vector and a set of key-value pairs, all of them vectors, attention outputs a weighted sum of the values.\n\nEach value's weight comes from a compatibility function. That function scores the query against that value's key, and a high score means 'this value is relevant to this query'. The scores over all the keys then become weights through a softmax.\n\nBefore this paper, attention was mostly used to connect an encoder and a decoder. At each decoding step the decoder looks back over all the encoder states and pulls in the relevant ones.\n\nThe introduction stresses the key property: attention models dependencies without regard to their distance in the input or output sequences. Two positions are the same distance apart for the mechanism whether they are adjacent or a hundred tokens apart.\n\nThe introduction also notes a limit on how attention had been used up to then. With few exceptions, it was used together with a recurrent network rather than instead of one.\n\nEverything in the Transformer's attention machinery is this same general form plus two specific choices: a particular compatibility function (the scaled dot product), and a particular decision about where the queries, keys, and values come from.",
+   "prerequisites": [
+    "encoder-decoder-architecture"
+   ],
+   "sectionIds": [
+    "abstract",
+    "1",
+    "2",
+    "3.2",
+    "4",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[2]",
+    "refText": "Bahdanau, Cho & Bengio. Neural machine translation by jointly learning to align and translate. 2014.",
+    "whyNeeded": "The original encoder-decoder attention formulation the paper builds on is defined there, not here."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "queries-keys-values",
+   "name": "Queries, keys, and values",
+   "tier": "minor",
+   "parent": "attention-mechanism",
+   "summary": "The three roles vectors play in attention: a query asks for information, keys advertise what each position holds, and values carry the content that actually gets mixed into the output.",
+   "explanation": "Each position that wants information issues a query vector.\n\nEach position that offers information exposes two vectors rather than one. The key is used only for matching against queries. The value is the content that actually gets returned.\n\nThe attention output for a query is a weighted sum of all the values, weighted by the query-key match scores.\n\nSeparating keys from values has a point. What a position matches on can differ from what it contributes.\n\nIn practice none of this is done one vector at a time. All the queries are stacked into a matrix $Q$, and the keys and values into matrices $K$ and $V$, so attention runs as a few matrix multiplications.",
+   "prerequisites": [
+    "attention-mechanism"
+   ],
+   "sectionIds": [
+    "3.2",
+    "3.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "compatibility-function",
+   "name": "Compatibility function",
+   "tier": "minor",
+   "parent": "attention-mechanism",
+   "summary": "The scoring function that measures how well a query matches a key; its scores become the attention weights after a softmax.",
+   "explanation": "Attention variants differ mainly in this one function.\n\nDot-product attention scores a query-key pair by their dot product $q \\cdot k$. [[additive-attention]] scores the same pair with a small feed-forward network with one hidden layer.\n\nThe Transformer uses the dot product divided by $\\sqrt{d_k}$.\n\nWhatever the function, the final step is the same. The scores over all keys are pushed through a softmax, which turns them into weights that sum to one.",
+   "prerequisites": [
+    "attention-mechanism",
+    "softmax"
+   ],
+   "sectionIds": [
+    "3.2",
+    "3.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "scaled-dot-product-attention",
+   "name": "Scaled dot-product attention",
+   "tier": "major",
+   "parent": "attention-mechanism",
+   "summary": "The Transformer's attention: dot the query with every key, divide by $\\sqrt{d_k}$, softmax the scores, and use them to weight the values.",
+   "explanation": "The inputs arrive in two dimensions. Queries and keys have dimension $d_k$; values have dimension $d_v$.\n\nFor a single query, the procedure is three steps. Compute its dot product with all the keys. Divide each of those scores by $\\sqrt{d_k}$. Apply a softmax to the scaled scores to get the weights on the values.\n\nWith queries, keys, and values packed into matrices $Q$, $K$, and $V$, the whole thing is one line: $\\mathrm{Attention}(Q, K, V) = \\mathrm{softmax}(QK^T / \\sqrt{d_k})\\,V$.\n\nThe paper picks this over [[additive-attention]] on practical grounds rather than theoretical ones. The two have similar theoretical complexity, but the dot-product version runs as plain matrix multiplication, which is much faster and more memory-efficient in practice.\n\nNote how small the departure is. The $\\sqrt{d_k}$ divisor is the one change from standard dot-product attention.",
+   "prerequisites": [
+    "queries-keys-values",
+    "compatibility-function",
+    "softmax"
+   ],
+   "sectionIds": [
+    "3.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "dk-dv-dimensions",
+   "name": "d_k and d_v (key and value dimensions)",
+   "tier": "minor",
+   "parent": "scaled-dot-product-attention",
+   "summary": "The dimensions of the key/query vectors ($d_k$) and value vectors ($d_v$) inside attention; in the base model each head uses $d_k = d_v = 64$.",
+   "explanation": "Queries and keys share the dimension $d_k$, and they have to: they get dotted together, which requires both to be the same length.\n\nValues carry their own dimension, $d_v$. That one sets the size of the attention output, since the output is a weighted sum of values.\n\nIn [[multi-head-attention|multi-head attention]] each head works in a projected-down space. The model width $d_{model}$ is 512 and there are $h = 8$ heads, so each head gets $512/8 = 64$ dimensions — that is, $d_k = d_v = d_{model}/h = 64$.\n\n$d_k$ then shows up in two more places. It appears in the scaling factor $1/\\sqrt{d_k}$, and it appears in the variance argument for why unscaled dot products grow with dimension.",
+   "prerequisites": [
+    "scaled-dot-product-attention",
+    "d-model"
+   ],
+   "sectionIds": [
+    "3.2.1",
+    "3.2.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "sqrt-dk-scaling",
+   "name": "The 1/sqrt(d_k) scaling factor",
+   "tier": "minor",
+   "parent": "scaled-dot-product-attention",
+   "summary": "Dividing the query-key dot products by $\\sqrt{d_k}$ so their magnitude stays controlled as the dimension grows, keeping the softmax out of its flat, tiny-gradient regions.",
+   "explanation": "Start with the empirical fact the paper is reacting to. Prior work found that [[additive-attention]] outperforms plain dot-product attention when $d_k$ is large. For small values of $d_k$ the two behave about the same.\n\nThe paper offers a suspected reason for that gap, and the argument is a variance calculation. Assume the components of $q$ and $k$ are independent, with mean 0 and variance 1. Their dot product is $q \\cdot k = \\sum_{i=1}^{d_k} q_i k_i$, a sum of $d_k$ independent products. That sum has mean 0 and variance $d_k$.\n\nThat is the whole problem in one number. The typical magnitude of a raw score grows with the dimension, so a wider key space produces larger scores for free.\n\nLarge scores are what hurts. They push the softmax into saturated regions, where its gradients are extremely small, and small gradients mean slow learning.\n\nThe fix falls straight out of the same calculation. Divide every dot product by $\\sqrt{d_k}$, and the variance goes back from $d_k$ to 1, counteracting the growth.\n\nThe reasoning is offered as a hypothesis, not a proof — the paper says 'we suspect' — and what supports it is the empirical comparison in [3].",
+   "prerequisites": [
+    "scaled-dot-product-attention",
+    "dk-dv-dimensions",
+    "softmax"
+   ],
+   "sectionIds": [
+    "3.2.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[3]",
+    "refText": "Britz, Goldie, Luong & Le. Massive exploration of neural machine translation architectures. 2017.",
+    "whyNeeded": "The empirical claim that additive attention outperforms unscaled dot-product attention for large d_k — the evidence motivating the scaling — comes from this cited paper."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "dot-product-attention",
+   "name": "Dot-product (multiplicative) attention",
+   "tier": "minor",
+   "parent": "attention-mechanism",
+   "summary": "An attention variant that scores each query-key pair by their plain dot product; identical to the Transformer's attention except for the $1/\\sqrt{d_k}$ factor.",
+   "explanation": "Before this paper, two attention functions dominated the literature, and this is one of them.\n\nThe compatibility score here is as simple as it gets: the query dotted with the key, $q \\cdot k$. Because that is a bilinear operation, a whole batch of queries scored against a whole batch of keys collapses into a single matrix multiplication, $QK^T$.\n\nThat is where the speed comes from. In practice dot-product attention is much faster and more space-efficient than [[additive-attention]], because matrix multiplication is the operation hardware and libraries have been optimized hardest for.\n\nIt has one reported weakness. Per the cited experiments, without any scaling it underperforms additive attention when $d_k$ is large — and that is precisely the problem the $1/\\sqrt{d_k}$ factor is introduced to fix.",
+   "prerequisites": [
+    "compatibility-function"
+   ],
+   "sectionIds": [
+    "3.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "additive-attention",
+   "name": "Additive attention",
+   "tier": "minor",
+   "parent": "attention-mechanism",
+   "summary": "An attention variant that scores each query-key pair with a small feed-forward network with one hidden layer, instead of a dot product.",
+   "explanation": "This is the other of the two common attention functions.\n\nInstead of combining the query and key with a dot product, it feeds them into a small feed-forward network with a single hidden layer. The scalar that network outputs is the compatibility score for that query-key pair.\n\nOn paper the two variants cost about the same: their theoretical complexity is similar. In practice additive attention is slower and less memory-efficient, because the scoring step cannot be folded into one large matrix multiplication the way $QK^T$ can.\n\nIt does have an advantage that mattered to this paper. Cited experiments found that additive attention outperforms unscaled dot-product attention when $d_k$ is large, and that finding is what motivated the Transformer's scaling factor.",
+   "prerequisites": [
+    "compatibility-function"
+   ],
+   "sectionIds": [
+    "3.2.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[2]",
+    "refText": "Bahdanau, Cho & Bengio. Neural machine translation by jointly learning to align and translate. 2014.",
+    "whyNeeded": "Additive attention is defined in this cited paper; the Transformer paper only sketches it in one sentence as the comparison point."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "multi-head-attention",
+   "name": "Multi-head attention",
+   "tier": "major",
+   "parent": "attention-mechanism",
+   "summary": "Running $h$ attention functions in parallel on different learned linear projections of the queries, keys, and values, then concatenating and projecting the results.",
+   "explanation": "The straightforward design would be to run one attention function over the full $d_{model}$-dimensional queries, keys, and values. The Transformer does something else.\n\nIt projects the queries, keys, and values $h$ times, each time with a different learned linear map, down to $d_k$, $d_k$, and $d_v$ dimensions respectively. Attention then runs in parallel on each of the $h$ projected sets. That yields $h$ separate outputs, each of dimension $d_v$, which are concatenated and passed through one more learned projection:\n\n$\\mathrm{MultiHead}(Q,K,V) = \\mathrm{Concat}(\\mathrm{head}_1, ..., \\mathrm{head}_h)W^O$ with $\\mathrm{head}_i = \\mathrm{Attention}(QW^Q_i, KW^K_i, VW^V_i)$.\n\nThe stated motivation is about what a single attention function loses. Its output is an average over attention-weighted positions, and averaging reduces effective resolution. Several heads let the model jointly attend to information from different representation subspaces at different positions, instead of collapsing everything into one blend.\n\nThe cost argument is arithmetic. Each head works in reduced dimensions, $d_k = d_v = d_{model}/h$ — with $d_{model} = 512$ and $h = 8$ that is $512/8 = 64$ per head — so the $h$ heads together do about as much work as one full-dimensional head would have.\n\nSection 4 adds an observation that was not part of the design goal. Individual heads appear to learn different tasks, and some of that behavior seems related to the syntactic and semantic structure of sentences.",
+   "prerequisites": [
+    "scaled-dot-product-attention",
+    "d-model"
+   ],
+   "sectionIds": [
+    "2",
+    "3.2.2",
+    "4",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "attention-head",
+   "name": "Attention head",
+   "tier": "minor",
+   "parent": "multi-head-attention",
+   "summary": "One of the parallel attention functions inside multi-head attention, operating on its own learned low-dimensional projection of the queries, keys, and values.",
+   "explanation": "A head is one of the parallel attention computations, and what makes it its own is its own set of projections.\n\nHead $i$ carries three learned matrices, $W^Q_i$, $W^K_i$, and $W^V_i$. It uses them to build its private queries, keys, and values, then runs [[scaled-dot-product-attention|scaled dot-product attention]] entirely inside a reduced space of dimension $d_k = d_v = 64$.\n\nBecause the projections are learned separately, the heads are free to diverge. Different heads can learn to look at different positions, or at different aspects — different subspaces — of the same representations.\n\nThe heads do not stay separate. Their outputs are concatenated, and the output projection $W^O$ mixes them back together.",
+   "prerequisites": [
+    "multi-head-attention"
+   ],
+   "sectionIds": [
+    "3.2.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "num-heads-h",
+   "name": "h = 8 (number of heads)",
+   "tier": "minor",
+   "parent": "multi-head-attention",
+   "summary": "The number of parallel attention heads in the base model: eight.",
+   "explanation": "In the base model, $h = 8$: eight attention layers, or heads, run in parallel.\n\nThe per-head dimension is not chosen independently of that number. It is tied to it as $d_k = d_v = d_{model}/h$, and with $d_{model} = 512$ and $h = 8$ that gives $512/8 = 64$.\n\nThat coupling is the point. Splitting into more heads does not increase total compute, because the dimension each head works in shrinks by exactly the same factor.",
+   "prerequisites": [
+    "multi-head-attention",
+    "d-model"
+   ],
+   "sectionIds": [
+    "3.2.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "attention-projection-matrices",
+   "name": "Attention projection matrices (W^Q, W^K, W^V, W^O)",
+   "tier": "minor",
+   "parent": "multi-head-attention",
+   "summary": "The learned linear maps that create each head's queries, keys, and values, and the final matrix that mixes the concatenated head outputs back to $d_{model}$.",
+   "explanation": "Four kinds of learned matrices turn [[multi-head-attention|multi-head attention]] from a formula into parameters. Three of them belong to each head individually; the fourth is shared.\n\nTake head $i$. $W^Q_i \\in \\mathbb{R}^{d_{model} \\times d_k}$ and $W^K_i \\in \\mathbb{R}^{d_{model} \\times d_k}$ map the incoming $d_{model}$-dimensional vectors into that head's query space and key space. $W^V_i \\in \\mathbb{R}^{d_{model} \\times d_v}$ does the same job for its values.\n\nAfter attention runs, the $h$ head outputs are concatenated. Each is $d_v$ wide, so the concatenation is $h \\cdot d_v$ wide — the wrong shape for the next sub-layer.\n\nThat is what the fourth matrix is for. The output projection $W^O \\in \\mathbb{R}^{h d_v \\times d_{model}}$ maps the concatenated result back to $d_{model}$.\n\nNone of these are special objects. They are ordinary learned parameter matrices, trained like everything else in the model.",
+   "prerequisites": [
+    "multi-head-attention",
+    "dk-dv-dimensions"
+   ],
+   "sectionIds": [
+    "3.2.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "attention-averaging-resolution-cost",
+   "name": "Averaging cost of single-head attention",
+   "tier": "minor",
+   "parent": "multi-head-attention",
+   "summary": "A single attention operation blends many positions into one weighted average, which can blur position-specific information.",
+   "explanation": "The Transformer's headline property is that it can relate any two positions in a constant number of operations. The paper is explicit that this does not come free.\n\nThe reason is what attention actually outputs: an average over attention-weighted positions. Averaging reduces effective resolution, because distinct signals coming from different positions get mixed together into one vector.\n\n[[multi-head-attention|Multi-head attention]] is the paper's answer to that cost. With several heads, each one can focus differently, so not every signal has to survive the same blend.",
+   "prerequisites": [
+    "attention-mechanism"
+   ],
+   "sectionIds": [
+    "2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "attention-interpretability",
+   "name": "Interpretability of attention",
+   "tier": "minor",
+   "parent": "multi-head-attention",
+   "summary": "The paper's observation that inspecting attention distributions suggests individual heads learn distinct, sometimes linguistically meaningful, roles.",
+   "explanation": "Section 4 raises this as a side benefit rather than as a design goal.\n\nThe opening is structural. Attention weights are explicit numbers over positions, which means they can be pulled out and inspected directly.\n\nWhat the paper reports from that inspection is twofold. Individual attention heads clearly learn to perform different tasks. Beyond that, many heads appear to exhibit behavior related to the syntactic and semantic structure of sentences, with examples shown in the appendix.\n\nThe claim is deliberately soft. The paper frames this as a possibility — attention 'could yield more interpretable models' — not as a demonstrated property.",
+   "prerequisites": [
+    "multi-head-attention",
+    "self-attention"
+   ],
+   "sectionIds": [
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "self-attention",
+   "name": "Self-attention (intra-attention)",
+   "tier": "major",
+   "parent": "attention-mechanism",
+   "summary": "Attention where the queries, keys, and values all come from the same sequence, so every position can gather information from every other position in that sequence.",
+   "explanation": "The defining feature of a self-attention layer is where its three inputs come from: the keys, the values, and the queries all come from the same place. In the Transformer, that place is the output of the previous layer of the same stack.\n\nSo each position issues a query and attends over all positions of that previous layer's output. Information can therefore flow between any pair of positions within a single layer.\n\nThis is the mechanism doing the structural work in the paper. It is what replaces recurrence and convolution as the Transformer's way of relating positions inside a sequence. The encoder uses it unrestricted; the decoder uses a masked version.\n\nThe idea itself is not introduced here. Section 2 notes prior uses in reading comprehension, abstractive summarization, textual entailment, and sentence representations.\n\nThe paper's claim to priority is narrower than 'we invented self-attention'. It is that the Transformer is, to the authors' knowledge, the first transduction model that relies entirely on self-attention to compute representations of its input and output, with no sequence-aligned RNNs and no convolution.\n\nSection 4 then argues the choice on three specific grounds: per-layer complexity, parallelism, and the length of the paths between distant positions.",
+   "prerequisites": [
+    "attention-mechanism",
+    "multi-head-attention",
+    "sequence-transduction"
+   ],
+   "sectionIds": [
+    "2",
+    "3",
+    "3.2.3",
+    "4",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[27]",
+    "refText": "Parikh, Täckström, Das & Uszkoreit. A decomposable attention model. EMNLP 2016.",
+    "whyNeeded": "Cited as one of the few prior cases of attention used without a recurrent network; grounds the paper's priority claim."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "encoder-self-attention",
+   "name": "Encoder self-attention",
+   "tier": "minor",
+   "parent": "self-attention",
+   "summary": "The self-attention layers in the encoder, where each position can attend to all positions in the previous encoder layer, with no masking.",
+   "explanation": "In the encoder's self-attention layers, all three inputs come from one source: the output of the previous encoder layer supplies the queries, the keys, and the values alike.\n\nNothing is hidden here. Each position attends to every position, earlier and later, because the whole input sentence is present at once and there is no future to conceal.\n\nThis is the first of the three distinct ways the Transformer puts [[multi-head-attention|multi-head attention]] to use.",
+   "prerequisites": [
+    "self-attention",
+    "encoder-stack"
+   ],
+   "sectionIds": [
+    "3.2.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "masked-decoder-self-attention",
+   "name": "Masked decoder self-attention",
+   "tier": "minor",
+   "parent": "self-attention",
+   "summary": "The decoder's self-attention, restricted by a mask so each position can only attend to itself and earlier positions.",
+   "explanation": "The decoder also has self-attention layers, but with one restriction. Each position may attend to all positions up to and including itself, and no further.\n\nThe restriction exists to preserve the auto-regressive property. At generation time, position $i$ genuinely does not know what comes after it, so training must not let it peek at those positions either.\n\nThe implementation lives inside [[scaled-dot-product-attention|scaled dot-product attention]] itself, as [[causal-masking]] over the scores.\n\nMasking is only half of the guarantee. Combined with the one-position offset of the output embeddings, it ensures that the prediction for position $i$ depends only on outputs at positions before $i$.",
+   "prerequisites": [
+    "self-attention",
+    "auto-regressive-generation",
+    "causal-masking"
+   ],
+   "sectionIds": [
+    "3.1",
+    "3.2.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "causal-masking",
+   "name": "Causal masking",
+   "tier": "minor",
+   "parent": "masked-decoder-self-attention",
+   "summary": "Setting the attention scores for forbidden (future) positions to $-\\infty$ before the softmax, so those positions receive zero attention weight.",
+   "explanation": "Start with what [[scaled-dot-product-attention|scaled dot-product attention]] computes before any masking. It scores every query against every key, which means every pair of positions gets a score, including the pairs a decoder is not allowed to use — a position looking at a later position.\n\nThe mask handles those illegal pairs by rewriting their scores. Each one is set to $-\\infty$ before the softmax runs.\n\nThe softmax then does the rest. Since $e^{-\\infty} = 0$, those entries come out with weight zero, so the values at the forbidden positions contribute nothing to the output.\n\nThe point is that nothing had to be computed position by position to get this. The model still computes attention for all positions at once, as matrix operations, and yet behaves exactly as if the future tokens were not there.",
+   "prerequisites": [
+    "scaled-dot-product-attention",
+    "softmax"
+   ],
+   "sectionIds": [
+    "3.1",
+    "3.2.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "restricted-self-attention",
+   "name": "Restricted (local) self-attention",
+   "tier": "minor",
+   "parent": "self-attention",
+   "summary": "A proposed variant where each position attends only to a neighborhood of size r around it, trading path length for cheaper computation on very long sequences.",
+   "explanation": "Full self-attention has every position attend to every other position, so its cost grows with $n^2$. On very long sequences that is the term that hurts.\n\nSection 4 sketches a fix rather than adopting one. Restrict each output position's attention to a window of size $r$ centered on it, so a position only sees its own neighborhood.\n\nThat lowers the cost, but it also cuts the direct links between distant positions. A signal now has to travel in hops of roughly $r$ positions each, which raises the [[maximum-path-length]] to $O(n/r)$.\n\nThe paper does not evaluate the variant. It is flagged as future work, and the conclusion repeats the plan, naming images, audio, and video as the settings where it would be needed.",
+   "prerequisites": [
+    "self-attention",
+    "maximum-path-length"
+   ],
+   "sectionIds": [
+    "4",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "encoder-decoder-attention",
+   "name": "Encoder-decoder attention",
+   "tier": "minor",
+   "parent": "attention-mechanism",
+   "summary": "The decoder sub-layer where queries come from the decoder and the keys and values come from the encoder's output, letting every decoder position look at the whole input sentence.",
+   "explanation": "This sub-layer draws its three inputs from two different places. The queries come from the previous decoder layer, while the memory keys and values come from the output of the encoder stack.\n\nBecause the keys and values span the entire encoder output, every position in the decoder can attend over all positions in the input sequence. This is the path by which information from the source sentence reaches the generation process.\n\nThe paper notes that this arrangement mimics the typical encoder-decoder attention mechanisms in earlier sequence-to-sequence models.\n\nIt is the third of the Transformer's three uses of [[multi-head-attention|multi-head attention]]. It is also the only one of the three that is not self-attention, since its queries and its keys come from different sequences.",
+   "prerequisites": [
+    "multi-head-attention",
+    "encoder-stack"
+   ],
+   "sectionIds": [
+    "3.2.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "encoder-stack",
+   "name": "Encoder stack",
+   "tier": "major",
+   "parent": "transformer",
+   "summary": "The Transformer's encoder: $N=6$ identical layers, each containing a multi-head self-attention sub-layer followed by a position-wise feed-forward sub-layer.",
+   "explanation": "The encoder is a stack of $N = 6$ identical layers, one feeding into the next.\n\nEach layer contains two sub-layers, in order. First a multi-head self-attention mechanism, then a position-wise fully connected feed-forward network.\n\nEach sub-layer is also wrapped: a residual connection carries the sub-layer's input around it, and [[layer-normalization]] is applied to the sum. So a sub-layer's output is $\\mathrm{LayerNorm}(x + \\mathrm{Sublayer}(x))$.\n\nThat wrapping constrains the shapes. Adding $x$ to $\\mathrm{Sublayer}(x)$ only works if the two have the same width, so every sub-layer and the embedding layers all output vectors of the same dimension, $d_{model} = 512$.",
+   "prerequisites": [
+    "multi-head-attention",
+    "self-attention",
+    "position-wise-feed-forward-network",
+    "residual-connection",
+    "layer-normalization",
+    "d-model"
+   ],
+   "sectionIds": [
+    "3.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "decoder-stack",
+   "name": "Decoder stack",
+   "tier": "major",
+   "parent": "transformer",
+   "summary": "The Transformer's decoder: $N=6$ identical layers, each with masked self-attention, attention over the encoder output, and a feed-forward sub-layer.",
+   "explanation": "The decoder is also a stack of $N = 6$ identical layers.\n\nEach layer keeps the encoder layer's two sub-layers and adds a third between them. That inserted sub-layer performs [[multi-head-attention|multi-head attention]] over the encoder stack's output — [[encoder-decoder-attention|encoder-decoder attention]].\n\nThe wrapping is the same as in the encoder: every sub-layer sits inside a residual connection followed by [[layer-normalization]].\n\nOne sub-layer is modified. The decoder's self-attention uses a mask so that a position cannot attend to positions after it.\n\nThat mask works together with a second measure, shifting the output embeddings right by one position. The two together guarantee that the prediction for position $i$ depends only on the known outputs at positions before $i$.",
+   "prerequisites": [
+    "encoder-stack",
+    "masked-decoder-self-attention",
+    "encoder-decoder-attention",
+    "auto-regressive-generation"
+   ],
+   "sectionIds": [
+    "3.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "sub-layer",
+   "name": "Sub-layer",
+   "tier": "minor",
+   "parent": "transformer",
+   "summary": "One of the components inside a Transformer layer — an attention mechanism or a feed-forward network — each wrapped in its own residual connection and layer normalization.",
+   "explanation": "The paper calls the pieces inside each encoder or decoder layer 'sub-layers'.\n\nAn encoder layer has two of them: self-attention, then feed-forward. A decoder layer has three: masked self-attention, [[encoder-decoder-attention|encoder-decoder attention]], then feed-forward.\n\nWhatever the sub-layer does, it is wrapped the same way. The computation is $\\mathrm{LayerNorm}(x + \\mathrm{Sublayer}(x))$ — the sub-layer's own function applied to the input, the input added back to that result, and [[layer-normalization]] applied to the sum.",
+   "prerequisites": [
+    "residual-connection",
+    "layer-normalization"
+   ],
+   "sectionIds": [
+    "3.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "deepDive": {
+    "paperId": "1607.06450",
+    "citationKey": "[1]",
+    "conceptIds": [
+     "layer-normalization-statistics",
+     "gain-and-bias-parameters",
+     "layer-norm-vs-batch-norm",
+     "per-timestep-normalization",
+     "normalization-invariance-properties"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "residual-connection",
+   "name": "Residual connection",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A shortcut that adds a layer's input directly to its output, so the layer only has to learn a change (residual) on top of the identity.",
+   "explanation": "The model does not pass $\\mathrm{Sublayer}(x)$ forward on its own. It computes $x + \\mathrm{Sublayer}(x)$, adding the input back to the sub-layer's output.\n\nThat addition does two things. It gives gradients a direct route through a deep stack, and it changes what the sub-layer has to learn: an adjustment to $x$, rather than a full transformation of it.\n\nThe Transformer applies this around every sub-layer in both the encoder and the decoder.\n\nThere is a practical consequence to adding $x$ and $\\mathrm{Sublayer}(x)$ together. The two must have the same size, so all sub-layers and the embeddings produce outputs of dimension $d_{model} = 512$.",
+   "prerequisites": [],
+   "sectionIds": [
+    "3.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[11]",
+    "refText": "He et al. Deep residual learning for image recognition. CVPR 2016.",
+    "whyNeeded": "Residual connections are adopted from this paper; it holds the original motivation and analysis of why identity shortcuts help train deep networks."
+   },
+   "deepDive": {
+    "paperId": "1607.06450",
+    "citationKey": "[1]",
+    "conceptIds": [
+     "layer-normalization-statistics",
+     "gain-and-bias-parameters",
+     "layer-norm-vs-batch-norm",
+     "per-timestep-normalization",
+     "normalization-invariance-properties"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "layer-normalization",
+   "name": "Layer normalization",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A normalization step that rescales each position's activation vector to have a standard mean and variance, computed across the features of that single vector.",
+   "explanation": "Layer normalization works on the activations of one layer for one input, independently of everything else. It takes that vector, subtracts the mean of its components, and divides by their standard deviation. A learned per-feature scale and shift are then applied.\n\nNote which axis the statistics come from. They are computed across the components of the single vector, not across the batch.\n\nThat is the contrast with batch normalization, which does depend on the other examples in the batch — a dependence that makes it awkward for sequence models and that layer normalization avoids.\n\nIn the Transformer it runs after every residual addition, which is what gives each sub-layer its output form $\\mathrm{LayerNorm}(x + \\mathrm{Sublayer}(x))$.\n\nThis paper uses layer normalization as a given and does not restate its definition.",
+   "prerequisites": [],
+   "sectionIds": [
+    "3.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[1]",
+    "refText": "Ba, Kiros & Hinton. Layer normalization. arXiv:1607.06450, 2016.",
+    "whyNeeded": "The exact normalization formula, the learned gain/bias parameters, and the contrast with batch normalization live in the cited paper, not in the Transformer paper."
+   },
+   "deepDive": {
+    "paperId": "1607.06450",
+    "citationKey": "[1]",
+    "conceptIds": [
+     "layer-normalization-statistics",
+     "gain-and-bias-parameters",
+     "layer-norm-vs-batch-norm",
+     "per-timestep-normalization",
+     "normalization-invariance-properties"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "n-layers",
+   "name": "N = 6 (number of layers)",
+   "tier": "minor",
+   "parent": "transformer",
+   "summary": "The number of identical layers stacked in each of the encoder and the decoder in the base model: six.",
+   "explanation": "Both the encoder and the decoder are stacks of $N = 6$ identical layers.\n\nDepth here comes from repeating one layer design, not from varying the design as the stack goes up.\n\nSix is the base-model choice. The paper varies it in later experiments.",
+   "prerequisites": [
+    "encoder-stack",
+    "decoder-stack"
+   ],
+   "sectionIds": [
+    "3.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "d-model",
+   "name": "d_model = 512 (model dimension)",
+   "tier": "minor",
+   "parent": "transformer",
+   "summary": "The shared width of the model: every sub-layer and embedding layer outputs vectors of dimension $d_{model} = 512$.",
+   "explanation": "The width of the model is fixed by the residual connections. Because a residual connection adds a sub-layer's input to its output, every sub-layer must produce vectors the same size as the ones it received.\n\nThe Transformer fixes that size at $d_{model} = 512$, and applies it to all sub-layers as well as to the token embeddings and the positional encodings.\n\nOther dimensions are then defined relative to it. Each attention head uses $d_k = d_v = d_{model}/h$, and the feed-forward network's inner layer expands to $d_{ff} = 2048$ before projecting back down to 512.\n\nThe same quantity shows up under a different name in section 4. There it is the representation dimension $d$ in the complexity comparison, where self-attention beats recurrence whenever the sequence length $n$ is smaller than $d$.",
+   "prerequisites": [
+    "residual-connection"
+   ],
+   "sectionIds": [
+    "3.1",
+    "3.2.2",
+    "3.3",
+    "3.4",
+    "3.5",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "position-wise-feed-forward-network",
+   "name": "Position-wise feed-forward network",
+   "tier": "minor",
+   "parent": "transformer",
+   "summary": "A two-layer fully connected network applied to each sequence position independently and identically: expand to $d_{ff}=2048$, apply ReLU, project back to $d_{model}=512$.",
+   "explanation": "Attention is not the only computation in a layer. Every encoder and decoder layer also contains a feed-forward network, applied to each position separately and identically.\n\nThe network is $\\mathrm{FFN}(x) = \\max(0, xW_1 + b_1)W_2 + b_2$. Read left to right, that is a linear transformation up to the inner dimension, a ReLU applied there, and a linear transformation back down.\n\n'Position-wise' names the two halves of how it is applied. The same weights process every position of the sequence, and each position is processed on its own — no information moves between positions inside this sub-layer. Attention is what moves information between positions.\n\nSo the weights are shared across positions within a layer, but they differ from layer to layer.\n\nThe paper offers an equivalent view of the same computation: two convolutions with kernel size 1.\n\nIt also turns up in section 4's cost comparison. A self-attention layer plus a point-wise feed-forward layer together match the complexity of a separable convolution with kernel width $k = n$.",
+   "prerequisites": [
+    "d-model",
+    "relu"
+   ],
+   "sectionIds": [
+    "3.3",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "d-ff",
+   "name": "d_ff = 2048 (feed-forward inner dimension)",
+   "tier": "minor",
+   "parent": "position-wise-feed-forward-network",
+   "summary": "The width of the hidden layer inside the position-wise feed-forward network: 2048, four times $d_{model}$.",
+   "explanation": "The feed-forward network takes each position's $d_{model} = 512$ vector and expands it to $d_{ff} = 2048$ dimensions. The ReLU is applied at that width, and the result is projected back to 512.\n\nSo the inner layer is four times the model dimension. That 4x expansion is where much of the model's parameter count sits.",
+   "prerequisites": [
+    "position-wise-feed-forward-network",
+    "d-model"
+   ],
+   "sectionIds": [
+    "3.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "relu",
+   "name": "ReLU activation",
+   "tier": "minor",
+   "parent": "position-wise-feed-forward-network",
+   "summary": "The rectified linear unit, $\\max(0, x)$: a standard nonlinearity that zeroes out negative values.",
+   "explanation": "The nonlinearity between the two linear transformations of the feed-forward network. It passes positive values through unchanged and clips negatives to zero.",
+   "prerequisites": [],
+   "sectionIds": [
+    "3.3"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "softmax",
+   "name": "Softmax",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The standard function that turns a vector of scores into a probability distribution: exponentiate each score and normalize by the sum.",
+   "explanation": "Used in two places here: to turn attention scores into attention weights that sum to one, and at the decoder output to turn logits into next-token probabilities. Relevant detail for this paper: when input scores are large in magnitude, softmax saturates and its gradients become extremely small — the failure the $1/\\sqrt{d_k}$ scaling guards against.",
+   "prerequisites": [],
+   "sectionIds": [
+    "3.2.1",
+    "3.2.3",
+    "3.4"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "token-embeddings",
+   "name": "Token embeddings",
+   "tier": "minor",
+   "parent": "transformer",
+   "summary": "Learned lookup tables that convert input and output tokens into $d_{model}$-dimensional vectors.",
+   "explanation": "As in other sequence transduction models, learned embeddings map input tokens and output tokens to vectors of dimension $d_{model}$. The Transformer has two embedding layers (one for the encoder input, one for the decoder input); in this paper they share one weight matrix.",
+   "prerequisites": [],
+   "sectionIds": [
+    "3.4"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "deepDive": {
+    "paperId": "1608.05859",
+    "citationKey": "[30]",
+    "conceptIds": [
+     "input-and-output-embeddings",
+     "weight-tying",
+     "tied-embedding-update-dynamics",
+     "three-way-weight-tying"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "embedding-softmax-weight-sharing",
+   "name": "Embedding and softmax weight sharing",
+   "tier": "minor",
+   "parent": "transformer",
+   "summary": "The two token embedding layers and the pre-softmax output projection all share a single weight matrix.",
+   "explanation": "The decoder produces a vector per output position, and that vector has to become a distribution over the vocabulary. This model does it the usual way: a learned linear transformation maps the $d_{model}$-dimensional vector to one score per vocabulary token, and a softmax turns those scores into predicted next-token probabilities.\n\nThree matrices in the model have that same shape — vocabulary by $d_{model}$. The encoder's input embedding is one, the decoder's input embedding is another, and the pre-softmax output projection is the third.\n\nThis model uses a single weight matrix for all three, following the scheme of Press and Wolf [30]. That ties input representation and output prediction to one shared vocabulary matrix: the vector a token is embedded as is the same vector its output score is computed against. It also reduces parameter count, since one matrix now does the work of three.\n\nOne detail separates the two uses of the shared matrix. In the embedding layers, but not in the output projection, the shared weights are additionally multiplied by $\\sqrt{d_{model}}$.",
+   "prerequisites": [
+    "token-embeddings",
+    "softmax",
+    "d-model"
+   ],
+   "sectionIds": [
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[30]",
+    "refText": "Press & Wolf. Using the output embedding to improve language models. 2016.",
+    "whyNeeded": "The weight-tying scheme and its justification are defined in the cited paper; the Transformer paper only says 'similar to [30]'."
+   },
+   "deepDive": {
+    "paperId": "1608.05859",
+    "citationKey": "[30]",
+    "conceptIds": [
+     "input-and-output-embeddings",
+     "weight-tying",
+     "tied-embedding-update-dynamics",
+     "three-way-weight-tying"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "sqrt-dmodel-embedding-multiplier",
+   "name": "sqrt(d_model) embedding multiplier",
+   "tier": "minor",
+   "parent": "embedding-softmax-weight-sharing",
+   "summary": "In the embedding layers, the shared weights are multiplied by $\\sqrt{d_{model}}$.",
+   "explanation": "The paper states that in the embedding layers the shared weight matrix is scaled by $\\sqrt{d_{model}}$. In the base model $d_{model}$ is 512, so the multiplier is $\\sqrt{512}$, about 22.6 — the embedded vector that leaves the lookup is roughly twenty-two times the magnitude of the raw matrix row.\n\nThe paper gives no explicit rationale for the scaling. It is stated as part of the description and left there.\n\nWhat can be observed is where the scaling sits in the data path. The positional encodings are added to the embeddings immediately afterwards, and those encodings are sines and cosines, so their amplitude is fixed no matter what $d_{model}$ is. A practical consequence is that the embedding outputs are larger in scale before the positional encodings are added to them.",
+   "prerequisites": [
+    "embedding-softmax-weight-sharing",
+    "d-model"
+   ],
+   "sectionIds": [
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "positional-encoding",
+   "name": "Positional encoding",
+   "tier": "major",
+   "parent": "transformer",
+   "summary": "Vectors added to the input embeddings that inject information about each token's position, since the model itself has no recurrence or convolution to sense order.",
+   "explanation": "Self-attention is order-blind. Its output at a position is a weighted sum over all positions, and the weights depend only on the content of the vectors involved, never on where those vectors sit in the sequence. Shuffling the input positions would shuffle the outputs identically, and nothing inside the layer would register the difference.\n\nThe Transformer has no recurrence and no convolution to supply order from elsewhere in the architecture. So information about the relative or absolute position of tokens has to be given to the model explicitly.\n\nThe paper does this by adding vectors it calls 'positional encodings' to the input embeddings, at the bottoms of both the encoder and the decoder stacks. Adding, rather than concatenating, imposes a shape requirement: the encodings have the same dimension $d_{model}$ as the embeddings, so the two can be summed elementwise.\n\nThe encodings themselves can be fixed functions of the position or learned parameters. This paper uses fixed sinusoids, and also tests the learned kind.",
+   "prerequisites": [
+    "token-embeddings",
+    "d-model"
+   ],
+   "sectionIds": [
+    "3.5"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "sinusoidal-positional-encoding",
+   "name": "Sinusoidal positional encoding",
+   "tier": "minor",
+   "parent": "positional-encoding",
+   "summary": "The paper's fixed positional encoding: each dimension is a sine or cosine of the position, at wavelengths forming a geometric progression from $2\\pi$ to $10000 \\cdot 2\\pi$.",
+   "explanation": "The encoding for a position is a bank of sine and cosine waves sampled at that position. For position $pos$ and dimension index $i$, the paper defines $PE_{(pos, 2i)} = \\sin(pos / 10000^{2i/d_{model}})$ and $PE_{(pos, 2i+1)} = \\cos(pos / 10000^{2i/d_{model}})$.\n\nRead that as a sequence of dimension pairs. Even dimensions get sines, odd dimensions get the matching cosines, and each pair oscillates at its own frequency.\n\nThe frequency is set by the divisor $10000^{2i/d_{model}}$, which grows as $i$ grows. Low dimensions therefore carry short, fast wavelengths, and high dimensions carry very slow ones — the wavelengths form a geometric progression from $2\\pi$ up to $10000 \\cdot 2\\pi$.\n\nThe paper gives two reasons for this choice. The first is a hypothesis: it should make attending by relative position easy to learn, because for any fixed offset $k$, $PE_{pos+k}$ is a linear function of $PE_{pos}$.\n\nThe second reason is about length. The functions are defined for any position, not only for positions stored in a table. So the model may extrapolate to sequence lengths longer than any seen during training, which a learned position table cannot do.",
+   "prerequisites": [
+    "positional-encoding"
+   ],
+   "sectionIds": [
+    "3.5"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "relative-position-linearity",
+   "name": "Relative positions as linear functions",
+   "tier": "minor",
+   "parent": "sinusoidal-positional-encoding",
+   "summary": "For any fixed offset $k$, the sinusoidal encoding of position $pos+k$ is a linear function of the encoding of position $pos$ — the hypothesized reason sinusoids help the model attend by relative position.",
+   "explanation": "Sine and cosine obey the angle-addition identities. Both $\\sin(a+b)$ and $\\cos(a+b)$ expand into linear combinations of $\\sin(a)$ and $\\cos(a)$, and the coefficients in those combinations depend only on $b$.\n\nThe encoding is built so that each sine sits next to the cosine at the same frequency, which is exactly the pair those identities need. Take one such pair and shift the position by $k$: the shifted pair is the original pair passed through a fixed rotation, whose angle depends on $k$ and on that pair's frequency but never on $pos$. Apply this per frequency pair across the whole vector, and $PE_{pos+k}$ is obtained from $PE_{pos}$ by one fixed linear map that depends only on the offset $k$.\n\nThe paper hypothesizes this makes it easy for the model to learn to attend by relative positions. 'The token 3 places back' is the same linear relationship everywhere in the sequence, so whatever the model learns for that offset at one position transfers to every other.\n\nThis is stated as the reason for choosing the function. It is not proven empirically in the paper.",
+   "prerequisites": [
+    "sinusoidal-positional-encoding"
+   ],
+   "sectionIds": [
+    "3.5"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "learned-positional-embedding",
+   "name": "Learned positional embeddings",
+   "tier": "minor",
+   "parent": "positional-encoding",
+   "summary": "The alternative to sinusoids: a trainable vector per position, learned like any other parameter.",
+   "explanation": "The alternative to a fixed formula is to store the position signal in a table. Each position index gets its own embedding vector, trained like any other parameter, as used in convolutional sequence-to-sequence models [9].\n\nThe paper tried this variant in the ablations. It found nearly identical results to the sinusoidal version, reported as Table 3 row (E). That is evidence that the specific form of the position signal is not critical at these sequence lengths.\n\nIt chose sinusoids anyway, on a ground the ablation could not test. A learned table only covers positions seen in training, and has nothing to offer for a position beyond the longest sequence it was trained on. The sinusoids are defined for any position, and may let the model extrapolate to longer sequences.",
+   "prerequisites": [
+    "positional-encoding"
+   ],
+   "sectionIds": [
+    "3.5",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[9]",
+    "refText": "Gehring et al. Convolutional sequence to sequence learning. arXiv:1705.03122v2, 2017.",
+    "whyNeeded": "Learned positional embeddings are adopted from this cited paper; their construction is not restated here."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "convolutional-sequence-models",
+   "name": "Convolutional sequence models",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Prior architectures (Extended Neural GPU, ByteNet, ConvS2S) that replace recurrence with convolutions, computing all positions' hidden representations in parallel.",
+   "explanation": "These models share the Transformer's goal of reducing sequential computation. A convolution at one position does not wait on the output at the previous position, so every position of a layer can be computed at once.\n\nTheir weakness, as section 2 states it, is about distance. Information can only move a kernel's width per layer, so relating two arbitrary positions means passing that information up through a stack of layers — and the number of operations required grows with the distance between the positions. The growth is linear for ConvS2S and logarithmic for ByteNet, which widens its reach faster as depth increases.\n\nThe paper cites this growth as making it harder to learn dependencies between distant positions. The Transformer reduces the count to a constant number of operations, regardless of how far apart the two positions are.",
+   "prerequisites": [
+    "sequential-computation-bottleneck"
+   ],
+   "sectionIds": [
+    "2",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "extended-neural-gpu",
+   "name": "Extended Neural GPU",
+   "tier": "minor",
+   "parent": "convolutional-sequence-models",
+   "summary": "A convolution-based sequence model cited as prior work on reducing sequential computation.",
+   "explanation": "This is one of the three convolutional predecessors section 2 names, alongside ByteNet and ConvS2S.\n\nLike those two, it uses convolution as its basic building block rather than recurrence. That means hidden representations for all positions are computed in parallel, instead of one position waiting on the last.\n\nThe paper cites it as prior work on reducing sequential computation. Unlike ByteNet and ConvS2S, it is not assigned a distance-growth rate of its own in the argument that follows.",
+   "prerequisites": [
+    "convolutional-sequence-models"
+   ],
+   "sectionIds": [
+    "2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[16]",
+    "refText": "Kaiser & Bengio. Can active memory replace attention? NIPS 2016.",
+    "whyNeeded": "The architecture is defined only in the cited paper; this paper uses it as a comparison point."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "bytenet",
+   "name": "ByteNet",
+   "tier": "minor",
+   "parent": "convolutional-sequence-models",
+   "summary": "A convolutional translation model using dilated convolutions; relating two positions costs a number of operations that grows logarithmically with their distance.",
+   "explanation": "ByteNet is built from stacked [[dilated-convolutions]]. Each layer spaces its kernel taps further apart than the layer below, so the span of input reaching any unit grows exponentially with depth rather than by a constant per layer.\n\nSection 2 uses ByteNet as the logarithmic-growth case in its distance argument. The number of operations needed to relate two positions grows with the logarithm of their separation, not with the separation itself.\n\nSection 4 attaches a count to that. With dilated convolutions of kernel width $k$, connecting all pairs of positions takes a stack of $O(\\log_k(n))$ layers.",
+   "prerequisites": [
+    "convolutional-sequence-models",
+    "dilated-convolutions"
+   ],
+   "sectionIds": [
+    "2",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[18]",
+    "refText": "Kalchbrenner et al. Neural machine translation in linear time. arXiv:1610.10099v2, 2017.",
+    "whyNeeded": "The dilated-convolution stack and its path-length behavior are defined there; this paper leans on those properties in its comparison table."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "convs2s",
+   "name": "ConvS2S",
+   "tier": "minor",
+   "parent": "convolutional-sequence-models",
+   "summary": "A convolutional sequence-to-sequence translation model; relating two positions costs a number of operations that grows linearly with their distance.",
+   "explanation": "ConvS2S builds both its encoder and its decoder from stacked convolutions with contiguous kernels — the taps sit next to one another, with no gaps between them.\n\nThat means each layer widens the reach by a fixed amount, so section 2 uses ConvS2S as the linear-growth case in the distance argument. Section 4 gives the corresponding count: with kernel width $k$, connecting all pairs of positions in a sequence of length $n$ requires a stack of $O(n/k)$ layers.\n\nConvS2S is also one of the main baselines the paper compares against in its translation results.",
+   "prerequisites": [
+    "convolutional-sequence-models"
+   ],
+   "sectionIds": [
+    "2",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[9]",
+    "refText": "Gehring et al. Convolutional sequence to sequence learning. arXiv:1705.03122v2, 2017.",
+    "whyNeeded": "The architecture and its cost structure are defined there; the paper's complexity and BLEU comparisons depend on them."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "dilated-convolutions",
+   "name": "Dilated convolutions",
+   "tier": "minor",
+   "parent": "convolutional-sequence-models",
+   "summary": "Convolutions whose kernel taps are spaced apart, so each layer sees a wider span without more weights.",
+   "explanation": "A dilated convolution spaces its kernel taps apart instead of reading a contiguous run of positions, skipping the positions in between. The effect is that one layer sees a wider span of the sequence without using any more weights.\n\nStack such layers with the dilation growing from one layer to the next, and the receptive field grows exponentially with depth rather than by a fixed increment per layer.\n\nSection 4 uses this to explain the gap between its two layer counts. Connecting all pairs of positions takes $O(\\log_k(n))$ layers with dilated convolutions of kernel width $k$, against $O(n/k)$ layers with contiguous kernels.",
+   "prerequisites": [
+    "convolutional-sequence-models"
+   ],
+   "sectionIds": [
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[18]",
+    "refText": "Kalchbrenner et al. Neural machine translation in linear time. arXiv:1610.10099v2, 2017.",
+    "whyNeeded": "This paper only invokes the log-depth property; the construction is in the cited paper."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "separable-convolutions",
+   "name": "Separable convolutions",
+   "tier": "minor",
+   "parent": "convolutional-sequence-models",
+   "summary": "A cheaper convolution that splits the operation into a per-channel (depthwise) part and a 1x1 mixing part.",
+   "explanation": "Section 4 starts from the plain cost of convolution: an ordinary convolutional layer costs roughly $k$ times more than a recurrent layer, with $k$ the kernel width. That factor is what makes convolution an expensive way to buy shorter paths between positions.\n\nA separable convolution splits the operation into two cheaper pieces — a depthwise part that filters each channel on its own, and a $1\\times1$ part that mixes the channels together. That split cuts the complexity to $O(k \\cdot n \\cdot d + n \\cdot d^2)$.\n\nThe paper then pushes the kernel width to its extreme, and reports the coincidence it finds telling. Even with $k = n$, a kernel spanning the entire sequence, a separable convolution's complexity equals that of a self-attention layer plus a point-wise feed-forward layer.\n\nThat is exactly the combination the Transformer uses.",
+   "prerequisites": [
+    "convolutional-sequence-models",
+    "complexity-per-layer"
+   ],
+   "sectionIds": [
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[6]",
+    "refText": "Chollet. Xception: Deep learning with depthwise separable convolutions. arXiv:1610.02357, 2016.",
+    "whyNeeded": "The separable-convolution construction and its cost are defined there; the paper cites only the resulting complexity."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "end-to-end-memory-networks",
+   "name": "End-to-end memory networks",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Prior models built on a recurrent attention mechanism instead of sequence-aligned recurrence.",
+   "explanation": "Section 2 cites end-to-end memory networks as related work, and their organizing idea is different from the recurrent models the paper is arguing against.\n\nA recurrent model steps through the sequence one position at a time, aligning its computation to the sequence itself. These models instead hold a memory and apply attention over that memory repeatedly. The repetition is in the number of attention passes, not in the number of sequence positions.\n\nThe paper says they performed well on simple-language question answering and on language modeling.\n\nThat is why they appear here. They are evidence that attention-centric computation was already viable before the Transformer — though not, on this evidence, for full transduction.",
+   "prerequisites": [
+    "attention-mechanism",
+    "recurrent-neural-network"
+   ],
+   "sectionIds": [
+    "2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[34]",
+    "refText": "Sukhbaatar et al. End-to-end memory networks. NIPS 2015.",
+    "whyNeeded": "The recurrent-attention mechanism is defined there; this paper only names it."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "layer-comparison-desiderata",
+   "name": "Three criteria for comparing layer types",
+   "tier": "major",
+   "parent": null,
+   "summary": "Section 4's framework: judge self-attention, recurrent, and convolutional layers by per-layer complexity, minimum sequential operations, and maximum path length.",
+   "explanation": "To motivate self-attention, the paper compares layer types on three axes.\n\nThe first is total [[complexity-per-layer|computational complexity per layer]]: how much arithmetic one layer costs.\n\nThe second is parallelizability. The paper makes this measurable by counting the minimum number of operations that must run one after another, since work forced into sequence is work that cannot be spread across hardware.\n\nThe third is the [[maximum-path-length]] between any two input and output positions. The paper links this axis to how easily the network learns [[long-range-dependencies|long-range dependencies]].\n\nTable 1 summarizes the comparison across all three. The headline is that self-attention wins outright on two of them: $O(1)$ sequential operations against $O(n)$ for recurrence, and shorter paths. On complexity it wins conditionally — whenever the sequence length $n$ is smaller than the representation dimension $d$.",
+   "prerequisites": [
+    "self-attention",
+    "recurrent-neural-network",
+    "convolutional-sequence-models"
+   ],
+   "sectionIds": [
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "complexity-per-layer",
+   "name": "Computational complexity per layer",
+   "tier": "minor",
+   "parent": "layer-comparison-desiderata",
+   "summary": "The total amount of computation one layer performs, as a function of sequence length n, representation dimension d, and kernel width k.",
+   "explanation": "A self-attention layer compares every position with every other position. That is $n^2$ pairs, and each comparison does work proportional to the representation dimension $d$, so the cost scales with $n^2 \\cdot d$.\n\nA recurrent layer works differently. It touches each position once, but each touch is a matrix multiply costing $d^2$, so the cost scales with $n \\cdot d^2$.\n\nSet the two side by side — $n^2 d$ against $n d^2$ — and the crossover is plain. Self-attention is cheaper exactly when $n < d$.\n\nThe paper says that is the common case for the sentence representations used in state-of-the-art translation, such as word-piece and byte-pair representations.\n\nConvolutional layers sit above recurrent ones: generally a factor of $k$ more expensive, where $k$ is the kernel width. [[separable-convolutions]] reduce this.",
+   "prerequisites": [
+    "layer-comparison-desiderata"
+   ],
+   "sectionIds": [
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "deepDive": {
+    "paperId": "1508.07909",
+    "citationKey": "[31]",
+    "conceptIds": [
+     "bpe-merge-algorithm",
+     "bpe-segmentation-at-test-time",
+     "bpe-vocabulary-size",
+     "joint-bpe-shared-vocabulary",
+     "vocabulary-vs-sequence-length-tradeoff"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "minimum-sequential-operations",
+   "name": "Minimum sequential operations",
+   "tier": "minor",
+   "parent": "layer-comparison-desiderata",
+   "summary": "The number of operations that must run one after another rather than in parallel; the paper's measure of parallelizability.",
+   "explanation": "A self-attention layer connects all positions with a constant number of sequentially executed operations. Everything else — every query-key comparison, every weighted sum over values — runs in parallel. So it scores $O(1)$ on this axis, and that number does not grow with the sequence.\n\nA recurrent layer cannot do the same. Each position's state depends on the previous position's state, so the positions must be computed in order. For a sequence of length $n$ that is $O(n)$ operations that must run one after another.\n\nThat gap is the concrete, countable form of the sequential-computation bottleneck. It is also the source of the Transformer's training-speed advantage.",
+   "prerequisites": [
+    "layer-comparison-desiderata",
+    "sequential-computation-bottleneck"
+   ],
+   "sectionIds": [
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "maximum-path-length",
+   "name": "Maximum path length",
+   "tier": "minor",
+   "parent": "layer-comparison-desiderata",
+   "summary": "The longest path a signal must travel through the network between any two input and output positions; shorter paths make long-range dependencies easier to learn.",
+   "explanation": "For a network to relate position $i$ to position $j$, signals have to travel between them — forward when the network computes, backward when it learns. Those signals traverse some path of operations, and that path has a length.\n\nThe paper's argument, citing prior work on gradient flow, is that the shorter these paths, the easier it is to learn [[long-range-dependencies|long-range dependencies]].\n\nWith that measure fixed, the layer types separate cleanly. Self-attention connects any pair of positions in a single step, so its maximum path length is $O(1)$. A recurrent layer has to carry the signal position by position, needing $O(n)$ steps to cross the sequence. Stacked contiguous convolutions cover $k$ positions per layer and so need $O(n/k)$ layers; [[dilated-convolutions]] widen faster and need $O(\\log_k(n))$.\n\nThis is the third of the three criteria, and in the paper's framing the most learning-relevant one.",
+   "prerequisites": [
+    "layer-comparison-desiderata",
+    "long-range-dependencies"
+   ],
+   "sectionIds": [
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "long-range-dependencies",
+   "name": "Long-range dependencies",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Relationships between symbols far apart in a sequence, which the paper calls a key challenge in sequence transduction.",
+   "explanation": "In language, a word can depend on another word many positions away. A verb agreeing with a distant subject is one such case. A pronoun resolved to an antecedent far back is another.\n\nThe paper cites earlier analysis showing that dependencies like these are hard for networks to learn when gradient signals must pass through many intermediate steps. The longer the path between the two positions, the weaker the learning signal that survives the trip.\n\nAttention sidesteps the problem rather than mitigating it. It models dependencies without regard to distance, so the path never grows in the first place.\n\nThis difficulty is the paper's main learning-theoretic argument for self-attention over recurrence and convolution.",
+   "prerequisites": [],
+   "sectionIds": [
+    "1",
+    "2",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[12]",
+    "refText": "Hochreiter, Bengio, Frasconi & Schmidhuber. Gradient flow in recurrent nets: the difficulty of learning long-term dependencies, 2001.",
+    "whyNeeded": "The claim that shorter signal paths make long-range dependencies easier to learn rests on this cited analysis, not on evidence in this paper."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "byte-pair-encoding",
+   "name": "Byte-pair encoding (BPE)",
+   "tier": "major",
+   "parent": null,
+   "summary": "A subword tokenization scheme that builds a vocabulary by repeatedly merging the most frequent pair of symbols, so rare words split into known pieces.",
+   "explanation": "BPE starts from characters and builds upward by greedy merging. At each step it finds the adjacent symbol pair that occurs most often in the training text and merges that pair into one new symbol. It repeats until the vocabulary reaches a target size.\n\nWhat comes out is a vocabulary sorted by frequency. Common words survive the merges intact and end up as single tokens. Rare words are left broken into subword units. Because the original characters are still in the vocabulary, any text at all can be encoded, so there is no need for an out-of-vocabulary token.\n\nThe paper uses BPE for the WMT 2014 English-German data. The vocabulary is about 37000 tokens, and it is a single vocabulary shared between the source and target languages.\n\nBPE does a second job in section 4's complexity argument. Byte-pair sentence representations are cited there as the kind that state-of-the-art translation models use, which is what supports the claim that sequence length $n$ is usually smaller than representation dimension $d$.",
+   "prerequisites": [],
+   "sectionIds": [
+    "4",
+    "5.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[31]",
+    "refText": "Sennrich, Haddow & Birch. Neural machine translation of rare words with subword units. arXiv:1508.07909, 2015.",
+    "whyNeeded": "The merge algorithm and vocabulary construction are defined there; reproducing the paper's tokenization requires those details."
+   },
+   "deepDive": {
+    "paperId": "1508.07909",
+    "citationKey": "[31]",
+    "conceptIds": [
+     "bpe-merge-algorithm",
+     "bpe-segmentation-at-test-time",
+     "bpe-vocabulary-size",
+     "joint-bpe-shared-vocabulary",
+     "vocabulary-vs-sequence-length-tradeoff"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "word-piece-encoding",
+   "name": "Word-piece vocabulary",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A subword tokenization scheme similar in spirit to BPE, from Google's neural machine translation system; the paper uses a 32000-token word-piece vocabulary for English-French.",
+   "explanation": "Word-pieces are another way to split words into subword units. The goal is the same one [[byte-pair-encoding|BPE]] serves: a fixed, modest vocabulary that can still encode any text.\n\nThe vocabulary is again built from data rather than fixed by hand. What differs is the criterion for choosing the units. BPE merges by pair frequency; the word-piece criterion comes from the GNMT work and is a language-model objective instead.\n\nThe paper does not describe the algorithm. It reuses the approach from [38], with 32000 tokens for the English-French experiments.\n\nSection 4 cites word-piece representations as well, alongside byte-pair ones, as the standard sentence representations in state-of-the-art translation. That citation is what supports the claim that typical sequence lengths satisfy $n < d$.",
+   "prerequisites": [
+    "byte-pair-encoding"
+   ],
+   "sectionIds": [
+    "4",
+    "5.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[38]",
+    "refText": "Wu et al. Google's neural machine translation system. arXiv:1609.08144, 2016.",
+    "whyNeeded": "The word-piece construction is defined there; the same paper is also a headline baseline (GNMT) in the results."
+   },
+   "deepDive": {
+    "paperId": "1609.08144",
+    "citationKey": "[38]",
+    "conceptIds": [
+     "wordpiece-model",
+     "length-normalization-penalty",
+     "coverage-penalty",
+     "beam-search-pruning-and-termination"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "bleu",
+   "name": "BLEU score",
+   "tier": "major",
+   "parent": null,
+   "summary": "The standard automatic metric for translation quality: n-gram overlap precision against reference translations with a penalty for overly short outputs. Higher is better.",
+   "explanation": "BLEU compares machine output to one or more human reference translations.\n\nThe computation has three parts. First, for n-gram sizes 1 through 4, it measures what fraction of the n-grams in the machine output also appear in the references — clipped, so repeating a word cannot inflate the count. Second, it combines those four precisions by geometric mean. Third, it multiplies the result by a brevity penalty, which punishes outputs shorter than the references.\n\nScores are usually reported on a 0-100 scale. On standard test sets, differences of 1-2 BLEU are considered meaningful.\n\nBLEU is a proxy, and what it misses is specific. It measures overlap of the produced text — not fluency, not meaning, and not the model's probabilities. That is the reason [[label-smoothing]] can help BLEU while hurting perplexity: the two metrics are looking at different objects.\n\nEvery translation claim in the paper is stated in BLEU. That includes 28.4 on WMT 2014 English-German, more than 2.0 above the prior best including ensembles, and 41.8 on English-French for the final big model.",
+   "prerequisites": [
+    "machine-translation"
+   ],
+   "sectionIds": [
+    "abstract",
+    "5.4",
+    "6.1",
+    "6.2",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "perplexity",
+   "name": "Perplexity",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A measure of how well a model predicts the true next tokens: the exponentiated average negative log-probability. Lower is better.",
+   "explanation": "Perplexity is $\\exp$ of the average per-token cross-entropy between the model's predicted distribution and the actual tokens.\n\nRead as a quantity, it is the effective number of choices the model is 'hesitating between' at each step. A perfect predictor has perplexity 1.\n\nWhat it scores is the probabilities themselves, not the final output text. That distinction has a consequence for reading the paper's tables: a model deliberately trained to be less confident — one trained with [[label-smoothing]], for example — can have worse perplexity while producing better translations.\n\nOne reporting detail. Table 3 reports per-wordpiece perplexities, and the paper notes that these should not be compared to per-word numbers.",
+   "prerequisites": [],
+   "sectionIds": [
+    "5.4",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "model-ensembling",
+   "name": "Model ensembling",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Combining predictions from several trained models to get better quality than any single model.",
+   "explanation": "An ensemble runs multiple trained models and combines their output distributions, usually gaining accuracy at a multiple of the cost. It matters here only as a bar to clear: the paper claims its single big model beats not just previous single models but previous ensembles on English-to-German, and even the base single model surpasses all previously published models and ensembles.",
+   "prerequisites": [],
+   "sectionIds": [
+    "abstract",
+    "6.1",
+    "7"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "tensor2tensor",
+   "name": "tensor2tensor",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The open-source codebase the authors used to train and evaluate the Transformer.",
+   "explanation": "The conclusion points to https://github.com/tensorflow/tensor2tensor as the released training and evaluation code.\n\nThe author-contribution footnote credits several of the authors with building it, and notes that it replaced the team's earlier codebase.",
+   "prerequisites": [],
+   "sectionIds": [
+    "front",
+    "abstract",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "transformer-training-recipe",
+   "name": "Transformer training recipe",
+   "tier": "major",
+   "parent": null,
+   "summary": "The complete set of choices the paper used to train its models: data, batching, hardware, optimizer schedule, and regularization.",
+   "explanation": "Section 5 is the paper's reproducibility record: what someone would need in order to retrain these models, laid out in the order they would need it.\n\nSection 5.1 specifies the datasets and the tokenization. Section 5.2 gives the hardware and the number of training steps. Section 5.3 covers optimization — the Adam optimizer, driven by a learning rate that warms up and then decays. Section 5.4 adds two regularizers: [[residual-dropout]] and [[label-smoothing]].\n\nThese are not background details set apart from the results. The numbers reported in section 6 depend on this exact recipe, and the ablations in section 6.2 work precisely by varying pieces of it.\n\nEach piece is a child concept.",
+   "prerequisites": [
+    "transformer"
+   ],
+   "sectionIds": [
+    "5"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "wmt-2014-en-de",
+   "name": "WMT 2014 English-German dataset",
+   "tier": "minor",
+   "parent": "transformer-training-recipe",
+   "summary": "The standard benchmark translation dataset of about 4.5 million English-German sentence pairs used as the main training and evaluation task.",
+   "explanation": "WMT is an annual shared task on machine translation. It fixes the training data and holds out a test set, so every system is measured on the same material. Scores are therefore directly comparable to prior work.\n\nThe paper trains on the 2014 English-German set, roughly 4.5 million sentence pairs. Those pairs are encoded with [[byte-pair-encoding|byte-pair encoding]], which splits words into subword pieces, and source and target draw on one shared vocabulary of about 37000 tokens.\n\nThe Transformer's 28.4 BLEU on this task is claimed as new state of the art, beating all previously reported ensembles.\n\nEnglish-to-German is also the task used for all the ablation experiments in section 6.2.",
+   "prerequisites": [
+    "machine-translation",
+    "byte-pair-encoding"
+   ],
+   "sectionIds": [
+    "abstract",
+    "5.1",
+    "6.1",
+    "6.2",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "deepDive": {
+    "paperId": "1508.07909",
+    "citationKey": "[31]",
+    "conceptIds": [
+     "bpe-merge-algorithm",
+     "bpe-segmentation-at-test-time",
+     "bpe-vocabulary-size",
+     "joint-bpe-shared-vocabulary",
+     "vocabulary-vs-sequence-length-tradeoff"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "wmt-2014-en-fr",
+   "name": "WMT 2014 English-French dataset",
+   "tier": "minor",
+   "parent": "transformer-training-recipe",
+   "summary": "A much larger benchmark translation dataset of 36 million sentence pairs, used to test the model at larger data scale.",
+   "explanation": "This is the second translation benchmark, and it is much larger than the first: 36M sentence pairs against 4.5M for English-German, roughly eight times the data.\n\nThe tokenization differs as well. Instead of [[byte-pair-encoding|byte-pair encoding]], this dataset is segmented with a 32000-token [[word-piece-encoding|word-piece vocabulary]].\n\nSo does one regularization setting. The big model trained here uses a lower dropout rate, $P_{drop}=0.1$ instead of $0.3$. More data means less overfitting risk, which is presumably the reason, though the paper does not state one.\n\nThe big model reaches 41.8 BLEU on this task (41.0 in Table 2). The paper claims that as a new single-model state of the art, reached at under a quarter of the previous best model's training cost.",
+   "prerequisites": [
+    "machine-translation",
+    "word-piece-encoding"
+   ],
+   "sectionIds": [
+    "abstract",
+    "5.1",
+    "6.1",
+    "7"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "length-based-batching",
+   "name": "Batching by sequence length",
+   "tier": "minor",
+   "parent": "transformer-training-recipe",
+   "summary": "Sentence pairs of similar length are grouped into the same batch, and batch size is measured in tokens rather than in sentences.",
+   "explanation": "Every sequence in a batch has to be padded out to the length of the longest one. Put a five-word sentence in the same batch as a fifty-word sentence and most of the batch's computation goes into padding.\n\nThe paper avoids that by grouping sentence pairs of approximately similar length into the same batch.\n\nBatch size is then measured in tokens rather than in sentences. Each batch holds approximately 25000 source tokens and approximately 25000 target tokens. A batch of short sentences therefore contains many pairs, and a batch of long sentences contains few.\n\nThe point of counting tokens is that the compute and memory per training step stay roughly constant, whatever lengths a batch happens to draw.",
+   "prerequisites": [],
+   "sectionIds": [
+    "5.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "training-hardware-and-schedule",
+   "name": "Hardware and training schedule",
+   "tier": "minor",
+   "parent": "transformer-training-recipe",
+   "summary": "One machine with 8 NVIDIA P100 GPUs; base models train for 100,000 steps (12 hours), big models for 300,000 steps (3.5 days).",
+   "explanation": "All models were trained on a single machine holding 8 NVIDIA P100 GPUs.\n\nOne training step took about 0.4 seconds for the base model and about 1.0 second for the big model.\n\nThose per-step times, multiplied by the step counts — 100,000 steps for base models, 300,000 for big ones — give the wall-clock figures the paper leans on: 12 hours for a base model and 3.5 days for the big one.\n\nCost is the headline claim built on those numbers. Section 6.1 argues that this is a fraction of the training cost of competing architectures.",
+   "prerequisites": [
+    "base-vs-big-transformer"
+   ],
+   "sectionIds": [
+    "5.2",
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "base-vs-big-transformer",
+   "name": "Base vs big model configurations",
+   "tier": "minor",
+   "parent": "transformer-training-recipe",
+   "summary": "The paper trains two main configurations: a 'base' Transformer and a scaled-up 'big' Transformer with larger dimensions, more dropout, and three times the training steps.",
+   "explanation": "The base model is the default configuration, and it is the starting point every ablation varies from. The big model is the same architecture made wider; its exact hyperparameters are the bottom line of Table 3.\n\nThe two also differ in how long they train. Base runs 100K steps in 12 hours. Big runs 300K steps in 3.5 days, and each of its steps takes about 2.5x longer than a base step.\n\nThe big model is what produces the paper's headline numbers: 28.4 BLEU on English-to-German and 41.0 BLEU on English-to-French, the latter quoted as 41.8 in the abstract and conclusion.\n\nOne training detail is not shared between the two big runs. The big English-French model uses dropout $P_{drop}=0.1$ instead of $0.3$.",
+   "prerequisites": [
+    "transformer",
+    "d-model",
+    "residual-dropout",
+    "bleu"
+   ],
+   "sectionIds": [
+    "5.2",
+    "6.1",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "adam-optimizer",
+   "name": "Adam optimizer",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A standard gradient-descent variant that adapts the step size per parameter using running averages of gradients and squared gradients.",
+   "explanation": "Adam keeps an exponential moving average of the gradient (controlled by $\\beta_1$) and of the squared gradient (controlled by $\\beta_2$), and scales each parameter's update by these estimates. Assumed working knowledge for this audience.",
+   "prerequisites": [],
+   "sectionIds": [
+    "5.3"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "transformer-adam-settings",
+   "name": "Adam settings (beta2 = 0.98)",
+   "tier": "minor",
+   "parent": "transformer-training-recipe",
+   "summary": "The paper runs Adam with beta1 = 0.9, beta2 = 0.98, and epsilon = 10^-9, a lower-than-default beta2.",
+   "explanation": "The setting worth pausing on is $\\beta_2 = 0.98$, where the common default is $0.999$.\n\n$\\beta_2$ sets the decay rate of the running average of squared gradients that Adam divides its step by. Lowering it makes that average forget old history faster. The per-parameter step size therefore adapts more quickly to recent gradients.\n\nThe paper does not explain the choice. It simply reports the values.\n\nThe third number is routine: $\\epsilon = 10^{-9}$ is the small constant that prevents division by zero in Adam's update.",
+   "prerequisites": [
+    "adam-optimizer"
+   ],
+   "sectionIds": [
+    "5.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "learning-rate-warmup-schedule",
+   "name": "Warmup learning-rate schedule",
+   "tier": "major",
+   "parent": "transformer-training-recipe",
+   "summary": "The learning rate rises linearly for the first warmup_steps steps, then decays as the inverse square root of the step number, all scaled by the model width.",
+   "explanation": "The learning rate is not a fixed constant here. It is recomputed at every step from the formula $lrate = d_{model}^{-0.5} \\cdot \\min(step\\_num^{-0.5},\\ step\\_num \\cdot warmup\\_steps^{-1.5})$.\n\nThe $\\min$ is what makes the schedule two-phase. For the first $warmup\\_steps$ steps the second term is the smaller of the two, and that term is linear in $step\\_num$, so the rate ramps up from near zero. After that crossover the first term takes over, and the rate decays like $1/\\sqrt{step\\_num}$.\n\nThe factor outside the $\\min$, $d_{model}^{-0.5}$, scales the whole schedule by model width. Wider models use proportionally smaller learning rates.\n\nThe paper gives the schedule without justifying it. A common motivation for warmup is that very early in training Adam's moment estimates are built from few samples and the randomly initialized network produces large, noisy gradients, so starting small avoids destabilizing updates.\n\nThe Table 3 ablations keep this optimizer setup fixed; it is not one of the knobs turned there.",
+   "prerequisites": [
+    "adam-optimizer",
+    "transformer-adam-settings",
+    "d-model"
+   ],
+   "sectionIds": [
+    "5.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "warmup-steps-4000",
+   "name": "warmup_steps = 4000",
+   "tier": "minor",
+   "parent": "learning-rate-warmup-schedule",
+   "summary": "The number of initial steps over which the learning rate ramps up linearly; the paper uses 4000.",
+   "explanation": "$warmup\\_steps$ sets how long the ramp lasts, and the paper uses 4000. For the first 4000 training steps, then, the learning rate grows linearly from near zero.\n\nStep 4000 is the peak. Substituting it into the schedule gives a maximum learning rate of $d_{model}^{-0.5} \\cdot 4000^{-0.5}$, and every step after that decays.\n\nSet against the base model's 100,000 steps, warmup covers only the first 4% of training.",
+   "prerequisites": [
+    "learning-rate-warmup-schedule"
+   ],
+   "sectionIds": [
+    "5.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "regularization",
+   "name": "Regularization",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Any technique that discourages a model from fitting the training data too closely so it generalizes better.",
+   "explanation": "General ML background, assumed known. The paper uses three regularizers during training: [[residual-dropout]], [[attention-dropout]], and [[label-smoothing]].",
+   "prerequisites": [],
+   "sectionIds": [
+    "5.4"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "dropout",
+   "name": "Dropout",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Randomly zeroing a fraction of activations during training so the network cannot rely on any single unit.",
+   "explanation": "Standard regularizer, assumed known at the general level. What matters in this paper is where dropout is applied inside the Transformer, covered under [[residual-dropout]].",
+   "prerequisites": [],
+   "sectionIds": [
+    "5.4"
+   ],
+   "floor": true,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "residual-dropout",
+   "name": "Residual dropout",
+   "tier": "minor",
+   "parent": "transformer-training-recipe",
+   "summary": "Dropout applied to each sub-layer's output before the residual addition and layer normalization, and to the embedding-plus-positional-encoding sums, at rate P_drop = 0.1 for the base model.",
+   "explanation": "Every sub-layer in the Transformer — attention or feed-forward — sits inside a residual connection. The sub-layer's output is added back to its own input, and the sum is then layer-normalized.\n\nResidual dropout zeroes a random fraction of the sub-layer's output just before that addition. Note where it does not apply: the input travelling along the skip connection is untouched, so information can always flow through the residual path.\n\nThere is one further placement. Dropout is also applied to the sums of token embeddings and positional encodings, at the bottom of both the encoder and decoder stacks.\n\nThe rate varies by model. The base model uses $P_{drop}=0.1$. The big English-German model uses 0.3, and the big English-French model 0.1.\n\nTable 3 rows (D) vary this rate, and show dropout is, in the paper's words, very helpful in avoiding over-fitting.",
+   "prerequisites": [
+    "dropout",
+    "residual-connection",
+    "layer-normalization",
+    "positional-encoding"
+   ],
+   "sectionIds": [
+    "5.4",
+    "6.1",
+    "6.2",
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "attention-dropout",
+   "name": "Attention dropout",
+   "tier": "minor",
+   "parent": "transformer-training-recipe",
+   "summary": "Dropout applied inside the attention mechanism, mentioned as a separately tunable rate in the parsing experiments.",
+   "explanation": "The evidence for this one is a single phrase. Section 6.3 says the parsing experiments tuned 'the dropout, both attention and residual'.\n\nThat implies a dropout rate applied within the attention mechanism itself, separate from the [[residual-dropout]] of section 5.4.\n\nWhere inside attention it sits is another matter. Conventionally such a rate is applied to the attention weights after the softmax, but the paper does not spell out its exact placement.\n\nIt matters mainly as one of the few hyperparameters re-tuned for [[constituency-parsing]].",
+   "prerequisites": [
+    "dropout",
+    "scaled-dot-product-attention",
+    "residual-dropout"
+   ],
+   "sectionIds": [
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "label-smoothing",
+   "name": "Label smoothing",
+   "tier": "major",
+   "parent": "transformer-training-recipe",
+   "summary": "A training target modification: instead of putting probability 1 on the correct token, the target gives it 1 - eps and spreads eps = 0.1 over other tokens, penalizing overconfidence.",
+   "explanation": "Normally the training loss pushes the model's output distribution toward a one-hot target: probability 1 for the correct next token, 0 for every other token in the vocabulary.\n\nLabel smoothing softens that target. With value $\\epsilon_{ls}=0.1$, the correct token is assigned probability $1-\\epsilon_{ls}$, and the remaining $0.1$ is distributed across the rest of the vocabulary.\n\nThe model is thus trained to stay slightly unsure.\n\nThe paper reports that this hurts perplexity but improves accuracy and BLEU. The two directions are not a contradiction.\n\nPerplexity directly measures the probability the model assigns to the true tokens. A model trained to hold back probability mass scores worse on it by construction.\n\nBLEU depends only on which output tokens are actually produced during decoding. Less overconfident distributions lead to better final outputs, so the metrics move in opposite directions.",
+   "prerequisites": [
+    "perplexity",
+    "bleu"
+   ],
+   "sectionIds": [
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[36]",
+    "refText": "Szegedy, Vanhoucke, Ioffe, Shlens & Wojna. Rethinking the inception architecture for computer vision. 2015.",
+    "whyNeeded": "The label smoothing mechanism and its exact formulation come from [36]; this paper only states the value eps = 0.1 and the observed effect."
+   },
+   "deepDive": {
+    "paperId": "1512.00567",
+    "citationKey": "[36]",
+    "conceptIds": [
+     "label-smoothing-regularization",
+     "lsr-as-two-cross-entropy-losses",
+     "overconfidence-and-bounded-logit-gradient",
+     "smoothing-parameter-epsilon"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "beam-search",
+   "name": "Beam search",
+   "tier": "major",
+   "parent": null,
+   "summary": "A decoding procedure that keeps the k best partial output sequences at each step instead of committing to a single best token; the paper uses beam size 4.",
+   "explanation": "The model generates output one token at a time. Greedily taking the single most probable token at each step is the simplest option, and it can lock in an early mistake that a slightly less probable first choice would have avoided.\n\nBeam search keeps several options alive instead. It carries a 'beam' of the $k$ highest-scoring partial sequences, and here $k=4$.\n\nEach step follows the same cycle. Every sequence in the beam is extended by each plausible next token. The resulting candidates are scored by their accumulated log-probability. Only the top $k$ survive into the next step.\n\nA sequence that produces the end-of-sequence token stops growing and becomes a finished candidate. The best finished candidate is the output.\n\nTwo further decoding settings go with it: a [[length-penalty]] of $\\alpha = 0.6$, and a cap on output length at input length + 50, with early termination when possible.\n\nBeam size and length penalty were chosen on the development set. Beam size was also one of the few hyperparameters re-tuned for [[constituency-parsing]].",
+   "prerequisites": [
+    "auto-regressive-generation"
+   ],
+   "sectionIds": [
+    "6.1",
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "deepDive": {
+    "paperId": "1609.08144",
+    "citationKey": "[38]",
+    "conceptIds": [
+     "wordpiece-model",
+     "length-normalization-penalty",
+     "coverage-penalty",
+     "beam-search-pruning-and-termination"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "length-penalty",
+   "name": "Length penalty (alpha = 0.6)",
+   "tier": "minor",
+   "parent": "beam-search",
+   "summary": "A normalization applied to beam-search scores so that longer output sequences are not unfairly penalized; the paper uses strength alpha = 0.6 from the GNMT paper.",
+   "explanation": "[[beam-search]] scores a candidate sequence by summing the log-probability of each token it emitted. Every one of those log-probabilities is negative, so each additional token drives the running total further down. A longer candidate therefore ends up with a worse score than a shorter one partly just because it is longer, and plain beam search drifts toward short outputs.\n\nThe length penalty corrects for that. Each candidate's score is divided by a term that grows with the candidate's length, so the accumulated negative sum is normalized against the number of tokens that produced it. An exponent $\\alpha$ sets how strong the correction is; at $\\alpha = 0$ the divisor is constant and there is no correction at all.\n\nThe paper does not restate the formula. It takes both the formulation and the value $\\alpha = 0.6$ from [38].",
+   "prerequisites": [
+    "beam-search"
+   ],
+   "sectionIds": [
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[38]",
+    "refText": "Wu et al. Google's neural machine translation system. arXiv:1609.08144, 2016.",
+    "whyNeeded": "The exact length-penalty formula, and the early-termination inference procedure the paper says it follows, are defined in [38]."
+   },
+   "deepDive": {
+    "paperId": "1609.08144",
+    "citationKey": "[38]",
+    "conceptIds": [
+     "wordpiece-model",
+     "length-normalization-penalty",
+     "coverage-penalty",
+     "beam-search-pruning-and-termination"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "inference-length-limit",
+   "name": "Maximum output length rule",
+   "tier": "minor",
+   "parent": "beam-search",
+   "summary": "During inference the output is capped at input length + 50 tokens, with early termination when possible.",
+   "explanation": "Decoding needs a stopping rule that does not depend on the model behaving well. The paper sets a hard ceiling: generation never runs past the input length plus 50 tokens.\n\nThat ceiling is only an upper bound. When the beam finishes naturally the decoder stops earlier, following the procedure of [38].\n\nThe rule does two things at once. It keeps a model that fails to emit an end-of-sequence token from generating indefinitely, and it puts a fixed bound on the compute any single inference call can consume.",
+   "prerequisites": [
+    "beam-search"
+   ],
+   "sectionIds": [
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "deepDive": {
+    "paperId": "1609.08144",
+    "citationKey": "[38]",
+    "conceptIds": [
+     "wordpiece-model",
+     "length-normalization-penalty",
+     "coverage-penalty",
+     "beam-search-pruning-and-termination"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "checkpoint-averaging",
+   "name": "Checkpoint averaging",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The final model's weights are the elementwise average of the last several saved checkpoints: 5 for base models, 20 for big models, written at 10-minute intervals.",
+   "explanation": "A checkpoint is a snapshot of all model weights, written to disk partway through training. In these runs a checkpoint was written every 10 minutes.\n\nThe obvious thing to evaluate is the very last checkpoint — the weights exactly as they stood when training stopped. The paper does something else. It takes the last several checkpoints and averages their parameters elementwise: the last 5 for base models, the last 20 for big models.\n\nLate in training the weights are still moving from step to step, and much of that motion is noise rather than progress. Averaging several nearby checkpoints smooths that step-to-step noise out. It also acts like a cheap ensemble, with the difference that the average is a single set of weights, so inference still costs what one model costs.\n\nAll reported translation results use these averaged models.",
+   "prerequisites": [],
+   "sectionIds": [
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "training-flops-estimate",
+   "name": "Training-cost FLOPs estimate",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The paper estimates each model's training cost as training time x number of GPUs x an assumed sustained single-precision throughput per GPU.",
+   "explanation": "The papers being compared here trained on different hardware, so wall-clock hours do not mean the same thing from one row to the next. To put them on a common footing, the paper converts every training run into estimated floating point operations.\n\nThe conversion is a product of three terms. Take the wall-clock training time, multiply by the number of GPUs, and multiply by an assumed sustained single-precision throughput for that GPU model. The assumed throughputs are 2.8, 3.7, 6.0, and 9.5 TFLOPS for K80, K40, M40, and P100 GPUs respectively.\n\nThose throughput figures are assumptions rather than measurements taken during the runs. The resulting numbers are therefore estimates, not measured costs.\n\nOn this basis the paper claims its models cost a fraction of competing models to train — the big English-French model, for example, at less than 1/4 the previous state of the art's cost.",
+   "prerequisites": [],
+   "sectionIds": [
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "transformer-ablations",
+   "name": "Model variation ablations (Table 3)",
+   "tier": "major",
+   "parent": null,
+   "summary": "Experiments that change one component of the base model at a time and measure the effect on English-to-German translation, to see which parts matter.",
+   "explanation": "Section 6.2 asks which parts of the base Transformer actually matter. The method is one knob at a time: vary a single component, hold the rest of the model fixed, and report perplexity and BLEU for each resulting variant on English-to-German.\n\nTable 3 groups the variants by which knob was turned. Rows (A) vary the number of attention heads, and find a sweet spot rather than a straight-line trend. Rows (B) shrink the attention key size $d_k$, which hurts quality.\n\nRows (C) and (D) cover scale and regularization: bigger models are better, and dropout is very helpful against over-fitting. Row (E) swaps the [[sinusoidal-positional-encoding]] for [[learned-positional-embedding|learned positional embeddings]] and changes almost nothing.\n\nEach of these findings is a child concept.",
+   "prerequisites": [
+    "base-vs-big-transformer",
+    "wmt-2014-en-de",
+    "bleu",
+    "perplexity"
+   ],
+   "sectionIds": [
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "attention-heads-ablation",
+   "name": "Number of heads sweet spot",
+   "tier": "minor",
+   "parent": "transformer-ablations",
+   "summary": "Varying the head count with total computation held constant shows single-head attention is 0.9 BLEU worse than the best setting, but too many heads also degrades quality.",
+   "explanation": "Rows (A) of Table 3 vary the number of attention heads $h$. The comparison is arranged so that head count is the only thing that really changes: as $h$ grows, the per-head key and value dimensions $d_k, d_v$ shrink in proportion, which holds total computation constant. That is the setup described in section 3.2.2.\n\nAt the low end, a single head scores 0.9 BLEU below the best configuration. Splitting attention across several heads earns its place.\n\nThe trend does not simply continue upward, though. Quality also drops with too many heads, the regime in which each individual head is working in a very low-dimensional space. The base model's $h = 8$ sits in the effective middle.",
+   "prerequisites": [
+    "multi-head-attention",
+    "transformer-ablations"
+   ],
+   "sectionIds": [
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "key-size-ablation",
+   "name": "Reducing d_k hurts quality",
+   "tier": "minor",
+   "parent": "transformer-ablations",
+   "summary": "Shrinking the attention key dimension d_k lowers translation quality, suggesting the dot product may be too simple a compatibility function.",
+   "explanation": "Rows (B) of Table 3 reduce $d_k$. That is the dimension of the query and key vectors — the pair whose dot product decides how much attention one position pays to another — so $d_k$ is the width of the space in which compatibility gets judged.\n\nShrinking that space lowers model quality.\n\nThe paper reads this as evidence that 'determining compatibility is not easy'. A dot product taken in fewer dimensions has less capacity to express which positions should attend to which. From there the paper suggests that a more sophisticated compatibility function than dot product may be beneficial.\n\nThat last step is a hedge, not a demonstrated result. The ablation shows the drop; it does not show that a different compatibility function would recover it.",
+   "prerequisites": [
+    "scaled-dot-product-attention",
+    "transformer-ablations"
+   ],
+   "sectionIds": [
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "size-and-dropout-ablation",
+   "name": "Model size and dropout effects",
+   "tier": "minor",
+   "parent": "transformer-ablations",
+   "summary": "Bigger models translate better, and dropout is very helpful in preventing over-fitting.",
+   "explanation": "Rows (C) and (D) of Table 3 vary two things whose behaviour the paper calls expected, and both confirm the expectation.\n\nRows (C) change model size — dimensions such as $d_{model}$ and the feed-forward width. Increasing them improves quality.\n\nRows (D) change dropout. Removing or reducing it hurts quality, which the paper attributes to over-fitting.\n\nTogether these rows are what justifies the big model configuration and the $P_{drop}$ choices in the training recipe.",
+   "prerequisites": [
+    "residual-dropout",
+    "base-vs-big-transformer",
+    "transformer-ablations"
+   ],
+   "sectionIds": [
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "constituency-parsing",
+   "name": "English constituency parsing",
+   "tier": "major",
+   "parent": null,
+   "summary": "The task of producing a sentence's syntactic tree — nested phrases like noun phrases and verb phrases — used as a generalization test for the Transformer beyond translation.",
+   "explanation": "Constituency parsing takes a sentence and produces a tree over it. The tree groups words into labeled phrases and nests those phrases inside one another — a noun phrase inside a verb phrase inside a sentence.\n\nTo put this through a sequence-to-sequence model, the tree is written out as a bracketed sequence. That output is significantly longer than the input, and it is not free-form: brackets have to nest and close correctly or the sequence does not denote a tree at all. Strong structural constraints on the output are precisely what translation does not impose.\n\nThe paper picks the task for that reason, and for a second one. RNN sequence-to-sequence models had not reached state-of-the-art results on parsing in small-data regimes.\n\nThe model is a 4-layer Transformer with $d_{model}=1024$. Only three things were re-tuned for the task — dropout, learning rate, and beam size — using the WSJ Section 22 development set.\n\nIt outperforms all previously reported models except the [[recurrent-neural-network-grammar]]. Trained only on the 40K-sentence WSJ set, it still beats the BerkeleyParser — a regime where RNN seq2seq models had struggled.",
+   "prerequisites": [
+    "sequence-transduction",
+    "transformer",
+    "beam-search",
+    "residual-dropout",
+    "penn-treebank-wsj"
+   ],
+   "sectionIds": [
+    "abstract",
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": null,
+   "deepDive": {
+    "paperId": "1412.7449",
+    "citationKey": "[37]",
+    "conceptIds": [
+     "parse-tree-linearization",
+     "wsj-parsing-protocol",
+     "semi-supervised-parsing-corpora",
+     "parsing-baseline-scores"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "penn-treebank-wsj",
+   "name": "Penn Treebank (WSJ portion)",
+   "tier": "minor",
+   "parent": "constituency-parsing",
+   "summary": "The standard constituency-parsing dataset: about 40K hand-parsed sentences from the Wall Street Journal.",
+   "explanation": "The Penn Treebank is a corpus of English sentences annotated with syntactic trees by linguists.\n\nIts Wall Street Journal portion is the standard supervised training set for [[constituency-parsing|English constituency parsing]]: about 40K training sentences. Section 22 of that portion is the development set, and it is the set the paper tuned on.\n\n40K sentences is small by neural standards. That is exactly what makes the WSJ-only result a small-data test rather than a demonstration at scale.\n\nFor this setting the paper uses a 16K-token vocabulary.",
+   "prerequisites": [],
+   "sectionIds": [
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[25]",
+    "refText": "Marcus, Marcinkiewicz & Santorini. Building a large annotated corpus of English: the Penn Treebank. 1993.",
+    "whyNeeded": "The dataset's construction and standard splits (training sections, Section 22 dev, Section 23 test) are defined in [25]."
+   },
+   "deepDive": {
+    "paperId": "1412.7449",
+    "citationKey": "[37]",
+    "conceptIds": [
+     "parse-tree-linearization",
+     "wsj-parsing-protocol",
+     "semi-supervised-parsing-corpora",
+     "parsing-baseline-scores"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "semi-supervised-parsing",
+   "name": "Semi-supervised parsing setting",
+   "tier": "minor",
+   "parent": "constituency-parsing",
+   "summary": "A second training regime that adds about 17M automatically parsed sentences from the high-confidence and BerkeleyParser corpora on top of the WSJ data.",
+   "explanation": "The WSJ portion supplies about 40K sentences whose trees were annotated by hand. The paper also trains in a second regime, with far more data.\n\nThat regime adds roughly 17 million further sentences. Their parse trees were produced by existing parsers rather than by humans — the 'high-confidence' and BerkeleyParser corpora used in prior sequence-to-sequence parsing work.\n\nThat is the sense in which the setting is semi-supervised. The extra sentences do carry labels, but machine-generated ones.\n\nThe vocabulary grows to 32K tokens for this setting, up from the 16K used for WSJ alone. The setup follows [37], which this paper does not re-describe.",
+   "prerequisites": [
+    "penn-treebank-wsj"
+   ],
+   "sectionIds": [
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[37]",
+    "refText": "Vinyals, Kaiser, Koo, Petrov, Sutskever & Hinton. Grammar as a foreign language. 2015.",
+    "whyNeeded": "The tree-linearization scheme, the semi-supervised corpora (high-confidence and BerkeleyParser, ~17M sentences), and the RNN seq2seq baselines the Transformer is compared against are all defined in [37]."
+   },
+   "deepDive": {
+    "paperId": "1412.7449",
+    "citationKey": "[37]",
+    "conceptIds": [
+     "parse-tree-linearization",
+     "wsj-parsing-protocol",
+     "semi-supervised-parsing-corpora",
+     "parsing-baseline-scores"
+    ]
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "recurrent-neural-network-grammar",
+   "name": "Recurrent Neural Network Grammar (RNNG)",
+   "tier": "minor",
+   "parent": "constituency-parsing",
+   "summary": "A parsing model that builds trees with explicit tree-structured operations; the one prior model the Transformer does not beat on parsing.",
+   "explanation": "RNNG is a model designed specifically for parsing, not a general sequence model pointed at the task. It generates a sentence and its tree jointly, through a sequence of tree-building actions, so the tree structure is baked into the architecture rather than left for the model to imitate in a flat token stream.\n\nIt appears in this paper in one role only: the strongest baseline. Among previously reported parsing results, RNNG's is the single one the Transformer's numbers do not exceed.",
+   "prerequisites": [
+    "constituency-parsing"
+   ],
+   "sectionIds": [
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[8]",
+    "refText": "Dyer, Kuncoro, Ballesteros & Smith. Recurrent neural network grammars. NAACL 2016.",
+    "whyNeeded": "Only needed as the identity of the one baseline that remains ahead; its mechanism is not used by this paper."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "berkeley-parser",
+   "name": "BerkeleyParser",
+   "tier": "minor",
+   "parent": "constituency-parsing",
+   "summary": "A classical (non-neural) grammar-based parser used as a baseline; the Transformer beats it even with only 40K WSJ training sentences.",
+   "explanation": "The BerkeleyParser is a pre-neural statistical parser. It works by taking a probabilistic grammar and learning refinements of its symbols, rather than by learning continuous representations of words and phrases.\n\nIts role in this paper is as a benchmark for the small-data claim. RNN sequence-to-sequence parsers had been tried in that same setting and had failed to beat it when trained only on the 40K-sentence WSJ set. The Transformer, trained in that same regime, outperforms it.\n\nThe name does double duty here. It also labels one of the machine-parsed corpora used in the semi-supervised setting, where the parser supplies automatically produced training trees rather than serving as the thing to beat.",
+   "prerequisites": [
+    "constituency-parsing"
+   ],
+   "sectionIds": [
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "[29]",
+    "refText": "Petrov, Barrett, Thibaux & Klein. Learning accurate, compact, and interpretable tree annotation. ACL 2006.",
+    "whyNeeded": "Only needed as baseline identity; its internals are not used by this paper."
+   },
+   "sources": {
+    "paperId": "1706.03762",
+    "note": "",
+    "sections": [],
+    "pages": []
+   }
+  }
+ ]
+}

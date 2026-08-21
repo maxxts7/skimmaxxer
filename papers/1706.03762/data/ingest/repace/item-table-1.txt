@@ -1,0 +1,15 @@
+ITEM: table-1 (table) - Layer types by cost and path length
+
+TAKEAWAY:
+The table is the paper's argument for replacing recurrence with self-attention: a self-attention layer connects every position to every other in a constant number of sequential steps and a path of length 1, while a recurrent layer needs $O(n)$ of both. Its per-layer arithmetic cost, $O(n^2 \cdot d)$, is lower than a recurrent layer's $O(n \cdot d^2)$ whenever the sequence is shorter than the model is wide.
+
+WALKTHROUGH:
+You are looking at a four-row comparison of ways to build one layer that maps a sequence $(x_1,\dots,x_n)$ of $d$-dimensional vectors to another sequence $(z_1,\dots,z_n)$ of the same length and width — a hidden layer inside a [[sequence-transduction|sequence transduction]] encoder or decoder. The four symbols: $n$ is the sequence length (number of tokens), $d$ is the representation dimension (in the paper's base model, [[d-model|$d_{model}=512$]]), $k$ is the kernel width of a convolution, and $r$ is the neighborhood size in [[restricted-self-attention|restricted self-attention]].
+
+Read the columns as the paper's [[layer-comparison-desiderata|three criteria]]. [[complexity-per-layer|Complexity per layer]] is total arithmetic. [[minimum-sequential-operations|Sequential operations]] is how many steps must run one after another, so it measures what cannot be parallelized. [[maximum-path-length|Maximum path length]] is the longest hop count a forward or backward signal travels between any two positions; shorter paths, the paper says, make [[long-range-dependencies|long-range dependencies]] easier to learn. Every entry is big-O in $n, d, k, r$ — asymptotic counts, not measured speed. Lower is better everywhere.
+
+[[self-attention|Self-attention]] costs $O(n^2 \cdot d)$ because every position scores every other, but it is $O(1)$ sequential and $O(1)$ path: one layer already connects all pairs. A [[recurrent-neural-network|recurrent]] layer costs $O(n \cdot d^2)$ — $n$ steps of a $d \times d$ matrix multiply — but is $O(n)$ in both other columns, since step $t$ waits for step $t-1$ ([[sequential-computation-bottleneck|the bottleneck]]).
+
+The crossover: $n^2 d < n d^2$ exactly when $n < d$. The paper says this is most often the case for sentences tokenized with [[word-piece-encoding|word-piece]] or [[byte-pair-encoding|byte-pair]] vocabularies.
+
+[[convolutional-sequence-models|Convolutional]] layers are $O(1)$ sequential but cost a factor $k$ more than recurrent, and one layer with $k < n$ does not connect all pairs — you need $O(n/k)$ stacked layers, or $O(\log_k n)$ with [[dilated-convolutions|dilated convolutions]]. The last row is a proposal, not a trained model: attend only within $r$ positions, dropping cost to $O(r \cdot n \cdot d)$ but stretching the path to $O(n/r)$.

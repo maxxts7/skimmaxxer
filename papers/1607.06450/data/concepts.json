@@ -1,0 +1,104 @@
+{
+ "concepts": [
+  {
+   "id": "layer-normalization-statistics",
+   "name": "Layer normalization statistics",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Layer normalization standardizes a layer's activations using a mean and standard deviation computed across the hidden units of that layer, separately for each training case.",
+   "explanation": "Let $a^l$ be the vector of summed inputs to the $H$ neurons in layer $l$, for one training case. Layer normalization reduces that entire vector to two scalars: $$\\mu^l = \\frac{1}{H}\\sum_{i=1}^{H} a_i^l, \\qquad \\sigma^l = \\sqrt{\\frac{1}{H}\\sum_{i=1}^{H}\\left(a_i^l - \\mu^l\\right)^2}$$ Both sums run over the $H$ units of the layer. Each unit is then standardized as $(a_i^l - \\mu^l)/\\sigma^l$.\n\nNote carefully what is shared and what is not. Every hidden unit in the layer uses the same $\\mu$ and the same $\\sigma$, since both were computed from all $H$ of them together. Different training cases, by contrast, get entirely different normalization terms.\n\nThat second point is the one with consequences. Because the statistics come from one example alone, normalizing a case never involves any other case. No dependency is introduced between training cases: there is no mini-batch size constraint, the method works with batch size 1, and the computation is exactly the same at training and at test time.\n\nThe paper packages the whole operation as a function $\\mathrm{LN}: \\mathbb{R}^D \\to \\mathbb{R}^D$, with a learned gain $\\alpha$ (also written $g$) and a learned bias $\\beta$ (also written $b$): $$\\mathrm{LN}(z; \\alpha, \\beta) = \\frac{z - \\mu}{\\sigma} \\odot \\alpha + \\beta$$ where $\\odot$ is element-wise multiplication. This is the operation applied around each sub-layer in architectures that write LayerNorm(x + Sublayer(x)).",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 3, Eq. (3); the packaged LN function is Eq. (15)-(16) in the Supplementary Material.",
+   "ownerPaper": "1607.06450",
+   "sources": {
+    "paperId": "1607.06450",
+    "note": "Section 3, Eq. (3); the packaged LN function is Eq. (15)-(16) in the Supplementary Material.",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "gain-and-bias-parameters",
+   "name": "Learned gain and bias",
+   "tier": "minor",
+   "parent": null,
+   "summary": "After standardization, each neuron gets its own learned multiplicative gain and additive bias, applied before the non-linearity, so the layer can recover any scale and shift the normalization removed.",
+   "explanation": "Normalizing to zero mean and unit variance pins the layer's output distribution in place. That could limit what the layer is able to represent.\n\nLayer normalization therefore adds two learned parameter vectors, each of the same dimension as the layer: a gain $g$ and a bias $b$. The normalized activation of unit $i$ becomes $$h_i = f\\!\\left(\\frac{g_i}{\\sigma}\\left(a_i - \\mu\\right) + b_i\\right)$$ where $f$ is the non-linearity and $\\mu, \\sigma$ are the per-case layer statistics.\n\nThe gain rescales each dimension independently, and the bias re-shifts it. Between them, the network can learn to undo the normalization wherever undoing it helps.\n\nIn the paper's experiments the default initialization is gain $= 1$ and bias $= 0$. The layer therefore starts out as a pure standardization, and any departure from that is learned.\n\nTwo further details. When the same layer is applied at every position of a sequence, one set of gain and bias parameters is shared across all time steps. And the paper reports that layer normalization is not sensitive to the initial gain scale in the way recurrent batch normalization is (1.0 worked better than 0.1 in their reading-comprehension experiment).",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Eq. (4) and Eq. (5) in Sections 3-5; initialization stated in Section 6 and the Supplementary Material; scale-sensitivity comparison in Section 6.2.",
+   "ownerPaper": "1607.06450",
+   "sources": {
+    "paperId": "1607.06450",
+    "note": "Eq. (4) and Eq. (5) in Sections 3-5; initialization stated in Section 6 and the Supplementary Material; scale-sensitivity comparison in Section 6.2.",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "layer-norm-vs-batch-norm",
+   "name": "Contrast with batch normalization",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Batch normalization computes each neuron's statistics across the training cases in a mini-batch; layer normalization computes them across the neurons within one case. This removes batch-size dependence and the train/test mismatch.",
+   "explanation": "Batch normalization standardizes the summed input $a_i^l$ of each neuron using a mean $\\mu_i^l = \\mathbb{E}_{x \\sim P(x)}[a_i^l]$ and standard deviation $\\sigma_i^l = \\sqrt{\\mathbb{E}[(a_i^l - \\mu_i^l)^2]}$ taken over the data distribution, estimated in practice from the current mini-batch. Each neuron gets its own $\\mu_i, \\sigma_i$, and those are shared across cases.\n\nLayer normalization transposes that arrangement. All neurons in a layer share one $\\mu$ and one $\\sigma$, and those are computed per case. What was averaged over cases is now averaged over units.\n\nThe paper draws out the consequences. Batch normalization's quality depends on mini-batch size, and it cannot be used in the pure online regime (batch size 1) or with the very small per-device batches of large distributed models. It also needs running averages of statistics for use at test time, so training and inference compute different functions.\n\nLayer normalization has none of these issues. It performs exactly the same computation at training and test time.\n\nSequence models sharpen the contrast further. Batch normalization needs separate statistics per time step, which breaks when a test sequence is longer than any training sequence. Layer normalization's statistics depend only on the current step's activations, so length never enters into it.\n\nThe paper notes one caveat running the other way. In convolutional networks, batch normalization still outperformed layer normalization in their preliminary experiments, because the assumption that all units in a layer contribute similarly does not hold there.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Sections 1-3 (batch norm formula is Eq. (2)); RNN discussion in Section 3.1; ConvNet caveat in Section 6.7.",
+   "ownerPaper": "1607.06450",
+   "sources": {
+    "paperId": "1607.06450",
+    "note": "Sections 1-3 (batch norm formula is Eq. (2)); RNN discussion in Section 3.1; ConvNet caveat in Section 6.7.",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "per-timestep-normalization",
+   "name": "Per-step normalization in sequence models",
+   "tier": "minor",
+   "parent": null,
+   "summary": "In a recurrent or sequential model, layer normalization is applied independently at each time step, using only that step's activations, with one shared set of gain and bias parameters.",
+   "explanation": "Take a recurrent layer whose summed inputs are $a^t = W_{hh} h^{t-1} + W_{xh} x^t$. The layer-normalized update is $$h^t = f\\!\\left[\\frac{g}{\\sigma^t} \\odot \\left(a^t - \\mu^t\\right) + b\\right]$$ with $\\mu^t = \\frac{1}{H}\\sum_i a_i^t$ and $\\sigma^t = \\sqrt{\\frac{1}{H}\\sum_i (a_i^t - \\mu^t)^2}$. Both statistics are recomputed at every step, from that step's activation vector alone.\n\nThe gain $g$ and the bias $b$ are not recomputed. They are single vectors shared over all time steps, which is why sequence length at test time is unconstrained.\n\nThe paper's motivation is stability. In a standard RNN, the average magnitude of the summed inputs tends to grow or shrink at every step, driving exploding or vanishing gradients. The normalization makes the layer invariant to any re-scaling of its summed inputs, which stabilizes the hidden-state dynamics.\n\nThe same principle carries to any model that processes a sequence position by position. Each position is normalized using only its own activation vector. That is what lets layer normalization apply cleanly to variable-length inputs.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 3.1, Eq. (4).",
+   "ownerPaper": "1607.06450",
+   "sources": {
+    "paperId": "1607.06450",
+    "note": "Section 3.1, Eq. (4).",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "normalization-invariance-properties",
+   "name": "Invariance and learning-rate effects",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Layer normalization makes the model's output invariant to re-scaling and re-shifting of a layer's whole weight matrix and to re-scaling of an individual input case, and the normalizer implicitly damps the effective learning rate of large-norm weights.",
+   "explanation": "The paper compares the invariance properties of batch, weight, and layer normalization side by side in Table 1.\n\nLayer normalization is invariant to two transformations applied to a layer's whole weight matrix: scaling it, and shifting all incoming weights by a constant vector. Write the transformed matrix as $W' = \\delta W + \\mathbf{1}\\gamma^\\top$. The normalized output is unchanged, because $\\mu$ and $\\sigma$ absorb the scale and the shift. It is also invariant to re-scaling a single training case, since the statistics depend only on the current input.\n\nThere is one invariance it does not have. Re-scaling one neuron's individual weight vector does change the result; batch and weight normalization are invariant to that, and layer normalization is not.\n\nThe second half of the argument concerns learning rates. Through a Fisher-information analysis of generalized linear models, the paper argues that the normalizer $\\sigma$ in the denominator implicitly reduces the effective learning rate on a weight vector as its norm grows. Doubling the norm of $w_i$ doubles $\\sigma_i$, which halves the curvature along that direction, so large-norm weight vectors become harder to rotate.\n\nThe paper describes this as an implicit early-stopping effect that stabilizes learning toward convergence. This analysis is the paper's account of why normalization speeds up and stabilizes training rather than merely re-parameterizing the network.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 5.1 (Table 1, Eq. (6)-(7)) and Section 5.2.2 (implicit learning-rate argument); detailed derivations in the Supplementary Material.",
+   "ownerPaper": "1607.06450",
+   "sources": {
+    "paperId": "1607.06450",
+    "note": "Section 5.1 (Table 1, Eq. (6)-(7)) and Section 5.2.2 (implicit learning-rate argument); detailed derivations in the Supplementary Material.",
+    "sections": [],
+    "pages": []
+   }
+  }
+ ]
+}

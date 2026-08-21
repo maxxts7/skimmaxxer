@@ -1,0 +1,32 @@
+PAGE FOR CONCEPT: decoder-only-stack
+NAME: Decoder-Only Stack
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+The model drops the encoder half of the original encoder-decoder transformer and keeps one stack that attends only to its own past tokens.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+The original transformer has two stacks. An encoder reads a source sequence with unrestricted self-attention, so every source position sees every other.
+
+The decoder generates a target sequence. It attends to its own previous outputs through masked self-attention, and separately to the encoder's states through a cross-attention sublayer.
+
+Language modelling has no source sequence. There is nothing to encode and nothing to cross-attend to.
+
+So the paper keeps one stack and removes the cross-attention sublayer. Each block is left with masked self-attention followed by a feedforward network, and Section 4.1 states the result directly: a 12-layer decoder-only transformer with masked self-attention heads.
+
+The consequence carries into stage two. Every input the model ever sees, for any task, has to arrive as a single ordered sequence read left to right — which is what the input transformations then have to arrange.
+
+THEME IT BELONGS TO: theme-stage-one-next-token-prediction | Stage One: Predicting the Next Token - Stage one trains on a single loss: the log-probability the model assigns each token given a window of preceding tokens, summed over the corpus. The window here is 512 contiguous tokens, which is what lets a prediction condition on material several sentences back. The network is a stack of transformer blocks used as a decoder alone, with self-attention masked so each position sees only itself and its past, learned position vectors rather than fixed sinusoids, and an output layer that reuses the token embedding matrix transposed. This chapter also fixes the exact sizes trained, and closes with the claim the paper makes about what such training leaves behind.
+
+PREREQUISITES:
+  - transformer-gpt1 | Transformer Architecture: The stacked self-attention and feed-forward architecture this paper builds on. Assumed known.
+  - masked-self-attention | Masked Self-Attention: Self-attention restricted so each position attends only to itself and earlier positions, never to later ones.
+
+EDGES TOUCHING THIS CONCEPT (1) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [supporting] -> transformer-gpt1 (Transformer Architecture) | contrasts-with | one stack, no encoder half: The original transformer pairs an encoder that sees a whole source with a decoder that generates. This model keeps only the decoder side, attending to its own past, because a language modelling objective has no separate source to encode.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - eq-decoder-stack | The Decoder Stack, Input to Output Distribution: Equation 2 spells out the whole pre-training network in three lines: embed the context tokens and their positions, push the result through $n$ identical transformer blocks, then project the top layer back through the transposed token embedding matrix and softmax it into a distribution over the next token. The same matrix $W_e$ does the work at both ends, so no separate output vocabulary matrix is introduced.
+
+PAPER SECTIONS TO READ (in papers/gpt-1/data/ingest/sections/):
+  - 05-3.1-unsupervised-pre-training.txt
+  - 09-4.1-setup.txt

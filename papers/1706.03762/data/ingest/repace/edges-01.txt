@@ -1,0 +1,102 @@
+EDGE EXPLANATIONS (20)
+
+--- EDGE id=e001 ---
+multi-head-attention --depends-on--> scaled-dot-product-attention | label: provides the per-head unit
+
+Each of the h heads is one call to the scaled dot-product attention function of Equation (1). Multi-head attention only adds the projections around it and the concatenation after it, so the inner function has to be understood first.
+
+--- EDGE id=e002 ---
+eq-multihead --depends-on--> eq-attention | label: calls the Equation (1) function
+
+The multi-head equation defines head_i as Attention(QW^Q_i, KW^K_i, VW^V_i). The Attention term is exactly Equation (1); the multi-head line is a wrapper, not a new scoring rule.
+
+--- EDGE id=e003 ---
+dk-dv-dimensions --depends-on--> num-heads-h | label: head width is d_model divided by h
+
+The paper does not pick 64 independently. It sets d_k = d_v = d_model/h, so with d_model = 512 and h = 8 the head width falls out as 64. Change the head count and the head width changes with it.
+
+--- EDGE id=e004 ---
+sqrt-dk-scaling --depends-on--> dk-dv-dimensions | label: scale is set by key dimension
+
+The footnote's argument is that if query and key components are independent with mean 0 and variance 1, the dot product has variance d_k. The divisor is sqrt(d_k) because d_k is what makes the scores grow.
+
+--- EDGE id=e005 ---
+sqrt-dk-scaling --depends-on--> softmax | label: protects the softmax gradient
+
+The stated reason for dividing is that large dot products push the softmax into regions with extremely small gradients. The fix only makes sense once you know softmax saturates. The paper offers this as a suspicion, not a proof.
+
+--- EDGE id=e006 ---
+scaled-dot-product-attention --depends-on--> dot-product-attention | label: adds one factor to plain dot-product
+
+The paper defines its attention by difference: identical to dot-product attention except for the 1/sqrt(d_k) factor. The baseline variant is the definition the paper builds on.
+
+--- EDGE id=e007 ---
+causal-masking --depends-on--> softmax | label: minus-infinity becomes zero weight
+
+The mask sets forbidden scores to minus infinity before the softmax. It works only because exponentiating minus infinity gives zero, so those positions get no weight at all.
+
+--- EDGE id=e008 ---
+masked-decoder-self-attention --depends-on--> auto-regressive-generation | label: masking preserves auto-regression
+
+The mask exists to stop leftward information flow so the auto-regressive property holds. Together with the one-position offset of the output embeddings, it ensures the prediction at position i uses only outputs before i.
+
+--- EDGE id=e009 ---
+causal-masking --depends-on--> scaled-dot-product-attention | label: implemented inside the attention function
+
+Section 3.2.3 says masking is done inside scaled dot-product attention, on the input to the softmax. It is a stage of the existing attention block (the optional Mask box in Figure 2), not a separate layer.
+
+--- EDGE id=e010 ---
+encoder-decoder-attention --depends-on--> encoder-stack | label: keys and values are encoder output
+
+In this sub-layer the queries come from the previous decoder layer but the memory keys and values come from the encoder's output. There is nothing to attend over until the encoder stack has run.
+
+--- EDGE id=e011 ---
+positional-encoding --depends-on--> self-attention | label: exists because attention ignores order
+
+Self-attention treats the sequence as a set: every position looks at every other with no notion of who came first. Because the model has no recurrence and no convolution, the paper says order information must be injected separately.
+
+--- EDGE id=e012 ---
+d-model --depends-on--> residual-connection | label: residuals force one shared width
+
+Section 3.1 gives the reason directly: to facilitate the residual connections, all sub-layers and the embedding layers produce outputs of dimension 512. The uniform width is a consequence of adding inputs to outputs everywhere.
+
+--- EDGE id=e013 ---
+sub-layer --depends-on--> layer-normalization | label: every sub-layer output is normalized
+
+The wrapper around each sub-layer is LayerNorm(x + Sublayer(x)). The normalization is part of the sub-layer's definition, not an optional extra.
+
+--- EDGE id=e014 ---
+layer-normalization --depends-on--> layer-normalization-statistics | label: reuses the cited normalization formula
+
+The paper uses layer normalization by citation and never writes the formula. The mean and standard deviation are computed across the hidden units of one position, which is what makes it work on variable-length sequences.
+
+--- EDGE id=e015 ---
+embedding-softmax-weight-sharing --depends-on--> weight-tying | label: borrows tying without defining it
+
+The paper says only that it shares one weight matrix between the two embedding layers and the pre-softmax projection, citing prior work. That prior work is where the mechanism and its motivation live.
+
+--- EDGE id=e016 ---
+embedding-softmax-weight-sharing --depends-on--> three-way-weight-tying | label: three roles, one matrix
+
+Sharing across the encoder input embedding, the decoder input embedding, and the output projection is the three-way case of tying, which needs a joint source-target vocabulary to be possible.
+
+--- EDGE id=e017 ---
+sqrt-dmodel-embedding-multiplier --depends-on--> embedding-softmax-weight-sharing | label: rescales the shared matrix
+
+The multiplier applies to the shared weights in the embedding layers. It only arises because the same matrix serves both as an embedding lookup and as the pre-softmax projection. The paper states the multiplication but gives no reason for it.
+
+--- EDGE id=e018 ---
+learning-rate-warmup-schedule --depends-on--> d-model | label: schedule scales with model width
+
+Equation (3) multiplies the whole schedule by d_model^-0.5, so a wider model automatically gets smaller steps. The schedule is not a fixed set of numbers; it is tied to the architecture's width.
+
+--- EDGE id=e019 ---
+learning-rate-warmup-schedule --depends-on--> adam-optimizer | label: overrides Adam's step size
+
+The formula sets the learning rate that Adam then scales per parameter. The paper also runs Adam with beta2 = 0.98 rather than the usual default, so the schedule and the optimizer settings are chosen together.
+
+--- EDGE id=e020 ---
+label-smoothing --depends-on--> label-smoothing-regularization | label: uses the cited target mixture
+
+The paper applies label smoothing at eps = 0.1 by citation. The cited definition is the mechanism: replace the one-hot target with a mixture that gives the correct token 1 - eps and spreads eps over the rest.
+

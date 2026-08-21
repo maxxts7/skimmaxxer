@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=embedding-softmax-weight-sharing ---
+NAME: Embedding and softmax weight sharing
+OWNER: 1706.03762
+SUMMARY (leave alone): The two token embedding layers and the pre-softmax output projection all share a single weight matrix.
+
+EXPLANATION:
+The decoder output is converted to predicted next-token probabilities by the usual learned linear transformation followed by a softmax. In this model, that pre-softmax linear transformation and both embedding layers (encoder input and decoder input) use the same weight matrix, following the scheme of Press and Wolf [30]. This ties input representation and output prediction to one shared vocabulary matrix and reduces parameter count. In the embedding layers (but not the output projection), the shared weights are additionally multiplied by $\sqrt{d_{model}}$.
+
+--- CONCEPT id=sqrt-dmodel-embedding-multiplier ---
+NAME: sqrt(d_model) embedding multiplier
+OWNER: 1706.03762
+SUMMARY (leave alone): In the embedding layers, the shared weights are multiplied by $\sqrt{d_{model}}$.
+
+EXPLANATION:
+The paper states that in the embedding layers the shared weight matrix is scaled by $\sqrt{d_{model}}$ (about 22.6 for $d_{model}=512$). It gives no explicit rationale. A practical consequence is that the embedding outputs are larger in scale before the positional encodings are added to them.
+
+--- CONCEPT id=positional-encoding ---
+NAME: Positional encoding
+OWNER: 1706.03762
+SUMMARY (leave alone): Vectors added to the input embeddings that inject information about each token's position, since the model itself has no recurrence or convolution to sense order.
+
+EXPLANATION:
+Self-attention is order-blind: shuffling the input positions would shuffle the outputs identically. Since the Transformer has no recurrence and no convolution, it must be given information about the relative or absolute position of tokens explicitly. The paper does this by adding 'positional encodings' to the input embeddings at the bottoms of both the encoder and decoder stacks. The encodings have the same dimension $d_{model}$ as the embeddings so the two can be summed elementwise. The encodings can be fixed functions or learned parameters; this paper uses fixed sinusoids but also tests the learned kind.
+
+--- CONCEPT id=sinusoidal-positional-encoding ---
+NAME: Sinusoidal positional encoding
+OWNER: 1706.03762
+SUMMARY (leave alone): The paper's fixed positional encoding: each dimension is a sine or cosine of the position, at wavelengths forming a geometric progression from $2\pi$ to $10000 \cdot 2\pi$.
+
+EXPLANATION:
+For position $pos$ and dimension index $i$: $PE_{(pos, 2i)} = \sin(pos / 10000^{2i/d_{model}})$ and $PE_{(pos, 2i+1)} = \cos(pos / 10000^{2i/d_{model}})$. Even dimensions get sines, odd dimensions get cosines, and each pair of dimensions oscillates at its own frequency — fast wavelengths in the low dimensions, very slow ones in the high dimensions. The paper gives two reasons for this choice. First, a hypothesis: it should make attending by relative position easy to learn, because for any fixed offset $k$, $PE_{pos+k}$ is a linear function of $PE_{pos}$. Second, because the functions are defined for any position, the model may extrapolate to sequence lengths longer than any seen during training, which a learned position table cannot do.
+
+--- CONCEPT id=relative-position-linearity ---
+NAME: Relative positions as linear functions
+OWNER: 1706.03762
+SUMMARY (leave alone): For any fixed offset $k$, the sinusoidal encoding of position $pos+k$ is a linear function of the encoding of position $pos$ — the hypothesized reason sinusoids help the model attend by relative position.
+
+EXPLANATION:
+Sine and cosine obey angle-addition identities: $\sin(a+b)$ and $\cos(a+b)$ are linear combinations of $\sin(a)$ and $\cos(a)$ with coefficients depending only on $b$. Applied per frequency pair, this means $PE_{pos+k}$ can be obtained from $PE_{pos}$ by a fixed linear map (a rotation) that depends only on the offset $k$, not on $pos$. The paper hypothesizes this makes it easy for the model to learn to attend by relative positions — 'the token 3 places back' is the same linear relationship everywhere in the sequence. This is stated as the reason for choosing the function, not proven empirically in the paper.
+
+--- CONCEPT id=learned-positional-embedding ---
+NAME: Learned positional embeddings
+OWNER: 1706.03762
+SUMMARY (leave alone): The alternative to sinusoids: a trainable vector per position, learned like any other parameter.
+
+EXPLANATION:
+Instead of a fixed formula, each position index gets its own learned embedding vector, as used in convolutional sequence-to-sequence models [9]. The paper tried this variant in the ablations and found it produced nearly identical results to the sinusoidal version (Table 3 row (E)) — evidence that the specific form of the position signal is not critical at these sequence lengths. It chose sinusoids anyway, because a learned table only covers positions seen in training, while sinusoids are defined for any position and may let the model extrapolate to longer sequences.
+
+--- CONCEPT id=convolutional-sequence-models ---
+NAME: Convolutional sequence models
+OWNER: 1706.03762
+SUMMARY (leave alone): Prior architectures (Extended Neural GPU, ByteNet, ConvS2S) that replace recurrence with convolutions, computing all positions' hidden representations in parallel.
+
+EXPLANATION:
+These models share the Transformer's goal of reducing sequential computation: a convolution processes all positions of a layer at once. Their weakness, as section 2 states it, is that relating two arbitrary positions takes a number of operations that grows with the distance between them — linearly for ConvS2S, logarithmically for ByteNet — because information must pass through a stack of layers to travel far. The paper cites this growth as making it harder to learn dependencies between distant positions. The Transformer reduces the count to a constant number of operations.
+
+--- CONCEPT id=extended-neural-gpu ---
+NAME: Extended Neural GPU
+OWNER: 1706.03762
+SUMMARY (leave alone): A convolution-based sequence model cited as prior work on reducing sequential computation.
+
+EXPLANATION:
+One of the three convolutional predecessors section 2 names. Like ByteNet and ConvS2S it computes hidden representations in parallel across positions using convolutions as the basic building block.
+
+--- CONCEPT id=bytenet ---
+NAME: ByteNet
+OWNER: 1706.03762
+SUMMARY (leave alone): A convolutional translation model using dilated convolutions; relating two positions costs a number of operations that grows logarithmically with their distance.
+
+EXPLANATION:
+ByteNet stacks dilated convolutions so that coverage of the sequence grows exponentially with depth. Section 2 uses it as the logarithmic-growth case in the distance argument, and section 4 counts $O(\log_k(n))$ stacked layers to connect all position pairs with dilated convolutions of kernel width $k$.
+
+--- CONCEPT id=convs2s ---
+NAME: ConvS2S
+OWNER: 1706.03762
+SUMMARY (leave alone): A convolutional sequence-to-sequence translation model; relating two positions costs a number of operations that grows linearly with their distance.
+
+EXPLANATION:
+ConvS2S builds encoder and decoder from stacked convolutions with contiguous kernels. Section 2 uses it as the linear-growth case in the distance argument; section 4 notes a stack of $O(n/k)$ layers is needed to connect all pairs of positions with kernel width $k$. It is one of the main baselines the paper compares against.
+
+--- CONCEPT id=dilated-convolutions ---
+NAME: Dilated convolutions
+OWNER: 1706.03762
+SUMMARY (leave alone): Convolutions whose kernel taps are spaced apart, so each layer sees a wider span without more weights.
+
+EXPLANATION:
+A dilated convolution skips positions between kernel taps; stacking layers with growing dilation lets the receptive field grow exponentially with depth. Section 4 uses this to explain why ByteNet needs only $O(\log_k(n))$ layers to connect all position pairs, versus $O(n/k)$ for contiguous kernels.
+
+--- CONCEPT id=separable-convolutions ---
+NAME: Separable convolutions
+OWNER: 1706.03762
+SUMMARY (leave alone): A cheaper convolution that splits the operation into a per-channel (depthwise) part and a 1x1 mixing part.
+
+EXPLANATION:
+Section 4 notes that ordinary convolutional layers cost roughly $k$ times more than recurrent layers, but separable convolutions cut this to $O(k \cdot n \cdot d + n \cdot d^2)$. The paper's point is a coincidence it finds telling: even with kernel width $k = n$, a separable convolution's complexity equals that of a self-attention layer plus a point-wise feed-forward layer — exactly the combination the Transformer uses.
+

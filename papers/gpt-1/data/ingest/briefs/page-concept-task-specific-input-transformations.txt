@@ -1,0 +1,47 @@
+PAGE FOR CONCEPT: task-specific-input-transformations
+NAME: Task-Specific Input Transformations
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Structured task inputs are rewritten as one ordered token sequence, so the pre-trained model can read them without architectural change.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Pre-training saw contiguous runs of text, one sequence at a time. Many target tasks do not arrive that way.
+
+Entailment gives an ordered sentence pair. Question answering gives a document, a question and a set of candidate answers. Text classification, by contrast, already is a single sequence and can be fine-tuned directly.
+
+Rather than build a module per task to combine those pieces, the paper concatenates them into one sequence using special tokens. Every transformation wraps the result in randomly initialized start and end tokens, $\langle s\rangle$ and $\langle e\rangle$.
+
+The architecture then stays fixed and only the input formatting varies. Figure 1 draws the four cases side by side.
+
+The abstract presents this as the difference from previous approaches: the transformations achieve effective transfer while requiring minimal changes to the model architecture. The work of handling structure moves out of the network and into the data format.
+
+THEME IT BELONGS TO: theme-stage-two-fine-tuning-and-input-shapes | Stage Two: Fine-Tuning and Reshaping Task Inputs - Stage two runs a labelled input through the pre-trained stack, takes the final block's activation at the last token, and multiplies it by one added matrix to score labels. The language modelling loss is not dropped: it keeps being optimized alongside the task loss, scaled by a weight the paper sets to 0.5. Tasks whose inputs have several parts are handled by writing those parts into one ordered sequence with a start token, an end token and a delimiter between parts, rather than by building an architecture that mirrors the structure. The chapter ends with the settings actually used, which are the pre-training settings with a smaller learning rate and three passes over the task data.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - structured-inputs | Structured Inputs: Task inputs made of several distinct parts — ordered sentence pairs, or document/question/answer triplets — rather than one run of text.
+  - traversal-style-approach | Traversal-Style Approach: The strategy of walking the parts of a structured input into one ordered sequence, instead of building an architecture that mirrors the structure.
+  - start-and-end-tokens | Start and End Tokens $\langle s\rangle$, $\langle e\rangle$: Every transformed input is bracketed by a randomly initialized start token and end token.
+  - delimiter-token | Delimiter Token ($): A special `$` symbol inserted between the parts of a transformed input to mark where one part ends and the next begins.
+  - entailment-input-transformation | Entailment Input Transformation: The premise and hypothesis token sequences are concatenated with a delimiter between them.
+  - similarity-input-transformation | Similarity Input Transformation: Both sentence orderings are built and processed separately, and their two final activations are added element-wise before the linear output layer.
+  - qa-and-commonsense-input-transformation | Question Answering and Commonsense Transformation: Each candidate answer is concatenated onto the document and question to form its own sequence, and the resulting scores are normalized across candidates.
+
+PREREQUISITES:
+  - supervised-fine-tuning | Supervised Fine-Tuning (Stage Two): Run labelled inputs through the pre-trained model, take the final block's activation at the last token, and train a linear layer on it to predict the label.
+  - decoder-only-stack | Decoder-Only Stack: The model drops the encoder half of the original encoder-decoder transformer and keeps one stack that attends only to its own past tokens.
+
+EDGES TOUCHING THIS CONCEPT (5) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] <- task-agnostic-model (Task-Agnostic Model) | depends-on | one architecture needs flattened inputs: The claim of a single model for every task holds only because the tasks are made to look alike at the input. Entailment pairs, similarity pairs and document-question-answer triplets are all rewritten as one ordered token sequence before the model sees them. The task-specific work has been moved out of the architecture and into the serialization.
+  [load-bearing] <- minimal-extra-parameters (Minimal Extra Fine-Tuning Parameters) | depends-on | no new modules to initialize: The paper says the only extra parameters during fine-tuning are $W_y$ and embeddings for the delimiter tokens. That count stays small because structured inputs are handled by rewriting them, not by adding encoders or attention modules per task. The alternative the paper names, task-specific architectures stacked on transferred representations, re-introduces freshly initialized components for every task.
+  [load-bearing] -> fig-1 (One Stack, Four Input Shapes (fig-1)) | supported-by | figure draws all four input shapes: Figure 1's right panel is the concrete content of this idea: classification, entailment, similarity and multiple choice each shown as a token sequence with start, delimiter and end markers. Without the picture the claim that structured inputs become one ordered sequence stays abstract.
+  [load-bearing] -> task-specific-architectures (Task-Specific Architectures) | contrasts-with | task work moved to the input: Both approaches accept that tasks differ; they disagree about where that difference is absorbed. Prior work adds task-shaped modules on top of transferred representations, which the paper says re-introduces customization that gets no benefit from transfer, whereas here the structured input is rewritten as one token sequence and the model is left alone.
+  [supporting] <- ablation-lstm-substitution (Ablation: LSTM Instead of Transformer) | depends-on | swap possible because framework is shared: Replacing the transformer with a single-layer 2048-unit LSTM is a clean comparison only because everything around the model stays fixed: the same serialized inputs, the same last-token readout, the same objectives. Since the transformations are architecture-independent, the 5.6-point average drop can be attributed to the sequence model itself.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - eq-task-head | The Linear Task Head on the Last Token: Equation 3 is the entire task-specific classifier: take the final transformer block's activation at the last input token, multiply it by one matrix $W_y$, and softmax the result into a distribution over the task's labels. The paper states that $W_y$ (plus delimiter-token embeddings) is the only new parameter it adds when moving the pre-trained model to a new task.
+  - eq-combined-objective | The Combined Fine-Tuning Objective: During fine-tuning the paper does not drop the language modelling loss; it keeps optimizing it alongside the classification loss, scaled by a weight $\lambda$, and computes it on the labelled task data rather than on the pre-training corpus. The paper reports this helped by improving generalization and speeding convergence, and its own ablation later qualifies that: the gain shows up on larger datasets, not on smaller ones.
+
+PAPER SECTIONS TO READ (in papers/gpt-1/data/ingest/sections/):
+  - 01-abstract-abstract.txt
+  - 02-1-introduction.txt
+  - 07-3.3-task-specific-input-transformations.txt

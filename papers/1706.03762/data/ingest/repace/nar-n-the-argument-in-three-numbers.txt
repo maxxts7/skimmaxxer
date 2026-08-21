@@ -1,0 +1,48 @@
+NARRATIVE NODE: n-the-argument-in-three-numbers
+TITLE: The argument in three numbers
+
+INTRO:
+The parent gave you Section 4's verdict. This level gives you the arithmetic behind each cell, the convolution rows the summary skipped, the exact point where the argument depends on an observation rather than a bound, and how much weight the interpretability claim can carry.
+
+--- CHAPTER id=where-the-numbers-come-from ---
+TITLE: Where the numbers in the table come from
+
+The comparison is pinned to one job so the rows are priced on identical work: map $(x_1,\dots,x_n)$ to $(z_1,\dots,z_n)$ with $x_i, z_i \in \mathbb{R}^d$ — what the paper calls a hidden layer in a typical encoder or decoder. Every cell in [[table-1]] follows from counting that.
+
+[[complexity-per-layer|Per-layer cost]]: a [[self-attention]] layer scores every query against every key, and each score is a dot product over $d$ dimensions, so $n^2$ scores cost $O(n^2 \cdot d)$; weighting the values costs the same again. A [[recurrent-neural-network|recurrent]] layer instead does $n$ steps, each one a $d \times d$ matrix multiply, giving $O(n \cdot d^2)$. The $n$ and the $d$ trade places, which is the whole reason the columns disagree later.
+
+[[minimum-sequential-operations|Sequential operations]]: the attention layer is a fixed chain of matrix multiplies whose length does not depend on $n$, so $O(1)$. The recurrent layer cannot start step $t$ until step $t-1$ has produced its state — the [[sequential-computation-bottleneck]] restated as a column, $O(n)$.
+
+[[maximum-path-length|Path length]]: inside one self-attention layer any position reads any other directly, so one hop. In an RNN a signal from position 1 to position $n$ passes through $n$ states.
+
+What the columns do not count: constant factors, memory, or wall-clock time. There is no measured entry in the table. And the $O(1)$ path is bought by [[attention-averaging-resolution-cost|averaging attention-weighted positions]], a loss of resolution the paper says [[multi-head-attention]] is there to counteract. [[theme-why-self-attention]] walks the rows one at a time.
+
+--- CHAPTER id=the-convolution-rows ---
+TITLE: The convolution rows, and one concession
+
+The recurrent comparison is the headline; the [[convolutional-sequence-models|convolutional]] one is where the paper does more work. A single convolutional layer with kernel width $k < n$ does not connect all pairs of positions at all. To connect them you stack layers: $O(n/k)$ of them with contiguous kernels, or $O(\log_k n)$ with [[dilated-convolutions|dilated]] ones. Either way the longest path between two positions grows with $n$, which is the same complaint made in the background section about [[convs2s|ConvS2S]] (linear in distance) and [[bytenet|ByteNet]] (logarithmic), alongside the [[extended-neural-gpu|Extended Neural GPU]].
+
+Worth knowing which number you are being shown: [[table-1]]'s convolutional row prints $O(\log_k n)$, the dilated figure, while the running text gives $O(n/k)$ for contiguous kernels. The favourable assumption is the one in the table.
+
+On cost, convolutions come off worst: $O(k \cdot n \cdot d^2)$, more expensive than a recurrent layer by a factor of $k$. But the paper then argues against itself. [[separable-convolutions|Separable convolutions]] cut this to $O(k \cdot n \cdot d + n \cdot d^2)$, and it notes that even at $k = n$ that equals the combined cost of a self-attention layer plus a [[position-wise-feed-forward-network|point-wise feed-forward layer]] — which is exactly what a Transformer layer is. So on the cost column the paper's own configuration ties with the strongest convolutional option. The separation it claims is on path length and on [[long-range-dependencies|what that means for learning distant dependencies]], not on arithmetic. [[etheme-case-against-recurrence]] collects the comparison as one argument.
+
+--- CHAPTER id=n-against-d ---
+TITLE: The joint that has to hold: n against d
+
+The cost columns cross at $n = d$. Below it, $n^2 d < n d^2$ and [[self-attention]] is cheaper; above it, a recurrent layer is. The base model sets $d_{model} = 512$, so the claim the paper needs is that its sentences are shorter than 512 tokens.
+
+It does not measure this. It appeals to how sentences are represented in the models it competes with: [[word-piece-encoding|word-piece]] and [[byte-pair-encoding|byte-pair]] vocabularies, which for the paper's own runs are about 32000 and 37000 tokens. Vocabularies that size keep most words whole, so a [[machine-translation|WMT]] sentence lands in the tens of tokens, comfortably inside the margin. Training batches were built at roughly 25000 source tokens each, sentences grouped by approximate length — consistent with the same picture. But this is a statement about a data regime, not a bound. Push $n$ to a thousand and the sign flips, and the growth is quadratic on the way there.
+
+The escape hatch is the table's fourth row. [[restricted-self-attention|Restricting attention to a neighborhood of size $r$]] around each output position costs $O(r \cdot n \cdot d)$ per layer, keeps $O(1)$ sequential operations, and pushes [[maximum-path-length|path length]] to $O(n/r)$. Note what that does: it puts $n$ back into the path column, the one number the whole argument was built to remove. And no value of $r$ is chosen, no model with it is trained, and [[table-1]] carries the row as an entry rather than a result. The paper says it plans to investigate the approach in future work.
+
+--- CHAPTER id=the-claim-with-pictures ---
+TITLE: The claim made with pictures
+
+Section 4 ends with a fourth benefit that sits outside the three criteria: [[attention-interpretability|self-attention could yield more interpretable models]]. Read the verbs. Heads *could* yield interpretability; many *appear* to exhibit behavior related to syntactic and semantic structure. The paper hedges twice in two sentences, and the reason is that the support is qualitative.
+
+The evidence is a set of appendix pictures of encoder [[self-attention]] distributions. [[fig-3]] shows several of the eight heads following a long-distance verb-phrase link, "making … more difficult", across intervening words. [[fig-4]] is the sharper case: for the word "its", head 5 sends almost all its weight to "Law" and head 6 to "application" — two heads, two different resolutions of the same pronoun. [[fig-5]] puts two heads from one layer side by side on one sentence and shows their patterns are plainly not the same.
+
+What this supports is the [[multi-head-attention]] design: that an [[attention-head]] specializes rather than replicating its neighbors. What it does not do is score anything. The sentences are chosen, not sampled; there is no count of how many heads are interpretable, no agreement measure against a parse, no comparison against what a recurrent model's attention looks like.
+
+That is the shape of Section 4 as a whole. It contains no experiment. [[table-1]] is derived, and the interpretability claim is illustrated. Whether the swap actually buys quality is left entirely to the results.
+

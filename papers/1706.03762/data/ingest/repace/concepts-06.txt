@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=wmt-2014-en-de ---
+NAME: WMT 2014 English-German dataset
+OWNER: 1706.03762
+SUMMARY (leave alone): The standard benchmark translation dataset of about 4.5 million English-German sentence pairs used as the main training and evaluation task.
+
+EXPLANATION:
+WMT is an annual shared task on machine translation with fixed training data and held-out test sets, so scores are directly comparable to prior work. The paper trains on the 2014 English-German set's roughly 4.5 million sentence pairs, encoded with byte-pair encoding into a shared source-target vocabulary of about 37000 tokens. The Transformer's 28.4 BLEU on this task is claimed as new state of the art, beating all previously reported ensembles. English-to-German is also the task used for all the ablation experiments in section 6.2.
+
+--- CONCEPT id=wmt-2014-en-fr ---
+NAME: WMT 2014 English-French dataset
+OWNER: 1706.03762
+SUMMARY (leave alone): A much larger benchmark translation dataset of 36 million sentence pairs, used to test the model at larger data scale.
+
+EXPLANATION:
+The second translation benchmark, roughly eight times larger than the English-German set (36M vs 4.5M sentence pairs). For this dataset the paper uses a 32000-token word-piece vocabulary instead of byte-pair encoding, and the big model trained on it uses a lower dropout rate ($P_{drop}=0.1$ instead of $0.3$), presumably because more data means less overfitting risk, though the paper does not state the reason. The big model reaches 41.8 BLEU here (41.0 in Table 2), which the paper claims as a new single-model state of the art at under a quarter of the previous best model's training cost.
+
+--- CONCEPT id=length-based-batching ---
+NAME: Batching by sequence length
+OWNER: 1706.03762
+SUMMARY (leave alone): Sentence pairs of similar length are grouped into the same batch, and batch size is measured in tokens rather than in sentences.
+
+EXPLANATION:
+Sequences in a batch must be padded to the same length, so mixing short and long sentences wastes computation on padding. The paper groups sentence pairs by approximate length. Each batch holds approximately 25000 source tokens and 25000 target tokens, so a batch of short sentences contains many pairs and a batch of long sentences contains few. Measuring batches in tokens keeps the compute and memory per step roughly constant.
+
+--- CONCEPT id=training-hardware-and-schedule ---
+NAME: Hardware and training schedule
+OWNER: 1706.03762
+SUMMARY (leave alone): One machine with 8 NVIDIA P100 GPUs; base models train for 100,000 steps (12 hours), big models for 300,000 steps (3.5 days).
+
+EXPLANATION:
+All models were trained on a single 8-GPU machine. A training step took about 0.4 seconds for the base model and 1.0 second for the big model. The headline claim built on these numbers is cost: 12 hours for a base model and 3.5 days for the big one, which section 6.1 argues is a fraction of the training cost of competing architectures.
+
+--- CONCEPT id=base-vs-big-transformer ---
+NAME: Base vs big model configurations
+OWNER: 1706.03762
+SUMMARY (leave alone): The paper trains two main configurations: a 'base' Transformer and a scaled-up 'big' Transformer with larger dimensions, more dropout, and three times the training steps.
+
+EXPLANATION:
+The base model is the default configuration used for all ablations; the big model is the same architecture with larger width (its exact hyperparameters are the bottom line of Table 3). Base trains for 100K steps in 12 hours; big trains for 300K steps in 3.5 days and takes about 2.5x longer per step. The big model sets the paper's headline numbers: 28.4 BLEU on English-to-German and 41.0 BLEU on English-to-French (41.8 in the abstract and conclusion). The big English-French model differs in one training detail: dropout $P_{drop}=0.1$ instead of $0.3$.
+
+--- CONCEPT id=transformer-adam-settings ---
+NAME: Adam settings (beta2 = 0.98)
+OWNER: 1706.03762
+SUMMARY (leave alone): The paper runs Adam with beta1 = 0.9, beta2 = 0.98, and epsilon = 10^-9, a lower-than-default beta2.
+
+EXPLANATION:
+The notable choice is $\beta_2 = 0.98$ rather than the common default of $0.999$: the running average of squared gradients forgets old history faster, so the per-parameter step size adapts more quickly to recent gradients. The paper does not explain the choice; it simply reports the values. $\epsilon = 10^{-9}$ is the small constant that prevents division by zero in Adam's update.
+
+--- CONCEPT id=learning-rate-warmup-schedule ---
+NAME: Warmup learning-rate schedule
+OWNER: 1706.03762
+SUMMARY (leave alone): The learning rate rises linearly for the first warmup_steps steps, then decays as the inverse square root of the step number, all scaled by the model width.
+
+EXPLANATION:
+The paper varies the learning rate by the formula $lrate = d_{model}^{-0.5} \cdot \min(step\_num^{-0.5},\ step\_num \cdot warmup\_steps^{-1.5})$. For the first $warmup\_steps$ steps the second term is smaller, giving a linear ramp from zero; after that the first term takes over, decaying like $1/\sqrt{step\_num}$. The $d_{model}^{-0.5}$ factor makes wider models use proportionally smaller learning rates. The paper gives the schedule without justifying it; a common motivation for warmup is that very early in training Adam's moment estimates are built from few samples and the randomly initialized network produces large, noisy gradients, so starting small avoids destabilizing updates. The Table 3 ablations keep this optimizer setup fixed.
+
+--- CONCEPT id=warmup-steps-4000 ---
+NAME: warmup_steps = 4000
+OWNER: 1706.03762
+SUMMARY (leave alone): The number of initial steps over which the learning rate ramps up linearly; the paper uses 4000.
+
+EXPLANATION:
+With $warmup\_steps = 4000$, the learning rate grows linearly for the first 4000 training steps and peaks there, at $d_{model}^{-0.5} \cdot 4000^{-0.5}$, before decaying. Out of 100,000 base-model steps, warmup covers the first 4%.
+
+--- CONCEPT id=residual-dropout ---
+NAME: Residual dropout
+OWNER: 1706.03762
+SUMMARY (leave alone): Dropout applied to each sub-layer's output before the residual addition and layer normalization, and to the embedding-plus-positional-encoding sums, at rate P_drop = 0.1 for the base model.
+
+EXPLANATION:
+The Transformer wraps every sub-layer (attention or feed-forward) in a residual connection: the sub-layer's output is added back to its input and then layer-normalized. Residual dropout zeroes a random fraction of the sub-layer output just before that addition, so the residual path itself is never dropped — information can always flow through the skip connection. Dropout is also applied to the sums of token embeddings and positional encodings at the bottom of both the encoder and decoder stacks. The base model uses $P_{drop}=0.1$; the big English-German model uses 0.3, and the big English-French model 0.1. Table 3 rows (D) show dropout is, in the paper's words, very helpful in avoiding over-fitting.
+
+--- CONCEPT id=attention-dropout ---
+NAME: Attention dropout
+OWNER: 1706.03762
+SUMMARY (leave alone): Dropout applied inside the attention mechanism, mentioned as a separately tunable rate in the parsing experiments.
+
+EXPLANATION:
+Section 6.3 says the parsing experiments tuned 'the dropout, both attention and residual', implying a dropout rate applied within attention — conventionally to the attention weights after the softmax — separate from the residual dropout of section 5.4. The paper does not spell out its exact placement. It matters mainly as one of the few hyperparameters re-tuned for constituency parsing.
+
+--- CONCEPT id=label-smoothing ---
+NAME: Label smoothing
+OWNER: 1706.03762
+SUMMARY (leave alone): A training target modification: instead of putting probability 1 on the correct token, the target gives it 1 - eps and spreads eps = 0.1 over other tokens, penalizing overconfidence.
+
+EXPLANATION:
+Normally the training loss pushes the model's output distribution toward a one-hot target: probability 1 for the correct next token, 0 for everything else. With label smoothing of value $\epsilon_{ls}=0.1$, the target instead assigns the correct token probability $1-\epsilon_{ls}$ and distributes the remaining $0.1$ across the vocabulary. The model is thus trained to stay slightly unsure. The paper reports this hurts perplexity but improves accuracy and BLEU — which is not a contradiction. Perplexity directly measures the probability the model assigns to the true tokens, so a model trained to hold back probability mass scores worse on it by construction. BLEU depends only on which output tokens are actually produced during decoding; less overconfident distributions lead to better final outputs, so the metrics move in opposite directions.
+
+--- CONCEPT id=beam-search ---
+NAME: Beam search
+OWNER: 1706.03762
+SUMMARY (leave alone): A decoding procedure that keeps the k best partial output sequences at each step instead of committing to a single best token; the paper uses beam size 4.
+
+EXPLANATION:
+The model generates output one token at a time, and greedily taking the single most probable token at each step can lock in early mistakes. Beam search instead keeps a 'beam' of the $k$ highest-scoring partial sequences (here $k=4$). At each step every sequence in the beam is extended by each plausible next token, the candidates are scored by their accumulated log-probability, and only the top $k$ survive. When a sequence produces the end-of-sequence token it becomes a finished candidate; the best finished candidate is the output. The paper pairs beam search with a length penalty of $\alpha = 0.6$ and caps output length at input length + 50, terminating early when possible. Beam size and length penalty were chosen on the development set; beam size was also one of the few hyperparameters re-tuned for constituency parsing.
+

@@ -1,0 +1,15 @@
+ITEM: eq-multihead (equation) - Attention in h parallel subspaces
+
+TAKEAWAY:
+Instead of one attention function over full-width 512-dimensional vectors, the Transformer runs $h=8$ attention functions in parallel, each on its own learned 64-dimensional projection of the queries, keys, and values, then concatenates the results and projects them once more. Because each head is narrower by a factor of $h$, the paper says the total computational cost stays similar to one full-width head.
+
+WALKTHROUGH:
+You are looking at the definition of [[multi-head-attention|multi-head attention]]: two lines of math plus the shapes of the four learned matrices it uses.
+
+Read it inside out. $Q$, $K$, $V$ are the [[queries-keys-values|query, key, and value]] matrices — one row per sequence position, each row $d_{\text{model}}$ wide. The second line builds one [[attention-head|head]]: multiply $Q$, $K$, $V$ by three separate learned matrices $W^Q_i$, $W^K_i$, $W^V_i$ to shrink them into a lower-dimensional subspace, then run ordinary [[scaled-dot-product-attention|scaled dot-product attention]] on those projections. Head $i$ therefore outputs one $d_v$-dimensional vector per position. The first line stacks the $h$ heads' outputs side by side (Concat) and multiplies by a fourth learned matrix $W^O$.
+
+The [[attention-projection-matrices|shapes]] make the bookkeeping work. $W^Q_i, W^K_i \in \mathbb{R}^{d_{\text{model}} \times d_k}$ and $W^V_i \in \mathbb{R}^{d_{\text{model}} \times d_v}$ map from model width down into a head. Concatenating $h$ heads gives $h d_v$ columns, so $W^O \in \mathbb{R}^{h d_v \times d_{\text{model}}}$ maps back to model width. $W^O$ is not just a reshape: it is the only place where information from different heads mixes.
+
+The sizing is the point. With [[num-heads-h|$h=8$]] and [[d-model|$d_{\text{model}}=512$]], the paper sets [[dk-dv-dimensions|$d_k = d_v = d_{\text{model}}/h = 64$]]. Each head does roughly $1/h$ of the work a full-width head would, and there are $h$ of them, so the paper reports the total cost is similar to single-head attention at full dimensionality — heads are close to free relative to one wide head.
+
+Why bother: the paper says multiple heads let the model attend jointly to information from different representation subspaces at different positions, and that with a single head, [[attention-averaging-resolution-cost|averaging inhibits this]].

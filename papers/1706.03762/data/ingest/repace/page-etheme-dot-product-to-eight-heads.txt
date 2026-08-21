@@ -1,0 +1,29 @@
+PAGE FOR: etheme-dot-product-to-eight-heads (edge-theme)
+
+The paper's attention layer is two edits to a mechanism that already existed. Section 3.2 picks plain dot-product scoring for speed, adds one divisor to fix the failure that choice is known to have at large dimension, then runs the resulting function eight times in parallel to fix a second failure it blames on averaging — and only the last of those three steps comes with a measurement.
+
+### A speed choice with a known failure mode
+
+The two candidates are [[dot-product-attention]] and [[additive-attention]]. The paper calls them similar in theoretical complexity and picks the dot product because it maps onto optimized matrix multiplication, making it much faster and more space-efficient in practice. It then cites the cost of that choice in the same paragraph: additive attention outperforms unscaled dot-product attention at larger $d_k$.
+
+[[sqrt-dk-scaling|The divisor]] is the repair. The footnote's argument is a variance calculation: if query and key components are independent with mean 0 and variance 1, then $q \cdot k$ summed over $d_k$ terms has mean 0 and variance $d_k$, so scores grow like $\sqrt{d_k}$. Divide by exactly that. The stated reason it matters is that large dot products push [[softmax]] into a region of extremely small gradients — the paper says "we suspect", and runs no ablation on the factor.
+
+That gives [[scaled-dot-product-attention]], defined in one line by [[eq-attention|Equation (1)]]:
+
+$$\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^{T}}{\sqrt{d_k}}\right)V$$
+
+The left panel of [[fig-2]] redraws that line as data flow, and shows one thing the equation hides: where the mask sits, between the scale and the softmax.
+
+### Head count and head width are the same decision
+
+[[eq-multihead|The MultiHead equation]] is a wrapper, not a new scoring rule. [[multi-head-attention]] projects $Q$, $K$, $V$ per head, calls Equation (1) inside each, concatenates, and maps back through $W^O$. What makes it affordable is the width rule: [[dk-dv-dimensions|$d_k = d_v = d_{model}/h$]]. With [[d-model|$d_{model} = 512$]] and [[num-heads-h|$h = 8$]], 64 is not chosen — it falls out. Because each [[attention-head]] is that narrow, the paper says total cost stays close to one full-width attention. The right panel of [[fig-2]] makes the parallelism visible where `Concat` does not.
+
+The reason for running more than one is [[attention-averaging-resolution-cost|the averaging argument]], and it is asserted rather than derived. Section 2 says attention buys constant path length "at the cost of reduced effective resolution due to averaging attention-weighted positions"; Section 3.2.2 adds one sentence — "With a single attention head, averaging inhibits this." No analysis follows.
+
+### What the numbers cover, and what they don't
+
+[[table-3]] row (A) is the measured part. Varying [[attention-heads-ablation|the head count with computation held constant]], single-head attention is 0.9 BLEU worse than the best setting, and quality also drops off with too many heads. That establishes two things: $h$ matters, and its effect is non-monotone. It does not establish that the heads occupy distinct representation subspaces — a single narrow head being worse than eight is consistent with several explanations.
+
+The subspace story rests on inspection, not measurement: [[attention-interpretability|attention visualizations]] like [[fig-4]] and [[fig-5]] show heads on the same sentence behaving differently, on hand-picked examples with no metric attached. Read them as illustration.
+
+The divisor has no experiment at all. The closest thing is row (B): [[key-size-ablation|shrinking $d_k$ hurts quality]], which the paper reads as evidence that a dot product may be too simple a compatibility function — a note against its own opening speed argument, left unresolved.

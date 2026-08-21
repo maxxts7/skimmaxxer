@@ -1,0 +1,29 @@
+PAGE FOR: theme-why-recurrence-had-to-go (theme)
+
+The paper's opening move is a complaint, not a proposal. Before it describes anything it builds, it has to establish that the dominant approach to [[sequence-transduction]] has a defect that no amount of tuning removes.
+
+### The task and the incumbent
+
+Sequence transduction is mapping one symbol sequence to another; the paper's benchmark is [[machine-translation|translation]]. The incumbent was the [[recurrent-neural-network|RNN]], in its gated forms — [[lstm]] and [[gated-recurrent-unit|GRU]] — which the paper describes as "firmly established as state of the art." It does not argue these models are weak. It argues they are shaped wrong for the hardware.
+
+### The defect is structural
+
+A recurrent model factors computation along positions: hidden state $h_t$ is a function of $h_{t-1}$ and the input at $t$. Two things follow. First, the [[sequential-computation-bottleneck]] — positions inside one training example cannot be computed in parallel. The paper adds the detail that makes this bite: at long sequence lengths, memory limits batching across examples, so you cannot buy back the lost parallelism there either. Second, a signal travelling between two distant positions passes through $O(n)$ steps, and the paper claims shorter paths make [[long-range-dependencies]] easier to learn.
+
+Read the way the paper treats [[factorization-tricks]] and [[conditional-computation]]. It credits both with real efficiency gains, then says the constraint "remains." That is the hinge of the whole theme: those methods make each sequential step cheaper without reducing the number of steps. If the problem is the count, the fix has to change the architecture, not the arithmetic.
+
+### The escape routes already tried
+
+[[convolutional-sequence-models]] — [[extended-neural-gpu]], [[bytenet]], [[convs2s]] — took the parallelism half of the problem and solved it: all positions computed at once. But a kernel of width $k < n$ does not connect every pair of positions. Covering them takes $O(n/k)$ stacked layers, or $O(\log_k n)$ with [[dilated-convolutions]]. So distance still costs operations — linearly for ConvS2S, logarithmically for ByteNet — and the path-length problem comes back in a milder form. The paper also notes convolutional layers cost more per layer than recurrent ones, by a factor of $k$, unless you use [[separable-convolutions]].
+
+[[end-to-end-memory-networks]] took the other half, building on recurrent attention rather than sequence-aligned recurrence. The paper cites them as evidence attention can carry a model, but on simple question answering and language modeling, not on transduction.
+
+Each prior attempt trades one property for another. None gets parallel positions and short paths together.
+
+### What the theme sets up
+
+[[table-1]] is where this becomes numbers. Under the three criteria in [[layer-comparison-desiderata]], [[self-attention]] connects every position to every other in a constant number of sequential steps with a path of length 1, against $O(n)$ for both in a recurrent layer, and against stacked layers in a convolutional one. Its per-layer cost, $O(n^2 \cdot d)$, beats a recurrent layer's $O(n \cdot d^2)$ only when $n < d$ — a conditional win, and the paper states the condition rather than hiding it. Note also that Table 1 is asymptotic analysis, not measurement; the empirical case arrives later, in the translation results and [[table-4]].
+
+Two costs come with the trade, and both drive later design. Attention averages over weighted positions, blurring resolution ([[attention-averaging-resolution-cost]]), which is the paper's stated reason for [[multi-head-attention]]. And dropping recurrence drops order information — [[fig-1]] shows a model with no mechanism anywhere for knowing which token came first, so position has to be injected at the bottom of each stack.
+
+From here you can read any Transformer choice as an answer to one question: what did recurrence do for us that we now have to do another way?

@@ -1,0 +1,23 @@
+ITEM: table-3 (table) - One-knob-at-a-time ablations
+
+TAKEAWAY:
+Table 3 changes one design choice of the base Transformer at a time and reports the effect on English-to-German development-set quality. It shows a middling head count (around 8-16) is best, shrinking the attention key dimension $d_k$ hurts, bigger models are better, dropout matters a lot, and learned positional embeddings match sinusoids almost exactly.
+
+WALKTHROUGH:
+### What you are looking at
+
+An ablation table for [[transformer-ablations|the Transformer's design choices]]. Every row is one trained model. The first row, `base`, is the full base configuration; the last row, `big`, is the scaled-up one. Rows in groups (A)-(E) each change one thing relative to `base`, and **blank cells mean "same as base"** — that is what the caption's "unlisted values are identical" means.
+
+### How to read it
+
+The left block is the configuration: [[n-layers|$N$]] layers per stack, model width [[d-model|$d_{model}$]], feed-forward inner width [[d-ff|$d_{ff}$]], number of [[multi-head-attention|attention heads]] [[num-heads-h|$h$]], per-head key and value sizes [[dk-dv-dimensions|$d_k$, $d_v$]], [[residual-dropout|dropout rate]] $P_{drop}$, [[label-smoothing|label smoothing]] $\epsilon_{ls}$, and training steps. The right block is the result: [[perplexity|PPL]], [[bleu|BLEU]], and parameter count in millions. All numbers are on newstest2013, the English-German dev set, with [[beam-search]] but no [[checkpoint-averaging]]. Lower PPL is better; higher BLEU is better. PPL is **per word-piece** under the paper's [[byte-pair-encoding|byte-pair encoding]], so it is not comparable to per-word perplexities from other papers.
+
+### What it shows
+
+Group (A) varies $h$ while scaling $d_k = d_v = d_{model}/h$, holding compute roughly constant. [[attention-heads-ablation|Single-head attention is 0.9 BLEU below the best setting]] (24.9 vs 25.8), and quality also drops with too many heads (32 heads: 25.4).
+
+Group (B) shrinks only $d_k$, leaving $d_v$ at 64. [[key-size-ablation|Quality falls]]; the paper suggests the [[compatibility-function|compatibility function]] may need to be more than a [[dot-product-attention|dot product]].
+
+Groups (C) and (D) confirm the expected: [[size-and-dropout-ablation|bigger is better, and dropout helps]]. Removing dropout ($P_{drop}=0.0$) costs 1.2 BLEU.
+
+Row (E) swaps [[sinusoidal-positional-encoding|sinusoids]] for [[learned-positional-embedding|learned positional embeddings]] and gets near-identical results (4.92 PPL, 25.7 BLEU), which is why the paper keeps sinusoids on other grounds.

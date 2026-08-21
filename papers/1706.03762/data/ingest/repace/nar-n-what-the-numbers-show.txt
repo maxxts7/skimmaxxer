@@ -1,0 +1,54 @@
+NARRATIVE NODE: n-what-the-numbers-show
+TITLE: What the numbers show
+
+INTRO:
+The parent gave the headline figures. This level walks the path a number actually travels: what happens between trained weights and a score, which rows the headline is beating and by how much, what each ablation row licenses, and how much of the parsing result is generalization rather than tuning.
+
+--- CHAPTER id=getting-a-sentence-out ---
+TITLE: From weights to a score
+
+Nothing is decoded from the final weights of a run. The evaluated model is [[checkpoint-averaging|the elementwise average of the last checkpoints]] — five for base models, twenty for big ones, written ten minutes apart — so every figure in [[table-2]] belongs to a model that was never trained directly. [[table-3]] is decoded without that averaging, which is one reason its numbers sit below Table 2's and cannot be read against them.
+
+Then [[beam-search|beam search]] with four hypotheses. Scoring a partial hypothesis by summed log-probability favours short outputs, since every extra token adds a negative term. [[length-penalty|$\alpha = 0.6$]] is the strength knob on [[length-normalization-penalty|the cited length-normalization divisor]]: the score is divided by a function of hypothesis length that interpolates between no normalization at $\alpha = 0$ and dividing by the full length at $\alpha = 1$. The paper gives the value and not the formula.
+
+The cited decoder carries more machinery than is taken. [[coverage-penalty|A coverage penalty]], which rewards hypotheses whose attention has spread across the whole source, is available and goes unused. [[beam-search-pruning-and-termination|Pruning and early stopping]] are taken, along with a cap of [[inference-length-limit|input length plus 50 tokens]].
+
+Beam size, $\alpha$, and the cap were picked by experimenting on the development set, newstest2013 — the same set the ablations run on, not the newstest2014 set the headline [[bleu|BLEU]] scores come from. None of the three is ablated. And they are not properties of the architecture: the parsing run re-tunes the beam to 21 and $\alpha$ to 0.3. These are settings for [[wmt-2014-en-de|this task and this data]].
+
+--- CHAPTER id=the-headline-table ---
+TITLE: Reading the headline table row by row
+
+[[table-2]] is ten systems on two test sets, with a cost estimate beside each score. The rows that matter for the claim: the best prior single model on English-to-German is MoE at 26.03, an LSTM with a [[conditional-computation|sparsely gated mixture-of-experts layer]]; the best prior row of any kind is the [[convs2s|ConvS2S]] [[model-ensembling|ensemble]] at 26.36. The [[base-vs-big-transformer|big Transformer]] gives 28.4. The "more than 2.0 BLEU" in the text is $28.4 - 26.36 = 2.04$ — measured against an ensemble, which is the strictest available comparison.
+
+The base model's 27.3 clears every row above it at an estimated $3.3\times10^{18}$ FLOPs. For scale, GNMT + RL is listed at $2.3\times10^{19}$ on the same pair — the big Transformer's entire training cost — for 24.6 BLEU.
+
+[[wmt-2014-en-fr|English-to-French]] is weaker and the paper's wording tracks it. Base scores 38.1, below the baselines, and no claim is made for it. Big scores 41.8 in the table and 41.0 in the text; the ConvS2S ensemble is at 41.29. Hence the careful phrasing: better than all previously published *single* models.
+
+The cost axis is not measured. [[training-flops-estimate|It is training time × GPU count × an assumed sustained throughput]] — 9.5 TFLOPS for a P100, 2.8 for a K80 — so it is nominal capacity, not utilization, applied to other groups' hardware. Read it as an order of magnitude. The [[bleu|BLEU]] column is also cross-paper: different pipelines, different tokenization, only what each paper published.
+
+--- CHAPTER id=one-knob-at-a-time ---
+TITLE: The one place the design is tested
+
+[[transformer-ablations|Table 3]] is the only experiment that varies the architecture. Read it against the base row: 4.92 [[perplexity]], 25.8 BLEU, 65M parameters on newstest2013, with blank cells meaning "same as base".
+
+Rows (A) sweep [[num-heads-h|$h$]] with [[dk-dv-dimensions|$d_k = d_v = 512/h$]] so total attention compute stays roughly fixed. One head gives 24.9 — [[attention-heads-ablation|the 0.9 BLEU gap]]. Sixteen heads give 25.8, tied with eight; thirty-two give 25.4. So the row shows a plateau around 8–16 and a fall past it, not an optimum at 8.
+
+Rows (B) shrink only $d_k$, leaving $d_v$ at 64: 25.1 at $d_k=16$, 25.4 at $d_k=32$. [[key-size-ablation|The paper's own reading]] is that determining compatibility is not easy, and that something richer than [[dot-product-attention|a dot product]] as the [[compatibility-function|compatibility function]] may help — a point against its own choice, left unpursued.
+
+Rows (C) and (D) are [[size-and-dropout-ablation|the expected ones]]. Two layers instead of six costs 2.1 BLEU. Removing [[residual-dropout|dropout]] costs 1.2. [[label-smoothing]] is varied here too.
+
+Row (E) swaps [[sinusoidal-positional-encoding|sinusoids]] for [[learned-positional-embedding|learned position embeddings]]: 4.92 PPL, 25.7 BLEU. Near-identical, on one run each.
+
+Two caveats the caption states. Perplexity is per word-piece under the paper's [[byte-pair-encoding|BPE]] vocabulary, not comparable to per-word figures elsewhere. And every row is a development-set number without checkpoint averaging.
+
+--- CHAPTER id=parsing-as-a-generalization-test ---
+TITLE: Parsing, and what it is meant to prove
+
+[[constituency-parsing|Parsing]] is picked because it stresses the architecture where translation does not: the output obeys hard structural constraints and runs much longer than the input, and RNN sequence-to-sequence models had not topped the board in small-data settings. It is a sequence problem only after [[parse-tree-linearization|the cited linearization]] flattens the tree into bracket-and-label tokens.
+
+The setup is deliberately thin. Four layers, [[d-model|$d_{model}$]] of 1024, a 16K vocabulary for the WSJ-only run and 32K for the semi-supervised one. Only the residual and [[attention-dropout|attention dropout]] rates, the learning rate, and the beam were tuned, on Section 22 of [[wsj-parsing-protocol|the standard protocol]]; everything else is left at the English-German base settings. Decoding uses beam 21, $\alpha = 0.3$, and a cap of input length plus 300.
+
+[[table-4]] puts the WSJ-only model at 91.3 F1 on Section 23, trained on [[penn-treebank-wsj|about 40K hand-parsed sentences]]. That is above [[berkeley-parser|the BerkeleyParser]] at 90.4 and 3.0 above the RNN sequence-to-sequence parser whose setup it borrows, at 88.3. It is below [[recurrent-neural-network-grammar|the RNNG]] at 91.7, the exception the paper names. In [[semi-supervised-parsing|the semi-supervised setting]], with [[semi-supervised-parsing-corpora|roughly 17M machine-parsed sentences]] added, it reaches 92.7, the top of that block.
+
+Two higher numbers sit in the table and are not comparisons: 93.0 multi-task, 93.3 generative. What the experiment supports is narrow and stated as such — the architecture transfers to a second task with almost no task-specific tuning. One task, one run, still text.
+

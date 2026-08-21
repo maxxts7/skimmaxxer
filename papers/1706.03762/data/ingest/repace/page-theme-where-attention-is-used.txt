@@ -1,0 +1,23 @@
+PAGE FOR: theme-where-attention-is-used (theme)
+
+You have the attention function. Where does the model actually put it, and why does the same function need three different wirings to build a translator?
+
+Section 3.2.3 gives the answer: [[multi-head-attention]] appears three times, and the only thing that changes between them is where the queries come from and where the keys and values come from. Nothing about [[eq-attention|the formula]] changes. [[fig-1]] shows all three in one picture — two towers, no recurrence, no convolution.
+
+### Encoder: every position, every other position
+
+[[self-attention]] is the case where queries, keys, and values are all read from the same place. In [[encoder-self-attention]], that place is the output of the previous layer of the [[encoder-stack]]. Each position builds its new representation as a weighted mix of all positions, itself included, in one step.
+
+The paper's reason for this is in Section 4, not Section 3. It compares layer types on three axes and reports in [[table-1]] that a self-attention layer connects any two positions with a [[maximum-path-length|path of length 1]] and a constant number of sequential steps, while a [[recurrent-neural-network|recurrent layer]] needs $O(n)$ of both. Convolutions sit in between: [[convolutional-sequence-models|ConvS2S and ByteNet]] relate distant positions in a number of operations that grows with distance, so a single layer does not connect everything. Short paths are argued to make [[long-range-dependencies]] easier to learn. The cost is $O(n^2 \cdot d)$ per layer, cheaper than a recurrent layer's $O(n \cdot d^2)$ only when $n < d$ — true for word-piece sentences, not for long documents. The paper's own escape hatch for that case, [[restricted-self-attention]], is proposed and left to future work, not measured.
+
+Two consequences follow immediately. Because a position mixes all others by position-independent weights, the layer has no idea what order the tokens are in — which is why [[positional-encoding]] exists at all, added once at the bottom of each tower. And because one weighted average blurs things, the paper runs the attention in parallel heads; [[fig-3]] and [[fig-5]] show different heads in one encoder layer picking out different words. The paper calls this a qualitative illustration and says the patterns only "seem" to track sentence structure — [[attention-interpretability]] is offered as a side benefit, with no measurement behind it.
+
+### Decoder: the same layer, minus the future
+
+The decoder needs self-attention for the same reason the encoder does, but it cannot have the full version. The model generates one token at a time and conditions each on what it already emitted, so a decoder position seeing a later position at training time would be reading the answer. [[masked-decoder-self-attention]] fixes this with [[causal-masking]]: set the scores for forbidden positions to $-\infty$ before the [[softmax]], so their weights come out at zero. That single line is what preserves [[auto-regressive-generation]]. Combined with output embeddings offset by one position, predictions at position $i$ depend only on outputs before $i$.
+
+### Between the stacks
+
+The third use is the one that makes it a transduction model rather than two separate encoders. In [[encoder-decoder-attention]], queries come from the previous [[decoder-stack|decoder]] layer and keys and values come from the encoder's output. Every decoder position can look at the entire input sentence. This is not masked — the input is fully available. The paper says plainly that this mimics the encoder-decoder attention of earlier seq2seq models; the [[queries-keys-values|query/key/value]] split is what lets one function serve both roles.
+
+You should now be able to look at any attention [[sub-layer]] in [[fig-1]] and say where its Q, K, and V come from, and whether it is masked. Next comes what has to be bolted on because attention alone is not enough: position information and the per-position feed-forward network.

@@ -1,0 +1,17 @@
+PAGE FOR: self-attention (concept)
+
+Self-attention is the [[attention-mechanism|attention function]] run with the queries, keys and values all read off the same sequence — in the [[transformer|Transformer]], off the output of the previous layer of the same stack. It is in the model because nothing else is: with recurrence and convolution removed, this is the only route by which one position's representation can depend on another's.
+
+### The operation
+
+Start with the previous layer's output $X$, shape $n \times d_{model}$, with $n$ the sequence length and $d_{model} = 512$. Inside each of the $h=8$ heads of [[multi-head-attention|multi-head attention]], three learned projections give $Q = XW^Q$, $K = XW^K$, $V = XW^V$, each $n \times 64$ (see [[dk-dv-dimensions|$d_k = d_v = d_{model}/h$]]). Then [[eq-attention|the attention equation]]: $QK^\top$ is an $n \times n$ matrix scoring every position against every position, divided by [[sqrt-dk-scaling|$\sqrt{d_k}$]], softmaxed along each row, and used to take a weighted average of the rows of $V$. Concatenate the eight $n \times 64$ head outputs, project through $W^O$, and you are back at $n \times d_{model}$ — same shape in, same shape out, which is what lets the layers stack.
+
+Two consequences fall straight out of $Q$, $K$ and $V$ sharing a source. The scores depend only on content, never on index, so the layer treats the sequence as a set; order has to be injected separately by [[positional-encoding|positional encoding]]. And nothing in the operation prevents position $i$ from reading position $j > i$, which is fine in [[encoder-self-attention|the encoder]] but breaks auto-regressive generation, so the decoder uses [[masked-decoder-self-attention|a masked variant]] built on [[causal-masking|$-\infty$ scores before the softmax]].
+
+### Why, and what it costs
+
+Section 4 argues the case on [[layer-comparison-desiderata|three axes]], summarised in [[table-1]]. Against a [[recurrent-neural-network|recurrent layer]], the win is [[minimum-sequential-operations|sequential steps]]: constant versus $O(n)$. Against [[convolutional-sequence-models|convolutional models]], it is [[maximum-path-length|path length]]: a kernel of width $k < n$ needs $O(n/k)$ layers to connect all pairs ($O(\log_k n)$ dilated), while self-attention does it in one, so the distance a gradient travels between [[long-range-dependencies|distant positions]] stops growing with their separation.
+
+The cost is the $n \times n$ score matrix: $O(n^2 \cdot d)$ per layer, cheaper than a recurrent layer's $O(n \cdot d^2)$ only while $n < d$ — true for word-piece sentences, false for long documents. The paper's own remedy, [[restricted-self-attention|attending to a window of size $r$]], is future work, untested here. The paper also concedes that [[separable-convolutions|separable convolutions]] reach the same cost as self-attention plus a [[position-wise-feed-forward-network|feed-forward layer]], so cost is not what carries the argument — parallelism and path length are.
+
+The direct evidence is thin. [[table-1]] is asymptotic counting, not measurement. [[fig-3]] shows one query word linking to "more" and "difficult" six and seven tokens away, and [[fig-5]] shows two heads behaving differently on one sentence; both are single hand-picked examples, and the paper says only that the patterns "seem related" to sentence structure. The strong number, [[table-2]], scores the whole architecture, not this layer in isolation.

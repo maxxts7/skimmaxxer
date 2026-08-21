@@ -1,0 +1,23 @@
+PAGE FOR: theme-what-the-numbers-show (theme)
+
+Everything so far has been design: what the model is and how it was trained. This part answers a different question — how do you get a sentence out of the trained model, and what evidence is there that any of the design choices earned their place?
+
+### Getting an output at all
+
+A trained decoder gives you a distribution over the next token, not a translation. The paper turns one into the other with [[beam-search]] at beam size 4: keep the 4 best partial sequences at each step rather than committing greedily. Two adjustments come with it. Beam scores are summed log-probabilities, so shorter sequences score higher by default; the [[length-penalty|length penalty]] with $\alpha = 0.6$ divides that out. And an unterminated beam could run forever, so there is an [[inference-length-limit|explicit cap]] at input length plus 50 tokens. Both numbers were picked on the development set, so read them as tuned constants, not derived ones. The weights being decoded are themselves an average of the last several checkpoints ([[checkpoint-averaging]]), a choice from the [[transformer-training-recipe|training recipe]].
+
+### Two axes, and one metric that disagrees
+
+Quality is reported as [[bleu|BLEU]] — n-gram overlap with reference translations, with a brevity penalty. [[perplexity]] is reported too, and the paper is clear that the two can move in opposite directions. [[label-smoothing]] makes the model less confident, which *hurts* perplexity, and still improves BLEU. That is the reason the headline claims are stated in BLEU: a better-calibrated next-token distribution is not automatically a better translator.
+
+The second axis is cost. The paper wants to claim it wins on both at once, so it needs a cost number comparable across papers that used different hardware. The [[training-flops-estimate]] is training time × GPU count × an *assumed* sustained single-precision throughput per GPU (2.8 to 9.5 TFLOPS depending on the card). That is a coarse estimate, not a measurement, and the paper presents it as one. [[table-2]] puts the two axes side by side: 28.4 BLEU on English-to-German, more than 2.0 above every prior row including ensembles, and 41.0 on English-to-French at under a quarter of the previous best model's estimated training cost. The base model already clears the prior rows on English-to-German at roughly $3.3 \times 10^{18}$ FLOPs.
+
+### Which knobs mattered
+
+[[transformer-ablations|Table 3]] changes one design choice at a time on the English-to-German development set. [[attention-heads-ablation|Head count]] has a middle: one head is 0.9 BLEU below the best, and too many heads also drops off, with total computation held fixed — so multi-head attention is doing something other than adding capacity. [[key-size-ablation|Shrinking $d_k$ hurts]], which the paper reads as a hint that the dot product may be too simple a compatibility function — a caveat on its own core design, stated as a suggestion rather than a result. [[size-and-dropout-ablation|Bigger is better and dropout helps a lot]], which is unsurprising. And learned positional embeddings ([[learned-positional-embedding]]) match [[eq-posenc|the sinusoids]] almost exactly — so the extrapolation argument for sinusoids is not what the numbers support.
+
+### Does it carry to another task
+
+[[constituency-parsing|Constituency parsing]] is the generalization test: output longer than input, and strong structural constraints. Trees only fit a sequence model once they are flattened, which is [[parse-tree-linearization|linearization]], borrowed from prior work. With almost no retuning, a 4-layer model on the ~40K-sentence [[penn-treebank-wsj|WSJ treebank]] reaches 91.3 F1 ([[table-4]]) — past [[berkeley-parser|BerkeleyParser]] and every listed discriminative parser except [[recurrent-neural-network-grammar|RNNG]] at 91.7 — and 92.7 in the [[semi-supervised-parsing|semi-supervised setting]].
+
+You can now ask of any claim earlier in the paper: which table is it standing on, and how thin is the margin?

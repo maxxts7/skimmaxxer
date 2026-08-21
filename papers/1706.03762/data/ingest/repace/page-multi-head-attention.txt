@@ -1,0 +1,17 @@
+PAGE FOR: multi-head-attention (concept)
+
+Multi-head attention is the wrapper the Transformer puts around [[scaled-dot-product-attention]]: rather than run one attention function over full-width [[d-model|$d_{model}=512$]] vectors, it runs $h$ of them in parallel on narrower learned projections and stitches the results back together. The paper gives one reason for the wrapper, in Section 2 and again in 3.2.2: attention returns a weighted *average* over positions, and averaging blurs what any one position contributed ([[attention-averaging-resolution-cost]]). Several heads let the model attend to different representation subspaces at different positions at once; with a single head, the paper says, "averaging inhibits this."
+
+### The operation
+
+Take an input of $n$ positions, $X \in \mathbb{R}^{n \times 512}$. For each head $i$, three learned matrices ([[attention-projection-matrices]]) cut $X$ down to width 64: $W^Q_i, W^K_i \in \mathbb{R}^{512 \times 64}$ and $W^V_i \in \mathbb{R}^{512 \times 64}$. Run [[eq-attention|Equation (1)]] on those projections and you get one [[attention-head|head]]'s output, $n \times 64$. Do that $h=8$ times ([[num-heads-h]]), concatenate along the feature axis back to $n \times 512$, and apply $W^O \in \mathbb{R}^{512 \times 512}$. That is all [[eq-multihead|the MultiHead equation]] says. The right panel of [[fig-2]] draws it: the split into parallel blocks, then the concat and the final linear, which the `Concat` notation alone doesn't make obvious.
+
+The width choice is what keeps this affordable. Since [[dk-dv-dimensions|$d_k = d_v = d_{model}/h = 64$]], the eight $n \times n$ score matrices together cost $h \cdot n^2 d_k = n^2 d_{model}$ — the same as one head at full width — and the four projection matrices hold $4 \times 512^2$ parameters either way. Heads are a reshape, not an extra budget line. In practice you don't loop: stack the per-head matrices into one $512 \times 512$ projection, reshape to $(n, 8, 64)$, and batch the attention over the head axis.
+
+Every attention sub-layer in the model is this same block, differing only in where $Q$, $K$, $V$ come from and whether a mask is applied: [[encoder-self-attention]], [[masked-decoder-self-attention]], and [[encoder-decoder-attention]].
+
+### How strong is the evidence
+
+One number: [[table-3]] row (A) varies $h$ with compute held fixed, and single-head attention is 0.9 BLEU worse than the best setting — while too many heads (each too narrow) also hurts ([[attention-heads-ablation]]). That is a real ablation, but a single dev-set sweep on one language pair, and it supports "some heads help," not the subspace story.
+
+The subspace story rests on pictures. [[fig-3]], [[fig-4]], and [[fig-5]] show heads attending to visibly different things — head 5 and head 6 resolving *its* to different antecedents in [[fig-4]] is the sharpest case. The paper hedges accordingly ([[attention-interpretability]]): heads "appear" to learn different tasks, patterns "seem related" to sentence structure. Nothing there is measured.
