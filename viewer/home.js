@@ -142,8 +142,8 @@ function panels(pid) {
   const themes = conceptThemes(pid);
   if (themes.length) {
     tabs.push({
-      key: "parts", label: "Parts", n: themes.length,
-      intro: plural(c.concepts, "concept") + ", grouped into " + plural(themes.length, "part") +
+      key: "themes", label: "Themes", n: themes.length,
+      intro: plural(c.concepts, "concept") + ", grouped into " + plural(themes.length, "theme") +
         " that follow the paper's own order.",
       rows: themes.map((t) => ({
         href: readHref(pid, "#/theme/" + encodeURIComponent(t.id)),

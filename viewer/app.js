@@ -677,7 +677,7 @@ function buildNav() {
 
   const themes = (p.themes || []).filter((t) => t.kind === "concept-theme");
   if (themes.length) {
-    h += '<details class="nav-fold"><summary>Parts<span class="fold-n">' + themes.length +
+    h += '<details class="nav-fold"><summary>Themes<span class="fold-n">' + themes.length +
       "</span></summary><ul class=\"nav-list\">" +
       themes.map((t) => navRow("#/theme/" + t.id, "", t.name)).join("") + "</ul></details>";
   }
