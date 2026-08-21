@@ -451,8 +451,15 @@ function render() {
 
   h += proposeSection();
 
-  h += '<footer class="site-foot"><p>Generated from the PDFs in <code>papers/</code>. ' +
-    'Nothing here is written by hand.</p></footer>';
+  h += '<footer class="site-foot">' +
+    '<p class="foot-label">LLM policy</p>' +
+    '<p>Every page here is generated from the PDFs of research papers by a large language model — ' +
+    'the concepts, the walkthroughs of each figure, the narrative and its levels. None of it is ' +
+    'written by hand, and none of it is peer-reviewed.</p>' +
+    '<p>What that buys you is traceability rather than authority: every claim carries a link to the ' +
+    'page of the PDF it was drawn from, so anything here can be checked against the paper itself. ' +
+    'Read it as a way into a paper, not as a substitute for reading one.</p>' +
+    "</footer>";
 
   el("home").innerHTML = h;
   wireTabs(el("home"));
