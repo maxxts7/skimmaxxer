@@ -146,6 +146,7 @@ function panels(pid) {
       intro: plural(c.concepts, "concept") + ", grouped into " + plural(themes.length, "part") +
         " that follow the paper's own order.",
       rows: themes.map((t) => ({
+        href: readHref(pid, "#/theme/" + encodeURIComponent(t.id)),
         name: t.name,
         meta: plural((t.members || []).length, "concept"),
         line: firstLine(t.summary),
@@ -157,7 +158,11 @@ function panels(pid) {
       key: "concepts", label: "Concepts", n: majors.length,
       intro: "The " + majors.length + " concepts the paper's argument rests on, of " +
         c.concepts + " in all.",
-      rows: majors.map((x) => ({ name: x.name, line: firstLine(x.summary) })),
+      rows: majors.map((x) => ({
+        href: readHref(pid, "#/concept/" + encodeURIComponent(x.id)),
+        name: x.name,
+        line: firstLine(x.summary),
+      })),
       more: { href: readHref(pid, "#/map"), text: "All " + c.concepts + " concepts" },
     });
   }
@@ -166,7 +171,11 @@ function panels(pid) {
       key: "figures", label: "Figures", n: p.items.length,
       intro: "Every figure, table and equation, rewritten so it can be read on its own — each " +
         "term and number in it defined.",
-      rows: p.items.map((it) => ({ name: itemName(it), line: firstLine(it.takeaway || it.caption) })),
+      rows: p.items.map((it) => ({
+        href: readHref(pid, "#/figure/" + encodeURIComponent(it.id)),
+        name: itemName(it),
+        line: firstLine(it.takeaway || it.caption),
+      })),
     });
   }
   if (p.insights && (p.insights.chapters || []).length) {
@@ -174,7 +183,11 @@ function panels(pid) {
       key: "insights", label: "Insights", n: p.insights.chapters.length,
       intro: firstLine(p.insights.intro, 150) ||
         "What a second pass over the paper turns up, reading across it rather than through it.",
-      rows: p.insights.chapters.map((ch) => ({ name: ch.title, line: firstLine(ch.body) })),
+      rows: p.insights.chapters.map((ch) => ({
+        href: readHref(pid, "#/insights#ch-" + encodeURIComponent(ch.id)),
+        name: ch.title,
+        line: firstLine(ch.body),
+      })),
     });
   }
   if (!tabs.length) return "";
@@ -191,10 +204,14 @@ function panels(pid) {
     '<div class="panel" role="tabpanel" id="panel-' + uid + "-" + t.key +
     '" aria-labelledby="tab-' + uid + "-" + t.key + '"' + (i === 0 ? "" : " hidden") + ">" +
     '<p class="panel-intro">' + esc(t.intro) + "</p>" +
-    '<ul class="entries">' + t.rows.map((r) =>
-      "<li>" + '<p class="ent-name">' + esc(r.name) +
-      (r.meta ? '<span class="ent-meta">' + esc(r.meta) + "</span>" : "") + "</p>" +
-      (r.line ? '<p class="ent-line">' + esc(r.line) + "</p>" : "") + "</li>").join("") + "</ul>" +
+    '<ul class="entries">' + t.rows.map((r) => {
+      const body = '<span class="ent-name">' + esc(r.name) +
+        (r.meta ? '<span class="ent-meta">' + esc(r.meta) + "</span>" : "") + "</span>" +
+        (r.line ? '<span class="ent-line">' + esc(r.line) + "</span>" : "");
+      return "<li>" + (r.href
+        ? '<a class="entry" href="' + r.href + '">' + body + "</a>"
+        : '<span class="entry">' + body + "</span>") + "</li>";
+    }).join("") + "</ul>" +
     (t.more ? '<a class="panel-more" href="' + t.more.href + '">' + esc(t.more.text) + " →</a>" : "") +
     "</div>").join("");
 
