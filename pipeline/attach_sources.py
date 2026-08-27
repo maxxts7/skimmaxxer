@@ -205,6 +205,26 @@ if os.path.exists(ins_path):
         do_insight(node)
     print(f"insights nodes with sources: {len(ins['nodes'])}/{len(ins['nodes'])} (+ root)")
 
+# ---- summary: per beat, then unioned up to the page ----
+# Flat, so this is the narrative case without the recursion.
+sum_path = os.path.join(D, "summary.json")
+smry = None
+if os.path.exists(sum_path):
+    smry = json.load(open(sum_path, encoding="utf-8"))
+    all_secs, all_pgs = [], set()
+    for b in smry.get("beats", []):
+        secs, pgs = derive(b.get("body"))
+        src = sources_from(secs, pgs)
+        if src:
+            b["sources"] = src
+        all_secs += secs
+        all_pgs.update(pgs)
+    src = sources_from(all_secs, all_pgs)
+    if src:
+        smry["sources"] = src
+    print(f"summary beats with sources: "
+          f"{sum(1 for b in smry.get('beats', []) if b.get('sources'))}/{len(smry.get('beats', []))}")
+
 wr("concepts", concepts_raw)
 wr("items", items_raw)
 wr("themes", themes_raw)
@@ -212,4 +232,6 @@ wr("pages", pages_raw)
 json.dump(nar, open(os.path.join(D, "narrative.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
 if ins is not None:
     json.dump(ins, open(ins_path, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+if smry is not None:
+    json.dump(smry, open(sum_path, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
 print("written")

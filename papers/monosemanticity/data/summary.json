@@ -1,0 +1,1444 @@
+{
+ "title": "What is actually inside a language model",
+ "lede": "A language model is a very large pile of numbers that nobody chose by hand. This paper is about a specific reason that pile has been so hard to read — the parts it is built from do not line up with the parts it thinks in — and about a way to recover the second set from the first. The demonstration is small and the method is simple enough to describe in a paragraph. What it turns up inside a model that has only 512 parts is not small at all.",
+ "beats": [
+  {
+   "id": "what-is-in-there",
+   "heading": "A model is built from parts nobody chose",
+   "body": "Start with what a language model physically is. It is a long list of numbers — the weights — and a fixed recipe for combining them with whatever text you feed in. Nobody wrote those numbers. They were adjusted, one small nudge at a time, over an enormous amount of text, until the model got good at one narrow task: given some text, guess the next fragment.\n\nText arrives in fragments rather than words because the model reads a stream chopped into pieces by a scheme that merges frequent byte sequences into single units. Common words get one piece each; rarer ones get split; a character from a non-Latin script may take two or three pieces on its own. That detail sounds like housekeeping and it will matter later, twice.\n\nAs the text passes through, the model keeps a running vector of numbers for each fragment and lets each stage read from it and write back into it. Inside one of those stages sits a block that takes the running vector, expands it into a wider list of numbers, zeroes out everything negative, and folds the result back. That wider list is where this paper does its work. In the model studied here it holds 512 numbers, recomputed for every fragment of text the model reads.\n\nSo: 512 numbers, changing constantly, that together decide what the model predicts next. If you want to know what the model is doing, this is the thing you have to read."
+  },
+  {
+   "id": "the-natural-unit",
+   "heading": "The obvious unit turns out to mean several things at once",
+   "body": "Reading 512 numbers at once is hopeless, so you break the problem up. Take one of those 512 positions — call it a neuron, which is what everyone calls it — and ask what makes it large. Collect the text where it fires hardest and look for the pattern.\n\nThis is the natural first move, and on this model it fails immediately. One neuron responds to academic citations, English dialogue, web requests, and Korean text. Those have nothing to do with each other. This is [[polysemanticity]]: one part, several unrelated meanings, no principle joining them.\n\nIt is worth being precise about why this is fatal rather than merely inconvenient. The point of breaking something into parts is that you can then understand each part by itself and put the understanding back together. A part that means four unrelated things cannot be understood by itself. Knowing it fired tells you one of four things is happening, and to find out which you have to consult the other 511 — at which point you have not broken the problem up at all. Everything about the [[curse-of-dimensionality-in-interpretability|difficulty of reading a large model]] follows from that.\n\nAnd there is no route around it. There are simplified transformers you can analyse without ever looking at these numbers, but they are the ones with no such block in them. Put it back and the numbers have to be faced. The authors call the model they study the simplest language model we profoundly do not understand, which is exactly right: one block, 512 numbers, and no way through.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": null,
+      "end": null
+     },
+     {
+      "id": "2",
+      "title": "Problem Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2"
+     },
+     {
+      "id": "2.3",
+      "title": "Why not use architectural approaches?",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-3"
+     }
+    ],
+    "pages": []
+   }
+  },
+  {
+   "id": "more-than-there-is-room-for",
+   "heading": "The model is storing more things than it has room for",
+   "body": "Here is the hypothesis that makes sense of the mess.\n\nSuppose the things the model actually thinks in are not the individual 512 positions, but *directions* across all 512 at once — particular mixtures, most of which do not line up with any single position. Each such direction is a [[feature]], and this idea that meaning lives in directions rather than in positions is the [[linear-representation-hypothesis]]. Sometimes a direction happens to coincide with one position, and then you get a readable neuron and everyone is pleased. There is no reason it generally should.\n\nNow suppose the model has *more* of these directions than it has positions to spare — thousands of features in a space that is only 512 wide. That is [[superposition]], and it sounds impossible for the obvious reason: in a 512-wide space you can only fit 512 directions that are properly at right angles to each other.\n\nTwo things make it work anyway.\n\nThe first is that if you will settle for *nearly* at right angles instead of exactly, the space is enormously more generous. The number of directions you can pack in while keeping every pair within a few degrees of perpendicular is not 512; it is astronomically larger. You pay for it in a small amount of leakage between any two.\n\nThe second is that the features are rare. On any given fragment of text only a handful are switched on at all. Two directions that are not quite perpendicular only interfere when both are active, and they usually are not. The leakage stays below the level where it changes anything, and the step that zeroes out negative numbers cleans up much of what is left. This is why sparsity is not a nice property here but the load-bearing one — it is what makes the crowding survivable.\n\nPut those together and the block is doing something strange: a small dense set of numbers running a noisy imitation of a much larger, much sparser one.\n\nAnd now the broken neuron makes sense. If thousands of directions are scattered through 512 positions, every single position overlaps hundreds of them. Reading one position means reading hundreds of features at once, flattened onto a single line. Citations, dialogue, web requests and Korean were never a meaning. They were a cross-section.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": null,
+      "end": null
+     },
+     {
+      "id": "2",
+      "title": "Problem Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2"
+     },
+     {
+      "id": "2.1",
+      "title": "Features as a Decomposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-1"
+     },
+     {
+      "id": "2.1.1",
+      "title": "Superposition Hypothesis",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-1-1"
+     },
+     {
+      "id": "6.1",
+      "title": "Superposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-6-1"
+     },
+     {
+      "id": "7.1",
+      "title": "Theories of Superposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-7-1"
+     }
+    ],
+    "pages": []
+   }
+  },
+  {
+   "id": "the-fix-that-fails",
+   "heading": "The obvious fix does not work, and the reason is not what you would guess",
+   "body": "If crowding is the problem, uncrowd the model. Train it with pressure to keep almost everything switched off, so features cannot overlap. Accept a worse model in exchange for a readable one. The authors spent real time on [[activation-sparsity-training|exactly this]] and reported a conclusion stronger than “too expensive”: it is not viable, because you can remove the crowding entirely and the parts are *still* polysemantic.\n\nThe argument is small enough to do here. Imagine a single part that can only be on or off, and four mutually exclusive situations in the text — call them A, B, C and D, each equally likely, each of which would tell you exactly what comes next.\n\nIf the part commits to A alone and gets it right, then three times out of four it is silent and the model knows only “not A”, spreading its guess evenly over the other three. The cost of that, measured the way language models are measured, works out to about 0.82.\n\nIf instead the part fires on A *and* B and predicts a blend of the two, then when it fires the model has it down to two possibilities, and when it stays silent it has it down to the other two. That works out to about 0.69.\n\nLower is better, so the blurry part wins — with a single part, in a setting where crowding is not even possible.\n\nThe reason is in how the model is scored. It is rewarded for the probability it assigned to what actually came next, which means being half-right about two things beats being certain about one and ignorant of three. No change to the architecture removes that incentive, because the incentive is in the scoring, not the wiring. [[mse-loss-and-monosemanticity|Score a model a different way]] — on squared error, say — and the pull disappears; but language models are not scored that way.\n\nSo the model is going to be crowded. Leave it alone and take its numbers apart afterwards.",
+   "sources": {
+    "sections": [
+     {
+      "id": "2.3",
+      "title": "Why not use architectural approaches?",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-3"
+     },
+     {
+      "id": "6.2",
+      "title": "Disentanglement and Architectural Approaches",
+      "start": null,
+      "end": null,
+      "anchor": "s-6-2"
+     }
+    ],
+    "pages": []
+   }
+  },
+  {
+   "id": "taking-it-apart",
+   "heading": "Taking it apart afterwards, with something deliberately weak",
+   "body": "“Break a vector into a sparse combination drawn from a large set of building blocks” is an old problem with a name: [[dictionary-learning]]. The set of building blocks is the dictionary; here it is deliberately larger than the space it describes, which is called [[overcompleteness|being overcomplete]].\n\nIt also has a specific difficulty worth naming, because it is why any of this is surprising. Given the building blocks, working out which ones produced a particular 512-number vector means solving for a long list from a short one. There are infinitely many answers that fit. The only thing that singles one out is insisting the answer be mostly zeros — and finding the sparsest answer exactly is, in general, a problem no efficient method solves. This is [[compressed-sensing]]: sparse structure is easy to fold into a small space and genuinely hard to unfold.\n\nThe tool used here is a [[sparse-autoencoder]], and it is modest. It reads the 512 numbers, expands them into a much wider layer — 4,096 in the run studied most closely, up to 131,072 in the largest — then squeezes that back down to 512 and tries to reproduce what it read. It is trained on two penalties at once: how far the reproduction misses, and how many of the wide layer's units it had to switch on to get there. That second penalty, weighted by a [[l1-coefficient|dial the authors have to set by hand]], is what forces sparsity.\n\nThe units of the wide layer are the candidate features. Each one's [[feature-direction|direction]] is a column of the matrix that maps back down; how strongly it is switched on is its [[feature-activation|activation]].\n\nTwo choices about this tool matter more than they look.\n\nIt is scored on squared error, not the way the language model was scored — so it does not inherit the pull toward blurriness described above. Had it been scored the same way, the decomposition would have crowded its own dictionary and there would be nothing to read.\n\nAnd it is weak on purpose. Better dictionary-learning methods exist, and the worry about them is precise: the language model itself is certainly not solving a computationally intractable problem when it reads its own numbers downstream. A method cleverer than the model could extract structure the model cannot use, leaving you with a confident account of something that is not happening. This autoencoder is about as capable as one of the model's own blocks, which is a fair ceiling.\n\nThe engineering behind it is unglamorous and mattered: 8 billion vectors of training data, sampled without repeats; units that stop firing get [[dead-neurons|detected and restarted]] on whatever the dictionary currently reproduces worst; and no reliable way, still, to [[evaluating-dictionary-learning|tell a good dictionary from a bad one]] except by reading it.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": null,
+      "end": null
+     },
+     {
+      "id": "2",
+      "title": "Problem Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2"
+     },
+     {
+      "id": "2.1",
+      "title": "Features as a Decomposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-1"
+     },
+     {
+      "id": "2.1.1",
+      "title": "Superposition Hypothesis",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-1-1"
+     },
+     {
+      "id": "2.3",
+      "title": "Why not use architectural approaches?",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-3"
+     },
+     {
+      "id": "2.4",
+      "title": "Using Sparse Autoencoders To Find Good Decompositions",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-4"
+     },
+     {
+      "id": "2.5",
+      "title": "Sparse Autoencoder Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-5"
+     },
+     {
+      "id": "2.5.1",
+      "title": "How can we tell if the autoencoder is working?",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-5-1"
+     },
+     {
+      "id": "2.7",
+      "title": "Notation for Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-7"
+     },
+     {
+      "id": "4",
+      "title": "Global Analysis",
+      "start": null,
+      "end": null,
+      "anchor": "s-4"
+     },
+     {
+      "id": "5.2",
+      "title": "Feature Splitting",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-2"
+     },
+     {
+      "id": "5.3.1",
+      "title": "Comparing features between two one-layer transformers",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-3-1"
+     },
+     {
+      "id": "6",
+      "title": "Related Work",
+      "start": null,
+      "end": null,
+      "anchor": "s-6"
+     },
+     {
+      "id": "6.3",
+      "title": "Dictionary Learning and Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-6-3"
+     },
+     {
+      "id": "7.1",
+      "title": "Theories of Superposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-7-1"
+     },
+     {
+      "id": "8",
+      "title": "Comments & Replications",
+      "start": null,
+      "end": null,
+      "anchor": "s-8"
+     },
+     {
+      "id": "13",
+      "title": "Feature Ablations",
+      "start": null,
+      "end": null,
+      "anchor": "s-13"
+     },
+     {
+      "id": "15",
+      "title": "Feature Density Histograms",
+      "start": null,
+      "end": null,
+      "anchor": "s-15"
+     },
+     {
+      "id": "18",
+      "title": "Advice for Training Sparse Autoencoders: Autoencoder Architecture",
+      "start": null,
+      "end": null,
+      "anchor": "s-18"
+     },
+     {
+      "id": "18.3",
+      "title": "Neuron Resampling",
+      "start": null,
+      "end": null,
+      "anchor": "s-18-3"
+     },
+     {
+      "id": "19",
+      "title": "Advice for Training Sparse Autoencoders: Hyperparameter Selection",
+      "start": null,
+      "end": null,
+      "anchor": "s-19"
+     }
+    ],
+    "pages": []
+   }
+  },
+  {
+   "id": "not-invented",
+   "heading": "How you know the features are not invented",
+   "body": "This is the question the whole paper turns on, and the answer is the most satisfying thing in it.\n\nA [[sparse-autoencoder]] will always produce *something*. Ask it for 4,096 building blocks and it returns 4,096, whether or not the model has anything of the kind. Worse, the numbers it reads are shaped by two different things — what the model computes, and what the text was like in the first place. Patterns in the text can survive into those numbers untouched. So the features could in principle be facts about the training data wearing a costume, with nothing to do with the model's machinery.\n\nHere is what rules that out. **The autoencoder only ever sees the 512 numbers.** It never sees the matrix that carries them onward, never sees the final step that turns the running vector into a guess about the next fragment, never sees the score, never sees a single predicted token. Half the model is hidden from it completely.\n\nSo take a feature it found and go looking in the half it never saw. In this small model that second half is nearly a straight multiplication, so you can compute a feature's [[logit-weight|opinion about every possible next fragment]] in one step, with no experiment at all. You can also [[feature-ablation|erase the feature]] from a real pass through the model and watch which predictions get worse. And you can [[pinned-feature-sampling|hold it switched on artificially]] and see what the model writes.\n\nIf a feature discovered by reproducing inputs turns out to have a coherent, matching effect on outputs, that agreement is not something the fitting could have manufactured. **The thing being predicted was never fit.** Everything in the rest of the paper is that shape: fit on the input side, check on the output side.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": null,
+      "end": null
+     },
+     {
+      "id": "1",
+      "title": "Summary of Results",
+      "start": null,
+      "end": null,
+      "anchor": "s-1"
+     },
+     {
+      "id": "2",
+      "title": "Problem Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2"
+     },
+     {
+      "id": "2.1",
+      "title": "Features as a Decomposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-1"
+     },
+     {
+      "id": "2.3",
+      "title": "Why not use architectural approaches?",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-3"
+     },
+     {
+      "id": "2.4",
+      "title": "Using Sparse Autoencoders To Find Good Decompositions",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-4"
+     },
+     {
+      "id": "2.5",
+      "title": "Sparse Autoencoder Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-5"
+     },
+     {
+      "id": "2.8",
+      "title": "Interface for Exploring Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-8"
+     },
+     {
+      "id": "3.1.3",
+      "title": "Feature Downstream Effects",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-3"
+     },
+     {
+      "id": "3.1.4",
+      "title": "The feature is not a neuron",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-4"
+     },
+     {
+      "id": "3.1.5",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-5"
+     },
+     {
+      "id": "3.2.1",
+      "title": "Activation Specificity and Sensitivity",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-2-1"
+     },
+     {
+      "id": "3.2.2",
+      "title": "Feature Downstream Effect",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-2-2"
+     },
+     {
+      "id": "3.2.4",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-2-4"
+     },
+     {
+      "id": "3.3",
+      "title": "Base64 Feature",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3"
+     },
+     {
+      "id": "3.3.1",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3-1"
+     },
+     {
+      "id": "3.3.2",
+      "title": "The Feature Is Not A Neuron",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3-2"
+     },
+     {
+      "id": "3.4",
+      "title": "Hebrew Feature",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-4"
+     },
+     {
+      "id": "3.4.1",
+      "title": "The Feature Is Not A Neuron",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-4-1"
+     },
+     {
+      "id": "3.4.2",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-4-2"
+     },
+     {
+      "id": "4.1.3",
+      "title": "Automated Interpretability – Logit Weights",
+      "start": null,
+      "end": null,
+      "anchor": "s-4-1-3"
+     },
+     {
+      "id": "4.3",
+      "title": "Do features tell us about the model or the data?",
+      "start": null,
+      "end": null,
+      "anchor": "s-4-3"
+     },
+     {
+      "id": "5.1",
+      "title": "Feature Motifs",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-1"
+     },
+     {
+      "id": "5.2.1",
+      "title": "Example: Mathematics and Physics Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-2-1"
+     },
+     {
+      "id": "5.2.2",
+      "title": "Features which seemed like Bugs",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-2-2"
+     },
+     {
+      "id": "5.3.1",
+      "title": "Comparing features between two one-layer transformers",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-3-1"
+     },
+     {
+      "id": "7.1",
+      "title": "Theories of Superposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-7-1"
+     },
+     {
+      "id": "13",
+      "title": "Feature Ablations",
+      "start": null,
+      "end": null,
+      "anchor": "s-13"
+     },
+     {
+      "id": "18",
+      "title": "Advice for Training Sparse Autoencoders: Autoencoder Architecture",
+      "start": null,
+      "end": null,
+      "anchor": "s-18"
+     }
+    ],
+    "pages": []
+   }
+  },
+  {
+   "id": "one-feature",
+   "heading": "One feature, followed all the way through",
+   "body": "Take the [[arabic-script-feature|feature that fires on Arabic script]], and put it through the [[feature-evidence-template|five checks]] the paper applies to each of the ones it studies closely.\n\n**Is it specific?** You need a mechanical judge rather than a human reading examples, so the authors build a [[computational-proxy|scorer]] that asks how much more likely a piece of text is if it is Arabic than if it came from the data generally — for a script with its own character range, that is straightforward to compute. Against 40 million fragments: Arabic is 0.13% of the data overall, but 81% of where this feature is switched on — and 98% of where it is switched on strongly. It gets muddier at the faint end, which the authors [[weak-activation-hypotheses|offer three explanations for]] without picking one.\n\n**Is it complete?** No, and this is honest and important. It skips the Arabic definite article, and a different feature covers exactly those places. Several features share the work of representing Arabic, split partly along the seams of how characters get chopped into fragments. This one alone tracks the mechanical scorer at 0.74 on a scale where 1 is perfect agreement.\n\n**Does it do anything?** Three separate tests agree. Its opinion about next fragments concentrates on Arabic characters and, specifically, on the leading bytes that begin most Arabic characters when they are split — it has learned to bet on the byte-level mechanics of the script. Erase it from a real pass and every Arabic prediction gets worse while a shared punctuation mark gets better. And hold it on after a prompt that counts to ten, and the model writes Arabic.\n\n**Is it just a neuron in disguise?** No, [[feature-neuron-nonalignment|four ways over]]. Search every one of the 512 positions for Arabic in its strongest examples and exactly one turns up, with a single example. Write the feature's direction out across the 512 positions and its three largest components point the *wrong way*, with 27 positions contributing meaningfully. The single [[most-correlated-neuron|closest position]] responds to a mixture of non-English languages — Russian, Korean, others — with Arabic a sliver.\n\nThat last point has a detail the paper states twice and never joins up. The closest position to the Arabic feature and the closest position to the [[hebrew-feature]] are *the same position*. Two separate, causally confirmed features, both faint shadows on one shared part, [[features-invisible-in-the-neuron-basis|neither visible in it]]. Languages barely ever co-occur, which makes them ideal to stack in the same space — so that is exactly where you would expect the model to put them.\n\n**Does it happen twice?** Train a second model from a different random start and learn a second dictionary: the matching feature comes back at 0.91 agreement. Same for [[dna-feature|the DNA feature]] at 0.92 and [[base64-feature|the base64 one]] at 0.85. That reproducibility is [[universality]], and across the whole population, features match the other model's features far better than the models' own parts match each other.",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Summary of Results",
+      "start": null,
+      "end": null,
+      "anchor": "s-1"
+     },
+     {
+      "id": "3",
+      "title": "Detailed Investigations of Individual Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-3"
+     },
+     {
+      "id": "3.1",
+      "title": "Arabic Script Feature",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1"
+     },
+     {
+      "id": "3.1.1",
+      "title": "Activation Specificity",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-1"
+     },
+     {
+      "id": "3.1.2",
+      "title": "Activation Sensitivity",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-2"
+     },
+     {
+      "id": "3.1.3",
+      "title": "Feature Downstream Effects",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-3"
+     },
+     {
+      "id": "3.1.4",
+      "title": "The feature is not a neuron",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-4"
+     },
+     {
+      "id": "3.1.5",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-5"
+     },
+     {
+      "id": "3.2",
+      "title": "DNA Feature",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-2"
+     },
+     {
+      "id": "3.2.1",
+      "title": "Activation Specificity and Sensitivity",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-2-1"
+     },
+     {
+      "id": "3.2.2",
+      "title": "Feature Downstream Effect",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-2-2"
+     },
+     {
+      "id": "3.2.3",
+      "title": "The Feature Is Not A Neuron",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-2-3"
+     },
+     {
+      "id": "3.2.4",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-2-4"
+     },
+     {
+      "id": "3.3",
+      "title": "Base64 Feature",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3"
+     },
+     {
+      "id": "3.3.1",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3-1"
+     },
+     {
+      "id": "3.3.2",
+      "title": "The Feature Is Not A Neuron",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3-2"
+     },
+     {
+      "id": "3.4",
+      "title": "Hebrew Feature",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-4"
+     },
+     {
+      "id": "3.4.1",
+      "title": "The Feature Is Not A Neuron",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-4-1"
+     },
+     {
+      "id": "3.4.2",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-4-2"
+     },
+     {
+      "id": "5",
+      "title": "Phenomenology",
+      "start": null,
+      "end": null,
+      "anchor": "s-5"
+     },
+     {
+      "id": "5.3",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-3"
+     },
+     {
+      "id": "5.3.1",
+      "title": "Comparing features between two one-layer transformers",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-3-1"
+     },
+     {
+      "id": "5.3.2",
+      "title": "Comparing features with the literature",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-3-2"
+     },
+     {
+      "id": "12",
+      "title": "Feature Proxies",
+      "start": null,
+      "end": null,
+      "anchor": "s-12"
+     },
+     {
+      "id": "12.1",
+      "title": "Estimating $P(s)$",
+      "start": null,
+      "end": null,
+      "anchor": "s-12-1"
+     },
+     {
+      "id": "12.2",
+      "title": "Estimating $P(s|\\text{base64})$ (and other characters features)",
+      "start": null,
+      "end": null,
+      "anchor": "s-12-2"
+     },
+     {
+      "id": "12.3",
+      "title": "Estimating $P(s|\\text{Arabic})$ (and other scripts features)",
+      "start": null,
+      "end": null,
+      "anchor": "s-12-3"
+     }
+    ],
+    "pages": []
+   }
+  },
+  {
+   "id": "the-typical-one",
+   "heading": "Whether the typical feature is like that one",
+   "body": "Four features chosen for being easy to check prove that clean features *exist*. They do not prove the other four thousand are.\n\n[[manual-interpretability-scoring|A human scored a sample]] of features and parts against a rubric, with one methodological precaution that matters: rather than reading only each one's strongest examples — which is how this kind of analysis usually flatters itself, since a blurry part often looks clean at the top — the range was cut into eleven bands and sampled evenly. The median part scored **zero**, meaning no hypothesis could be formed about it at all. The median feature scored **12 out of 14**.\n\nThen the same question asked mechanically. [[automated-interpretability|Have a language model write an explanation]] of a feature from where it fires, then have a fresh copy use *only that explanation* to predict where it fires on text it has not seen. Features are predicted substantially better than parts. And the sharper version of the same test: take the explanation written from where a feature fires, and ask whether it predicts [[automated-logit-scoring|what that feature makes more likely to come next]]. Two halves of the model joined by nothing but the hypothesis. Guessing scores 50%; parts score 58%; features score **74%**.\n\nThe control that closes the loop is the simplest of the lot. Shuffle the numbers within each of the trained model's weight matrices — so every distribution is preserved exactly and only the structure is destroyed — and [[randomized-transformer|run the whole procedure again]]. What comes back is a pile of features that fire on one fragment each and, beyond that, nothing interpretable. The text supplies the trivial structure. Everything else came from training.\n\nHow much of the block is covered? Splice the autoencoder in, replacing the real numbers with its reproduction, and [[loss-recovered-by-features|79% of the block's contribution survives]] in the run studied most closely, 94.5% in the largest. The authors supply the caveats themselves, and the important one is that the yardstick is generous — it is measured against deleting the block entirely, which is a very low bar.",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Summary of Results",
+      "start": null,
+      "end": null,
+      "anchor": "s-1"
+     },
+     {
+      "id": "4.1.1",
+      "title": "Manual Human Analysis",
+      "start": null,
+      "end": null,
+      "anchor": "s-4-1-1"
+     },
+     {
+      "id": "4.1.2",
+      "title": "Automated Interpretability – Activations",
+      "start": null,
+      "end": null,
+      "anchor": "s-4-1-2"
+     },
+     {
+      "id": "4.1.3",
+      "title": "Automated Interpretability – Logit Weights",
+      "start": null,
+      "end": null,
+      "anchor": "s-4-1-3"
+     },
+     {
+      "id": "4.2",
+      "title": "How much of the model does our interpretation explain?",
+      "start": null,
+      "end": null,
+      "anchor": "s-4-2"
+     },
+     {
+      "id": "4.3",
+      "title": "Do features tell us about the model or the data?",
+      "start": null,
+      "end": null,
+      "anchor": "s-4-3"
+     },
+     {
+      "id": "6.3",
+      "title": "Dictionary Learning and Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-6-3"
+     },
+     {
+      "id": "7.3",
+      "title": "Future Work",
+      "start": null,
+      "end": null,
+      "anchor": "s-7-3"
+     },
+     {
+      "id": "19",
+      "title": "Advice for Training Sparse Autoencoders: Hyperparameter Selection",
+      "start": null,
+      "end": null,
+      "anchor": "s-19"
+     },
+     {
+      "id": "22",
+      "title": "Automated Interpretability",
+      "start": null,
+      "end": null,
+      "anchor": "s-22"
+     },
+     {
+      "id": "22.1",
+      "title": "Experimental Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-22-1"
+     },
+     {
+      "id": "22.2",
+      "title": "Randomized Transformer",
+      "start": null,
+      "end": null,
+      "anchor": "s-22-2"
+     }
+    ],
+    "pages": []
+   }
+  },
+  {
+   "id": "ask-for-more",
+   "heading": "Ask for more features and they split",
+   "body": "The second real idea in the paper, and the one that changes how you use the method.\n\nFeatures arrive in families. Ask for 512 and you get one [[base64-feature]]. Ask for 4,096 and it has become three. Ask for 16,384 and there are more still. This is [[feature-splitting]], and the reading the authors propose is that [[dictionary-learning]] never *drops* a feature when the budget is tight — it returns something covering roughly the same ground, less specifically. Widen the budget and it separates into its parts.\n\nWhich means the dictionary size is a resolution setting, not a number you have to guess right. A small dictionary gives you a blurry picture, not a wrong one.\n\nThe three-way split is worth following because of what falls out of it. One of the three fires on letters in base64, one on digits. Their opinions about the next fragment are nearly identical except in one respect: the digit one is markedly *less* keen to predict digits. That looks arbitrary until you remember how text is chopped up. Two digits sitting next to each other would have been merged into a single fragment. A lone digit therefore is real evidence that the next fragment is not a digit — even inside a string of random characters. The model has learned a fact about its own chopping scheme and built a feature on it, one of several such [[tokenization-artifacts-in-features|artifacts showing up as structure]].\n\nThe third has no obvious rule at all until you notice it responds to base64 that *decodes into readable text*, as opposed to base64 encoding arbitrary binary. The clue was a fragment that happens to decode to six spaces.\n\nSit with that. The model does not merely have a base64 feature. It distinguishes base64 carrying text from base64 carrying anything else. Nobody would have gone looking for that — which is the argument for finding features this way rather than hypothesising them and hunting.\n\nThe other thing worth seeing is that features chain together, [[finite-state-automata-features|not through the wiring but through the text]]. One feature raises the odds of certain fragments; one gets written; that fragment switches on the next feature. Four of them form a loop that emits valid HTML — open a tag, name it, close it, add whitespace, open the next. A different chain memorises the licence boilerplate that appears at the top of millions of source files. All of it inside a single block, 512 numbers wide.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": null,
+      "end": null
+     },
+     {
+      "id": "1",
+      "title": "Summary of Results",
+      "start": null,
+      "end": null,
+      "anchor": "s-1"
+     },
+     {
+      "id": "2.1",
+      "title": "Features as a Decomposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-1"
+     },
+     {
+      "id": "2.1.1",
+      "title": "Superposition Hypothesis",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-1-1"
+     },
+     {
+      "id": "2.4",
+      "title": "Using Sparse Autoencoders To Find Good Decompositions",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-4"
+     },
+     {
+      "id": "2.5",
+      "title": "Sparse Autoencoder Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-5"
+     },
+     {
+      "id": "3.3",
+      "title": "Base64 Feature",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3"
+     },
+     {
+      "id": "3.3.1",
+      "title": "Universality",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3-1"
+     },
+     {
+      "id": "3.3.2",
+      "title": "The Feature Is Not A Neuron",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-3-2"
+     },
+     {
+      "id": "5",
+      "title": "Phenomenology",
+      "start": null,
+      "end": null,
+      "anchor": "s-5"
+     },
+     {
+      "id": "5.2",
+      "title": "Feature Splitting",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-2"
+     },
+     {
+      "id": "5.2.1",
+      "title": "Example: Mathematics and Physics Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-2-1"
+     },
+     {
+      "id": "5.2.2",
+      "title": "Features which seemed like Bugs",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-2-2"
+     },
+     {
+      "id": "5.4",
+      "title": "\"Finite State Automata\"",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-4"
+     },
+     {
+      "id": "6",
+      "title": "Related Work",
+      "start": null,
+      "end": null,
+      "anchor": "s-6"
+     },
+     {
+      "id": "6.3",
+      "title": "Dictionary Learning and Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-6-3"
+     },
+     {
+      "id": "7.1",
+      "title": "Theories of Superposition",
+      "start": null,
+      "end": null,
+      "anchor": "s-7-1"
+     },
+     {
+      "id": "18",
+      "title": "Advice for Training Sparse Autoencoders: Autoencoder Architecture",
+      "start": null,
+      "end": null,
+      "anchor": "s-18"
+     }
+    ],
+    "pages": []
+   }
+  },
+  {
+   "id": "what-is-missing",
+   "heading": "What this does not settle",
+   "body": "Stated plainly, mostly by the authors.\n\nIt is [[one-layer-transformer-testbed|one block in a one-block model]], chosen because its outputs are almost a straight line from its features — which is what made every check in the paper cheap, and is also the reason the result might not carry to a deep model. Others have since found similar features in larger ones, which helps.\n\nIt covers only this kind of block. The attention machinery has all the same reasons to be crowded and no demonstrated treatment.\n\nNobody knows how much is left. Widening the dictionary keeps turning up [[feature-density|rarer and rarer features]] with no sign of running out, and 512 numbers were still yielding new ones at 131,072 dictionary entries. There is also a cluster of features that fire almost never and mean nothing — an [[ultralow-density-cluster|artifact of the training procedure]], reproduced independently, cause unknown.\n\nAnd there is still no reliable measure of whether a dictionary is a good one. That is the central methodological gap: the sparsity dial and the dictionary size are set by proxies and judgement. Scaling this to a large model is a serious engineering problem on top — the autoencoder for a single wide block of a frontier model would run to tens of billions of numbers, and might have to be trained on a large fraction of that model's own training text.\n\nWhat is left, then, is this. The plan was to break the model into parts, understand each, and put it back together. The parts are not the ones the architecture hands you. They are a larger, sparser set of directions, and you can recover them with a small network trained to reproduce what the block was already doing — and check your work in the half of the model that network never saw.\n\nThat is not an understanding of a language model. It is the thing you needed before you could start.",
+   "sources": {
+    "sections": [
+     {
+      "id": "2",
+      "title": "Problem Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2"
+     },
+     {
+      "id": "2.6",
+      "title": "The (one-layer) model we're studying",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-6"
+     },
+     {
+      "id": "4",
+      "title": "Global Analysis",
+      "start": null,
+      "end": null,
+      "anchor": "s-4"
+     },
+     {
+      "id": "5.1",
+      "title": "Feature Motifs",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-1"
+     },
+     {
+      "id": "5.2.1",
+      "title": "Example: Mathematics and Physics Features",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-2-1"
+     },
+     {
+      "id": "5.3.1",
+      "title": "Comparing features between two one-layer transformers",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-3-1"
+     },
+     {
+      "id": "8",
+      "title": "Comments & Replications",
+      "start": null,
+      "end": null,
+      "anchor": "s-8"
+     },
+     {
+      "id": "15",
+      "title": "Feature Density Histograms",
+      "start": null,
+      "end": null,
+      "anchor": "s-15"
+     },
+     {
+      "id": "16",
+      "title": "Transformer Training and Preprocessing",
+      "start": null,
+      "end": null,
+      "anchor": "s-16"
+     }
+    ],
+    "pages": []
+   }
+  }
+ ],
+ "sources": {
+  "sections": [
+   {
+    "id": "front",
+    "title": "Title & authors",
+    "start": null,
+    "end": null
+   },
+   {
+    "id": "1",
+    "title": "Summary of Results",
+    "start": null,
+    "end": null,
+    "anchor": "s-1"
+   },
+   {
+    "id": "2",
+    "title": "Problem Setup",
+    "start": null,
+    "end": null,
+    "anchor": "s-2"
+   },
+   {
+    "id": "2.1",
+    "title": "Features as a Decomposition",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-1"
+   },
+   {
+    "id": "2.1.1",
+    "title": "Superposition Hypothesis",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-1-1"
+   },
+   {
+    "id": "2.3",
+    "title": "Why not use architectural approaches?",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-3"
+   },
+   {
+    "id": "2.4",
+    "title": "Using Sparse Autoencoders To Find Good Decompositions",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-4"
+   },
+   {
+    "id": "2.5",
+    "title": "Sparse Autoencoder Setup",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-5"
+   },
+   {
+    "id": "2.5.1",
+    "title": "How can we tell if the autoencoder is working?",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-5-1"
+   },
+   {
+    "id": "2.6",
+    "title": "The (one-layer) model we're studying",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-6"
+   },
+   {
+    "id": "2.7",
+    "title": "Notation for Features",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-7"
+   },
+   {
+    "id": "2.8",
+    "title": "Interface for Exploring Features",
+    "start": null,
+    "end": null,
+    "anchor": "s-2-8"
+   },
+   {
+    "id": "3",
+    "title": "Detailed Investigations of Individual Features",
+    "start": null,
+    "end": null,
+    "anchor": "s-3"
+   },
+   {
+    "id": "3.1",
+    "title": "Arabic Script Feature",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-1"
+   },
+   {
+    "id": "3.1.1",
+    "title": "Activation Specificity",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-1-1"
+   },
+   {
+    "id": "3.1.2",
+    "title": "Activation Sensitivity",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-1-2"
+   },
+   {
+    "id": "3.1.3",
+    "title": "Feature Downstream Effects",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-1-3"
+   },
+   {
+    "id": "3.1.4",
+    "title": "The feature is not a neuron",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-1-4"
+   },
+   {
+    "id": "3.1.5",
+    "title": "Universality",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-1-5"
+   },
+   {
+    "id": "3.2",
+    "title": "DNA Feature",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-2"
+   },
+   {
+    "id": "3.2.1",
+    "title": "Activation Specificity and Sensitivity",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-2-1"
+   },
+   {
+    "id": "3.2.2",
+    "title": "Feature Downstream Effect",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-2-2"
+   },
+   {
+    "id": "3.2.3",
+    "title": "The Feature Is Not A Neuron",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-2-3"
+   },
+   {
+    "id": "3.2.4",
+    "title": "Universality",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-2-4"
+   },
+   {
+    "id": "3.3",
+    "title": "Base64 Feature",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-3"
+   },
+   {
+    "id": "3.3.1",
+    "title": "Universality",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-3-1"
+   },
+   {
+    "id": "3.3.2",
+    "title": "The Feature Is Not A Neuron",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-3-2"
+   },
+   {
+    "id": "3.4",
+    "title": "Hebrew Feature",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-4"
+   },
+   {
+    "id": "3.4.1",
+    "title": "The Feature Is Not A Neuron",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-4-1"
+   },
+   {
+    "id": "3.4.2",
+    "title": "Universality",
+    "start": null,
+    "end": null,
+    "anchor": "s-3-4-2"
+   },
+   {
+    "id": "4",
+    "title": "Global Analysis",
+    "start": null,
+    "end": null,
+    "anchor": "s-4"
+   },
+   {
+    "id": "4.1.1",
+    "title": "Manual Human Analysis",
+    "start": null,
+    "end": null,
+    "anchor": "s-4-1-1"
+   },
+   {
+    "id": "4.1.2",
+    "title": "Automated Interpretability – Activations",
+    "start": null,
+    "end": null,
+    "anchor": "s-4-1-2"
+   },
+   {
+    "id": "4.1.3",
+    "title": "Automated Interpretability – Logit Weights",
+    "start": null,
+    "end": null,
+    "anchor": "s-4-1-3"
+   },
+   {
+    "id": "4.2",
+    "title": "How much of the model does our interpretation explain?",
+    "start": null,
+    "end": null,
+    "anchor": "s-4-2"
+   },
+   {
+    "id": "4.3",
+    "title": "Do features tell us about the model or the data?",
+    "start": null,
+    "end": null,
+    "anchor": "s-4-3"
+   },
+   {
+    "id": "5",
+    "title": "Phenomenology",
+    "start": null,
+    "end": null,
+    "anchor": "s-5"
+   },
+   {
+    "id": "5.1",
+    "title": "Feature Motifs",
+    "start": null,
+    "end": null,
+    "anchor": "s-5-1"
+   },
+   {
+    "id": "5.2",
+    "title": "Feature Splitting",
+    "start": null,
+    "end": null,
+    "anchor": "s-5-2"
+   },
+   {
+    "id": "5.2.1",
+    "title": "Example: Mathematics and Physics Features",
+    "start": null,
+    "end": null,
+    "anchor": "s-5-2-1"
+   },
+   {
+    "id": "5.2.2",
+    "title": "Features which seemed like Bugs",
+    "start": null,
+    "end": null,
+    "anchor": "s-5-2-2"
+   },
+   {
+    "id": "5.3",
+    "title": "Universality",
+    "start": null,
+    "end": null,
+    "anchor": "s-5-3"
+   },
+   {
+    "id": "5.3.1",
+    "title": "Comparing features between two one-layer transformers",
+    "start": null,
+    "end": null,
+    "anchor": "s-5-3-1"
+   },
+   {
+    "id": "5.3.2",
+    "title": "Comparing features with the literature",
+    "start": null,
+    "end": null,
+    "anchor": "s-5-3-2"
+   },
+   {
+    "id": "5.4",
+    "title": "\"Finite State Automata\"",
+    "start": null,
+    "end": null,
+    "anchor": "s-5-4"
+   },
+   {
+    "id": "6",
+    "title": "Related Work",
+    "start": null,
+    "end": null,
+    "anchor": "s-6"
+   },
+   {
+    "id": "6.1",
+    "title": "Superposition",
+    "start": null,
+    "end": null,
+    "anchor": "s-6-1"
+   },
+   {
+    "id": "6.2",
+    "title": "Disentanglement and Architectural Approaches",
+    "start": null,
+    "end": null,
+    "anchor": "s-6-2"
+   },
+   {
+    "id": "6.3",
+    "title": "Dictionary Learning and Features",
+    "start": null,
+    "end": null,
+    "anchor": "s-6-3"
+   },
+   {
+    "id": "7.1",
+    "title": "Theories of Superposition",
+    "start": null,
+    "end": null,
+    "anchor": "s-7-1"
+   },
+   {
+    "id": "7.3",
+    "title": "Future Work",
+    "start": null,
+    "end": null,
+    "anchor": "s-7-3"
+   },
+   {
+    "id": "8",
+    "title": "Comments & Replications",
+    "start": null,
+    "end": null,
+    "anchor": "s-8"
+   },
+   {
+    "id": "12",
+    "title": "Feature Proxies",
+    "start": null,
+    "end": null,
+    "anchor": "s-12"
+   },
+   {
+    "id": "12.1",
+    "title": "Estimating $P(s)$",
+    "start": null,
+    "end": null,
+    "anchor": "s-12-1"
+   },
+   {
+    "id": "12.2",
+    "title": "Estimating $P(s|\\text{base64})$ (and other characters features)",
+    "start": null,
+    "end": null,
+    "anchor": "s-12-2"
+   },
+   {
+    "id": "12.3",
+    "title": "Estimating $P(s|\\text{Arabic})$ (and other scripts features)",
+    "start": null,
+    "end": null,
+    "anchor": "s-12-3"
+   },
+   {
+    "id": "13",
+    "title": "Feature Ablations",
+    "start": null,
+    "end": null,
+    "anchor": "s-13"
+   },
+   {
+    "id": "15",
+    "title": "Feature Density Histograms",
+    "start": null,
+    "end": null,
+    "anchor": "s-15"
+   },
+   {
+    "id": "16",
+    "title": "Transformer Training and Preprocessing",
+    "start": null,
+    "end": null,
+    "anchor": "s-16"
+   },
+   {
+    "id": "18",
+    "title": "Advice for Training Sparse Autoencoders: Autoencoder Architecture",
+    "start": null,
+    "end": null,
+    "anchor": "s-18"
+   },
+   {
+    "id": "18.3",
+    "title": "Neuron Resampling",
+    "start": null,
+    "end": null,
+    "anchor": "s-18-3"
+   },
+   {
+    "id": "19",
+    "title": "Advice for Training Sparse Autoencoders: Hyperparameter Selection",
+    "start": null,
+    "end": null,
+    "anchor": "s-19"
+   },
+   {
+    "id": "22",
+    "title": "Automated Interpretability",
+    "start": null,
+    "end": null,
+    "anchor": "s-22"
+   },
+   {
+    "id": "22.1",
+    "title": "Experimental Setup",
+    "start": null,
+    "end": null,
+    "anchor": "s-22-1"
+   },
+   {
+    "id": "22.2",
+    "title": "Randomized Transformer",
+    "start": null,
+    "end": null,
+    "anchor": "s-22-2"
+   }
+  ],
+  "pages": []
+ }
+}

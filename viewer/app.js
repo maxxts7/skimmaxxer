@@ -342,7 +342,10 @@ function renderNarrativeNode(node) {
     const deep = deepestUnder(node.id);
     if (deep) h += "Every chapter opens into a smaller narrative of its own — " + deep + " level" + (deep === 1 ? "" : "s") + " of zoom below this one. ";
     if (other && narData(other.key)) {
-      h += 'The other way through is <a href="' + other.href + '">' + esc((narData(other.key) || {}).title || other.label) + "</a>.";
+      h += 'The other way through is <a href="' + other.href + '">' + esc((narData(other.key) || {}).title || other.label) + "</a>. ";
+    }
+    if (mainPaper().summary) {
+      h += 'If this assumes too much, <a href="#/summary">the summary</a> assumes no machine learning at all.';
     }
     h += "</p>";
   } else {
@@ -383,6 +386,45 @@ function vNarrative() {
     return '<p class="eyebrow">Skimmaxxer</p><h1>' + esc(meta.title || MAIN_ID) + '</h1><div class="placeholder">The narrative has not been generated yet. Pipeline data loaded so far — ' + esc(counts) + ". Use the sidebar to browse what exists.</div>";
   }
   return renderNarrativeNode(rootNode());
+}
+
+/* ---------- summary ---------- */
+/* The one surface written below the paper's floor: no machine learning
+   assumed, everything it uses explained where it is used. Flat on purpose -
+   there is nothing under a beat to open, because a reader who wanted to open
+   things would be reading the story instead. */
+function vSummary() {
+  const sm = mainPaper().summary;
+  const meta = REG[MAIN_ID] || {};
+  if (!sm) return notFound("summary");
+  const beats = sm.beats || [];
+  let h = '<p class="eyebrow">Start here</p>';
+  h += "<h1>" + esc(sm.title || meta.title || MAIN_ID) + "</h1>";
+  h += '<p class="level-note">The paper in plain language, assuming no machine learning — ' +
+    "read top to bottom, nothing to open. " +
+    (mainPaper().narrative ? 'The fuller telling is <a href="#/">The story</a>.' : "") + "</p>";
+  h += sourceCite(sm.sources);
+  if (sm.lede) h += '<p class="lede">' + md(sm.lede, "summary:lede").replace(/^<p>|<\/p>$/g, "") + "</p>";
+  if (beats.length > 1) {
+    h += '<ol class="contents">' + beats.map((b, i) =>
+      '<li><a href="#/summary#b-' + esc(b.id) + '">' +
+      '<span class="c-n">' + (i + 1) + "</span>" +
+      '<span class="c-t">' + esc(b.heading) + "</span></a></li>").join("") + "</ol>";
+  }
+  beats.forEach((b, i) => {
+    h += '<section class="chapter beat" id="b-' + esc(b.id) + '">';
+    h += '<h2><span class="chapter-num">' + (i + 1) + "</span>" + esc(b.heading) + "</h2>";
+    h += md(b.body, "summary:" + b.id);
+    h += sourceCite(b.sources, { small: true, label: "Paper" });
+    h += "</section>";
+  });
+  if (mainPaper().narrative) {
+    h += '<a class="zoom" data-depth="1" href="#/">' +
+      '<span class="zoom-label">Read it properly</span>' +
+      '<span class="zoom-title">' + esc((mainPaper().narrative || {}).title || "The story") + "</span>" +
+      '<span class="zoom-sub">The same paper at full length, with every term linked</span></a>';
+  }
+  return h;
 }
 
 function vNarrativeNode(id) {
@@ -1496,6 +1538,7 @@ document.addEventListener("keydown", (ev) => {
 const ROUTES = [
   [/^#?\/?$/, () => vNarrative()],
   [/^#\/insights$/, () => (narData("insights") ? renderNarrativeNode(rootNodeOf("insights")) : notFound("insights"))],
+  [/^#\/summary(?:#.*)?$/, () => vSummary()],
   [/^#\/n\/([^#]+)(?:#.*)?$/, (m) => vNarrativeNode(m[1])],
   [/^#\/concept\/(.+)$/, (m) => vConcept(m[1])],
   [/^#\/theme\/(.+)$/, (m) => vTheme(m[1])],
@@ -1585,6 +1628,11 @@ function buildNav() {
   let h = '<a class="site-link" href="index.html">All papers</a>';
   h += '<p class="brand"><a href="#/">' + esc(meta.title || MAIN_ID) + "</a></p>";
   h += '<input id="search" type="search" placeholder="Find a concept…" autocomplete="off"><ul id="search-results"></ul>';
+
+  if (p.summary) {
+    h += '<p class="nav-label"><a href="#/summary">Summary</a></p>';
+    h += '<p class="nav-note">Plain language, no ML assumed</p>';
+  }
 
   const main = p.narrative;
   if (main) {
@@ -1700,6 +1748,10 @@ window.SKIM_QA = function () {
       if (c.childId && !p.narrative.nodes[c.childId]) report.missingLinks.push({ id: c.childId, where: "child:" + nid });
     });
   });
+  if (p.summary) {
+    scan(p.summary.lede, "summary:lede");
+    (p.summary.beats || []).forEach((b) => scan(b.body, "summary:" + b.id));
+  }
   (p.concepts || []).forEach((c) => {
     scan(c.explanation, "concept:" + c.id);
     (c.prerequisites || []).forEach((pr) => { if (!INDEX[pr]) report.unresolvedPrereqs.push({ concept: c.id, prereq: pr }); });

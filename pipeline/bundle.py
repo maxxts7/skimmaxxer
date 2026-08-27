@@ -8,7 +8,7 @@ import json
 import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PARTS = ["concepts", "items", "edges", "themes", "pages", "narrative", "insights", "reading"]
+PARTS = ["concepts", "items", "edges", "themes", "pages", "narrative", "insights", "summary", "reading"]
 
 
 def load(path, default):
@@ -29,7 +29,7 @@ def main():
         for part in PARTS:
             raw = load(os.path.join(pdir, "data", part + ".json"), None)
             if raw is None:
-                data[part] = None if part in ("narrative", "insights") else []
+                data[part] = None if part in ("narrative", "insights", "summary") else []
             elif isinstance(raw, dict) and part in raw:
                 data[part] = raw[part]          # e.g. {"concepts": [...]}
             else:

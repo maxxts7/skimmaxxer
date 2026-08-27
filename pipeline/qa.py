@@ -36,6 +36,7 @@ def main():
     pages = load(MAIN, "pages", [])
     narrative = load(MAIN, "narrative", None)
     insights = load(MAIN, "insights", None)
+    summary = load(MAIN, "summary", None)
 
     # every id the viewer can route to
     known = {c["id"] for c in concepts} | {i["id"] for i in items} | {t["id"] for t in themes}
@@ -127,6 +128,13 @@ def main():
             if e.get("strength") == "load-bearing" and e.get("id") not in used_i:
                 add("load-bearing-edge-not-in-insights", e.get("id", "?"))
 
+    # The Summary is flat, so there is no child pointer to dangle - only its
+    # links, which have to resolve like everything else.
+    if summary:
+        scan(summary.get("lede"), "summary:lede")
+        for b in summary.get("beats", []):
+            scan(b.get("body"), "summary:" + b.get("id", "?"))
+
     # 2. concept tree integrity
     ids = {c["id"] for c in concepts}
     by_id = {c["id"]: c for c in concepts}
@@ -188,7 +196,8 @@ def main():
     print(f"data: {len(concepts)} concepts, {len(items)} items, {len(edges)} edges, "
           f"{len(themes)} themes, {len(pages)} pages, "
           f"narrative={'yes' if narrative else 'no'} ({nnodes} sub-narratives, depth {ndepth})"
-          + (f", insights=yes ({len(insights.get('nodes', {}))} sub-narratives)" if insights else ""))
+          + (f", insights=yes ({len(insights.get('nodes', {}))} sub-narratives)" if insights else "")
+          + (f", summary=yes ({len(summary.get('beats', []))} beats)" if summary else ""))
     print(f"routable ids: {len(known)} (incl. {len(register) - 1} cited papers)")
     if not problems:
         print("\nQUALITY GATE: clean")

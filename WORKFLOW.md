@@ -6,7 +6,8 @@ How a run goes, in three pages. [README.md](README.md) is the same story in one;
 The whole flow in a breath: **pull the figures and text out of the paper, run agents over the text to
 extract the concepts, scope any cited paper the concepts lean on, find the edges between everything
 and group it into themes. Then fan out to write the concept and theme pages, write the main story,
-fan out again to grow that story downward, and once more for a second read built on the edges.**
+fan out again to grow that story downward, once more for a second read built on the edges, and one
+last page that says the whole thing plainly.**
 Everything below is that sentence, slowed down.
 
 ## Before anything: set the floor
@@ -19,6 +20,10 @@ gradient descent; set it too high and the promise breaks.
 Write it as a sentence naming both sides — what to assume, and what to explain anyway. "An ML
 practitioner" is not enough: a practitioner knows softmax but probably could not tell you how BLEU
 is computed.
+
+The floor binds every surface but one. The Summary is written *below* it — assuming no machine
+learning and explaining what it uses in passing — which is why the concepts marked as covered by
+the floor are handed to that stage as its syllabus rather than as permission.
 
 Four smaller choices come with it, all changeable later: which lenses to look for relationships
 through, how deep the narrative may recurse, how slow the prose should read, and how far to follow
@@ -46,6 +51,7 @@ matters more than it sounds like it does.
 | 5 | Pages | 1 per page | A page for every theme, edge-theme and major concept |
 | 6 | Narrative | 1, then a fan-out per round | The root story, then recursive expansion until branches bottom out |
 | 6e | Insights | 1 + fan-out | The second read, spined on the edges |
+| 6f | Summary | 1 | One flat page in plain language, written below the floor |
 | 7 | Quality gate | scripted | Every reference resolves; coverage; no duplicate ids |
 
 Three scripted passes run whenever content changes — **citations** (attach a PDF page reference to

@@ -135,7 +135,7 @@ def fix(text, self_id, where, log, owner=MAIN):
 
 
 log = []
-changed = {"concepts": 0, "items": 0, "pages": 0, "narrative": 0}
+changed = {"concepts": 0, "items": 0, "pages": 0, "narrative": 0, "summary": 0}
 
 for c in concepts:
     n = fix(c.get("explanation"), c["id"], "concept:" + c["id"], log)
@@ -181,6 +181,16 @@ do(nar, "root")
 for nid, node in nar["nodes"].items():
     do(node, nid)
 
+smry_path = os.path.join(D, "summary.json")
+smry = None
+if os.path.exists(smry_path):
+    smry = json.load(open(smry_path, encoding="utf-8"))
+    for b in smry.get("beats", []):
+        n = fix(b["body"], None, "summary:" + b["id"], log)
+        if n != b["body"]:
+            b["body"] = n
+            changed["summary"] += 1
+
 print(f"aliases in play: {len(ALIAS)}")
 print(f"unlinked mentions found: {len(log)}")
 for k, v in changed.items():
@@ -200,6 +210,8 @@ if WRITE:
     json.dump({"items": items}, open(os.path.join(D, "items.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump(pages_raw, open(os.path.join(D, "pages.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump(nar, open(os.path.join(D, "narrative.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    if smry is not None:
+        json.dump(smry, open(smry_path, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     print("\nWRITTEN")
 else:
     print("\n(dry run - pass --write to apply)")

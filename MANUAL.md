@@ -59,7 +59,7 @@ Non-negotiable. If one fails, the design has failed rather than degraded.
 
 ## 4. What a paper holds, and where each part comes from
 
-Eight kinds of object. Ids are globally unique kebab-case slugs and are the only means of reference
+Nine kinds of object. Ids are globally unique kebab-case slugs and are the only means of reference
 — there are no positional or index-based links anywhere in the data.
 
 ### The paper and the register
@@ -154,6 +154,18 @@ Depth is adaptive: a branch expands only while it holds distinct sub-stories.
 Produced by: one agent for the root and a fan-out per round, stage 6; the same shape again for the
 second read at 6e, where each chapter also declares the edges it draws on.
 
+### Summary
+
+One flat document per paper: a title, a lede and six to ten beats, each with an id, a heading and a
+body. No tree, no children, nothing to open — a beat is a step in one argument, not a chapter.
+
+The one surface written **below** the floor. Every other surface assumes the floor and explains
+upward from it; this one assumes no machine learning and explains what it uses at the point of use,
+without dropping the technical detail that makes the argument worth following. It links out at the
+same density as the story, so a reader who wants the full treatment of any term is one click away.
+
+Produced by: one agent, stage 6f. Its beats derive sources like a narrative chapter does.
+
 ### Source reference
 
 Attached to every surface: the sections and PDF pages the material came from, or a paper and a note
@@ -186,6 +198,7 @@ Theme            Edge-theme
             │
    Story    ── chapters ── child ──> Narrative node ──> ...
    Insights ── chapters ── edges ──> Edge
+   Summary  ── beats    (flat; links into Concept and Item)
 ```
 
 Two rules govern the arrows:
@@ -464,6 +477,24 @@ strands expand the same way as the main story. Each chapter declares the edges i
 both how the app renders them beneath it and how coverage is checked. The agent also reports which
 relationships it left unused, and that note is shown to the reader.
 
+### 6f. Summary — one agent
+
+One flat page, written below the floor, for a reader the rest of the site would turn away. It covers
+the same span as the story and in the same order, but assumes no machine learning: what it needs, it
+explains where it uses it.
+
+The brief inverts the floor. Every other stage is handed the floor as permission — assume this, do
+not spend words on it. This one is handed the same list as a syllabus: these are the terms the rest
+of the site may lean on, so if you use one here, explain it. `summary_brief.py` leads with exactly
+the concepts marked `floor: true`.
+
+The failure to watch for is drift back up to the floor, which shows as a summary that has quietly
+become a shorter story. `save_summary.py` reports the two symptoms — length, and any floor concept
+that got linked rather than explained — without enforcing either.
+
+**Your check:** read the first beat cold. If it opens by naming something it does not explain, the
+stage has drifted and the fix is in the prompt, not the prose.
+
 ### 7. Quality gate — scripted
 
 §8 lists what it checks. Run it after every stage, not just at the end: a clean gate at each step
@@ -522,6 +553,11 @@ is where an attentive reader learns what the paper did *not* prove.
 **Narrative chapter** — works as continuous prose and as a hub. Every loaded term links. A child
 node must add resolution; a chapter that restates its parent in different words is a defect.
 
+**Summary beat** — one step of the argument, readable by someone with no machine learning at all.
+Explains what it uses at the point of use; keeps the numbers and the mechanism rather than trading
+them away for simplicity. Never assumes an earlier beat was skipped, never sends the reader away to
+be able to continue.
+
 **Insights chapter** — one insight, visible only across several relationships. Carries the raw edges
 beneath it and reports what it left unused.
 
@@ -551,6 +587,7 @@ Three moves, and they must feel distinct.
 | **Zoom out** | Back up the tree | Breadcrumb, and an explicit way back out |
 | **Step sideways** | Same depth, different object | A link into a concept, item or theme |
 | **Switch read** | Same material, different order | Between the two narratives |
+| **Drop below** | Same material, less assumed | The Summary, from the story or the sidebar |
 
 Every narrative node is its own page with a breadcrumb to the root; depth is shown, not implied. The
 two narratives cross-link where they cover the same ground, computed from shared links. A hover on
@@ -632,6 +669,8 @@ Machine-checkable, all must pass:
 - Every item has a walkthrough and a non-empty term list.
 - Every non-floor, parentless concept belongs to exactly one theme.
 - Every edge belongs to an edge-theme, and every load-bearing edge appears in the second read.
+- Every link in the Summary resolves. Its length and its use of floor terms are reported, not enforced —
+  writing below the floor is a judgement the gate cannot make.
 - Every surface carries a source reference.
 - After any prose rewrite: no link id and no number has disappeared.
 
