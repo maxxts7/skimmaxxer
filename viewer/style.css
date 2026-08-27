@@ -531,6 +531,44 @@ details.sub-concept > .body { padding: 12px 15px 4px; font-size: 15.5px; }
 .figure-wrap img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 .fig-note { font: 12.5px var(--sans); color: var(--ink-faint); margin: 0 0 26px; line-height: 1.6; }
 
+/* The way out of a figure to the shape it is drawn in. Built like the zoom
+   link, quieter: it is an offer of help, not the next step of the story. */
+.chart-link {
+  display: block;
+  margin: 22px 0 10px;
+  padding: 13px 16px;
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.chart-link:hover { border-color: var(--accent); transform: translateY(-1px); }
+.chart-link-label {
+  display: block;
+  font: 600 10px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+}
+.chart-link-name {
+  display: block;
+  font: 650 15px var(--sans);
+  color: var(--accent-text);
+  margin-top: 5px;
+  letter-spacing: -0.01em;
+}
+
+/* Not the authors' caption - the sentence their article leads into the figure
+   with. Said plainly, because a quote mark would claim otherwise. */
+.lead-in-label {
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 0 8px;
+}
+
 table.kv {
   width: 100%;
   border-collapse: collapse;
@@ -843,3 +881,347 @@ details.edge-drawer .edge-row:last-child { border-bottom: none; }
   color: var(--ink-soft);
 }
 .coverage-note p:last-child { margin-bottom: 0; }
+
+/* ---------- the reader ---------- */
+/* The PDF as printed, with the concepts of the block you are on beside it.
+   On this route the site rail steps aside: the page needs the width, and a
+   back link is the only navigation a reader wants while reading.
+
+   Nothing is drawn over the paper while you read. The column names the block
+   it is describing by quoting it; the page marks only under the pointer and
+   when pinned, where a mark is an affordance rather than a label. */
+
+body.reader-mode { --top-h: 47px; }
+body.reader-mode #sidebar,
+body.reader-mode #menu-btn { display: none; }
+body.reader-mode .content { max-width: none; margin: 0; padding: 0; }
+
+.reader-top {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px clamp(12px, 3vw, 28px);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(8px);
+  font-family: var(--sans);
+}
+.reader-back { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-decoration: none; }
+.reader-back:hover { color: var(--accent-text); }
+.reader-count { font: 500 11px var(--mono); color: var(--ink-faint); }
+
+.zoom { display: inline-flex; align-items: center; gap: 4px; }
+.zoom button {
+  width: 25px;
+  height: 25px;
+  font: 500 14px var(--sans);
+  line-height: 1;
+  color: var(--ink-soft);
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.zoom button:hover:not(:disabled) { color: var(--accent-text); border-color: var(--accent); }
+.zoom button:disabled { opacity: 0.35; cursor: default; }
+.zoom span { min-width: 38px; text-align: center; font: 500 11px var(--mono); color: var(--ink-faint); }
+
+/* The column takes its width from the paper when a page is open in it. */
+.reader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 336px;
+  align-items: start;
+  transition: grid-template-columns 0.24s ease;
+}
+.reader.wide { grid-template-columns: minmax(0, 1fr) min(52vw, 620px); }
+
+.pdf-pane { overflow-x: auto; padding: 24px clamp(10px, 2.5vw, 36px) 120px; }
+.pdf-wait { padding: 60px 24px; font-family: var(--sans); font-size: 14px; color: var(--ink-faint); }
+.pdf-page {
+  position: relative;
+  width: var(--pdf-w, 100%);
+  margin: 0 auto 18px;
+  scroll-margin-top: calc(var(--top-h) + 10px);
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: var(--shadow);
+}
+.pdf-page canvas { display: block; width: 100%; height: auto; border-radius: 2px; }
+.pdf-page { user-select: none; }
+
+/* Paper is white. At night it is still paper, just not a floodlight - dimmed
+   rather than inverted, so figures and colour plots stay truthful. */
+:root[data-theme="dark"] .pdf-page { filter: brightness(0.84); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .pdf-page { filter: brightness(0.84); }
+}
+
+/* Blocks are drawn from fractions of the page, so they hold at any zoom. They
+   are hit targets and nothing else: no fill, no rule, nothing over the paper in
+   any state. The cursor says a block can be clicked, and the column says which
+   block it is on and whether it is pinned. */
+.rgn { position: absolute; cursor: pointer; }
+.rgn.r-heading { cursor: default; }
+
+/* A paper published as a web page is shown as its authors published it, from
+   our own copy of it. Same rule as the PDF: nothing of ours over their page.
+   The marks under the pointer and on the pinned block are injected into the
+   frame itself, since that is the only document that can carry them. */
+.paper-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: var(--shadow);
+}
+:root[data-theme="dark"] .paper-frame { filter: brightness(0.84); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .paper-frame { filter: brightness(0.84); }
+}
+
+.beside {
+  position: sticky;
+  top: var(--top-h);
+  height: calc(100vh - var(--top-h));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 30px 48px;
+  border-left: 1px solid var(--line);
+  background: var(--bg-sidebar, var(--bg-sunken));
+  font-family: var(--sans);
+}
+.beside-bar { display: none; }
+.beside-label {
+  margin: 24px 0 8px;
+  font: 600 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+/* Which block the column is about, said rather than drawn. */
+.beside-quote {
+  margin: 0 0 18px;
+  padding-left: 11px;
+  border-left: 2px solid var(--line);
+  font: italic 12.5px/1.5 var(--serif);
+  color: var(--ink-faint);
+}
+.beside-c {
+  padding: 12px 0 14px;
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+}
+.beside-c:first-of-type { border-top: none; padding-top: 2px; }
+.beside-name {
+  display: block;
+  font: 600 13.5px var(--sans);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.beside-c:hover .beside-name { color: var(--accent-text); }
+.beside-sum { margin: 5px 0 0; font: 13.5px/1.62 var(--serif); color: var(--ink-soft); }
+.beside-c.small { padding: 7px 0; border-top: none; }
+.beside-empty { font: 13px/1.6 var(--serif); color: var(--ink-faint); }
+.beside-fold { margin-top: 16px; border-top: 1px solid var(--line-soft); }
+.beside-fold summary {
+  padding: 11px 0;
+  font: 500 11.5px var(--sans);
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.beside-fold summary:hover { color: var(--accent-text); }
+.beside-unpin {
+  margin-top: 20px;
+  padding: 5px 12px;
+  font: 500 11.5px var(--sans);
+  color: var(--ink-soft);
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.beside-unpin:hover { color: var(--accent-text); border-color: var(--accent); }
+
+/* A concept opened in the column. Links inside it stay inside it, so the
+   column grows a way back rather than the reader losing the paper. */
+.col-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -30px;
+  padding: 14px 30px 12px;
+  background: var(--bg-sidebar, var(--bg-sunken));
+  border-bottom: 1px solid var(--line-soft);
+}
+.col-back {
+  font: 600 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.col-back:hover { color: var(--accent-text); }
+body.reader-mode .beside .content { max-width: none; padding: 22px 0 40px; }
+.col-out { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line-soft); }
+.col-out-link { font: 500 12.5px var(--sans); color: var(--accent-text); text-decoration: none; }
+
+/* Narrow: the paper takes the width and the concepts become a sheet. */
+@media (max-width: 900px) {
+  .reader, .reader.wide { grid-template-columns: 1fr; }
+  .pdf-pane { padding-bottom: 92px; }
+  .beside {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    max-height: 68vh;
+    padding: 0;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    box-shadow: var(--shadow-lift);
+    transform: translateY(calc(100% - 46px));
+    transition: transform 0.2s ease;
+  }
+  .beside.open { transform: none; }
+  .beside-bar {
+    display: block;
+    width: 100%;
+    padding: 14px 20px;
+    font: 600 12px var(--sans);
+    text-align: left;
+    color: var(--ink);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .beside-bar::after { content: "\25B4"; float: right; color: var(--ink-faint); }
+  .beside.open .beside-bar::after { content: "\25BE"; }
+  .beside-body { overflow-y: auto; padding: 0 20px 24px; }
+  .beside-label { margin-top: 4px; }
+  .col-head { margin: 0 -20px; padding: 12px 20px 10px; }
+  .beside-unpin { margin: 0 20px 20px; }
+}
+
+/* ---------- find in the paper ---------- */
+/* The paper cannot be selected, so the browser's find has nothing to catch.
+   This searches the same block text the column is keyed to, which means a hit
+   lands somewhere that can explain itself. */
+
+.find-wrap { position: relative; margin-left: auto; }
+#find {
+  width: 190px;
+  padding: 5px 11px;
+  font: 12.5px var(--sans);
+  color: var(--ink);
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  transition: width 0.18s ease, border-color 0.15s ease;
+}
+#find::placeholder { color: var(--ink-faint); }
+#find:focus { width: 260px; border-color: var(--accent); }
+
+.find-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(430px, 82vw);
+  max-height: min(60vh, 460px);
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lift);
+}
+.find-count,
+.find-none {
+  margin: 6px 8px 8px;
+  font: 600 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.find-none { text-transform: none; letter-spacing: 0; font: 13px var(--serif); }
+.find-row {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.find-row:hover { background: var(--accent-soft); }
+.find-sec {
+  display: block;
+  margin-bottom: 3px;
+  font: 500 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+.find-snip { display: block; font: 13px/1.5 var(--serif); color: var(--ink-soft); }
+.find-snip mark { background: var(--accent-soft); color: var(--ink); border-radius: 2px; padding: 0 1px; }
+
+/* ---------- a page opened in the column ---------- */
+/* The same renderer the standalone page uses, at a scale that belongs in a
+   column: the title labels what you opened rather than heading a magazine. */
+
+body.reader-mode .beside .content { max-width: none; padding: 0; }
+.col-body {
+  max-width: 33rem;
+  margin: 0 auto;
+  padding: 26px 0 56px;
+  font-size: 15px;
+  line-height: 1.68;
+}
+.col-body .eyebrow {
+  margin: 0 0 9px;
+  font: 600 10px var(--mono);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.col-body h1 { font-size: 24px; font-weight: 680; letter-spacing: -0.014em; margin: 0 0 13px; }
+.col-body h2 { font-size: 16.5px; margin: 36px 0 10px; letter-spacing: -0.008em; }
+.col-body h3 { font-size: 15px; margin: 28px 0 8px; letter-spacing: 0; }
+.col-body h4 { font-size: 14px; margin: 24px 0 6px; }
+.col-body .lede { font-size: 16.5px; line-height: 1.6; margin: 0 0 22px; }
+.col-body p { margin: 0 0 1.05em; }
+.col-body ul, .col-body ol { padding-left: 21px; margin-bottom: 1.05em; }
+.col-body li { margin-bottom: 5px; }
+.col-body blockquote { font-size: 13.5px; padding: 1px 0 1px 14px; margin: 0 0 20px; }
+.col-body .chips { gap: 5px; margin: 0 0 20px; }
+.col-body .chip { font-size: 10.5px; padding: 2px 8px; }
+.col-body .callout { padding: 12px 15px; border-radius: 9px; margin: 0 0 20px; font-size: 14.5px; }
+.col-body .callout .eyebrow { font-size: 10px; margin-bottom: 4px; }
+.col-body .figure-wrap { padding: 12px; border-radius: 10px; margin-bottom: 8px; }
+.col-body .fig-note { font-size: 11.5px; margin-bottom: 24px; }
+.col-body details.sub-concept { border-radius: 9px; }
+.col-body details.sub-concept > summary { font-size: 13.5px; padding: 9px 13px; }
+.col-body details.sub-concept > .body { font-size: 14px; padding: 10px 13px 2px; }
+.col-body .source-cite { font-size: 11.5px; }
+.col-body .edge-row { font-size: 14px; }
+.col-body table.kv { font-size: 13px; }
+.col-body hr { margin: 26px 0; }
+.col-body .katex-display > .katex { font-size: 1em; }
+
+@media (max-width: 900px) {
+  .find-wrap { order: 3; width: 100%; margin: 6px 0 0; }
+  #find, #find:focus { width: 100%; }
+  .find-results { width: 100%; }
+  .col-body { padding: 20px 0 40px; }
+}

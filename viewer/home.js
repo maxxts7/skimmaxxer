@@ -91,6 +91,16 @@ function renderScale(fullIds) {
     "</ol></div>";
 }
 
+/* Where a paper was published, named as its readers would name it. Papers
+   arrive from arXiv, from a lab's own site, and from research write-ups that
+   were never PDFs at all, so the label is read off the address rather than
+   assumed. */
+function sourceName(url) {
+  const host = (String(url).match(/^https?:\/\/([^/]+)/i) || [, ""])[1].replace(/^(www|cdn)\./, "");
+  if (/arxiv\.org$/i.test(host)) return "arXiv";
+  return host || "source";
+}
+
 /* ---------- a paper read in full ---------- */
 
 function fullPanel(pid) {
@@ -104,7 +114,8 @@ function fullPanel(pid) {
 
   h += '<header class="paper-head">';
   h += '<p class="paper-id">' + esc(pid) +
-    (r.source ? ' <a class="paper-src" href="' + esc(r.source) + '" target="_blank" rel="noopener">arXiv</a>' : "") +
+    (r.source ? ' <a class="paper-src" href="' + esc(r.source) + '" target="_blank" rel="noopener">' +
+      esc(sourceName(r.source)) + "</a>" : "") +
     "</p>";
   h += '<h3 class="paper-title"><a href="' + readHref(pid) + '">' + esc(r.title || pid) + "</a></h3>";
   h += '<p class="paper-authors">' + esc(r.authors || "") + "</p>";
@@ -124,6 +135,12 @@ function fullPanel(pid) {
 
   h += '<nav class="paper-doors">';
   h += '<a class="door door-main" href="' + readHref(pid) + '">Start reading</a>';
+  /* Two ways in, and they are different things: the retelling, or the paper as
+     printed with its concepts alongside. The second door exists only once
+     ingest has recorded where the text sits on the page. */
+  if ((p.regions || []).length) {
+    h += '<a class="door" href="' + readHref(pid, "#/pdf") + '">The paper</a>';
+  }
   h += '<span class="door-note">' + plural(c.edges, "connection") + " · " +
     plural(c.pages, "written page") + "</span>";
   h += "</nav>";
@@ -415,7 +432,7 @@ function render() {
   h += "<h1>Read a paper at the depth you want.</h1>";
   h += '<p class="lede">Every paper here has been taken apart into concepts, figures that stand on ' +
     'their own, and a story that reopens at higher resolution as far down as you care to go. ' +
-    'Every claim carries the page of the PDF it came from.</p>';
+    'Every claim carries the place in the paper it came from.</p>';
   h += '<p class="tally">' + [
     plural(ids.length, "paper"),
     plural(full.length, "read in full", "read in full"),
@@ -452,11 +469,11 @@ function render() {
 
   h += '<footer class="site-foot">' +
     '<p class="foot-label">LLM policy</p>' +
-    '<p>Every page here is generated from the PDFs of research papers by a large language model — ' +
+    '<p>Every page here is generated from research papers by a large language model — ' +
     'the concepts, the walkthroughs of each figure, the narrative and its levels. None of it is ' +
     'written by hand, and none of it is peer-reviewed.</p>' +
     '<p>What that buys you is traceability rather than authority: every claim carries a link to the ' +
-    'page of the PDF it was drawn from, so anything here can be checked against the paper itself. ' +
+    'place in the paper it was drawn from, so anything here can be checked against the paper itself. ' +
     'Read it as a way into a paper, not as a substitute for reading one.</p>' +
     "</footer>";
 
