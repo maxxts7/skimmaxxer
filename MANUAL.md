@@ -159,10 +159,11 @@ second read at 6e, where each chapter also declares the edges it draws on.
 One flat document per paper: a title, a lede and six to ten beats, each with an id, a heading and a
 body. No tree, no children, nothing to open — a beat is a step in one argument, not a chapter.
 
-The one surface written **below** the floor. Every other surface assumes the floor and explains
-upward from it; this one assumes no machine learning and explains what it uses at the point of use,
-without dropping the technical detail that makes the argument worth following. It links out at the
-same density as the story, so a reader who wants the full treatment of any term is one click away.
+Sits at the same floor as every other surface — it names a neuron a neuron and an MLP an MLP. What
+makes it a summary is **shape**: the whole argument end to end in one sitting, the line of reasoning
+only, without the figures or the evidence apparatus the story carries. It glosses a term in a clause
+where the argument leans on it, and links out at the same density as the story, so the full treatment
+of anything is one click away.
 
 Produced by: one agent, stage 6f. Its beats derive sources like a narrative chapter does.
 
@@ -479,21 +480,22 @@ relationships it left unused, and that note is shown to the reader.
 
 ### 6f. Summary — one agent
 
-One flat page, written below the floor, for a reader the rest of the site would turn away. It covers
-the same span as the story and in the same order, but assumes no machine learning: what it needs, it
-explains where it uses it.
+One flat page carrying the whole argument, covering the same span as the story and in the same
+order, read in one sitting. Same floor as every other stage: the brief leads with the story's own
+chapters, because covering that span is the thing to get right, and lists the floor concepts only so
+the writer knows which terms come for free.
 
-The brief inverts the floor. Every other stage is handed the floor as permission — assume this, do
-not spend words on it. This one is handed the same list as a syllabus: these are the terms the rest
-of the site may lean on, so if you use one here, explain it. `summary_brief.py` leads with exactly
-the concepts marked `floor: true`.
+Written **below** the floor first, and that was wrong. Refusing to say "ReLU" or "token" does not
+lower the barrier, it removes the words the reader would need to go anywhere else on the site — and
+the prose reads as condescension besides. The rule that came out of it: name the thing and gloss it
+in a clause; never paraphrase the vocabulary away.
 
-The failure to watch for is drift back up to the floor, which shows as a summary that has quietly
-become a shorter story. `save_summary.py` reports the two symptoms — length, and any floor concept
-that got linked rather than explained — without enforcing either.
+The failure to watch for is the summary becoming a shorter story — the same span at lower resolution,
+which is the one thing the site already has. `save_summary.py` reports length, beat shape, and how
+much assumed machinery it leans on, enforcing none of it.
 
-**Your check:** read the first beat cold. If it opens by naming something it does not explain, the
-stage has drifted and the fix is in the prompt, not the prose.
+**Your check:** read it against the story's chapter list. Every chapter should be somewhere in it,
+and nothing in it should need a chapter to make sense.
 
 ### 7. Quality gate — scripted
 
@@ -553,10 +555,9 @@ is where an attentive reader learns what the paper did *not* prove.
 **Narrative chapter** — works as continuous prose and as a hub. Every loaded term links. A child
 node must add resolution; a chapter that restates its parent in different words is a defect.
 
-**Summary beat** — one step of the argument, readable by someone with no machine learning at all.
-Explains what it uses at the point of use; keeps the numbers and the mechanism rather than trading
-them away for simplicity. Never assumes an earlier beat was skipped, never sends the reader away to
-be able to continue.
+**Summary beat** — one step of the argument, not a topic. Uses the real vocabulary and glosses a
+term in a clause where the argument leans on it; keeps the numbers and the mechanism rather than
+trading them away for simplicity. Never sends the reader away in order to continue.
 
 **Insights chapter** — one insight, visible only across several relationships. Carries the raw edges
 beneath it and reports what it left unused.
@@ -587,7 +588,7 @@ Three moves, and they must feel distinct.
 | **Zoom out** | Back up the tree | Breadcrumb, and an explicit way back out |
 | **Step sideways** | Same depth, different object | A link into a concept, item or theme |
 | **Switch read** | Same material, different order | Between the two narratives |
-| **Drop below** | Same material, less assumed | The Summary, from the story or the sidebar |
+| **Compress** | Same material, no apparatus | The Summary, from the story or the sidebar |
 
 Every narrative node is its own page with a breadcrumb to the root; depth is shown, not implied. The
 two narratives cross-link where they cover the same ground, computed from shared links. A hover on
@@ -669,8 +670,8 @@ Machine-checkable, all must pass:
 - Every item has a walkthrough and a non-empty term list.
 - Every non-floor, parentless concept belongs to exactly one theme.
 - Every edge belongs to an edge-theme, and every load-bearing edge appears in the second read.
-- Every link in the Summary resolves. Its length and its use of floor terms are reported, not enforced —
-  writing below the floor is a judgement the gate cannot make.
+- Every link in the Summary resolves. Its length, beat shape and use of floor terms are reported and
+  not enforced — whether an argument survives compression is not a judgement the gate can make.
 - Every surface carries a source reference.
 - After any prose rewrite: no link id and no number has disappeared.
 

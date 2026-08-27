@@ -345,7 +345,7 @@ function renderNarrativeNode(node) {
       h += 'The other way through is <a href="' + other.href + '">' + esc((narData(other.key) || {}).title || other.label) + "</a>. ";
     }
     if (mainPaper().summary) {
-      h += 'If this assumes too much, <a href="#/summary">the summary</a> assumes no machine learning at all.';
+      h += 'For the argument without the apparatus, <a href="#/summary">the summary</a> runs it end to end in one sitting.';
     }
     h += "</p>";
   } else {
@@ -389,10 +389,10 @@ function vNarrative() {
 }
 
 /* ---------- summary ---------- */
-/* The one surface written below the paper's floor: no machine learning
-   assumed, everything it uses explained where it is used. Flat on purpose -
-   there is nothing under a beat to open, because a reader who wanted to open
-   things would be reading the story instead. */
+/* The whole argument end to end, in one sitting. Same floor as everything
+   else - what makes it a summary is shape, not level: the line of reasoning
+   only, no figures and no evidence apparatus. Flat on purpose, because a
+   reader who wanted to open things would be reading the story instead. */
 function vSummary() {
   const sm = mainPaper().summary;
   const meta = REG[MAIN_ID] || {};
@@ -400,8 +400,8 @@ function vSummary() {
   const beats = sm.beats || [];
   let h = '<p class="eyebrow">Start here</p>';
   h += "<h1>" + esc(sm.title || meta.title || MAIN_ID) + "</h1>";
-  h += '<p class="level-note">The paper in plain language, assuming no machine learning — ' +
-    "read top to bottom, nothing to open. " +
+  h += '<p class="level-note">The whole argument end to end, in one sitting — no figures, ' +
+    "no run names, nothing to open. " +
     (mainPaper().narrative ? 'The fuller telling is <a href="#/">The story</a>.' : "") + "</p>";
   h += sourceCite(sm.sources);
   if (sm.lede) h += '<p class="lede">' + md(sm.lede, "summary:lede").replace(/^<p>|<\/p>$/g, "") + "</p>";
@@ -422,7 +422,7 @@ function vSummary() {
     h += '<a class="zoom" data-depth="1" href="#/">' +
       '<span class="zoom-label">Read it properly</span>' +
       '<span class="zoom-title">' + esc((mainPaper().narrative || {}).title || "The story") + "</span>" +
-      '<span class="zoom-sub">The same paper at full length, with every term linked</span></a>';
+      '<span class="zoom-sub">The same paper at full length, with the figures and the evidence</span></a>';
   }
   return h;
 }
@@ -1636,7 +1636,7 @@ function buildNav() {
   if (p.summary) {
     h += '<a class="nav-jump" href="#/summary">' +
       '<span class="nav-jump-name">Summary</span>' +
-      '<span class="nav-jump-note">Plain language, no ML assumed</span></a>';
+      '<span class="nav-jump-note">The whole argument, in one sitting</span></a>';
   }
 
   const main = p.narrative;

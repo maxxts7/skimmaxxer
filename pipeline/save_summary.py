@@ -4,13 +4,14 @@ usage: python pipeline/save_summary.py <task-output.json>
        python pipeline/save_summary.py --check
 
 The Summary is flat on purpose, so there is no tree to repair here and no
-pointer that can dangle. What can go wrong instead is drift: it is the one
-surface written below the floor, and the way it fails is by quietly climbing
-back up to the floor and becoming a second, shorter story.
+pointer that can dangle. What can go wrong instead is drift: it carries the
+whole argument end to end in one sitting, and the way it fails is by becoming
+a second, shorter story - the same span retold at lower resolution, which is
+the one thing the site already has.
 
-So this reports the two things that catch that - how much of it is unexplained
-jargon the floor would have covered, and how long it runs. Neither is enforced.
-Both are worth a look before the gate says clean.
+So this reports what catches that: how long it runs, whether the beats hold
+their shape, and how much assumed machinery it leans on. Nothing is enforced.
+All of it is worth a look before the gate says clean.
 """
 import json, os, re, sys
 
@@ -62,8 +63,9 @@ dupes = sorted({r for b in beats
                 for r in set(WIKI.findall(b["body"]))
                 if WIKI.findall(b["body"]).count(r) > 1})
 
-# The floor concepts are the ones every other surface may assume. Naming one
-# here is fine - linking to it instead of explaining it is the drift.
+# The floor concepts are the ones every surface may assume, this one included.
+# Reported because leaning hard on them is a sign the summary has stopped
+# carrying its own weight, not because using them is wrong.
 named_floor = sorted({r.strip() for r in links if r.strip() in floor_ids})
 
 print(f'summary.json: "{doc.get("title", "")}"')
@@ -78,7 +80,6 @@ if dupes:
     print(f"  linked twice inside one beat ({len(dupes)}): {', '.join(dupes)}")
     print("    one link per concept per beat; the repeats are noise")
 if named_floor:
-    print(f"  floor concepts linked rather than explained ({len(named_floor)}): {', '.join(named_floor)}")
-    print("    this surface is written below the floor - explain these in passing instead")
+    print(f"  leans on {len(named_floor)} floor concept(s): {', '.join(named_floor)}")
 if not doc.get("lede"):
     print("  no lede: the page opens straight into its first beat")

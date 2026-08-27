@@ -10,9 +10,9 @@ Every rule in these docs exists to keep that true.
 
 ## What comes out
 
-- **Summary** — the paper in plain language, written below the floor: no machine learning assumed,
-  every term it needs explained where it is used. One flat page, read top to bottom, nothing to open.
-  The surface for someone the rest of the site would turn away.
+- **Summary** — the paper's whole argument end to end, in one sitting. One flat page, the line of
+  reasoning only, no figures and none of the evidence apparatus. Same floor as everything else: it
+  uses the real names and glosses a term where the argument leans on it.
 - **The story** — the paper front to back, in the order it tells it. Recursive: every chapter opens
   into a smaller narrative covering the same span at higher resolution, and that one does the same,
   until a branch runs out of distinct material.

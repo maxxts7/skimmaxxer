@@ -1,14 +1,18 @@
 """Brief for the stage-6f Summary agent.
 
-The Summary is the one surface written below the paper's floor. Every other
-surface assumes the floor and explains upward from it; this one assumes no
-machine learning and explains what it uses as it goes - without becoming
-basic, and without dropping the technical detail that makes the argument
-worth following.
+The Summary carries the paper's whole argument end to end, in one sitting.
+It sits at the same floor as everything else - it names a neuron a neuron and
+an MLP an MLP - and what makes it a summary is shape rather than level: one
+flat page, the line of reasoning only, no figures, no run names, none of the
+evidence apparatus the story carries.
 
-So the brief leads with the concepts the rest of the site is allowed to
-assume. Those are exactly the ones this surface may not, and they are marked
-in the data already: a concept with floor=true is one the floor covers.
+It still explains a term where the argument leans on it. What it must not do
+is paraphrase the vocabulary away; a reader who cannot be told "ReLU" cannot
+be told what the paper found either.
+
+So the brief leads with the story's own chapters, because covering the same
+span is the thing to get right, and lists the floor concepts only so the
+writer knows which terms come for free.
 """
 import json, os, sys
 
@@ -41,14 +45,16 @@ C = {c["id"]: c for c in concepts}
 I = {i["id"]: i for i in items}
 
 L = [f"SUMMARY BRIEF - {meta.get('title', MAIN)}", ""]
-L += ["This surface is read by someone who does not work in machine learning.",
-      "Explain what you use, in passing, at the point of use. Do not simplify",
-      "the argument to avoid explaining something - explain it and keep going.",
-      "One flat page, read top to bottom. No chapters that open into more.", ""]
+L += ["One flat page carrying the whole argument, read top to bottom, in one",
+      "sitting. Same floor as every other surface: use the real names. Gloss a",
+      "term in a clause where the argument leans on it, then keep going - never",
+      "paraphrase the vocabulary away to avoid explaining it.",
+      "What makes this a summary is shape, not level: the line of reasoning",
+      "only, no figures, no run names, no evidence apparatus.", ""]
 
 # The floor is what every other surface assumes. Here it is the syllabus.
 floor = [c for c in concepts if c.get("floor")]
-L += ["=== ASSUMED EVERYWHERE ELSE, SO EXPLAIN HERE IF YOU USE IT ==="]
+L += ["=== COVERED BY THE FLOOR: THESE COME FOR FREE ==="]
 if floor:
     for c in floor:
         L.append(f"  {c['id']} | {c['name']}: {flat(c.get('summary'), 190)}")
@@ -93,7 +99,7 @@ for e in [x for x in edges if x.get("strength") == "load-bearing"]:
 
 L += ["", "=== SHAPE TO RETURN ===",
       '  {"title": ..., "lede": one paragraph, "beats": [{"id", "heading", "body"}, ...]}',
-      "  Six to ten beats. Each is a step in one argument, not a topic.",
+      "  Eight to twelve beats. Each is a step in one argument, not a topic.",
       "  Headings are sentences a reader could follow on their own.",
       "  Link with [[concept-id]], first mention only, using the ids above."]
 
@@ -101,5 +107,5 @@ out = os.path.join(ROOT, "papers", MAIN, "data", "ingest", "summary-brief.txt")
 os.makedirs(os.path.dirname(out), exist_ok=True)
 open(out, "w", encoding="utf-8").write("\n".join(L) + "\n")
 print(f"summary-brief.txt: {len(L)} lines, {os.path.getsize(out)} bytes")
-print(f"  floor concepts to explain in passing: {len(floor)}")
+print(f"  floor concepts offered as free vocabulary: {len(floor)}")
 print(f"  link targets offered: {len(concepts)} concepts, {len(items)} items")

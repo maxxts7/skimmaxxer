@@ -1,16 +1,63 @@
 {
  "title": "What is actually inside a language model",
- "lede": "A language model is a very large pile of numbers that nobody chose by hand. This paper is about a specific reason that pile has been so hard to read — the parts it is built from do not line up with the parts it thinks in — and about a way to recover the second set from the first. The demonstration is small and the method is simple enough to describe in a paragraph. What it turns up inside a model that has only 512 parts is not small at all.",
+ "lede": "The whole argument in one sitting. This paper is about a specific reason a trained transformer has been so hard to read — the components the architecture hands you are not the components it computes in — and about a way to recover the second set from the first. The method is simple enough to state in a paragraph. What it turns up inside an MLP layer only 512 neurons wide is not simple at all.",
  "beats": [
   {
-   "id": "what-is-in-there",
-   "heading": "A model is built from parts nobody chose",
-   "body": "Start with what a language model physically is. It is a long list of numbers — the weights — and a fixed recipe for combining them with whatever text you feed in. Nobody wrote those numbers. They were adjusted, one small nudge at a time, over an enormous amount of text, until the model got good at one narrow task: given some text, guess the next fragment.\n\nText arrives in fragments rather than words because the model reads a stream chopped into pieces by a scheme that merges frequent byte sequences into single units. Common words get one piece each; rarer ones get split; a character from a non-Latin script may take two or three pieces on its own. That detail sounds like housekeeping and it will matter later, twice.\n\nAs the text passes through, the model keeps a running vector of numbers for each fragment and lets each stage read from it and write back into it. Inside one of those stages sits a block that takes the running vector, expands it into a wider list of numbers, zeroes out everything negative, and folds the result back. That wider list is where this paper does its work. In the model studied here it holds 512 numbers, recomputed for every fragment of text the model reads.\n\nSo: 512 numbers, changing constantly, that together decide what the model predicts next. If you want to know what the model is doing, this is the thing you have to read."
+   "id": "the-situation",
+   "heading": "The plan, and the component the architecture hands you",
+   "body": "Start with the ordinary situation. You have a trained transformer. It works. You would like to know what it is doing — not statistically, but mechanically: which parts do what, and how the parts fit together.\n\nThe plan almost writes itself. Break the model into components. Work out what each component does. Work out how they compose. That is how you come to understand any other complicated machine.\n\nSo you need components, and the architecture offers an obvious one: the neuron. A single dimension of the MLP's hidden layer — one number per token, recomputed as the text flows past. You do not have to invent it, and it is not an arbitrary choice either: the non-linearity acts on exactly these numbers, one at a time, which is what makes them a natural place to look.\n\nThe model in this paper is deliberately small. One attention block, one MLP block, a [[residual-stream|residual stream]] 128 wide — the running vector each block reads from and writes back into — and an MLP hidden layer of 512 neurons, trained on 100 billion tokens of [[pile-dataset|the Pile]]. Those 512 numbers are what has to be read.",
+   "sources": {
+    "sections": [
+     {
+      "id": "2",
+      "title": "Problem Setup",
+      "start": null,
+      "end": null,
+      "anchor": "s-2"
+     },
+     {
+      "id": "2.6",
+      "title": "The (one-layer) model we're studying",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-6"
+     },
+     {
+      "id": "5.3.1",
+      "title": "Comparing features between two one-layer transformers",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-3-1"
+     },
+     {
+      "id": "5.4",
+      "title": "\"Finite State Automata\"",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-4"
+     },
+     {
+      "id": "16",
+      "title": "Transformer Training and Preprocessing",
+      "start": null,
+      "end": null,
+      "anchor": "s-16"
+     },
+     {
+      "id": "17",
+      "title": "Advice for Training Sparse Autoencoders: Autoencoder Dataset and Basic Training",
+      "start": null,
+      "end": null,
+      "anchor": "s-17"
+     }
+    ],
+    "pages": []
+   }
   },
   {
-   "id": "the-natural-unit",
-   "heading": "The obvious unit turns out to mean several things at once",
-   "body": "Reading 512 numbers at once is hopeless, so you break the problem up. Take one of those 512 positions — call it a neuron, which is what everyone calls it — and ask what makes it large. Collect the text where it fires hardest and look for the pattern.\n\nThis is the natural first move, and on this model it fails immediately. One neuron responds to academic citations, English dialogue, web requests, and Korean text. Those have nothing to do with each other. This is [[polysemanticity]]: one part, several unrelated meanings, no principle joining them.\n\nIt is worth being precise about why this is fatal rather than merely inconvenient. The point of breaking something into parts is that you can then understand each part by itself and put the understanding back together. A part that means four unrelated things cannot be understood by itself. Knowing it fired tells you one of four things is happening, and to find out which you have to consult the other 511 — at which point you have not broken the problem up at all. Everything about the [[curse-of-dimensionality-in-interpretability|difficulty of reading a large model]] follows from that.\n\nAnd there is no route around it. There are simplified transformers you can analyse without ever looking at these numbers, but they are the ones with no such block in them. Put it back and the numbers have to be faced. The authors call the model they study the simplest language model we profoundly do not understand, which is exactly right: one block, 512 numbers, and no way through.",
+   "id": "you-look-at-one",
+   "heading": "You look at one, and what comes back is a list",
+   "body": "Take a neuron and find the text that makes it fire hardest. Collect the top examples and look for the pattern.\n\nOn this model it fails immediately. One neuron responds to academic citations, English dialogue, HTTP requests, and Korean text.\n\nNot a concept. A list. This is [[polysemanticity]] — one unit, several unrelated meanings, and no principle joining them. It is not rare, and it is not confined to language models: the standard example from vision is a neuron in Inception v1 that fires on cat faces and on the fronts of cars.\n\nIt is worth pausing on why this is worse than it first sounds. The problem is not that the neuron is hard to describe. The problem is that it cannot be described *on its own*. Knowing it fired tells you one of four unrelated things is happening, and to find out which, you have to consult the other 511. The component has no meaning independent of its context — which is exactly the property that made components worth having. Every version of [[curse-of-dimensionality-in-interpretability|the difficulty of reading a large model]] descends from that.\n\nAnd you cannot go around it. There are transformers you can analyse without ever touching hidden activations — the authors did exactly that for attention-only models in earlier work — but they are the ones with no MLP. Put a ReLU in the middle and the activation vector becomes something you have to face. A one-layer transformer with a single MLP block is, in their phrase, the simplest language model we profoundly do not understand.",
    "sources": {
     "sections": [
      {
@@ -38,9 +85,9 @@
    }
   },
   {
-   "id": "more-than-there-is-room-for",
-   "heading": "The model is storing more things than it has room for",
-   "body": "Here is the hypothesis that makes sense of the mess.\n\nSuppose the things the model actually thinks in are not the individual 512 positions, but *directions* across all 512 at once — particular mixtures, most of which do not line up with any single position. Each such direction is a [[feature]], and this idea that meaning lives in directions rather than in positions is the [[linear-representation-hypothesis]]. Sometimes a direction happens to coincide with one position, and then you get a readable neuron and everyone is pleased. There is no reason it generally should.\n\nNow suppose the model has *more* of these directions than it has positions to spare — thousands of features in a space that is only 512 wide. That is [[superposition]], and it sounds impossible for the obvious reason: in a 512-wide space you can only fit 512 directions that are properly at right angles to each other.\n\nTwo things make it work anyway.\n\nThe first is that if you will settle for *nearly* at right angles instead of exactly, the space is enormously more generous. The number of directions you can pack in while keeping every pair within a few degrees of perpendicular is not 512; it is astronomically larger. You pay for it in a small amount of leakage between any two.\n\nThe second is that the features are rare. On any given fragment of text only a handful are switched on at all. Two directions that are not quite perpendicular only interfere when both are active, and they usually are not. The leakage stays below the level where it changes anything, and the step that zeroes out negative numbers cleans up much of what is left. This is why sparsity is not a nice property here but the load-bearing one — it is what makes the crowding survivable.\n\nPut those together and the block is doing something strange: a small dense set of numbers running a noisy imitation of a much larger, much sparser one.\n\nAnd now the broken neuron makes sense. If thousands of directions are scattered through 512 positions, every single position overlaps hundreds of them. Reading one position means reading hundreds of features at once, flattened onto a single line. Citations, dialogue, web requests and Korean were never a meaning. They were a cross-section.",
+   "id": "directions-not-neurons",
+   "heading": "Features are directions, and there are more of them than there are dimensions",
+   "body": "Here is the hypothesis that makes sense of the mess, and it comes in two parts.\n\nFirst, suppose the meaningful units are not neurons but *directions* in the 512-dimensional activation space — arbitrary mixtures, most of which do not line up with any axis. Each such direction is a [[feature]], and the claim that meaning lives in directions rather than in basis dimensions is the [[linear-representation-hypothesis]]. Sometimes a direction happens to coincide with an axis, and then you get a readable neuron and everyone is pleased. There is no reason it generally should.\n\nSecond, suppose the model has *more* of these directions than it has dimensions to give them. That is [[superposition]], and it sounds impossible for the obvious reason: 512 dimensions admit exactly 512 mutually perpendicular directions.\n\nTwo facts make it work anyway.\n\nHigh-dimensional spaces are more spacious than they look. If you will accept *nearly* perpendicular instead of exactly, the number of directions you can pack in is not 512 but astronomically larger. Interference between any two exists; it is just small.\n\nAnd the features are sparse. On any given token only a handful are active at all. Two directions that are not quite perpendicular only interfere when both are switched on, and mostly they are not. The interference stays under the threshold where it would change anything, and the ReLU takes care of much of the rest. This is why sparsity is not a pleasant extra property here but the load-bearing one — it is what makes the crowding survivable.\n\nPut those together and the layer is doing something strange: a small dense network running a [[noisy-simulation]] of a much larger, much sparser one.\n\nAnd now the neuron makes sense. If thousands of feature directions are scattered through 512 dimensions, every single axis has non-zero overlap with hundreds of them. Reading one neuron means reading hundreds of features at once, projected onto a line. Citations, dialogue, HTTP and Korean were never a meaning. They were a cross-section.",
    "sources": {
     "sections": [
      {
@@ -90,8 +137,8 @@
   },
   {
    "id": "the-fix-that-fails",
-   "heading": "The obvious fix does not work, and the reason is not what you would guess",
-   "body": "If crowding is the problem, uncrowd the model. Train it with pressure to keep almost everything switched off, so features cannot overlap. Accept a worse model in exchange for a readable one. The authors spent real time on [[activation-sparsity-training|exactly this]] and reported a conclusion stronger than “too expensive”: it is not viable, because you can remove the crowding entirely and the parts are *still* polysemantic.\n\nThe argument is small enough to do here. Imagine a single part that can only be on or off, and four mutually exclusive situations in the text — call them A, B, C and D, each equally likely, each of which would tell you exactly what comes next.\n\nIf the part commits to A alone and gets it right, then three times out of four it is silent and the model knows only “not A”, spreading its guess evenly over the other three. The cost of that, measured the way language models are measured, works out to about 0.82.\n\nIf instead the part fires on A *and* B and predicts a blend of the two, then when it fires the model has it down to two possibilities, and when it stays silent it has it down to the other two. That works out to about 0.69.\n\nLower is better, so the blurry part wins — with a single part, in a setting where crowding is not even possible.\n\nThe reason is in how the model is scored. It is rewarded for the probability it assigned to what actually came next, which means being half-right about two things beats being certain about one and ignorant of three. No change to the architecture removes that incentive, because the incentive is in the scoring, not the wiring. [[mse-loss-and-monosemanticity|Score a model a different way]] — on squared error, say — and the pull disappears; but language models are not scored that way.\n\nSo the model is going to be crowded. Leave it alone and take its numbers apart afterwards.",
+   "heading": "The obvious fix fails, and the loss function is the reason",
+   "body": "If crowding is what breaks the neurons, uncrowd the model. Train it with heavy pressure toward sparse activations — in the limit, force one neuron active at a time. Accept worse loss in exchange for a readable model.\n\nThe authors [[activation-sparsity-training|spent real time on this]] and reached a conclusion stronger than “too expensive”. It is not viable, because you can eliminate superposition entirely and the neurons are *still* polysemantic.\n\nThe argument fits in a paragraph. Take one neuron that is either on or off, and four mutually exclusive, equally likely features in the data, each of which fully determines the next token.\n\nIf the neuron commits to feature A alone and predicts token A perfectly, then three quarters of the time it is silent, the model knows only “not A”, and it spreads its guess evenly over B, C and D. Under cross-entropy that costs about **0.82**.\n\nIf instead it fires on A *and* B and predicts a 50/50 blend, then when it fires the field is down to two, and when it is silent the field is down to the other two. That costs **ln 2 ≈ 0.69**.\n\nLower is better, so the polysemantic strategy wins — with a single neuron, in a setting where superposition is not even possible.\n\nThe reason sits in the objective. Cross-entropy rewards the probability you assigned to what actually came next, so being half-right about two things beats being certain about one and ignorant of three. No architectural change removes that incentive, because the incentive is in the loss. [[mse-loss-and-monosemanticity|Train under squared error instead]] and the pull disappears — but language models are not trained under squared error.\n\nSo the model is going to be polysemantic. Leave it alone and decompose its activations afterwards.",
    "sources": {
     "sections": [
      {
@@ -113,9 +160,9 @@
    }
   },
   {
-   "id": "taking-it-apart",
-   "heading": "Taking it apart afterwards, with something deliberately weak",
-   "body": "“Break a vector into a sparse combination drawn from a large set of building blocks” is an old problem with a name: [[dictionary-learning]]. The set of building blocks is the dictionary; here it is deliberately larger than the space it describes, which is called [[overcompleteness|being overcomplete]].\n\nIt also has a specific difficulty worth naming, because it is why any of this is surprising. Given the building blocks, working out which ones produced a particular 512-number vector means solving for a long list from a short one. There are infinitely many answers that fit. The only thing that singles one out is insisting the answer be mostly zeros — and finding the sparsest answer exactly is, in general, a problem no efficient method solves. This is [[compressed-sensing]]: sparse structure is easy to fold into a small space and genuinely hard to unfold.\n\nThe tool used here is a [[sparse-autoencoder]], and it is modest. It reads the 512 numbers, expands them into a much wider layer — 4,096 in the run studied most closely, up to 131,072 in the largest — then squeezes that back down to 512 and tries to reproduce what it read. It is trained on two penalties at once: how far the reproduction misses, and how many of the wide layer's units it had to switch on to get there. That second penalty, weighted by a [[l1-coefficient|dial the authors have to set by hand]], is what forces sparsity.\n\nThe units of the wide layer are the candidate features. Each one's [[feature-direction|direction]] is a column of the matrix that maps back down; how strongly it is switched on is its [[feature-activation|activation]].\n\nTwo choices about this tool matter more than they look.\n\nIt is scored on squared error, not the way the language model was scored — so it does not inherit the pull toward blurriness described above. Had it been scored the same way, the decomposition would have crowded its own dictionary and there would be nothing to read.\n\nAnd it is weak on purpose. Better dictionary-learning methods exist, and the worry about them is precise: the language model itself is certainly not solving a computationally intractable problem when it reads its own numbers downstream. A method cleverer than the model could extract structure the model cannot use, leaving you with a confident account of something that is not happening. This autoencoder is about as capable as one of the model's own blocks, which is a fair ceiling.\n\nThe engineering behind it is unglamorous and mattered: 8 billion vectors of training data, sampled without repeats; units that stop firing get [[dead-neurons|detected and restarted]] on whatever the dictionary currently reproduces worst; and no reliable way, still, to [[evaluating-dictionary-learning|tell a good dictionary from a bad one]] except by reading it.",
+   "id": "the-tool",
+   "heading": "Dictionary learning, and a deliberately weak tool for it",
+   "body": "Written as an equation, the hypothesis is that the activation vector at token *j* is approximately a bias plus a sparse weighted sum of unit vectors: `x ≈ b + Σᵢ fᵢ(x)·dᵢ`, with more directions `dᵢ` than the 512 dimensions they live in, and almost every coefficient `fᵢ` exactly zero.\n\nThat is not a new object. It is a linear matrix factorisation — the classic problem of [[dictionary-learning|sparse dictionary learning]], where the `dᵢ` are the dictionary and being [[overcompleteness|overcomplete]] means having more of them than dimensions. Stated formally, **superposition is a dictionary learning problem**, and that is the pivot the whole paper turns on.\n\nIt also carries a specific difficulty worth naming. Given the dictionary, recovering which features produced a particular activation means solving for a long vector from a short one, and infinitely many answers fit. The only thing that singles one out is insisting the answer be sparse — and finding the sparsest answer exactly is NP-hard. This is [[compressed-sensing]]: sparse structure is easy to store in a small space and genuinely hard to recover.\n\nThe tool used here is a [[sparse-autoencoder]], and it is modest by design. It reads the 512 activations, encodes them into a much wider layer through a linear map and a ReLU — 4,096 units in the run studied most closely, up to 131,072 in the largest — then decodes back to 512 and tries to reproduce what it read. It is trained on squared reconstruction error plus an [[l1-coefficient|L1 penalty]] on the hidden activations, the standard tractable stand-in for “use as few units as possible”.\n\nThe hidden units are the candidate features: each one's [[feature-direction|direction]] is a column of the decoder, its [[feature-activation|activation]] is how strongly it fired.\n\nTwo choices matter more than they look.\n\nThe reconstruction loss is squared error, not cross-entropy — which is not incidental, given the previous section. Had it been trained the way the language model was, the decomposition would have had the same incentive to blur, and you would get [[superposition-all-the-way-down]].\n\nAnd the tool is weak on purpose. Better dictionary learning algorithms exist, and the worry about them is precise: the transformer is certainly not solving an NP-hard recovery problem when it reads its own activations downstream. An algorithm cleverer than the model could extract structure the model cannot use, leaving you with a confident account of something that is not happening. A sparse autoencoder is architecturally an MLP layer, which is a fair ceiling on what the model can do to itself.",
    "sources": {
     "sections": [
      {
@@ -167,25 +214,11 @@
       "anchor": "s-2-5"
      },
      {
-      "id": "2.5.1",
-      "title": "How can we tell if the autoencoder is working?",
-      "start": null,
-      "end": null,
-      "anchor": "s-2-5-1"
-     },
-     {
       "id": "2.7",
       "title": "Notation for Features",
       "start": null,
       "end": null,
       "anchor": "s-2-7"
-     },
-     {
-      "id": "4",
-      "title": "Global Analysis",
-      "start": null,
-      "end": null,
-      "anchor": "s-4"
      },
      {
       "id": "5.2",
@@ -223,13 +256,6 @@
       "anchor": "s-7-1"
      },
      {
-      "id": "8",
-      "title": "Comments & Replications",
-      "start": null,
-      "end": null,
-      "anchor": "s-8"
-     },
-     {
       "id": "13",
       "title": "Feature Ablations",
       "start": null,
@@ -237,25 +263,11 @@
       "anchor": "s-13"
      },
      {
-      "id": "15",
-      "title": "Feature Density Histograms",
-      "start": null,
-      "end": null,
-      "anchor": "s-15"
-     },
-     {
       "id": "18",
       "title": "Advice for Training Sparse Autoencoders: Autoencoder Architecture",
       "start": null,
       "end": null,
       "anchor": "s-18"
-     },
-     {
-      "id": "18.3",
-      "title": "Neuron Resampling",
-      "start": null,
-      "end": null,
-      "anchor": "s-18-3"
      },
      {
       "id": "19",
@@ -270,8 +282,8 @@
   },
   {
    "id": "not-invented",
-   "heading": "How you know the features are not invented",
-   "body": "This is the question the whole paper turns on, and the answer is the most satisfying thing in it.\n\nA [[sparse-autoencoder]] will always produce *something*. Ask it for 4,096 building blocks and it returns 4,096, whether or not the model has anything of the kind. Worse, the numbers it reads are shaped by two different things — what the model computes, and what the text was like in the first place. Patterns in the text can survive into those numbers untouched. So the features could in principle be facts about the training data wearing a costume, with nothing to do with the model's machinery.\n\nHere is what rules that out. **The autoencoder only ever sees the 512 numbers.** It never sees the matrix that carries them onward, never sees the final step that turns the running vector into a guess about the next fragment, never sees the score, never sees a single predicted token. Half the model is hidden from it completely.\n\nSo take a feature it found and go looking in the half it never saw. In this small model that second half is nearly a straight multiplication, so you can compute a feature's [[logit-weight|opinion about every possible next fragment]] in one step, with no experiment at all. You can also [[feature-ablation|erase the feature]] from a real pass through the model and watch which predictions get worse. And you can [[pinned-feature-sampling|hold it switched on artificially]] and see what the model writes.\n\nIf a feature discovered by reproducing inputs turns out to have a coherent, matching effect on outputs, that agreement is not something the fitting could have manufactured. **The thing being predicted was never fit.** Everything in the rest of the paper is that shape: fit on the input side, check on the output side.",
+   "heading": "How you know the features were not invented",
+   "body": "This is the question everything turns on, and the answer is the most satisfying thing in the paper.\n\nA [[sparse-autoencoder]] always returns something. Ask for 4,096 features and you get 4,096, whether or not the model has anything of the kind. Worse, activations reflect two things at once: what the model computes, and what the data was like. Correlations in [[pile-dataset|the Pile]] can survive the first half of the model untouched, so the features could in principle be facts about the text wearing a costume.\n\nHere is what rules that out. **The autoencoder only ever sees MLP activations.** It never sees the [[mlp-output-weights|output matrix]] that carries them back to the residual stream, never sees the [[unembedding-matrix|unembedding]], never sees the loss, never sees a single predicted token. Half the model is hidden from it.\n\nSo take a feature it found and go looking in the half it never saw. In a one-layer model the path from MLP to logits is nearly linear, so a feature's effect on every vocabulary token — its [[logit-weight|logit weights]] — is one matrix product, computable in closed form with no experiment at all. You can also [[feature-ablation|ablate the feature]] from a real forward pass and record which predictions get worse. And you can [[pinned-feature-sampling|clamp it to a high value]] and sample.\n\nIf a feature found by reconstructing inputs turns out to have a coherent, matching effect on outputs, that agreement is not something the fitting could have manufactured. **The thing being predicted was never fit.**\n\nThat is the shape of the whole existence proof: fit on the input side, validate on the output side.",
    "sources": {
     "sections": [
      {
@@ -321,6 +333,13 @@
       "start": null,
       "end": null,
       "anchor": "s-2-5"
+     },
+     {
+      "id": "2.6",
+      "title": "The (one-layer) model we're studying",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-6"
      },
      {
       "id": "2.8",
@@ -456,6 +475,13 @@
       "anchor": "s-5-3-1"
      },
      {
+      "id": "5.4",
+      "title": "\"Finite State Automata\"",
+      "start": null,
+      "end": null,
+      "anchor": "s-5-4"
+     },
+     {
       "id": "7.1",
       "title": "Theories of Superposition",
       "start": null,
@@ -468,6 +494,20 @@
       "start": null,
       "end": null,
       "anchor": "s-13"
+     },
+     {
+      "id": "16",
+      "title": "Transformer Training and Preprocessing",
+      "start": null,
+      "end": null,
+      "anchor": "s-16"
+     },
+     {
+      "id": "17",
+      "title": "Advice for Training Sparse Autoencoders: Autoencoder Dataset and Basic Training",
+      "start": null,
+      "end": null,
+      "anchor": "s-17"
      },
      {
       "id": "18",
@@ -483,7 +523,7 @@
   {
    "id": "one-feature",
    "heading": "One feature, followed all the way through",
-   "body": "Take the [[arabic-script-feature|feature that fires on Arabic script]], and put it through the [[feature-evidence-template|five checks]] the paper applies to each of the ones it studies closely.\n\n**Is it specific?** You need a mechanical judge rather than a human reading examples, so the authors build a [[computational-proxy|scorer]] that asks how much more likely a piece of text is if it is Arabic than if it came from the data generally — for a script with its own character range, that is straightforward to compute. Against 40 million fragments: Arabic is 0.13% of the data overall, but 81% of where this feature is switched on — and 98% of where it is switched on strongly. It gets muddier at the faint end, which the authors [[weak-activation-hypotheses|offer three explanations for]] without picking one.\n\n**Is it complete?** No, and this is honest and important. It skips the Arabic definite article, and a different feature covers exactly those places. Several features share the work of representing Arabic, split partly along the seams of how characters get chopped into fragments. This one alone tracks the mechanical scorer at 0.74 on a scale where 1 is perfect agreement.\n\n**Does it do anything?** Three separate tests agree. Its opinion about next fragments concentrates on Arabic characters and, specifically, on the leading bytes that begin most Arabic characters when they are split — it has learned to bet on the byte-level mechanics of the script. Erase it from a real pass and every Arabic prediction gets worse while a shared punctuation mark gets better. And hold it on after a prompt that counts to ten, and the model writes Arabic.\n\n**Is it just a neuron in disguise?** No, [[feature-neuron-nonalignment|four ways over]]. Search every one of the 512 positions for Arabic in its strongest examples and exactly one turns up, with a single example. Write the feature's direction out across the 512 positions and its three largest components point the *wrong way*, with 27 positions contributing meaningfully. The single [[most-correlated-neuron|closest position]] responds to a mixture of non-English languages — Russian, Korean, others — with Arabic a sliver.\n\nThat last point has a detail the paper states twice and never joins up. The closest position to the Arabic feature and the closest position to the [[hebrew-feature]] are *the same position*. Two separate, causally confirmed features, both faint shadows on one shared part, [[features-invisible-in-the-neuron-basis|neither visible in it]]. Languages barely ever co-occur, which makes them ideal to stack in the same space — so that is exactly where you would expect the model to put them.\n\n**Does it happen twice?** Train a second model from a different random start and learn a second dictionary: the matching feature comes back at 0.91 agreement. Same for [[dna-feature|the DNA feature]] at 0.92 and [[base64-feature|the base64 one]] at 0.85. That reproducibility is [[universality]], and across the whole population, features match the other model's features far better than the models' own parts match each other.",
+   "body": "Take `A/1/3450`, [[arabic-script-feature|the feature that fires on Arabic script]], through the [[feature-evidence-template|five claims]] the paper makes about each feature it studies closely.\n\n**[[activation-specificity|Specificity]].** Testing this at scale needs a mechanical judge, so the authors build a [[computational-proxy|computational proxy]] — a log-likelihood ratio scoring how much more likely a string is under “this is Arabic” than under the data distribution generally, which is tractable because Arabic script occupies known Unicode blocks. Over 40 million tokens: Arabic is 0.13% of the data, but **81%** of where this feature is active, and **98%** where its activation exceeds 5. It gets muddier at the faint end, and the authors give [[weak-activation-hypotheses|three candidate explanations]] without choosing between them.\n\n**[[activation-sensitivity|Sensitivity]].** It misses the definite article ال — where a different Arabic feature fires instead. Several features share the work, split partly along the seams of [[utf8-multi-token-characters|characters that tokenise into two pieces]], one feature taking the first byte and another the last. Alone it correlates **0.74** with the proxy.\n\n**[[feature-downstream-effects|Downstream effect]].** Three independent tests agree. Its logit weights are bimodal — a large mode at zero and a small distant one containing Arabic characters and, specifically, `\\xd8` and `\\xd9`, the leading bytes of most UTF-8 Arabic codepoints. Ablating it hurts every Arabic prediction and helps a period, the one character shared with other scripts. And clamped high after a prompt counting to ten, the model writes Arabic.\n\n**[[feature-neuron-nonalignment|Not a neuron]].** Search all 512 neurons' top-20 examples for Arabic and exactly one turns up, with a single instance. Write the feature's direction in [[neuron-basis-coefficients|the neuron basis]] and its three largest coefficients are all *negative*, with 27 neurons above 0.1 in magnitude. The [[most-correlated-neuron|most correlated neuron]] responds to a mixture of non-English languages with Arabic a sliver.\n\nThat last point has a detail the paper states twice without joining up. The neuron most correlated with the Arabic feature and the neuron most correlated with the [[hebrew-feature]] are the same neuron, `A/neurons/489`. Two distinct, causally confirmed features, both faint shadows on one shared axis, [[features-invisible-in-the-neuron-basis|neither visible in it]]. Languages are close to mutually exclusive in text, which makes them ideal to place in superposition together — so that is exactly where you would expect to find them.\n\n**[[universality|Universality]].** Train a second transformer from a different seed, learn a second dictionary, and the matching feature returns at **0.91** activation correlation. Same for the [[dna-feature|DNA feature]] at 0.92 and the [[base64-feature|base64 feature]] at 0.85.",
    "sources": {
     "sections": [
      {
@@ -620,6 +660,13 @@
       "anchor": "s-3-4-2"
      },
      {
+      "id": "4.3",
+      "title": "Do features tell us about the model or the data?",
+      "start": null,
+      "end": null,
+      "anchor": "s-4-3"
+     },
+     {
       "id": "5",
       "title": "Phenomenology",
       "start": null,
@@ -682,7 +729,7 @@
   {
    "id": "the-typical-one",
    "heading": "Whether the typical feature is like that one",
-   "body": "Four features chosen for being easy to check prove that clean features *exist*. They do not prove the other four thousand are.\n\n[[manual-interpretability-scoring|A human scored a sample]] of features and parts against a rubric, with one methodological precaution that matters: rather than reading only each one's strongest examples — which is how this kind of analysis usually flatters itself, since a blurry part often looks clean at the top — the range was cut into eleven bands and sampled evenly. The median part scored **zero**, meaning no hypothesis could be formed about it at all. The median feature scored **12 out of 14**.\n\nThen the same question asked mechanically. [[automated-interpretability|Have a language model write an explanation]] of a feature from where it fires, then have a fresh copy use *only that explanation* to predict where it fires on text it has not seen. Features are predicted substantially better than parts. And the sharper version of the same test: take the explanation written from where a feature fires, and ask whether it predicts [[automated-logit-scoring|what that feature makes more likely to come next]]. Two halves of the model joined by nothing but the hypothesis. Guessing scores 50%; parts score 58%; features score **74%**.\n\nThe control that closes the loop is the simplest of the lot. Shuffle the numbers within each of the trained model's weight matrices — so every distribution is preserved exactly and only the structure is destroyed — and [[randomized-transformer|run the whole procedure again]]. What comes back is a pile of features that fire on one fragment each and, beyond that, nothing interpretable. The text supplies the trivial structure. Everything else came from training.\n\nHow much of the block is covered? Splice the autoencoder in, replacing the real numbers with its reproduction, and [[loss-recovered-by-features|79% of the block's contribution survives]] in the run studied most closely, 94.5% in the largest. The authors supply the caveats themselves, and the important one is that the yardstick is generous — it is measured against deleting the block entirely, which is a very low bar.",
+   "body": "Four features chosen for being easy to write a proxy for prove that clean features exist. They do not prove the other four thousand are.\n\n[[manual-interpretability-scoring|A blinded annotator scored]] features and neurons on a rubric out of 14, with one precaution that matters. Reading only a unit's top examples is how this analysis usually flatters itself — plenty of polysemantic neurons look clean at the top and reveal themselves further down. So the activation range was cut into eleven bands and sampled evenly. The **median neuron scored 0**, meaning no hypothesis could be formed at all. The **median feature interval scored 12**.\n\nThen mechanically. [[automated-interpretability|Have Claude write an explanation]] of a feature from where it fires, then have a fresh copy use only that explanation to predict activations on unseen tokens, with no leakage. Features are predicted substantially better than neurons.\n\nThe sharper version of that test is the best single number in the paper. Take the explanation written from *activations*, and ask whether it predicts [[automated-logit-scoring|what the feature makes more likely to come next]]. Two different halves of the model, joined by nothing but the hypothesis. Chance is 50%; **neurons score 58%; features score 74%**.\n\nThe control that closes the loop: shuffle the entries within each of the trained transformer's weight matrices, preserving every weight distribution exactly and destroying only the structure, then [[randomized-transformer|run the whole procedure again]]. What comes back is a pile of single-token features and, beyond those, nothing interpretable. The data supplies the trivial structure; everything else came from training.\n\nAnd coverage: splicing the autoencoder's reconstruction in place of the real activations, [[loss-recovered-by-features|79% of the MLP's loss contribution survives]] in the main run and 94.5% in the largest. The authors supply the caveat themselves — the yardstick is deleting the MLP entirely, which is a generous baseline.",
    "sources": {
     "sections": [
      {
@@ -776,7 +823,7 @@
   {
    "id": "ask-for-more",
    "heading": "Ask for more features and they split",
-   "body": "The second real idea in the paper, and the one that changes how you use the method.\n\nFeatures arrive in families. Ask for 512 and you get one [[base64-feature]]. Ask for 4,096 and it has become three. Ask for 16,384 and there are more still. This is [[feature-splitting]], and the reading the authors propose is that [[dictionary-learning]] never *drops* a feature when the budget is tight — it returns something covering roughly the same ground, less specifically. Widen the budget and it separates into its parts.\n\nWhich means the dictionary size is a resolution setting, not a number you have to guess right. A small dictionary gives you a blurry picture, not a wrong one.\n\nThe three-way split is worth following because of what falls out of it. One of the three fires on letters in base64, one on digits. Their opinions about the next fragment are nearly identical except in one respect: the digit one is markedly *less* keen to predict digits. That looks arbitrary until you remember how text is chopped up. Two digits sitting next to each other would have been merged into a single fragment. A lone digit therefore is real evidence that the next fragment is not a digit — even inside a string of random characters. The model has learned a fact about its own chopping scheme and built a feature on it, one of several such [[tokenization-artifacts-in-features|artifacts showing up as structure]].\n\nThe third has no obvious rule at all until you notice it responds to base64 that *decodes into readable text*, as opposed to base64 encoding arbitrary binary. The clue was a fragment that happens to decode to six spaces.\n\nSit with that. The model does not merely have a base64 feature. It distinguishes base64 carrying text from base64 carrying anything else. Nobody would have gone looking for that — which is the argument for finding features this way rather than hypothesising them and hunting.\n\nThe other thing worth seeing is that features chain together, [[finite-state-automata-features|not through the wiring but through the text]]. One feature raises the odds of certain fragments; one gets written; that fragment switches on the next feature. Four of them form a loop that emits valid HTML — open a tag, name it, close it, add whitespace, open the next. A different chain memorises the licence boilerplate that appears at the top of millions of source files. All of it inside a single block, 512 numbers wide.",
+   "body": "The paper's second idea, and the one that changes how the method is used.\n\nFeatures arrive in families. 512 dictionary entries give one [[base64-feature]]; 4,096 give three; 16,384 give more. This is [[feature-splitting]], and the proposed reading is that [[dictionary-learning]] never *drops* a feature when the budget is tight — it returns one covering roughly the same territory, less specifically. Widen the budget and it separates. Run UMAP over the directions from several runs and the families are geometric, not just semantic: similar features sit at small angles to each other.\n\nWhich makes dictionary size a resolution setting rather than a number you must guess right. Too few features gives a blurry picture, not a wrong one.\n\nThe three-way base64 split is worth following for what falls out. One fires on letters, one on digits, and their logit weights are nearly identical but for one systematic difference: the digit feature is markedly less inclined to predict digits. That looks arbitrary until you remember [[byte-pair-encoding|how the tokenizer works]] — two adjacent digits would have been merged into a single token, so `[Bq][8][9][mp]` never occurs. A lone digit token is therefore genuine evidence that the next token is not a digit, even inside a uniformly random base64 string. The model learned a fact about its own tokenizer and built a feature on it, one of several such [[tokenization-artifacts-in-features|artifacts surfacing as structure]].\n\nThe third feature has no obvious rule until you notice it responds to base64 that *decodes to printable ASCII*, as against base64 encoding arbitrary binary. The tell was the token `ICAgICAg`, which decodes to six spaces.\n\nSit with that. The model does not merely have a base64 feature; it distinguishes base64 carrying text from base64 carrying anything else. Nobody would have gone looking for it — which is the argument for finding features bottom-up rather than hypothesising them and hunting.\n\nFeatures also chain, [[finite-state-automata-features|though not through weights]]. One raises the probability of certain tokens; one is sampled; that token switches on the next feature. Four of them form a loop emitting valid HTML — open tag, tag name, close, whitespace, open again. A longer chain memorises the licence boilerplate at the top of millions of source files. All inside one MLP layer, 512 neurons wide.",
    "sources": {
     "sections": [
      {
@@ -819,6 +866,13 @@
       "start": null,
       "end": null,
       "anchor": "s-2-5"
+     },
+     {
+      "id": "3.1.1",
+      "title": "Activation Specificity",
+      "start": null,
+      "end": null,
+      "anchor": "s-3-1-1"
      },
      {
       "id": "3.3",
@@ -911,7 +965,7 @@
   {
    "id": "what-is-missing",
    "heading": "What this does not settle",
-   "body": "Stated plainly, mostly by the authors.\n\nIt is [[one-layer-transformer-testbed|one block in a one-block model]], chosen because its outputs are almost a straight line from its features — which is what made every check in the paper cheap, and is also the reason the result might not carry to a deep model. Others have since found similar features in larger ones, which helps.\n\nIt covers only this kind of block. The attention machinery has all the same reasons to be crowded and no demonstrated treatment.\n\nNobody knows how much is left. Widening the dictionary keeps turning up [[feature-density|rarer and rarer features]] with no sign of running out, and 512 numbers were still yielding new ones at 131,072 dictionary entries. There is also a cluster of features that fire almost never and mean nothing — an [[ultralow-density-cluster|artifact of the training procedure]], reproduced independently, cause unknown.\n\nAnd there is still no reliable measure of whether a dictionary is a good one. That is the central methodological gap: the sparsity dial and the dictionary size are set by proxies and judgement. Scaling this to a large model is a serious engineering problem on top — the autoencoder for a single wide block of a frontier model would run to tens of billions of numbers, and might have to be trained on a large fraction of that model's own training text.\n\nWhat is left, then, is this. The plan was to break the model into parts, understand each, and put it back together. The parts are not the ones the architecture hands you. They are a larger, sparser set of directions, and you can recover them with a small network trained to reproduce what the block was already doing — and check your work in the half of the model that network never saw.\n\nThat is not an understanding of a language model. It is the thing you needed before you could start.",
+   "body": "Stated plainly, mostly by the authors.\n\nIt is [[one-layer-transformer-testbed|one layer]], and the choice cuts both ways. Because the MLP output reaches the logits almost linearly, features are more likely to be linear here *and* every check in the paper was cheap to run — which is exactly why the result may not transfer to a deep model. Others have since found interpretable features in multi-layer models, which helps.\n\nIt covers the MLP only. Attention has the same reasons to be in superposition and no demonstrated treatment; the authors flag it as a likely future bottleneck.\n\nNobody knows how much is left. Widening the dictionary keeps turning up [[feature-density|rarer features]] with no sign of saturation — 512 neurons were still yielding new ones at 131,072 dictionary entries. There is also an [[ultralow-density-cluster|ultralow density cluster]] of features that fire almost never and mean nothing, an artifact of the training procedure, reproduced independently, cause still unknown.\n\nInterpretability degrades at the bottom of the activation spectrum, and it is unresolved whether that is proxy error, genuine model uncertainty, or learned directions sitting at a slight angle to the true ones.\n\nAnd there is still [[evaluating-dictionary-learning|no reliable way to tell a good dictionary from a bad one]]. That is the central methodological gap: the sparsity coefficient and the dictionary size are set by proxies and judgement. Scaling is a serious engineering problem on top — a 100× autoencoder on a single 10,000-wide MLP layer runs to roughly 20 billion parameters, and rare features may demand training on a large fraction of the base model's own corpus.\n\nWhat is left is this. The plan was to break the model into components, understand each, and compose upward. The components are not the ones the architecture hands you. They are a larger, sparser set of directions, and you can recover them with a small autoencoder trained to reconstruct what the layer was already doing — then check your work in the half of the model that autoencoder never saw.\n\nThat is not an understanding of a language model. It is the thing you needed before you could start.",
    "sources": {
     "sections": [
      {
@@ -920,6 +974,13 @@
       "start": null,
       "end": null,
       "anchor": "s-2"
+     },
+     {
+      "id": "2.5.1",
+      "title": "How can we tell if the autoencoder is working?",
+      "start": null,
+      "end": null,
+      "anchor": "s-2-5-1"
      },
      {
       "id": "2.6",
@@ -976,6 +1037,13 @@
       "start": null,
       "end": null,
       "anchor": "s-16"
+     },
+     {
+      "id": "19",
+      "title": "Advice for Training Sparse Autoencoders: Hyperparameter Selection",
+      "start": null,
+      "end": null,
+      "anchor": "s-19"
      }
     ],
     "pages": []
@@ -1397,18 +1465,18 @@
     "anchor": "s-16"
    },
    {
+    "id": "17",
+    "title": "Advice for Training Sparse Autoencoders: Autoencoder Dataset and Basic Training",
+    "start": null,
+    "end": null,
+    "anchor": "s-17"
+   },
+   {
     "id": "18",
     "title": "Advice for Training Sparse Autoencoders: Autoencoder Architecture",
     "start": null,
     "end": null,
     "anchor": "s-18"
-   },
-   {
-    "id": "18.3",
-    "title": "Neuron Resampling",
-    "start": null,
-    "end": null,
-    "anchor": "s-18-3"
    },
    {
     "id": "19",
