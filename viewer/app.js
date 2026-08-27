@@ -750,6 +750,30 @@ function sectionLabel(sid) {
 const conceptsInSection = (sid) =>
   conceptsOf(MAIN_ID).filter((c) => !c.floor && (c.sectionIds || []).includes(sid));
 
+/* Which section each piece of evidence belongs to.
+
+   A web paper records it on the item, because ingest knew the figure's place
+   in the document. A PDF paper does not - a crop knows its page and nothing
+   more - so it is read off the order things sit in: a figure belongs to the
+   section of the last prose that came before it. Built once. */
+let ITEM_SECTION = null;
+function itemSection() {
+  if (ITEM_SECTION) return ITEM_SECTION;
+  const map = {};
+  (mainPaper().items || []).forEach((it) => { if (it.section) map[it.id] = it.section; });
+  let last = null;
+  regionsOf().forEach((g) => {
+    if (g.kind === "item") { if (!map[g.id]) map[g.id] = g.sectionId || last; }
+    else if (g.sectionId) last = g.sectionId;
+  });
+  ITEM_SECTION = map;
+  return map;
+}
+const itemsInSection = (sid) => {
+  const where = itemSection();
+  return (mainPaper().items || []).filter((it) => sid && where[it.id] === sid);
+};
+
 /* Summaries were written for prose, so they carry math and wiki-links. The
    list wants the math rendered and the links flattened: a row is already a
    click target for its own concept, and a link inside it would fight that. */
@@ -771,6 +795,28 @@ function blockQuote(g) {
 function columnList(g) {
   if (!g) return '<p class="beside-empty">Scroll the paper. The concepts of whatever you are reading appear here.</p>';
 
+  /* Evidence sitting in the same stretch of the paper. The column already says
+     what a paragraph is about; what it could not say is what the paper shows
+     you there, which is usually the thing a reader is looking for when the
+     prose says "as we see below". */
+  const figRow = (it) =>
+    '<div class="beside-c small" data-open="item:' + esc(it.id) + '">' +
+    '<span class="beside-fig">' + esc(itemLabel(it)) + "</span>" +
+    '<span class="beside-name">' + esc(it.title || it.id) + "</span></div>";
+
+  function evidenceBlock(sid, exceptId) {
+    const figs = itemsInSection(sid).filter((it) => it.id !== exceptId);
+    if (!figs.length) return "";
+    const show = figs.slice(0, 3), rest = figs.slice(3);
+    return '<p class="beside-label beside-label-more">' +
+      (exceptId ? "Also shown here" : "Shown in " + esc(sectionLabel(sid))) + "</p>" +
+      show.map(figRow).join("") +
+      (rest.length
+        ? '<details class="beside-fold"><summary>' + rest.length + " more here</summary>" +
+          rest.map(figRow).join("") + "</details>"
+        : "");
+  }
+
   if (g.kind === "item") {
     const it = (mainPaper().items || []).find((x) => x.id === g.id);
     if (!it) return "";
@@ -778,7 +824,7 @@ function columnList(g) {
       '<div class="beside-c" data-open="item:' + esc(it.id) + '">' +
       '<span class="beside-name">' + esc(it.title || it.id) + "</span>" +
       (it.takeaway ? '<p class="beside-sum">' + beside_md(it.takeaway, "beside:" + it.id) + "</p>" : "") +
-      "</div>";
+      "</div>" + evidenceBlock(itemSection()[it.id], it.id);
   }
 
   const sid = g.sectionId;
@@ -806,6 +852,7 @@ function columnList(g) {
     h += '<details class="beside-fold"><summary>' + rest.length + " more in " + esc(sectionLabel(sid)) + "</summary>" +
       rest.map((c) => row(c, true)).join("") + "</details>";
   }
+  h += evidenceBlock(sid, null);
   return h;
 }
 
