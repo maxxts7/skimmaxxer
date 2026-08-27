@@ -851,8 +851,13 @@ function paintColumn() {
     const was = reader.classList.contains("wide");
     reader.classList.toggle("wide", !!top);
     // The column takes its width from the paper, so the paper has to be drawn
-    // again at what is left. The transition runs first.
-    if (was !== !!top) setTimeout(applyZoom, 260);
+    // again at what is left - and for an article that also changes how tall it
+    // is, so the frame is re-fitted and the block offsets re-measured. A
+    // snapped layout is already at its new width; an animated one is not.
+    if (was !== !!top) {
+      if (reader.classList.contains("snap")) applyZoom();
+      else setTimeout(applyZoom, 260);
+    }
   }
   const pin = el("beside-pin");
   if (pin) pin.hidden = !RD.pinned || !!top;
@@ -1012,7 +1017,7 @@ function applyZoom(step) {
        tall the article is. */
     if (RD.fdoc && RD.fdoc.body) {
       RD.fdoc.body.style.zoom = RD.zoom;
-      if (RD.fit) { RD.fit(); setTimeout(() => RD.fit(), 140); }
+      if (RD.remeasure) { RD.remeasure(); setTimeout(() => RD.remeasure(), 140); }
     }
   } else {
     pane.style.setProperty("--pdf-w", pageWidth() + "px");
@@ -1072,7 +1077,7 @@ function readerTeardown() {
   RD.byId = {};
   RD.wraps = [];
   RD.stack = [];
-  RD.frame = RD.fdoc = RD.index = null;
+  RD.frame = RD.fdoc = RD.index = RD.remeasure = null;
   if (RD.doc) { try { RD.doc.destroy(); } catch (e) { /* already gone */ } RD.doc = null; }
 }
 
@@ -1137,6 +1142,8 @@ async function mountWebPaper(host) {
     return readerFailed(host, "The copy of the paper could not be opened here — this page needs to be served over http rather than opened as a file.");
   }
   RD.fdoc = fdoc;
+  const shell = document.querySelector(".reader");
+  if (shell) shell.classList.add("snap");
 
   /* Decoding a full-resolution PNG on the main thread is a dropped frame, and
      this article has seventy-one of them. Asking for it off-thread costs
@@ -1164,16 +1171,74 @@ async function mountWebPaper(host) {
   /* The frame is laid out at the full height of the article and never scrolls
      itself, so the only scrollbar is the page's own and every rect inside is
      one offset away from the coordinates everything else works in. */
+  /* Re-measuring means asking for 583 rectangles, which forces the browser to
+     lay out the whole article. That is worth doing when the article's height
+     actually changed and pure waste when it did not - and it was running four
+     times during the first second, in the window the reader is waiting on. */
+  let fittedTo = -1;
   RD.fit = () => {
     if (RD.fdoc !== fdoc || !RD.frame) return;
-    const h = Math.max(fdoc.body.getBoundingClientRect().height,
-                       fdoc.documentElement.scrollHeight * (RD.zoom || 1));
-    frame.style.height = Math.max(400, Math.ceil(h) + 40) + "px";
+    const h = Math.max(400, Math.ceil(Math.max(
+      fdoc.body.getBoundingClientRect().height,
+      fdoc.documentElement.scrollHeight * (RD.zoom || 1))) + 40);
+    if (h === fittedTo && RD.index) return;
+    fittedTo = h;
+    frame.style.height = h + "px";
     buildBlockIndex();          // heights just moved; the offsets did too
   };
+  /* Opening the column changes the frame's WIDTH. Everything re-flows and every
+     block moves, even in the rare case where the total height lands the same -
+     so that path asks for a re-measure rather than letting the height decide. */
+  RD.remeasure = () => { fittedTo = -1; RD.fit(); };
   RD.fit();
   // Their own scripts are still drawing after load, so the height is retaken.
   [400, 1500, 4000].forEach((ms) => setTimeout(() => RD.fit(), ms));
+
+  /* The article's own heavy widgets, held back by ingest, run when the figure
+     they draw into is approached rather than before the paper can be opened.
+
+     Order is preserved and is the whole trick: a widget's data script needs
+     the library script that came before it, so approaching any figure runs
+     everything up to and including its own script. The library scripts live in
+     the head, before every figure, so they are always covered.
+
+     A new element has to be made - a script already parsed by the browser will
+     not run by having its type changed - and it is put where the original sat,
+     in case anything reads its position. */
+  const held = [...fdoc.querySelectorAll('script[type="text/skim-deferred"]')];
+  if (held.length) {
+    const done = held.map(() => false);
+    const runUpTo = (limit) => {
+      for (let i = 0; i <= limit; i++) {
+        if (done[i]) continue;
+        done[i] = true;
+        const old = held[i];
+        const run = fdoc.createElement("script");
+        run.type = old.getAttribute("data-skim-type") || "text/javascript";
+        run.text = old.textContent;
+        old.parentNode.insertBefore(run, old.nextSibling);
+      }
+      if (RD.fdoc === fdoc && RD.remeasure) setTimeout(RD.remeasure, 60);
+    };
+    const io = new IntersectionObserver((entries, obs) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        obs.unobserve(e.target);
+        runUpTo(+e.target.dataset.skimHeld);
+      });
+    }, { root: null, rootMargin: "1200px 0px" });
+    let watched = 0;
+    held.forEach((sc, i) => {
+      const fig = sc.closest("figure");
+      if (!fig) return;                 // a library script: runs with the first figure
+      fig.dataset.skimHeld = String(i);
+      io.observe(fig);
+      watched++;
+    });
+    /* Nothing to hang them on - or the reader never reaches one - so they run
+       once the browser is idle rather than being stranded unrun. */
+    if (!watched) setTimeout(() => runUpTo(held.length - 1), 2000);
+  }
 
   /* The article does not settle and then stay settled: an image deferred until
      it is scrolled towards changes the height of everything below it when it

@@ -333,6 +333,37 @@ def captured(item_id):
     return None
 
 
+HEAVY_SCRIPT = 100_000     # chars of inline javascript
+
+
+def defer_heavy_scripts(soup):
+    """Keep a page's own heavy widgets out of the way of opening it.
+
+    A research write-up that draws its own plots ships the drawing code and the
+    data inline, and the browser runs all of it before the page is usable. On
+    this paper that is 1.4 MB of javascript building four and a half thousand
+    SVG nodes for one figure - paid in full every time the paper is opened,
+    whether or not the reader ever scrolls to it.
+
+    Marked, not removed: the reader runs them in their original order when the
+    figure they draw into is approached. Only inline scripts are touched, and
+    only large ones, so a page's own setup code is never delayed.
+    """
+    n = 0
+    for sc in soup.find_all("script"):
+        if sc.get("src") or not sc.string:
+            continue
+        kind = (sc.get("type") or "text/javascript").lower()
+        if kind not in ("text/javascript", "application/javascript", "module"):
+            continue                                  # json, templates, imports
+        if len(sc.string) < HEAVY_SCRIPT:
+            continue
+        sc["data-skim-type"] = kind
+        sc["type"] = "text/skim-deferred"
+        n += 1
+    return n
+
+
 def localise(soup, base):
     """Pull the page's own css/js alongside the copy so it still renders."""
     os.makedirs(SITE, exist_ok=True)
@@ -461,6 +492,7 @@ def main():
             print(f"  ! bibliography: {e}")
 
     localise(soup, url)
+    deferred = defer_heavy_scripts(soup)
     open(os.path.join(PAPER, "paper.html"), "w", encoding="utf-8").write(str(soup))
 
     # ---- the same files ingest.py writes ----
@@ -489,7 +521,9 @@ def main():
     wr("web-source.json", {"url": url, "kind": "web", "copy": "paper.html"})
 
     size = os.path.getsize(os.path.join(PAPER, "paper.html"))
-    print(f"\ncopy: paper.html ({size:,} bytes)")
+    print(f"\ncopy: paper.html ({size:,} bytes)"
+          + (f", {deferred} heavy script(s) held back until their figure is reached"
+             if deferred else ""))
     print("sections:")
     for s in sections:
         print(f"  [{s['id']:<6}] {s['title'][:58]:<60} ({len(s['text']):,} chars)")
