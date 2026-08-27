@@ -1,0 +1,195 @@
+{
+ "id": "fig-59",
+ "title": "The IRC Transcript Automaton",
+ "takeaway": "Four features from run A/0 hand off to each other across an IRC transcript: one fires on the \"<\" that opens a nickname, one on the nickname's interior, one on the closing \">\", and one across the message text that follows. None of them is keyed to a distinctive token — \"<\" and \">\" are the same characters that drive the paper's HTML automaton — so what selects a feature here is the position inside an IRC line's format, not the token's identity.",
+ "walkthrough": "You are looking at four boxes and five arrows. Each box is one feature from [[dictionary-learning-run]] A/0. Together the paper reads them as a [[finite-state-automata-features]] assembly: no weights wire these features to each other, and they hand off only through the token stream, one feature raising the probability of tokens that make the next feature fire.\n\n### Reading a box\n\nThe heading is the feature's name in the paper's [[feature-notation]]. Under it are five dataset examples where the feature fired. Orange shading is activation strength, darker meaning stronger. The bold token is the one the example was sampled at, with four tokens of context shown on each side ([[activation-visualization-sampling]]). The ⏎ glyph is a line break sitting in the token stream.\n\n### Reading an arrow\n\nAn arrow's label lists the tokens the source feature pushes hardest toward — its largest [[logit-weight]] entries. The arrow claims that once such a token is emitted, the target feature fires on the next step. Two arrows return to their own box, the [[self-exciting-feature-loop]] case.\n\n### Walking the cycle\n\nA/0/178 fires on the \"<\" that opens a nickname right after a line break, as in \"the better.⏎<Ayabara>\". It promotes nick-opening pieces: \"ubottu\", \"nick\", \"dav\", \"Blues\".\n\nThose land inside the brackets, where A/0/153 fires and shades the whole nickname — \"rostayob\", \"hardwarenoob\", \"jnoob22\". A/0/153 promotes more nick fragments (\"ob\", \"onia\", \"oke\"), which re-excite it, so a nick can run to any length. It also promotes \">\" and \"_>\", which close the nick and switch on A/0/151.\n\nA/0/151 activates most strongly on that \">\". It promotes message openers: \" hmm\", \" lol\", \" ok\". One of those turns on A/0/46, which shades the entire message line and promotes \" ubuntu\", \" linux\", \" sudo\", \" :)\" — keeping itself on.\n\nChained, the paper says this generates something like `<nickonia_> lol ubuntu ;)`.\n\n### What makes it contextual\n\nThe \"<\" and \">\" here are the same characters that drive the [[html-feature-automaton]], where different A/0 features claim them. A/0/46's bold tokens include plain words like \"on\" and \"given\", so it behaves like one of the paper's [[context-features]] rather than a topic detector. Position in the IRC line format is what selects the feature — the reading the paper offers for [[token-in-context-features]].\n\nTwo caveats the paper states: A/0 is not overcomplete, so wider runs would split these into more states ([[feature-splitting]]); and the Ubuntu vocabulary is presumed to be a fact about the [[pile-dataset]].",
+ "latex": null,
+ "terms": [
+  {
+   "term": "A/0/178",
+   "definition": "The feature drawn leftmost; it fires on the \"<\" character that opens a nickname at the start of an IRC line, immediately after a line break. Its top predicted tokens are nickname-opening fragments.",
+   "conceptId": null
+  },
+  {
+   "term": "A/0/153",
+   "definition": "The nickname-interior feature; it activates across the characters between \"<\" and \">\", and its examples show the whole nick shaded. It predicts both further nick fragments (feeding itself) and the closing \">\".",
+   "conceptId": null
+  },
+  {
+   "term": "A/0/151",
+   "definition": "The nick-close feature; its strongest activation is on the \">\" that ends a nickname, with weaker activation on the colon after an addressed nick. It predicts the first word of a chat message.",
+   "conceptId": null
+  },
+  {
+   "term": "A/0/46",
+   "definition": "The message-body feature; it shades whole lines of IRC message text and switches off at the line break. It predicts Linux/Ubuntu vocabulary and emoticons, which keep it firing.",
+   "conceptId": null
+  },
+  {
+   "term": "A/0/… (feature notation)",
+   "definition": "The paper's identifier scheme: \"A\" is the transformer, \"0\" is which sparse autoencoder run the feature came from, and the final number indexes the feature inside that run.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "A/0 (the run)",
+   "definition": "The dictionary learning run used for this whole finite-state-automata section; it is not overcomplete, learning 512 features for a 512-neuron MLP.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Box",
+   "definition": "One node of the automaton: a single feature, named at the top, with dataset examples of it firing underneath.",
+   "conceptId": null
+  },
+  {
+   "term": "Arrow",
+   "definition": "A transition. It does not represent a weight between features; it represents the source feature raising the probability of the labelled tokens, which then cause the target feature to fire on the next step.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Arrow label (the quoted token lists)",
+   "definition": "The tokens the source feature most increases the logits for — the top entries of its logit weight vector. Leading spaces are shown where the token itself carries one, as in \" hmm\" or \" ubuntu\".",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Self-loop arrow",
+   "definition": "An arrow that leaves a box and returns to the same box, meaning the feature predicts tokens that reactivate itself. Two appear here, on A/0/153 and A/0/46.",
+   "conceptId": "self-exciting-feature-loop"
+  },
+  {
+   "term": "Orange shading",
+   "definition": "Activation strength of that feature on that token, with darker orange meaning higher activation and no shading meaning the feature is off.",
+   "conceptId": null
+  },
+  {
+   "term": "Bold token",
+   "definition": "The token the example window was sampled at; the display shows four tokens on either side of it as context.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "⏎",
+   "definition": "A newline character in the token stream, rendered as a glyph so the line boundaries of the transcript are visible.",
+   "conceptId": null
+  },
+  {
+   "term": "Row marker at the left of A/0/178's first example",
+   "definition": "A small interface marker at the start of that row, part of the visualization chrome rather than part of the transcript text.",
+   "conceptId": null
+  },
+  {
+   "term": "IRC transcript",
+   "definition": "A log of Internet Relay Chat, in which each line has a fixed shape: a speaker's nickname in angle brackets, then the message text. That fixed shape is what the four features carve up.",
+   "conceptId": null
+  },
+  {
+   "term": "Nick / nickname",
+   "definition": "The speaker's handle in an IRC line, written between \"<\" and \">\". Examples in the figure include wastrel, Ayabara, matu, MasterShrak, xtknight, Amarilis, rostayob, hardwarenoob, nikunjlahot, jnoob22, in_mario, Porkepix2, onetinsoldier, dontm and beilabs.",
+   "conceptId": null
+  },
+  {
+   "term": "\"<\"",
+   "definition": "The token A/0/178 fires on. Here it opens a nickname; in the paper's HTML automaton the same character opens a tag and a different feature fires on it, which is the contrast the figure is making.",
+   "conceptId": "html-feature-automaton"
+  },
+  {
+   "term": "\">\" and \"_>\"",
+   "definition": "The tokens A/0/153 predicts to end a nickname, and the ones A/0/151 fires on. \"_>\" is a single token covering an underscore followed by the closing bracket, common in nicks ending in an underscore.",
+   "conceptId": null
+  },
+  {
+   "term": "Nick-opening fragments (\"ubottu\", \"vin\", \"dan\", \"baz\", \"nick\", \"gunt\", \"lu\", \"dav\", \"Blues\", \"Dr\")",
+   "definition": "A/0/178's top predicted tokens: subword pieces that commonly start an IRC handle. \"ubottu\" is the name of a well-known Ubuntu support bot.",
+   "conceptId": null
+  },
+  {
+   "term": "Nick-continuation fragments (\"_\", \"ix\", \"onia\", \"oy\", \"oke\", \"fer\", \"ob\", \"gi\")",
+   "definition": "A/0/153's top predicted tokens: subword pieces that extend a handle in progress. \"ob\" recurs because \"noob\" is a frequent ending in this corpus.",
+   "conceptId": null
+  },
+  {
+   "term": "Message openers (\" hmm\", \" yeah\", \" hey\", \" ok\", \" hello\", \" heh\", \" yep\", \" ah\", \" lol\")",
+   "definition": "A/0/151's top predicted tokens: the words that typically start a chat message once the nickname has closed.",
+   "conceptId": null
+  },
+  {
+   "term": "Body vocabulary (\" ubuntu\", \" linux\", \" Ubuntu\", \" :)\", \" sudo\", \" gnome\", \" install\", \" ;)\")",
+   "definition": "A/0/46's top predicted tokens: Linux support vocabulary plus emoticons, which the paper attributes to the training corpus containing many Linux IRC channels.",
+   "conceptId": "pile-dataset"
+  },
+  {
+   "term": "Addressed-nick colon (\"mgolisch:\", \"nibbler_:\", \"Adam-85:\")",
+   "definition": "The convention of starting a message with another user's handle plus a colon to address them. A/0/151 shows weaker activation on these, alongside its strong activation on \">\".",
+   "conceptId": null
+  },
+  {
+   "term": "Emoticons \":P\", \":)\", \":(\", \";)\"",
+   "definition": "Chat emoticons appearing both in the dataset examples and in A/0/46's predicted tokens; they occur at message ends, where they keep the message-body feature firing.",
+   "conceptId": null
+  },
+  {
+   "term": "Context feature",
+   "definition": "A feature that stays on across a whole region of text of a certain kind rather than on one token. A/0/46 behaves this way, shading entire message lines including ordinary words like \"on\" and \"given\".",
+   "conceptId": "context-features"
+  },
+  {
+   "term": "Token-in-context feature",
+   "definition": "A feature that fires on a specific token but only in a particular surrounding context. A/0/178 and A/0/151 are of this kind: they take \"<\" and \">\" only in IRC lines, not in HTML.",
+   "conceptId": "token-in-context-features"
+  },
+  {
+   "term": "Finite-state-automaton-like assembly",
+   "definition": "The paper's name for a group of features that pass control to each other through emitted tokens rather than through weights, so the model steps between states as it generates.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Feature splitting",
+   "definition": "The tendency of a single feature to divide into several more specific ones as the dictionary is made wider. The paper notes it would turn each of these four nodes into a larger sub-system in bigger runs.",
+   "conceptId": "feature-splitting"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "178, 153, 151, 46",
+   "meaning": "The feature indices inside run A/0. They are arbitrary identifiers assigned by the autoencoder's hidden-unit ordering, so their size carries no meaning and their ordering left-to-right in the figure is the paper's choice, not the run's."
+  },
+  {
+   "value": "0 (in A/0)",
+   "meaning": "Which dictionary learning run the features come from. The paper says explicitly that these automaton examples are drawn from A/0, the run that is not overcomplete, because the systems there are simple enough to draw."
+  },
+  {
+   "value": "512",
+   "meaning": "The dictionary size of run A/0, equal to the transformer's MLP width. Because there is one learned feature per neuron, the run has no room to split states finely, which is why the paper says larger runs would turn each node here into a more complex sub-system."
+  },
+  {
+   "value": "4",
+   "meaning": "The number of nodes drawn: A/0/178, A/0/153, A/0/151, A/0/46. Four is what the paper found sufficient to cover one IRC line — nick open, nick body, nick close, message — the same node count as its HTML automaton, but with different features and different transitions."
+  },
+  {
+   "value": "5",
+   "meaning": "The number of arrows: three forward transitions (178→153, 153→151, 151→46) plus two self-loops (153→153, 46→46). The self-loops are what let a nickname and a message each run to arbitrary length."
+  },
+  {
+   "value": "5 rows per box",
+   "meaning": "The number of dataset examples shown per feature. This is a display choice in the paper's feature visualization, not a measurement; the underlying interface shows many more."
+  },
+  {
+   "value": "4",
+   "meaning": "The number of tokens of context shown on each side of the bold sampled token, per the paper's activation visualization settings. Counting them confirms which token each example was selected for — in \"makes a diff to driver performance⏎<baz\", there are exactly four tokens either side of the bold \"driver\"."
+  },
+  {
+   "value": "8 to 10",
+   "meaning": "The number of tokens listed on each arrow. These are truncated top-of-list logit weights; the paper shows enough to make the transition legible rather than the full vocabulary-length vector."
+  },
+  {
+   "value": "100 million / 10",
+   "meaning": "The visualization examples are drawn from a 100-million-token subset of the training data, taking only 10 tokens from any one context. Sampling sparsely across contexts stops the five example rows from all coming from the same chat log."
+  },
+  {
+   "value": "2, 85, 22 (in Porkepix2, Adam-85, jnoob22)",
+   "meaning": "Digits that are part of IRC handles rather than quantities. They matter only as evidence that A/0/153's shading extends over the numeric tail of a nickname, so the feature tracks the bracketed span, not a specific word."
+  },
+  {
+   "value": "100 billion",
+   "meaning": "The number of Pile tokens the one-layer transformer was trained on. The paper leans on that scale of exposure when it says the Pile presumably contains a great many Linux IRC transcripts, which is its explanation for why A/0/46 predicts \" ubuntu\" and \" sudo\"."
+  }
+ ]
+}

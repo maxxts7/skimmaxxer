@@ -1,0 +1,213 @@
+{
+ "id": "fig-36",
+ "title": "Hebrew Feature Found Again in Model B",
+ "takeaway": "A dictionary trained on a second, independently seeded transformer contains a feature, B/1/1901, whose activation histogram looks like the Hebrew feature's: the strong end of its firing range is dominated by tokens a Unicode-based Hebrew score calls Hebrew, and its activations correlate 0.92 with A/1/416's across a large token sample. The paper reads this as evidence that the Hebrew feature is not an accident of one training run, though it rests on one matched pair and one correlation number.",
+ "walkthrough": "You are looking at a single feature's activation histogram, for the feature named B/1/1901.\n\nRead the name under the paper's [[feature-notation]]: model B, dictionary learning run 1, feature index 1901. B is the second of the [[transformer-a-and-b]] pair — same architecture, same data, same hyperparameters, different random seed. So this feature was learned from a model that never saw model A's weights.\n\n### How to read it\n\nThe horizontal axis is activation level: how strongly the feature fired on a token, from 0 to just past 7. The vertical axis counts tokens falling in each bin.\n\nColour is the independent part. Each token is scored by the [[hebrew-script-proxy]], a [[computational-proxy]] of the [[log-likelihood-ratio-proxy]] form $\\log(P(s \\mid \\text{Hebrew})/P(s))$ computed from Unicode blocks, not from the model. Deep red is $+5$: the token is far likelier under \"this is Hebrew\" than under text at large. Deep blue is $-5$.\n\nStacking those colours inside each bin gives the paper's standard [[feature-activation-distribution-plot]]. The thin strip underneath is the same stack normalized so every column sums to one, which keeps the sparse right tail legible.\n\n### What it shows\n\nAt the left edge the bin holds about 4.3K tokens and is nearly all dark blue — weak firings on non-Hebrew text. Density falls to roughly 0.5K by activation 2, rises to a mixed shoulder near 3.9, then climbs to a second peak of about 4.3K near 5.9, of which roughly 3.5K is deep red.\n\nThat upper mode is the claim: above about 5, firing is almost exclusively on Hebrew. The paper calls this \"significant [[activation-specificity]]\" and does not claim purity lower down; its [[weak-activation-hypotheses]] — imperfect proxy, imperfect model, imperfect autoencoder — apply here as they did for Arabic.\n\nThe four boxes are sampled dataset examples at four activation levels, drawn under the paper's [[activation-visualization-sampling]] scheme, with orange shading marking per-token activation. The leftmost box holds a URL fragment and Hungarian; the rightmost is solid Hebrew. Byte tokens like \\xd7 appear because Hebrew characters are split across tokens ([[utf8-multi-token-characters]]).\n\nB/1/1901 was found by [[activation-similarity]]: the B/1 feature whose activations correlate most with A/1/416's. That correlation is 0.92, which the paper takes as [[feature-universality]].",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Activation Distribution",
+   "definition": "The plot title. It means a histogram of how often the feature takes each activation value across a large sample of dataset tokens, not a distribution over anything the model outputs.",
+   "conceptId": "feature-activation-distribution-plot"
+  },
+  {
+   "term": "B/1/1901",
+   "definition": "The feature this plot is about: feature number 1901 in dictionary learning run 1 trained on transformer B. It is the feature whose activations most closely track the Hebrew feature A/1/416.",
+   "conceptId": null
+  },
+  {
+   "term": "A/1/416",
+   "definition": "The Hebrew feature in the main model, feature 416 of run A/1. It is the feature this plot's subject is being matched against; it is not itself drawn here.",
+   "conceptId": "hebrew-feature"
+  },
+  {
+   "term": "B (the model letter)",
+   "definition": "The second one-layer transformer, trained with the same architecture, dataset and hyperparameters as A and differing only in random seed. The paper uses it specifically to test whether features recur.",
+   "conceptId": "transformer-a-and-b"
+  },
+  {
+   "term": "1 (the run number)",
+   "definition": "The middle slot in the feature name identifies one trained sparse autoencoder. Runs differ in dictionary size and L1 coefficient, and the A/1 and B/1 runs are a matched pair with identical settings.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "corr",
+   "definition": "Shorthand in the caption for activation correlation: the Pearson correlation between two features' activation vectors over a fixed sample of tokens. It is the paper's working measure of whether two features from different models are the same feature.",
+   "conceptId": "activation-similarity"
+  },
+  {
+   "term": "Log-Likelihood Ratio (legend title)",
+   "definition": "The quantity the colour encodes: $\\log(P(s \\mid \\text{Hebrew})/P(s))$ for the token's string $s$. Positive means the string is more probable under the hypothesis that the text is Hebrew than under the general text distribution.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Hebrew (legend label with arrow)",
+   "definition": "Names the hypothesis in the numerator of that ratio, and the arrow says which way is more Hebrew. Redder tokens score higher on the Hebrew proxy.",
+   "conceptId": "hebrew-script-proxy"
+  },
+  {
+   "term": "Blue end of the colour scale",
+   "definition": "Tokens the Hebrew proxy scores negatively — strings it considers unlikely to be Hebrew. In this figure blue dominates the weak-activation end.",
+   "conceptId": null
+  },
+  {
+   "term": "Red end of the colour scale",
+   "definition": "Tokens the Hebrew proxy scores positively, i.e. strings it reads as Hebrew script. Red dominates the strong-activation mode, which is the figure's point.",
+   "conceptId": null
+  },
+  {
+   "term": "Density (vertical axis)",
+   "definition": "The count of sampled tokens whose activation falls in a given bin, labelled in thousands. It is a histogram height, not a probability density integrating to one.",
+   "conceptId": null
+  },
+  {
+   "term": "Activation Level (horizontal axis)",
+   "definition": "The scalar value the feature takes on a token — the post-ReLU coefficient the sparse autoencoder assigns to this dictionary direction. Zero means the feature is off.",
+   "conceptId": null
+  },
+  {
+   "term": "0 and >0 (the two markers at the axis origin)",
+   "definition": "A control separating the exactly-zero bin from the positive range. Because features are sparse, the zero bin would otherwise dwarf everything and hide the shape of the active distribution.",
+   "conceptId": null
+  },
+  {
+   "term": "Normalized strip below the main chart",
+   "definition": "The same colour stack rescaled so each activation bin sums to full height. It shows the composition at each activation level independently of how many tokens are there, so the thin right tail can be judged.",
+   "conceptId": null
+  },
+  {
+   "term": "Dataset example boxes",
+   "definition": "Four panels of sampled text, each tied by a dotted line to the activation level it illustrates. Each box holds several short token windows drawn from tokens whose activation is near that level.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "Orange highlighting inside the examples",
+   "definition": "Per-token feature activation, with darker orange meaning a stronger firing. The unshaded surrounding tokens are context, not places the feature fired.",
+   "conceptId": null
+  },
+  {
+   "term": "Bold token in an example",
+   "definition": "The token the example is centred on — the one whose activation places this window at this point of the axis. The four tokens on each side are shown for context.",
+   "conceptId": null
+  },
+  {
+   "term": "\\xd7",
+   "definition": "A raw byte token, written in escape notation because it is not a printable character on its own. It is the first byte in the UTF-8 encoding of most characters in the basic Hebrew Unicode block, so it prefixes most Hebrew characters.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "\\xd6",
+   "definition": "Another lead byte appearing in the examples; it begins the UTF-8 encoding of Hebrew points and some other characters just outside the main Hebrew block.",
+   "conceptId": null
+  },
+  {
+   "term": "\\xa6, \\x90, \\x93, \\x98, \\x9f, \\xb6, \\xb8 and similar",
+   "definition": "Continuation bytes — the second half of a split Hebrew character, each of which selects a particular letter after a \\xd7 or \\xd6 lead byte. They appear as separate tokens because the tokenizer splits these characters.",
+   "conceptId": null
+  },
+  {
+   "term": "Hebrew letters shown in the examples (א, ת, מ, ם, ...)",
+   "definition": "The rendered Hebrew characters in the sampled windows, which is what the reader can check the proxy against by eye. The strong-activation boxes are almost entirely made of them.",
+   "conceptId": null
+  },
+  {
+   "term": "Non-Hebrew text in the weakest box (/gdk-pixbuf/+bug/6657, \"ségünk véglegesíten\", \"t⏎ra môi\")",
+   "definition": "A URL fragment, Hungarian and accented Latin text sampled at low activation. They are the visible face of the blue mass at the left of the histogram: the feature fires faintly on non-Hebrew, often on accented or non-ASCII characters.",
+   "conceptId": null
+  },
+  {
+   "term": "⏎",
+   "definition": "The glyph used for a newline character inside an example window. The paper notes elsewhere that such common characters lie outside the script's Unicode block, so the proxy scores them low even where the feature fires.",
+   "conceptId": "proxy-limitations"
+  },
+  {
+   "term": "\"ic translation:\" fragment in the third box",
+   "definition": "An English fragment appearing beside Hebrew in a mid-to-high activation window. It illustrates that examples are windows of real text, so Latin context can sit next to the tokens that actually drove the activation.",
+   "conceptId": null
+  },
+  {
+   "term": "Activation specificity",
+   "definition": "The claim being tested here: when the feature is on, is the hypothesized context actually present. The caption asserts it holds significantly for B/1/1901, and the histogram's red upper mode is the evidence offered.",
+   "conceptId": "activation-specificity"
+  },
+  {
+   "term": "Universality",
+   "definition": "The question of whether the same features form in separately trained models. This figure is one instance of the paper's affirmative answer for a specific feature.",
+   "conceptId": "feature-universality"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.92",
+   "meaning": "The Pearson correlation between the activations of A/1/416 and B/1/1901. The paper reports it as the reason to call B/1/1901 the counterpart feature; B/1/1901 was chosen precisely as the B/1 feature maximizing this quantity, so the number is a maximum over the run, not a random draw."
+  },
+  {
+   "value": "1901",
+   "meaning": "The index of this feature within the B/1 dictionary. Indices carry no meaning beyond identity, so 1901 and 416 being different tells you nothing about the features."
+  },
+  {
+   "value": "416",
+   "meaning": "The index of the Hebrew feature within the A/1 dictionary — the feature this one is matched to."
+  },
+  {
+   "value": "40,960,000",
+   "meaning": "The number of tokens over which activation correlations are computed when searching for a matching feature. The size is set so that even features firing on a small fraction of tokens still have enough active examples for a stable correlation."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5",
+   "meaning": "The tick marks on the log-likelihood-ratio colour scale, in nats. Zero means the token is equally likely under the Hebrew hypothesis and under the general distribution; +5 means about $e^5 \\approx 148$ times likelier under Hebrew; -5 the reverse. The scale is clipped at these ends, so the deepest red and blue are saturated bins."
+  },
+  {
+   "value": "0 to 7.0",
+   "meaning": "The range of the activation axis. The upper end is set by the largest activations this feature reaches; the paper does not treat activation units as comparable across features, since the autoencoder's decoder directions are normalized but the coefficients are not otherwise calibrated."
+  },
+  {
+   "value": "0K to about 4.3K",
+   "meaning": "The range of bin counts on the vertical axis. Absolute heights depend on the sample size and bin width, so what matters is the shape and the colour composition rather than the counts themselves."
+  },
+  {
+   "value": "about 4.3K at the left edge",
+   "meaning": "The count in the lowest positive activation bins, almost entirely blue. Weak firings on non-Hebrew text are the single most common thing this feature does by token count — which is why the paper argues elsewhere that strong activations, not common ones, deserve the interpretive weight."
+  },
+  {
+   "value": "about 0.5K near activation 2",
+   "meaning": "The trough between the weak non-Hebrew mass and the Hebrew mode. The bimodality is what makes a single threshold around 5 meaningful."
+  },
+  {
+   "value": "about 1.6K near activation 3.9",
+   "meaning": "A middle shoulder where red and blue are roughly comparable. This is the mixed zone: the feature is clearly on, but the proxy agrees on only part of it."
+  },
+  {
+   "value": "about 4.3K near activation 5.9, of which roughly 3.5K is red",
+   "meaning": "The Hebrew mode. Roughly four fifths of the tokens in the peak bins score positively on the Hebrew proxy, and the remaining blue is largely whitespace and punctuation, which sit outside the Hebrew Unicode block and so are scored as non-Hebrew even inside Hebrew text."
+  },
+  {
+   "value": "about 0.75, 2.8, 4.2, 6.2",
+   "meaning": "The four activation levels the dotted lines connect to, one per example box. They are spaced to span the distribution — one in the weak blue mass, two in the mixed middle, one in the Hebrew mode — so a reader can see the text change as activation rises."
+  },
+  {
+   "value": "4 boxes with about 5 examples each",
+   "meaning": "The sampling shown. This is a small hand-sized sample per level, so it illustrates rather than measures; the histogram behind it is the quantitative claim."
+  },
+  {
+   "value": "4 tokens on each side",
+   "meaning": "The context window displayed around each selected token in the examples, per the paper's visualization settings."
+  },
+  {
+   "value": "100 million tokens, 10 tokens per context",
+   "meaning": "The subset the visualization examples are drawn from, and the cap on how many tokens are taken from any one document. The cap prevents a single Hebrew document from supplying every example."
+  },
+  {
+   "value": "0.55",
+   "meaning": "Reported in the main Hebrew section, not on this plot: the Pearson correlation of the Hebrew proxy with A/1/416's activations. It is lower than the 0.92 feature-to-feature figure partly because a complementary feature, A/1/1016, handles the \\xd7 lead byte, so A/1/416 misses activations the proxy expects."
+  },
+  {
+   "value": "0.91",
+   "meaning": "The corresponding activation correlation for the Arabic feature pair A/1/3450 and B/1/1334, given for comparison in the earlier universality section. Hebrew's 0.92 is in the same range."
+  },
+  {
+   "value": "0.72 and 0.46",
+   "meaning": "Context from the global analysis: the median activation correlation between a feature in A/1 and its best match in B/1 is 0.72, while matching neurons between the same two transformers gives 0.46. Against that backdrop 0.92 is a well-matched feature, not a typical one."
+  }
+ ]
+}

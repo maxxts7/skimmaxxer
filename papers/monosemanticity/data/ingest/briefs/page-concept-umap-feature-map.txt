@@ -1,0 +1,54 @@
+PAGE FOR CONCEPT: umap-feature-map
+NAME: UMAP map of dictionary directions
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A scatter of every learned feature's decoder direction, projected to two dimensions so that nearby dots mean small angles between dictionary vectors. It is for seeing whether feature families found by reading text are also geometric clumps, and whether coarse features sit inside the finer ones that split out of them.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+The paper arrives at feature splitting with families it found by reading text: several base64 features, several Arabic script features, over a hundred features for the token "the" in different contexts. Those families were assembled by a human looking at activating dataset examples. The question that forces this chart is whether they are anything more than a habit of the reader — whether the [[sparse-autoencoder]] happened to place conceptually similar features in similar places in activation space, without ever being asked to.
+
+A single number would not settle it. Mean within-family cosine similarity against mean across-family similarity presupposes the families, so it can only confirm the ones already named; it hides the clusters nobody labelled, and it says nothing about how many groups there are or whether they are separate. A table of pairwise similarities is 4,608 rows by 4,608 columns in the smaller case. A bar chart needs its categories fixed in advance. The authors want the opposite: to look at the geometry with the labels off and see whether structure shows up on its own. A projected scatter is the cheapest way to do that, and the price is two axes that carry no information at all.
+
+The second job is [[feature-splitting]], which needs coarse and fine dictionaries in one coordinate system — do the finer features a wider run splits out land where the coarse feature was? Separate maps per run cannot answer that, so every run goes into one embedding.
+
+### How to read it, step by step
+
+One dot is one [[feature-direction]]: a single column of the decoder matrix $W_d$ ([[dictionary-decoder]]), the direction a feature writes into the 512-dimensional MLP activation space of the [[one-layer-transformer-testbed]] when it fires. Not an activation, not a firing rate, not a strength. Columns are held at unit length ([[unit-norm-dictionary-columns]]), so all the information is in angles between them.
+
+[[umap]] takes those 512 numbers down to two, with cosine as the distance metric (`n_neighbors=15`; `min_dist=0.05` in fig-1, `0.01` in fig-44). Both axes are UMAP output coordinates — no units, no scale, no fixed orientation, and no meaning if you rerun the fit. What the method tries to preserve is which points were neighbours. So read co-location and nothing else: the width of a gap between two blobs is not a distance, and a point's position on its own says nothing.
+
+Colour encodes the [[dictionary-learning-run]]. In fig-44 the large grey markers are A/0 (512 features, 1x [[expansion-factor]]), dark green is A/1 (4,096, 8x), small light green is A/2 (16,384, 32x) — same transformer, same sparsity coefficient, only dictionary width changing.
+
+Look first at a labelled knot. Arabic script, base64: check that it holds all three colours, with one oversized grey marker sitting as a halo under a spray of green. That halo is what splitting looks like geometrically. Then look at the island set far apart on the right: [[ultralow-density-cluster]] features and [[dead-neurons]], which the paper treats as artifacts of autoencoder training rather than facts about the transformer.
+
+### What a bad result would look like
+
+If conceptually similar features had unrelated directions, the labelled families would be scattered: the Arabic features spread through the mass instead of forming one knot, and the clusters that do appear would cut across the human labels rather than agreeing with them. Random unit vectors in 512 dimensions are close to mutually orthogonal, so a dictionary carrying no such structure should project to one diffuse ball — roughly what the ultralow-density and dead region on the right already looks like, which is a useful sight to keep as the null picture.
+
+If splitting were not happening, colour would organise the map instead of theme: grey A/0 points would occupy their own territory rather than sitting inside green knots, meaning the wider run had found different directions rather than finer versions of the same ones.
+
+One weakness worth holding: UMAP will draw clusters out of almost any input, and the paper shows no shuffled or randomised control. The map corroborates the text-based families; on its own it does not prove them. The paper's stated claim is correspondingly modest — that the qualitative clusters are reflected in the dictionary's geometry ([[feature-geometry-clusters]]).
+
+### Where it comes back
+
+Two versions appear. Fig-1 is the interactive browser published with the article: A/0 and A/1 together, 4,608 points, all one colour, paired with a scrollable list of human-written labels grouped by [[hdbscan-feature-clustering]] — the labels sit beside the map so a reader can check that a clump really is thematic. Fig-44 drops the labels and adds A/2, then colours by run, which is the change that makes splitting legible. Same shape, two different questions: one asks whether clusters mean something, the other asks what happens to them as the dictionary grows.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - feature-direction | Feature direction: The unit vector $\mathbf{d}_i$ in activation space along which feature $i$ writes when it fires; in the autoencoder these are the columns of the decoder weight matrix.
+  - dictionary-decoder | Decoder as Dictionary: The output weight matrix $W_d$, whose columns are the feature directions. The paper uses "decoder" and "dictionary" interchangeably.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - unit-norm-dictionary-columns | Unit-Norm Dictionary Columns: The columns of $W_d$ are constrained to have L2 norm 1, so that the L1 penalty cannot be gamed by shrinking directions.
+  - dictionary-learning-run | Dictionary Learning Run: One trained autoencoder, identified by its number in the feature notation. Runs vary in dictionary size and L1 coefficient.
+  - superposition | Superposition: A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.
+  - feature-splitting | Feature splitting: The observation that as the autoencoder is made wider, single features divide into families of more specific features covering roughly the same territory.
+  - feature-density | Feature Density: The fraction of tokens on which a feature has a nonzero value; the paper's main quick proxy for autoencoder quality.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 00-front-title-authors.txt
+  - 42-5.2-feature-splitting.txt
+  - 83-21-feature-umaps.txt

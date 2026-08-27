@@ -1,0 +1,88 @@
+PAGE FOR CONCEPT: dictionary-learning
+NAME: Dictionary learning
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+The problem of writing each activation vector as a sparse combination of directions drawn from a fixed, larger-than-necessary set. The paper frames the search for a model's features as exactly this problem.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Given activation vectors $\mathbf{x}$, dictionary learning looks for a set of directions $\mathbf{d}_i$ and per-datapoint coefficients $f_i(\mathbf{x})$ such that $\mathbf{x} \approx \sum_i f_i(\mathbf{x})\mathbf{d}_i$, with only a few coefficients nonzero on any given datapoint. The paper adopts this framing because it believes the features it is after are sparse and more numerous than the dimensions available to hold them. It asks only for a sparse decomposition of the activations themselves and uses nothing about what those activations go on to do in the rest of the model. The paper points out that this restraint is useful: because downstream effects were never fitted, they are left free to act as an independent check on whether the recovered directions mean anything.
+
+THEME IT BELONGS TO: theme-the-model-and-the-autoencoder | The model and the autoencoder - Two models are involved, and keeping them apart matters for everything that follows. One is the subject: a one-layer transformer with a 512-neuron MLP, overtrained on the Pile, whose MLP activations are the thing being decomposed. The other is the tool: a sparse autoencoder, wider than the layer it reads, trained to rebuild those activations from a small number of active hidden units, with an L1 penalty doing the work of forcing most units to zero. This theme also covers the training details the paper singles out as mattering — the tied pre-encoder bias, resampling of dead neurons — and the notation used to name a feature.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - activations-only-decomposition | Fitting Activations Only: The decomposition is fit to the MLP activations alone, ignoring what those activations do to the model's output — which leaves downstream effects available as a check.
+  - classical-dictionary-learning-algorithms | Classical Dictionary Learning Algorithms: Established iterative methods such as Method of Optimal Directions and K-SVD. The paper tried several and set them aside.
+  - compressed-sensing | Compressed Sensing: The problem of recovering a sparse high-dimensional vector from a low-dimensional linear measurement of it. The paper names this as the hard inner problem inside dictionary learning.
+    - np-hardness-of-exact-sparse-recovery | NP-Hardness of Exact Recovery: Compressed sensing in its exact form is NP-hard, which the paper turns into an argument about what method to use.
+  - cunningham-et-al-parallel-work | Parallel sparse autoencoder investigation: An independent line of interim reports and a manuscript investigating the same sparse autoencoder approach, prompted by Toy Models.
+  - mean-max-cosine-similarity | Mean max cosine similarity (MMCS): A measure of how well features from two separately trained dictionaries match up, reported elsewhere as bimodal; the paper suspects density bimodality explains it.
+  - overcompleteness | Overcompleteness: Having more dictionary directions than the dimension of the space they live in. The paper insists this is what separates its setting from ordinary disentanglement work.
+    - undercomplete-basis | Undercomplete basis: A feature set smaller than the dimension of the space being decomposed — what earlier dictionary learning work on transformers recovered.
+  - prior-dictionary-learning-on-embeddings | Earlier dictionary learning on embeddings: A body of pre-transformer work applying sparse coding, sparse autoencoders, dictionary learning and topic-model methods to word embeddings.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+    - adam-decoder-normalization-interaction | Adam and Decoder Normalization: A fix for the mismatch created by renormalizing dictionary vectors after each step: project the gradient onto the sphere before the update rather than snapping back afterwards.
+    - algorithmic-improvements-for-sparse-autoencoders | Algorithmic alternatives to the plain L1 autoencoder: Candidate refinements listed as future work: variational autoencoders, sparsity priors beyond L1, and noise injection.
+      - noise-injection-for-interpretability | Noise injection: Adding noise during training as a separate route to sparse, interpretable representations.
+    - amortized-sparse-coding-approximation | Encoder as Amortized Sparse Coding: The framing that the encoder is a single-shot linear stand-in for a multi-step, non-linear sparse coding algorithm.
+    - autoencoder-encoder | Encoder: The linear map plus bias plus ReLU that turns an activation vector into feature activations: $\mathbf{f} = \text{ReLU}(W_e\bar{\mathbf{x}} + \mathbf{b}_e)$.
+    - autoencoder-training-dataset | Autoencoder Training Dataset: Roughly 10 billion MLP activation vectors harvested from the transformer over 40 million Pile contexts, of which just over 8 billion are used.
+      - activation-shuffling | Cross-Context Shuffling: Activations are subsampled at 250 tokens per context and shuffled so that a training batch draws from many different contexts.
+      - sampling-without-replacement | Sampling Without Replacement: Each activation vector is seen at most once during autoencoder training. The paper says not repeating data is important for optimal results.
+    - dictionary-decoder | Decoder as Dictionary: The output weight matrix $W_d$, whose columns are the feature directions. The paper uses "decoder" and "dictionary" interchangeably.
+      - unit-norm-dictionary-columns | Unit-Norm Dictionary Columns: The columns of $W_d$ are constrained to have L2 norm 1, so that the L1 penalty cannot be gamed by shrinking directions.
+    - expansion-factor | Expansion factor: The ratio of autoencoder hidden dimension to input dimension — how many times more features than neurons the dictionary has.
+    - extended-training-steps | Training Past the Loss Plateau: The paper keeps training well beyond the point where training loss appears flat, listing 'many training steps' among its important modifications.
+    - external-replication | External replication and commentary: Invited outside researchers commented on the work before publication; one trained his own sparse autoencoder on a different open source one-layer model and reports the core results replicate.
+    - feature-notation | Feature Notation: The paper's identifier scheme: run seed, autoencoder size index, and feature index, as in A/1/3450 or B/1/1334; neurons are written A/neurons/489.
+      - dictionary-learning-run | Dictionary Learning Run: One trained autoencoder, identified by its number in the feature notation. Runs vary in dictionary size and L1 coefficient.
+      - neuron-notation | Neuron Notation: "A/neurons/32" names a transformer MLP neuron rather than a learned feature, so the two can be compared without ambiguity.
+    - kaiming-uniform-initialization | Kaiming Uniform Initialization: The default PyTorch weight initialization used for the autoencoder.
+    - l1-sparsity-penalty | L1 penalty on feature activations: A penalty on the sum of feature activations, which pushes most of them to exactly zero. This is what buys sparsity in the decomposition.
+      - l1-coefficient | L1 Coefficient $\lambda$: The scalar weighting the sparsity penalty against reconstruction error. It is one of the two hyperparameters the paper varies across dictionary learning runs.
+    - learning-rate-sweep | Learning Rate Sweep: Trying multiple learning rates alongside varying training lengths. The paper reports lower learning rates, given enough steps, give lower loss and more real features.
+    - neuron-resampling | Neuron Resampling: Periodically reinitializing autoencoder neurons that have stopped firing, aiming them at datapoints the autoencoder currently reconstructs worst.
+      - adam-state-reset-on-resampling | Resetting Optimizer State on Resampling: Adam's moment estimates are reset for every weight and bias changed by resampling.
+      - dead-neurons | Dead Neurons: Autoencoder hidden units with zero activation across a large number of datapoints. They waste dictionary capacity, so the paper resamples them.
+        - de-facto-dead-neurons | De Facto Dead Neurons: Ultralow density neurons that fire so rarely they are effectively dead, but do not register as dead by a zero-activity check.
+      - loss-proportional-input-sampling | Sampling by Squared Loss: Resampled neurons are seeded from inputs chosen with probability proportional to the square of the autoencoder's current loss on them.
+      - lottery-ticket-hypothesis | Lottery Ticket Hypothesis: The idea that a trained network's performance comes from a subnetwork whose initialization happened to be favorable. The paper offers it as a possible reason resampling helps.
+      - resampled-encoder-scaling | Weak Initialization of the Resampled Encoder: A revived neuron's encoder vector is scaled to 0.2 times the average live-neuron encoder norm and its bias set to zero, so it fires only weakly at first.
+    - pre-encoder-bias | Pre-Encoder Bias: A bias subtracted from the input before the encoder, constrained to be the negative of the decoder's output bias. The paper lists it as its most important modification to a standard autoencoder.
+      - bounce-plots | Bounce Plots: A toy-model diagnostic the paper uses to check whether the autoencoder is behaving correctly. Failure to produce them is what motivated adding biases.
+      - geometric-median-initialization | Geometric Median Initialization: The tied bias is initialized to the geometric median of the activation dataset — the point minimizing summed Euclidean distance to all datapoints.
+    - scaling-sparse-autoencoders | Scaling sparse autoencoders: The open engineering problem of applying this method to frontier models, which the authors call one of the most important questions going forward.
+      - scaling-laws-for-dictionary-learning | Scaling laws for dictionary learning: The wanted-but-missing relationships between subject model size and the autoencoder width and data needed to decompose it.
+    - sparse-autoencoder-loss | Reconstruction Plus Sparsity Loss: The training objective: mean squared reconstruction error plus an L1 penalty on the hidden activations, $\mathcal{L} = \frac{1}{|X|}\sum_\mathbf{x} \|\mathbf{x}-\hat{\mathbf{x}}\|_2^2 + \lambda\|\mathbf{f}\|_1$.
+      - mse-reconstruction-term | MSE Reconstruction Term: The squared error between the original MLP activation and the autoencoder's reconstruction, averaged over vector elements.
+    - untied-decoder-weights | Untied Decoder Weights: The encoder weights are learned independently of the decoder weights rather than being constrained to their transpose. The paper reports the two end up meaningfully different.
+      - encoder-decoder-offset-crosstalk | Encoder Tilt Against Crosstalk: The paper's account of why untying helps: features with similar dictionary vectors get encoder vectors tilted away from each other, so they can be told apart.
+  - sparsity-of-natural-latent-variables | Sparsity of Natural Latent Variables: The long-standing hypothesis that the underlying variables generating natural data are mostly inactive at any moment. The paper uses it to justify asking for a sparse decomposition.
+  - weak-dictionary-learning | A deliberately weak dictionary learning algorithm: The worry that a sufficiently sophisticated decomposition method could recover structure from the activations that the model itself has no way to read out.
+
+PREREQUISITES:
+  - feature-activation | Feature activation: The scalar $f_i(\mathbf{x})$ giving how strongly feature $i$ fires on a datapoint; in the autoencoder it is the ReLU hidden-layer value.
+  - linear-feature-decomposition | Features as a linear decomposition: Writing each activation vector as a bias plus a sparse weighted sum of unit-vector feature directions — an ordinary linear matrix factorization of the kind used in dictionary learning.
+  - linear-representation-hypothesis | Linear representation hypothesis: The claim that networks represent meaningful properties as directions in activation space, so that interpretable concepts are linear functions of activations.
+  - superposition | Superposition: A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.
+
+EDGES TOUCHING THIS CONCEPT (1) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] <- architectural-approaches-to-superposition (Architectural approaches, and why they were abandoned) | contrasts-with | two of three strategies, one abandoned: Toy Models laid out building models that lack superposition and decomposing models that have it as separate routes. The authors say they spent significant time on the first and concluded it is not merely costly but fundamentally non-viable for language models. This paper is the second route, taken up because the first did not work.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-2 | Where the Dictionary Attaches: This schematic names the exact tensor the paper decomposes: the 512-dimensional post-ReLU MLP activation vector at a single token position of a one-layer transformer. It shows that vector being sent out to a sparse, overcomplete autoencoder and coming back, and that the thing the autoencoder returns is a set of between 512 and 131,072 feature activations rather than the 512 neuron values.
+  - fig-12 | Pinning the Arabic Script Feature: Holding one learned feature's activation at its maximum, with nothing else in the network touched, turns the model's continuation of a counting prefix into Arabic script. The paper offers this as its most direct causal check that the feature is used by the model to produce Arabic text, rather than merely co-occurring with it in the data.
+  - fig-45 | One Region, More Arrows: A hand-drawn schematic of what the paper means by feature splitting: widening the autoencoder does not send new features off to new parts of activation space, it packs more dictionary directions into the same narrow cone, so the split features end up at small angles to one another. It is an illustration of the authors' picture, not a measurement.
+  - fig-48 | One base64 Feature Becoming Three: In the 512-feature dictionary A/0, a single feature (A/0/45) fires across a whole base64 string. In the 4,096-feature dictionary A/1, three features share that job — one leaning on letters, one on digits, one on base64 that decodes to ASCII — and between them they light up roughly the same tokens the parent did. The figure is the paper's picture of feature splitting at the level of individual tokens, shown on one example.
+  - fig-61 | Three Pictures of Feature Geometry: A hand-drawn contrast between three ways features might be arranged in activation space: evenly spread one-dimensional directions, clumped one-dimensional directions, and continuous higher-dimensional patches. The last panel is the one that bites: if a model uses feature manifolds rather than rays, dictionary learning can only ever approximate them with discrete directions, and asking for the "correct number of features" stops being a well-posed question.
+  - eq-feature-decomposition | Activations as a Sum of Features: The paper defines a decomposition of a layer as writing each token's MLP activation vector as a fixed bias plus a weighted sum of unit directions, one direction per feature. The weights are the feature activations, and the sum runs over many more features than the vector has dimensions, which the paper says is only workable because the weights are sparse.
+  - eq-autoencoder-loss | The Sparse Autoencoder's Two-Term Loss: This is the entire method in four lines: a ReLU encoder turns one MLP activation vector into feature activations, a linear decoder rebuilds the activation from them, and training minimizes squared reconstruction error plus an L1 penalty on those activations. The two loss terms pull against each other — reconstruction forces the dictionary to keep the information, L1 forces most features to be off — and the coefficient lambda sets the exchange rate between them.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 75-18-advice-for-training-sparse-autoencoders-autoencoder-architec.txt
+  - 03-2.1-features-as-a-decomposition.txt
+  - 04-2.1.1-superposition-hypothesis.txt
+  - 07-2.4-using-sparse-autoencoders-to-find-good-decompositions.txt
+  - 08-2.5-sparse-autoencoder-setup.txt
+  - 49-6-related-work.txt
+  - 52-6.3-dictionary-learning-and-features.txt
+  - 00-front-title-authors.txt

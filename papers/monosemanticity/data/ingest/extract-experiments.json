@@ -1,0 +1,1809 @@
+{
+ "key": "experiments",
+ "concepts": [
+  {
+   "id": "feature-evidence-template",
+   "name": "The Five-Claim Feature Template",
+   "tier": "major",
+   "parent": null,
+   "summary": "The fixed set of five claims the paper tries to establish for each individual feature it studies in depth: specificity, sensitivity, downstream effect, non-correspondence to a neuron, and universality.",
+   "explanation": "Section 3 sets out a standard evidence template and then applies it to four hand-picked features. For each one the paper argues that (1) when the feature is on, the hypothesized context is usually present; (2) when the context is present, the feature is usually on; (3) the feature causes downstream behavior that fits the interpretation; (4) no single neuron corresponds to the feature; and (5) a similar feature turns up when dictionary learning is run on an independently trained model. The paper says the most important claim of the whole work is that dictionary learning extracts features more monosemantic than neurons, and this template is how it argues that claim case by case. Claims 1 through 3 are demonstrated using computational proxies for each context; claims 4 and 5 use neuron comparisons and a second training run.",
+   "prerequisites": [
+    "dictionary-learning",
+    "monosemanticity",
+    "polysemantic-neuron"
+   ],
+   "sectionIds": [
+    "3",
+    "3.1",
+    "3.2",
+    "3.3",
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-specificity",
+   "name": "Activation Specificity",
+   "tier": "major",
+   "parent": "feature-evidence-template",
+   "summary": "Whether a feature being on implies the hypothesized context is present. The paper treats this as the more important half of the case against polysemanticity.",
+   "explanation": "Specificity asks: given that the feature fires, how often is the hypothesized context actually there? The paper measures it by scoring every token with a computational proxy for the context and then breaking the histogram of feature activations down by that score. For the Arabic script feature, Arabic text is 0.13% of training tokens but 81% of the tokens where the feature is active, rising from 25% at the weakest activations to 98% above activation 5. The paper argues specificity matters more than sensitivity for ruling out polysemanticity, because polysemanticity typically shows up as a unit firing on clearly unrelated concepts; a unit that only fires in one rare, specific context cannot be polysemantic in that usual way.",
+   "prerequisites": [
+    "computational-proxy",
+    "polysemantic-neuron"
+   ],
+   "sectionIds": [
+    "3",
+    "3.1.1",
+    "3.2.1",
+    "3.3",
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-sensitivity",
+   "name": "Activation Sensitivity",
+   "tier": "major",
+   "parent": "feature-evidence-template",
+   "summary": "Whether the feature is on whenever the hypothesized context is present. The paper finds sensitivity is imperfect and often patched by other features.",
+   "explanation": "Sensitivity is the converse of specificity: given the context, does the feature fire? The Arabic feature A/1/3450 is visibly not sensitive to every Arabic token — it skips the common prefix \"ال\" (\"al-\", the definite article) in random dataset examples. The paper reports that in exactly those gaps a different Arabic-specific feature, A/1/3134, fires instead, and that several other features (A/1/1466, A/1/3399) also participate in representing Arabic script. The paper's position is that rare gaps in a main feature's sensitivity are often explained by the activity of a sibling feature, and it points forward to feature splitting for the general version of this phenomenon.",
+   "prerequisites": [
+    "computational-proxy",
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "3",
+    "3.1.2",
+    "3.2.1",
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-downstream-effects",
+   "name": "Feature Downstream Effects",
+   "tier": "major",
+   "parent": "feature-evidence-template",
+   "summary": "Evidence that a feature causally changes the model's predictions in a way that matches its interpretation, measured three ways: logit weights, ablation, and pinned sampling.",
+   "explanation": "Because the autoencoder is trained only on MLP activations, the features it learns could in principle describe structure in the data with no bearing on what the network does. The paper answers this by showing the features have interpretable causal effects on the model's outputs. Three tools are used: a linear approximation of a feature's effect on the logits, causal ablation of the feature across a whole context, and sampling from the model with the feature's activation pinned high. None of these downstream quantities are inputs to dictionary learning, which sees only the MLP activations — so if the effects are also interpretable, the paper argues the feature is genuinely part of the MLP's functional role and not just a data artifact.",
+   "prerequisites": [
+    "dictionary-learning",
+    "sparse-autoencoder",
+    "mlp-activations"
+   ],
+   "sectionIds": [
+    "3",
+    "3.1.3",
+    "3.2.2",
+    "4.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-neuron-nonalignment",
+   "name": "The Feature Is Not A Neuron",
+   "tier": "major",
+   "parent": "feature-evidence-template",
+   "summary": "The check that dictionary learning did not simply hand back an already-monosemantic neuron under a new name.",
+   "explanation": "Some models do have relatively monosemantic neurons, so the paper checks that its clean features are not trivially neuron-aligned. Three tests are used per feature: search the neurons for any whose top dataset examples contain the context (for Arabic, exactly one neuron turns up, with one Arabic example out of twenty); look at the feature's coefficients in the neuron basis (for Arabic, the three largest by magnitude are negative and 27 neurons have coefficients of at least 0.1); and find the neuron whose activations correlate most with the feature and inspect it. For A/1/3450 the most correlated neuron, A/neurons/489, responds to a mixture of non-English languages with Arabic only a small sliver. The paper concludes the Arabic script feature would be effectively invisible if the model were analyzed in terms of neurons, while allowing that some features might genuinely be neuron-aligned.",
+   "prerequisites": [
+    "neuron-basis",
+    "privileged-basis",
+    "polysemantic-neuron"
+   ],
+   "sectionIds": [
+    "3",
+    "3.1.4",
+    "3.2.3",
+    "3.3.2",
+    "3.4.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-universality",
+   "name": "Feature Universality",
+   "tier": "major",
+   "parent": "feature-evidence-template",
+   "summary": "Whether the same feature is found again by dictionary learning applied to a separately trained model, taken as evidence the feature is a general fact about how one-layer transformers represent the data.",
+   "explanation": "For each case study the paper searches run B/1 — dictionary learning on a transformer trained on the same dataset with a different random seed — for the feature whose activations correlate most with the run A feature. It reports A/1/3450 ↔ B/1/1334 at correlation 0.91 for Arabic, A/1/2937 ↔ B/1/3680 at 0.92 for DNA, A/1/2357 ↔ B/1/2165 at 0.85 for base64, and A/1/416 ↔ B/1/1901 at 0.92 for Hebrew. In each case the matched feature shows the same activation specificity and the same bimodal logit weight structure. The paper reads this as indicating that dictionary learning is finding something general about how one-layer transformers learn representations of the dataset, rather than an accident of one training run.",
+   "prerequisites": [
+    "dictionary-learning",
+    "pearson-correlation"
+   ],
+   "sectionIds": [
+    "3",
+    "3.1.5",
+    "3.2.4",
+    "3.3.1",
+    "3.4.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "cherry-picked-case-studies",
+   "name": "Cherry-Picked Case Studies",
+   "tier": "minor",
+   "parent": "feature-evidence-template",
+   "summary": "The paper's own statement that the four detailed features were chosen because they are easy to analyze, not because they are typical.",
+   "explanation": "The four features studied in depth — Arabic script, DNA, base64, Hebrew — were selected because each context can be captured by a simple computational proxy over well-defined character sets or Unicode blocks. The paper states plainly that these are cherry-picked to be easier to analyze, and that defining a simple proxy for most features it finds, such as text about fantasy games, would be difficult. Those other features are handled in the global analysis section by human and automated scoring instead. Reading section 3 as evidence about the typical feature would therefore be a mistake the paper explicitly warns against.",
+   "prerequisites": [
+    "computational-proxy"
+   ],
+   "sectionIds": [
+    "3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-naming-convention",
+   "name": "Feature and Run Naming (A/1/3450)",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The paper's identifier scheme: run seed, autoencoder size index, and feature index, as in A/1/3450 or B/1/1334; neurons are written A/neurons/489.",
+   "explanation": "Each learned feature is named by three parts. The first is the transformer training seed — A and B are two transformers trained on the same dataset with different random seeds. The second is which autoencoder run on that model, indexed by size, so A/1 is the 4,096-feature autoencoder on model A and A/5 is the 131,072-feature one. The third is the index of the feature within that autoencoder's dictionary. Neurons of the underlying transformer are written the same way with \"neurons\" in the middle slot, as in A/neurons/489.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "3",
+    "3.1",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "computational-proxy",
+   "name": "Computational Proxy",
+   "tier": "major",
+   "parent": null,
+   "summary": "A cheaply computable numerical score estimating how likely a string is to come from a hypothesized context, used as an independent yardstick against which feature activations are checked.",
+   "explanation": "To test specificity and sensitivity without hand-labeling millions of tokens, the paper builds a proxy for each context: an estimate of the log-likelihood ratio $\\log(P(s|\\text{context}) / P(s))$, the probability of the string under the context hypothesis versus under the full empirical distribution of the dataset. The stated intuition for using log-likelihoods is that features interact linearly with the logits, so they should be incentivized to track log-likelihoods. Because a token's activation may depend on preceding tokens, the ratio is maximized over different prefixes leading up to and including the final token. The four contexts were chosen because they are easy to model: DNA as random strings over [ATCG], base64 as random sequences over [a-zA-Z0-9+/], and Arabic and Hebrew via their well-defined Unicode blocks.",
+   "prerequisites": [
+    "log-likelihood-ratio"
+   ],
+   "sectionIds": [
+    "3",
+    "3.1.1",
+    "3.2.1",
+    "3.3",
+    "3.4",
+    "12"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "log-likelihood-ratio",
+   "name": "Log-Likelihood Ratio",
+   "tier": "minor",
+   "parent": "computational-proxy",
+   "summary": "The log of the ratio of a string's probability under one hypothesis to its probability under a baseline distribution.",
+   "explanation": "A standard statistical score: positive when the hypothesis explains the string better than the baseline does, negative when it explains it worse. Here the hypothesis is a context such as \"this is base64\" and the baseline is the full empirical distribution of the training data.",
+   "prerequisites": [],
+   "sectionIds": [
+    "3",
+    "12"
+   ],
+   "floor": true,
+   "citedFrom": null
+  },
+  {
+   "id": "arabic-script-proxy",
+   "name": "Arabic Script Proxy",
+   "tier": "minor",
+   "parent": "computational-proxy",
+   "summary": "The per-token score $\\log(P(s|\\text{Arabic Script}) / P(s))$, built from the Arabic Unicode blocks.",
+   "explanation": "Arabic, Farsi and Urdu all use the Arabic script, which occupies well-defined Unicode blocks, so membership is easy to compute. The proxy scores each token by how much more likely the string is under an Arabic-script hypothesis than under the dataset at large. It has known false negatives: characters common to many scripts, such as whitespace, punctuation, and newlines, fall outside the Arabic blocks and score low even inside Arabic text. Thresholded at zero, this proxy has a Pearson correlation of 0.74 with A/1/3450's activity over 40 million tokens.",
+   "prerequisites": [
+    "computational-proxy"
+   ],
+   "sectionIds": [
+    "3.1.1",
+    "3.1.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dna-proxy",
+   "name": "DNA Proxy",
+   "tier": "minor",
+   "parent": "computational-proxy",
+   "summary": "A score for \"is a DNA sequence\", modeling DNA as random strings over [ATCG] and evaluated on groups of at least two tokens.",
+   "explanation": "Some single vocabulary tokens, such as CAT, occur both in nucleotide sequences and in ordinary text, so the proxy is always evaluated over groups of at least two tokens. Its log-probabilities turn out to be strongly bimodal, so the paper binarizes it on the sign of the score. The binarized proxy has a Pearson correlation of 0.8 with A/1/2937's activations. The paper notes the proxy is less sensitive to DNA than the feature is, missing strings that contain punctuation, spaces, or missing bases.",
+   "prerequisites": [
+    "computational-proxy",
+    "proxy-binarization"
+   ],
+   "sectionIds": [
+    "3.2",
+    "3.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "base64-proxy",
+   "name": "Base64 Proxy",
+   "tier": "minor",
+   "parent": "computational-proxy",
+   "summary": "A score modeling base64 strings as random sequences over [a-zA-Z0-9+/]; the paper judges it too broad.",
+   "explanation": "The base64 proxy correlates with A/1/2357's activity at only 0.38, and the paper attributes most of that gap to the proxy rather than the feature. The character class [a-zA-Z0-9+/] also covers hexadecimal strings from [0-9A-F], which look very unlike the overall data distribution and so score highly on the proxy — but those are handled by a separate feature, A/1/3817. The paper's reading is that the proxy fires on things that are not base64, dragging the correlation down while the feature itself remains specific.",
+   "prerequisites": [
+    "computational-proxy",
+    "hexadecimal-feature"
+   ],
+   "sectionIds": [
+    "3.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "hebrew-script-proxy",
+   "name": "Hebrew Script Proxy",
+   "tier": "minor",
+   "parent": "computational-proxy",
+   "summary": "A Unicode-block-based score for Hebrew text, correlating 0.55 with A/1/416.",
+   "explanation": "As with Arabic, Hebrew text is easy to identify computationally from its Unicode blocks. The Pearson correlation of this proxy with A/1/416 is 0.55, lower than the Arabic case. The paper attributes some of the shortfall in sensitivity to a complementary feature, A/1/1016, which fires on \\xd7 and predicts the bytes that complete Hebrew characters' codepoints. It also notes that strong activations sometimes score low on the proxy because they land on whitespace or punctuation from other Unicode blocks.",
+   "prerequisites": [
+    "computational-proxy",
+    "utf8-multi-token-characters"
+   ],
+   "sectionIds": [
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "proxy-binarization",
+   "name": "Proxy Binarization",
+   "tier": "minor",
+   "parent": "computational-proxy",
+   "summary": "Reducing a proxy's continuous log-probability to a yes/no value based on its sign, done when the proxy's distribution is strongly bimodal.",
+   "explanation": "For DNA the log-probabilities produced by the proxy come out strongly bimodal — strings are clearly nucleotide sequences or clearly not — so the paper collapses the score to a binary value on its sign before correlating it with feature activations. The Arabic proxy is similarly thresholded at zero when computing its correlation with A/1/3450. Binarizing loses magnitude information, but for a bimodal score there is little magnitude information to lose.",
+   "prerequisites": [
+    "computational-proxy"
+   ],
+   "sectionIds": [
+    "3.1.2",
+    "3.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "proxy-limitations",
+   "name": "Where the Proxies Fail",
+   "tier": "minor",
+   "parent": "computational-proxy",
+   "summary": "The paper's catalog of cases where feature and proxy disagree because the proxy is wrong, not the feature.",
+   "explanation": "Across the case studies the paper repeatedly finds the proxy at fault rather than the feature. Arabic and Hebrew proxies miss whitespace, punctuation and newlines that sit outside the target Unicode blocks even when embedded in target-script text. The DNA proxy fails on triplets separated by spaces, such as \"TGG AGT\", and on the prefix 5'- where the feature fires productively because DNA is about to follow. The base64 proxy is too broad, also firing on hexadecimal. The paper reports that in all but two disagreements for DNA, the feature was right and the proxy was wrong — which means the reported correlations are lower bounds on how well the features track their contexts.",
+   "prerequisites": [
+    "computational-proxy"
+   ],
+   "sectionIds": [
+    "3.1.1",
+    "3.2.1",
+    "3.3",
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "arabic-script-feature",
+   "name": "Arabic Script Feature (A/1/3450)",
+   "tier": "major",
+   "parent": null,
+   "summary": "The paper's lead case study: a learned feature that fires on text in Arabic script, is specific and reasonably sensitive to it, and has no neuron counterpart.",
+   "explanation": "A/1/3450 activates on text in Arabic, Farsi, Urdu and probably other languages written in the Arabic script. Arabic script is 0.13% of training tokens but 81% of tokens where the feature is active, and 98% above activation 5. Its logit weights have a second mode consisting of Arabic characters and the byte tokens \\xd8 and \\xd9 that begin the UTF-8 encodings of basic Arabic characters. Ablating it hurts predictions on Arabic tokens and helps prediction of shared punctuation such as the period. The three largest coefficients of this feature in the neuron basis are all negative, and the most correlated neuron responds to a mixture of non-English languages, so the paper concludes the feature would be effectively invisible in a neuron-level analysis.",
+   "prerequisites": [
+    "feature-evidence-template",
+    "arabic-script-proxy",
+    "logit-weight",
+    "feature-ablation"
+   ],
+   "sectionIds": [
+    "3.1",
+    "3.1.1",
+    "3.1.2",
+    "3.1.3",
+    "3.1.4",
+    "3.1.5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dna-feature",
+   "name": "DNA Feature (A/1/2937)",
+   "tier": "major",
+   "parent": null,
+   "summary": "A feature firing on long uppercase strings of A, T, C and G. Unlike the Arabic case it appears to be the only feature devoted to this context.",
+   "explanation": "A/1/2937 activates on nucleotide sequences. All ten random dataset examples above activation 6.0 are DNA sequences, and its binarized proxy correlation is 0.8. Two things distinguish it from the Arabic case: it is the only feature modeling the DNA context rather than one of a family, and the proxy is less sensitive than the feature — the feature fires on DNA containing spaces, punctuation or missing bases that the strict [ATCG] proxy rejects. It also fires on the prefix 5'- in \"5'-TCT\", where DNA is about to follow but the prefix itself is not DNA; ablation confirms the feature is helping predict what comes after. Its top logit weights are all nucleotide combinations such as AGT and GCC.",
+   "prerequisites": [
+    "feature-evidence-template",
+    "dna-proxy",
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.2",
+    "3.2.1",
+    "3.2.2",
+    "3.2.3",
+    "3.2.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "base64-feature",
+   "name": "Base64 Feature (A/1/2357)",
+   "tier": "major",
+   "parent": null,
+   "summary": "A feature firing on base64 strings, of interest because a base64 neuron had already been found in a different model with a different architecture.",
+   "explanation": "A/1/2357 responds to base64-encoded strings, such as the trailing characters of a YouTube video URL. Its logit weights show a second mode of base64-specific tokens, but the transition from the main mode to that second mode is more continuous than in the Arabic case. The paper explains this by noting that whether a token is Arabic is close to a binary property, whereas any string of English letters has some nontrivial probability of appearing in base64 — the token \"fr\" is both a base64 fragment and a common abbreviation for French, so the model has reason to be cautious about upweighting it. The proxy correlation is only 0.38, which the paper attributes to the proxy being too broad rather than the feature being impure.",
+   "prerequisites": [
+    "feature-evidence-template",
+    "base64-proxy",
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.3",
+    "3.3.1",
+    "3.3.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "hebrew-feature",
+   "name": "Hebrew Feature (A/1/416)",
+   "tier": "major",
+   "parent": null,
+   "summary": "A feature firing on Hebrew script, with high specificity in the upper activation spectrum and weak activations on other Unicode-script languages.",
+   "explanation": "A/1/416 has high activation specificity in the upper part of its spectrum, but weakly activates for other things, especially other languages written in non-Latin Unicode scripts. Some of the low-proxy activity at strong activations lands on characters shared across scripts, such as whitespace and punctuation. Its logit weights have a second mode of Hebrew characters and partial-codepoint tokens, notably \\xd7, which begins the UTF-8 encoding of most characters in the basic Hebrew Unicode block. The proxy correlation is 0.55; the paper suggests part of the sensitivity shortfall is absorbed by A/1/1016. No neuron matches it: the most correlated neuron, A/neurons/489, reaches only 0.1, and a search for neurons with the main Hebrew Unicode block in their top dataset examples found none.",
+   "prerequisites": [
+    "feature-evidence-template",
+    "hebrew-script-proxy",
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.4",
+    "3.4.1",
+    "3.4.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "complementary-arabic-features",
+   "name": "Complementary Arabic Features",
+   "tier": "minor",
+   "parent": "arabic-script-feature",
+   "summary": "The other features that fire in Arabic contexts and fill the gaps in A/1/3450's sensitivity.",
+   "explanation": "A/1/3450 fails to fire on the very common prefix \"ال\" (the Arabic definite article), and in exactly those places A/1/3134 fires instead. Other features including A/1/1466 and A/1/3399 also contribute to representing Arabic script. The division is sometimes mechanical: when an Arabic character is split into two tokens, A/1/3450 fires on the final token of the character while A/1/3399 fires on the first. The paper presents an alternative visualization showing all features active on a snippet of Arabic text to make this collaboration visible.",
+   "prerequisites": [
+    "activation-sensitivity",
+    "utf8-multi-token-characters",
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "3.1.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "utf8-multi-token-characters",
+   "name": "Split Unicode Characters in Tokenization",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Non-Latin Unicode characters are often encoded as several byte tokens, which shapes where script features fire and which tokens their logit weights promote.",
+   "explanation": "The tokenizer splits Unicode characters outside the Latin script into multiple byte tokens: ث (U+062B) becomes \\xd8 followed by \\xab. This matters for reading the activation visualizations, because A/1/3450 typically fires only on the last token of such a character while A/1/3399 fires on the first. It also matters for logit weights: \\xd8 and \\xd9 lead most basic Arabic characters and \\xd7 leads most basic Hebrew characters, so those byte tokens appear prominently among the tokens a script feature makes more likely. The paper also flags this as extra difficulty for a very weak one-layer model trying to recognize what language it is reading.",
+   "prerequisites": [
+    "byte-pair-encoding"
+   ],
+   "sectionIds": [
+    "3.1.1",
+    "3.1.2",
+    "3.1.3",
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "hexadecimal-feature",
+   "name": "Hexadecimal Feature (A/1/3817)",
+   "tier": "minor",
+   "parent": "base64-feature",
+   "summary": "A separate feature for hexadecimal strings, which the base64 proxy wrongly counts as base64.",
+   "explanation": "Strings drawn from [0-9A-F] activate the base64 proxy, since they are quite different from the overall data distribution and fall inside the base64 character class. But they are predicted by their own feature, A/1/3817, not by A/1/2357. The paper cites this as the main reason the base64 proxy correlation is only 0.38 — the proxy is broader than the feature, not the other way around.",
+   "prerequisites": [
+    "base64-proxy"
+   ],
+   "sectionIds": [
+    "3.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "base64-digit-feature",
+   "name": "Base64 Digit Feature and the BPE Exploit",
+   "tier": "minor",
+   "parent": "base64-feature",
+   "summary": "A companion feature that fires on single digits inside base64 contexts, exploiting a property of the BPE tokenizer to make a better prediction.",
+   "explanation": "A/1/2357 does not fire on some digits inside base64 strings — the 2, 4, 7 and 9 visible in the paper's figure. One of two other base64-context features fires on single digits instead. The paper says this feature exploits a property of the byte-pair-encoding tokenizer to make a better prediction, and defers the details to a later section. It is another instance of the pattern that gaps in one feature's coverage are filled by a sibling.",
+   "prerequisites": [
+    "base64-feature",
+    "byte-pair-encoding",
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "3.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "hebrew-continuation-feature",
+   "name": "Hebrew Continuation Feature (A/1/1016)",
+   "tier": "minor",
+   "parent": "hebrew-feature",
+   "summary": "A feature that fires on the \\xd7 byte and predicts the bytes completing a Hebrew character's codepoint.",
+   "explanation": "Most basic-block Hebrew characters begin with the byte token \\xd7 in UTF-8. A/1/1016 fires on that leading byte and predicts the byte that completes the character. Because A/1/416 mostly fires elsewhere in the character, the two split the work, and the paper suggests this accounts for part of A/1/416's imperfect sensitivity to the Hebrew proxy.",
+   "prerequisites": [
+    "hebrew-feature",
+    "utf8-multi-token-characters"
+   ],
+   "sectionIds": [
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-activation-distribution-plot",
+   "name": "Feature Activation Distribution Broken Down by Proxy",
+   "tier": "minor",
+   "parent": "activation-specificity",
+   "summary": "A histogram of a feature's activations with each bar colored by whether the proxy fires, used as the paper's basic specificity picture.",
+   "explanation": "The paper's standard specificity display bins tokens by feature activation level and colors each bin by proxy score, so the reader can see the proxy-positive fraction change with activation strength. For the Arabic feature that fraction goes from 25% at the weakest activations to 98% above activation 5. Alongside the histogram, the paper shows random dataset examples drawn from each activation level, so the reader can check the coloring against actual text rather than trusting the proxy.",
+   "prerequisites": [
+    "computational-proxy"
+   ],
+   "sectionIds": [
+    "3.1.1",
+    "3.2.1",
+    "3.3",
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "expected-value-plot",
+   "name": "Expected Value Plot",
+   "tier": "minor",
+   "parent": "activation-specificity",
+   "summary": "An activation histogram weighted by activation magnitude, so that the picture reflects how much effect a feature actually has rather than how many tokens it touches.",
+   "explanation": "Borrowed from Cammarata et al.'s work on curve detectors, the expected value plot re-weights the distribution of feature activations by the activation level itself. This addresses the problem that a feature may fire weakly and imprecisely on many tokens and strongly and precisely on a few: an unweighted histogram overstates the weak, impure tail. For A/1/3450 the plot shows that most of the total activation magnitude comes from dataset examples that are in Arabic script. The paper returns to this plot in section 4.1.5 to argue that low-interval activations being less interpretable does not much damage the overall claim.",
+   "prerequisites": [
+    "activation-specificity",
+    "large-activations-dominate"
+   ],
+   "sectionIds": [
+    "3.1.1",
+    "4.1.5"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "cammarata2020curve",
+    "refText": "Cammarata, Nick and Goh, Gabriel and Carter, Shan and Schubert, Ludwig and Petrov, Michael and Olah, Chris (2020). Curve Detectors. Distill",
+    "whyNeeded": "The expected value plot is defined and motivated there; this paper uses the tool without redefining how it is constructed."
+   }
+  },
+  {
+   "id": "weak-activation-hypotheses",
+   "name": "Three Hypotheses for Weak Activations",
+   "tier": "major",
+   "parent": "activation-specificity",
+   "summary": "The paper's three candidate explanations for why a feature's low activations look less pure than its high ones: the proxy is imperfect, the model is imperfect, or the autoencoder is imperfect.",
+   "explanation": "The upper part of A/1/3450's spectrum is clearly specific to Arabic script; the lower part is muddier, and the paper offers three explanations without deciding between them. The proxy may be wrong; the model may be genuinely uncertain but calibrated; or the autoencoder may be too narrow to hold all the true features, so unrecovered features leak in as weak activations across many learned ones. The paper does not resolve which applies, and instead argues that it matters less than it might because large activations dominate the effect on model outputs.",
+   "prerequisites": [
+    "activation-specificity"
+   ],
+   "sectionIds": [
+    "3.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "proxy-false-negatives",
+   "name": "Hypothesis 1: The Proxy Is Imperfect",
+   "tier": "minor",
+   "parent": "weak-activation-hypotheses",
+   "summary": "Weak activations may look impure because the proxy misses characters that are genuinely part of the context.",
+   "explanation": "The Arabic proxy scores by Unicode block, so common characters shared across scripts — whitespace, punctuation, newlines — score low even inside Arabic text. The paper gives a concrete case from its own figure: a newline character the feature fires on but the proxy scores low because it is outside the Arabic block. Odd tokenizer behavior contributes as well. Under this hypothesis the feature is fine and the yardstick is bent.",
+   "prerequisites": [
+    "computational-proxy"
+   ],
+   "sectionIds": [
+    "3.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "calibrated-feature-activations",
+   "name": "Hypothesis 2: The Model Is Imperfect But Calibrated",
+   "tier": "minor",
+   "parent": "weak-activation-hypotheses",
+   "summary": "If features activate in proportion to the model's confidence that a property holds, weak activations should sometimes be wrong.",
+   "explanation": "On this reading a feature's activation is something like a confidence, and a calibrated confidence is supposed to be wrong some of the time when it is low. The paper concedes it seems silly for a model to be unsure what language a passage is in, but points out that this is a very weak one-layer transformer and that characters split across multiple tokens make the task harder than it looks. Under this hypothesis the low activations are correct behavior, not noise.",
+   "prerequisites": [
+    "activation-specificity"
+   ],
+   "sectionIds": [
+    "3.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "autoencoder-width-limitation",
+   "name": "Hypothesis 3: The Autoencoder Is Imperfect",
+   "tier": "minor",
+   "parent": "weak-activation-hypotheses",
+   "summary": "If the dictionary is narrower than the number of true features, the missing features may show up smeared as weak activations across many learned ones.",
+   "explanation": "If the model uses more true features than the autoencoder has capacity to represent, the unrecovered ones have to go somewhere. The paper's suggestion is that they appear as low activations spread across many learned features, contaminating the bottom of every activation spectrum. This links the specificity story to the general question of how many features the dictionary is missing, which section 4.2 and the density histograms take up.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "dictionary-learning"
+   ],
+   "sectionIds": [
+    "3.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "large-activations-dominate",
+   "name": "Large Activations Matter Most",
+   "tier": "minor",
+   "parent": "activation-specificity",
+   "summary": "The argument that getting the interpretation of strong activations right matters more than getting weak ones right, because strong activations move the logits more.",
+   "explanation": "For the one-layer transformer studied here, the paper says the case is strong: features have a linear effect on the logits, modulo rescaling by layer norm, so a larger activation has a larger effect. For larger models the paper hedges explicitly — the claim then rests on conjectures and heuristic arguments about the abundance of linear pathways and about features being linear at each layer, and it must hold for sufficiently small activations by continuity, but there is no watertight argument. This is the load-bearing assumption behind treating impure weak activations as a secondary problem, and it is one of the places the paper's evidence is thinner than the claim it supports.",
+   "prerequisites": [
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.1.1",
+    "4.1.5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-proxy-correlation",
+   "name": "Feature-Proxy Correlation",
+   "tier": "minor",
+   "parent": "activation-sensitivity",
+   "summary": "The Pearson correlation between a feature's activations and its computational proxy, used as a single number combining sensitivity and specificity.",
+   "explanation": "The paper reports correlations of 0.74 for Arabic (proxy thresholded at zero, over 40 million tokens), 0.8 for DNA (binarized proxy), 0.55 for Hebrew, and 0.38 for base64. It describes correlation as a joint measure of sensitivity and specificity that takes magnitude into account, and calls 0.74 substantial. The lower numbers are attributed to proxy defects rather than feature impurity: the base64 proxy is too broad, and the Hebrew shortfall is partly a complementary feature. That attribution rests on inspection of disagreeing examples rather than an independent measurement.",
+   "prerequisites": [
+    "computational-proxy",
+    "pearson-correlation"
+   ],
+   "sectionIds": [
+    "3.1.2",
+    "3.2.1",
+    "3.3",
+    "3.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "pearson-correlation",
+   "name": "Pearson Correlation",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The standard linear correlation coefficient between two variables, ranging from -1 to 1.",
+   "explanation": "Used throughout the paper to compare a feature's activations with a proxy, with a neuron's activations, or with a feature from another run.",
+   "prerequisites": [],
+   "sectionIds": [
+    "3.1.2",
+    "3.1.5",
+    "22.1"
+   ],
+   "floor": true,
+   "citedFrom": null
+  },
+  {
+   "id": "logit-weight",
+   "name": "Logit Weight",
+   "tier": "major",
+   "parent": "feature-downstream-effects",
+   "summary": "A linear approximation of how much a feature, when active, raises or lowers the logit of each output token.",
+   "explanation": "The paper computes the logit weight by multiplying the feature direction through the rest of the network: the MLP output weights, a linear approximation of layer norm, and the unembedding matrix, written $d_i W_{down} \\pi L W_{unembed}$. The result is one number per vocabulary token saying how the feature pushes that token's logit. Because softmax is shift-invariant there is no absolute scale, so the paper shifts each feature's weights so its median is zero. Plotted as a histogram, these weights typically show a large mode at zero and a smaller mode far to the right — the tokens the feature most promotes — and inspecting that second mode is the paper's main cross-check on whether a feature's output behavior matches its input behavior.",
+   "prerequisites": [
+    "unembedding-matrix",
+    "mlp-output-weights",
+    "layer-norm-linearization",
+    "feature-direction"
+   ],
+   "sectionIds": [
+    "3.1.3",
+    "3.1.4",
+    "3.1.5",
+    "3.2.2",
+    "3.2.4",
+    "3.3",
+    "3.3.1",
+    "3.3.2",
+    "3.4",
+    "3.4.1",
+    "3.4.2",
+    "4.1.3",
+    "4.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "path-expansion-logit-attribution",
+   "name": "Path Expansion / Logit Attribution",
+   "tier": "minor",
+   "parent": "logit-weight",
+   "summary": "The technique of tracing a single linear path from an internal direction all the way to the logits, taken from the transformer circuits framework.",
+   "explanation": "The logit weight is computed following the path expansion approach of the Mathematical Framework for Transformer Circuits, also called logit attribution. The idea is to expand the network's computation into a sum of paths and read off the one path running from the feature direction, through the MLP output weights and unembedding, to the logits — ignoring the rest. This gives a first-order account of the feature's effect that the paper then checks against actual ablation. The paper notes related work in attribution patching.",
+   "prerequisites": [
+    "logit-weight",
+    "residual-stream"
+   ],
+   "sectionIds": [
+    "3.1.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "nelhage2021mathematical",
+    "refText": "Elhage, Nelson et al. (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+    "whyNeeded": "Path expansion and the linearized layer norm treatment are defined there; this paper applies the recipe without deriving it, and the validity of the logit weight numbers depends on it."
+   }
+  },
+  {
+   "id": "layer-norm-linearization",
+   "name": "Linearizing Layer Norm",
+   "tier": "minor",
+   "parent": "logit-weight",
+   "summary": "Approximating layer norm as a fixed projection removing the mean plus a diagonal scaling matrix, so a feature's path to the logits stays linear.",
+   "explanation": "Layer norm is not linear, which would break the path expansion. The paper approximates it by combining a projection that removes the mean with a diagonal matrix standing in for the scaling terms, and folds this into the logit weight computation as the factors $\\pi L$. The paper lists a poor layer norm approximation as one of three ways the logit weights could overestimate a feature's real influence, and says the subsequent ablation analysis, which confirms the logit weight effects, gives it confidence that this is not a problem in practice.",
+   "prerequisites": [
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.1.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "nelhage2021mathematical",
+    "refText": "Elhage, Nelson et al. (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+    "whyNeeded": "The paper points to Framework for the layer norm linearization it uses rather than restating it."
+   }
+  },
+  {
+   "id": "logit-weight-median-centering",
+   "name": "Median-Centering the Logit Weights",
+   "tier": "minor",
+   "parent": "logit-weight",
+   "summary": "Because softmax is shift-invariant, logit weights have no absolute scale; the paper shifts each feature's weights so its median is zero.",
+   "explanation": "Adding a constant to every logit leaves the softmax output unchanged, so the raw logit weights for a feature are only meaningful up to a shift. The paper fixes this by subtracting each feature's median logit weight, making the bulk mode sit at zero. This is what makes the \"second mode on the far right\" reading possible: it is a mode of tokens promoted relative to the typical token, not in any absolute sense.",
+   "prerequisites": [
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.1.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "logit-weight-second-mode",
+   "name": "The Second Mode in Logit Weights",
+   "tier": "minor",
+   "parent": "logit-weight",
+   "summary": "The recurring finding that a feature's logit weight histogram has a large mode at zero plus a small, far-right mode of tokens specific to the feature's context.",
+   "explanation": "For every case study the paper finds this shape. For Arabic the second mode is Arabic characters and the leading byte tokens \\xd8 and \\xd9; for DNA it is nucleotide combinations like AGT and GCC; for Hebrew it is Hebrew characters and \\xd7; for base64 it is base64-specific tokens. The matched features in run B show the same structure, and in the two-dimensional scatter of A against B logit weights the context tokens cluster together in one corner. The base64 case is the one exception to the clean separation, transitioning more continuously because many English-letter tokens have some genuine base64 probability.",
+   "prerequisites": [
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.1.3",
+    "3.2.2",
+    "3.3",
+    "3.4",
+    "3.1.5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "weight-interference",
+   "name": "Weight Interference",
+   "tier": "minor",
+   "parent": "logit-weight",
+   "summary": "The paper's hypothesis that the large central mode of near-zero logit weights is unwanted noise forced by superposition, not deliberate behavior.",
+   "explanation": "When comparing logit weights between the A and B runs, the correlation is much lower than for activations because the scatter is dominated by a relatively uncorrelated central mode. The paper hypothesizes that this central mode is weight interference: the model would ideally have all those weights be zero, but superposition with other features and their weights makes that impossible. On this reading the shared outlier mode, not the central bulk, is the meaningful signal. The paper offers this as a hypothesis and does not test it.",
+   "prerequisites": [
+    "superposition",
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.1.5",
+    "3.3",
+    "3.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "anomalous-token-exclusion",
+   "name": "Excluding Anomalous Tokens",
+   "tier": "minor",
+   "parent": "logit-weight",
+   "summary": "Logit weights for extremely rare or never-used vocabulary elements are dropped from the plots.",
+   "explanation": "The paper excludes weights corresponding to vocabulary elements that are extremely rare or never used in training, noting these are perhaps similar to the anomalous tokens such as \"SolidGoldMagikarp\" reported by Rumbelow and Watkins. Such tokens can have arbitrary unembedding directions because training never constrained them, so leaving them in would put meaningless outliers in every logit weight histogram.",
+   "prerequisites": [
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.1.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "rumbelow2023solid",
+    "refText": "Rumbelow, Jessica and Watkins, Matthew (2023). SolidGoldMagikarp (plus, prompt generation).",
+    "whyNeeded": "The anomalous-token phenomenon and why untrained vocabulary entries behave strangely is described there, not here."
+   }
+  },
+  {
+   "id": "logit-weight-caveats",
+   "name": "Ways Logit Weights Could Mislead",
+   "tier": "minor",
+   "parent": "logit-weight",
+   "summary": "Three stated ways the linear logit weight could overstate a feature's real influence on the model.",
+   "explanation": "The paper lists them: the output weights might be small enough that, multiplied by realistic activations, they barely move the output; the feature might only fire in situations where other features already make those tokens extremely unlikely, so it has little net effect; and the layer norm linearization might be a poor approximation. The paper says that based on the subsequent ablation analysis, which confirms the logit weight effects, it does not believe these issues arise in practice. That is the argument for why ablation is run at all rather than trusting the linear picture.",
+   "prerequisites": [
+    "logit-weight",
+    "feature-ablation"
+   ],
+   "sectionIds": [
+    "3.1.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-ablation",
+   "name": "Feature Ablation",
+   "tier": "major",
+   "parent": "feature-downstream-effects",
+   "summary": "Zeroing one feature's activation across an entire context and recording how the model's predicted log-likelihood of each token changes.",
+   "explanation": "The model is run forward up to the MLP layer, the autoencoder decodes the activations into features, the chosen feature's contribution is subtracted on every token in the context — replacing $\\mathbf{x}^j$ with $\\mathbf{x}^j - f_i(\\mathbf{x}^j)\\mathbf{d}_j$ — and then the rest of the forward pass runs. The change in predicted log-likelihood for each token is recorded. For A/1/3450 on a short Arabic context, ablation hurt the predictions of every Arabic token and helped the prediction of the period, and the magnitudes were larger where the feature was more active. This is the causal complement to the linear logit weight picture, and the paper treats agreement between the two as confirming both.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "feature-direction",
+    "mlp-activations"
+   ],
+   "sectionIds": [
+    "3.1.3",
+    "3.2.1",
+    "4.3",
+    "13"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "ablation-underline-visualization",
+   "name": "Ablation Underline Convention",
+   "tier": "minor",
+   "parent": "feature-ablation",
+   "summary": "The display convention: orange background marks where a feature is active, and colored underlines mark tokens whose prediction the feature helped or hurt.",
+   "explanation": "In the paper's visualizations, an orange background on a token means the feature was active there. An underline on a token encodes the ablation effect on that token's prediction: tokens whose prediction the feature was helping, so that ablation decreased their likelihood, are underlined in one color, and tokens the feature was hurting are underlined in the other. Because a feature active on token B can affect the prediction of token C, background and underline can land on different tokens, which is the whole point of the display. The section 3.1.3 text and appendix 13 name opposite colors for the same direction, so it is worth reading the figure's own key rather than the surrounding prose.",
+   "prerequisites": [
+    "feature-ablation"
+   ],
+   "sectionIds": [
+    "3.1.3",
+    "13"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "pinned-feature-sampling",
+   "name": "Pinned Feature Sampling",
+   "tier": "major",
+   "parent": "feature-downstream-effects",
+   "summary": "Fixing a feature's activation at a high value and then sampling from the model, to see whether the generated text matches the feature's interpretation.",
+   "explanation": "The paper starts from a prefix where the very weak one-layer model has an expected continuation — the example given is \"1,2,3,4,5,6,7,8,9,10\" — then sets the feature's activation to its maximum observed value throughout and samples. If the interpretation is right, the samples should shift toward the feature's context. This is a stronger intervention than ablation: ablation shows the feature was contributing to a behavior that was already happening, while pinning shows the feature can produce the behavior. Section 4.3 lists pinned sampling as one of the three downstream checks applied across features, reporting that generated text matches the feature's interpretation.",
+   "prerequisites": [
+    "feature-downstream-effects",
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "3.1.3",
+    "4.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "downstream-effects-outside-dictionary-learning",
+   "name": "Downstream Effects Are Not An Input To Dictionary Learning",
+   "tier": "minor",
+   "parent": "feature-downstream-effects",
+   "summary": "The structural argument that because the autoencoder only sees MLP activations, interpretable downstream effects cannot be an artifact of the training data.",
+   "explanation": "Dictionary learning is fitted to MLP activations and nothing else. The MLP down-projection, the unembedding, the ablation effects and the pinned samples are all downstream of that and never enter the optimization. So while the activations themselves could in principle reflect nothing but dataset correlations projected into a new basis, the fact that the same features also have coherent effects on the output must be a property of the model. This is the paper's cleanest answer to the model-versus-data worry, and it is a logical argument rather than an empirical one.",
+   "prerequisites": [
+    "dictionary-learning",
+    "feature-downstream-effects"
+   ],
+   "sectionIds": [
+    "3.1.3",
+    "4.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "neuron-basis-coefficients",
+   "name": "Feature Coefficients in the Neuron Basis",
+   "tier": "minor",
+   "parent": "feature-neuron-nonalignment",
+   "summary": "Reading off how much each neuron contributes to a feature's direction, to see whether the feature is essentially one neuron.",
+   "explanation": "A learned feature is a direction in MLP activation space, so it can be written as a weighted sum of neurons. For A/1/3450 the three largest coefficients by magnitude are all negative, and a full 27 neurons have coefficients of at least 0.1 in magnitude — the feature is genuinely spread across many neurons. The paper notes that this test alone is not conclusive, since neurons could in principle be engaged in a delicate cancellation that sharpens one neuron's primary activations, which is why the most-correlated-neuron check is also run. It also reports finding the correlation-based search more reliable than the coefficient-based one, possibly because neurons have different activation scales.",
+   "prerequisites": [
+    "neuron-basis",
+    "feature-direction"
+   ],
+   "sectionIds": [
+    "3.1.4",
+    "3.2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "most-correlated-neuron",
+   "name": "Most Correlated Neuron",
+   "tier": "minor",
+   "parent": "feature-neuron-nonalignment",
+   "summary": "The neuron whose activations correlate most with a feature's, over roughly 40 million dataset examples — the paper's preferred way to look for a neuron counterpart.",
+   "explanation": "For each case study the paper finds the neuron with maximum activation correlation and inspects it. Arabic's is A/neurons/489, which responds to a mixture of non-English languages with Arabic a small sliver; DNA's is A/neurons/67, where DNA contexts are a tiny sliver; base64's is A/neurons/470 at correlation 0.18, which responds to base64 but also code, HTML labels and URL fragments; Hebrew's is A/neurons/489 again at correlation 0.1. The paper says it prefers this search to the dictionary-coefficient search because in earlier experiments the correlation method sometimes found a similar neuron where the dictionary method did not.",
+   "prerequisites": [
+    "feature-neuron-nonalignment",
+    "pearson-correlation"
+   ],
+   "sectionIds": [
+    "3.1.4",
+    "3.2.3",
+    "3.3.2",
+    "3.4.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "top-dataset-example-search",
+   "name": "Searching Neurons by Top Dataset Examples",
+   "tier": "minor",
+   "parent": "feature-neuron-nonalignment",
+   "summary": "Scanning every neuron's top-activating examples for the target context, as a cross-check that no neuron encodes it.",
+   "explanation": "For Arabic, searching for neurons with Arabic script among their top twenty dataset examples turns up exactly one neuron, with a single Arabic example — the other nineteen are eighteen English and one Cyrillic. For Hebrew, the same search over the main Hebrew Unicode block finds no neuron at all. The paper uses this as a cross-validation of the correlation-based search. It is a coarse test: it only catches neurons for which the context is among the very strongest activations.",
+   "prerequisites": [
+    "feature-neuron-nonalignment"
+   ],
+   "sectionIds": [
+    "3.1.4",
+    "3.4.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-neuron-scatter-plots",
+   "name": "Feature-Neuron Scatter Plots and Marginals",
+   "tier": "minor",
+   "parent": "feature-neuron-nonalignment",
+   "summary": "Plotting a feature's activations or logit weights against a neuron's, and reading the two marginal distributions to see which axis separates the context.",
+   "explanation": "The paper plots feature values on the y-axis against neuron values on the x-axis, for both activations and logit weights, coloring points by context. For Arabic, the y-axis cleanly separates the Arabic script token logits while the x-axis does not, and the y-marginal shows specificity while the x-marginal does not. The same comparison for base64 shows a neuron that helps represent the feature but is largely doing other things. This display makes the asymmetry visible: the neuron carries some of the feature, but the feature does not reduce to the neuron.",
+   "prerequisites": [
+    "feature-neuron-nonalignment",
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "3.1.4",
+    "3.3.2",
+    "3.4.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "mutually-exclusive-features-in-superposition",
+   "name": "Mutually Exclusive Features Are Natural To Superpose",
+   "tier": "minor",
+   "parent": "feature-neuron-nonalignment",
+   "summary": "The paper's explanation for why the neuron most correlated with the Arabic feature responds to a mixture of different languages.",
+   "explanation": "A/neurons/489 fires on many non-English languages at once. The paper reads this as a sensible superposition strategy on the model's part: since languages are essentially mutually exclusive — a passage is not simultaneously Arabic and Korean — features that never co-occur can share a direction with little cost from interference. This connects the specific observation to the general theory of why superposition is worth it for the model, citing Olah's write-up on distributed representations.",
+   "prerequisites": [
+    "superposition",
+    "polysemantic-neuron"
+   ],
+   "sectionIds": [
+    "3.1.4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "olah2023distributed",
+    "refText": "Olah, Christopher (2023). Distributed Representations: Composition & Superposition.",
+    "whyNeeded": "The argument about which features are cheap to place in superposition together, including the mutual-exclusivity case, is developed there."
+   }
+  },
+  {
+   "id": "classic-polysemantic-neuron-examples",
+   "name": "Classic Examples of Polysemanticity",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The concrete examples the paper offers of what polysemanticity looks like: a neuron mixing citations, dialogue, HTTP requests and Korean, and the vision neuron responding to cat faces and car fronts.",
+   "explanation": "To fix what it means to rule out, the paper gives two examples. In its own one-layer transformer, one neuron responds to a mix of academic citations, English dialogue, HTTP requests and Korean text. In vision models there is the classic case of a neuron responding to both cat faces and the fronts of cars. Both share a signature: clearly unrelated concepts in one unit. This is why the paper treats specificity as the key test — a feature that fires only in one rare, specific context cannot be polysemantic in this way.",
+   "prerequisites": [
+    "polysemantic-neuron"
+   ],
+   "sectionIds": [
+    "3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "olah2017feature",
+    "refText": "Olah, Chris and Mordvintsev, Alexander and Schubert, Ludwig (2017). Feature Visualization. Distill",
+    "whyNeeded": "The cat-face/car-front neuron and the feature visualization methods that revealed it come from there."
+   }
+  },
+  {
+   "id": "activation-correlation-matching",
+   "name": "Activation Correlation Matching Across Runs",
+   "tier": "minor",
+   "parent": "feature-universality",
+   "summary": "The procedure for finding a feature's counterpart in another dictionary: take the feature with the highest Pearson correlation of activations over 40,960,000 tokens.",
+   "explanation": "Universality is tested by matching, not by inspection. For a given feature in run A, the paper computes the Pearson correlation of its activations with every feature in run B over 40,960,000 tokens and takes the maximum. The matched pairs come out at 0.91, 0.92, 0.85 and 0.92 for the four case studies. The paper then checks that the matched feature independently shows the same activation specificity, the same logit weight second mode, and consistent ablation effects — so the correlation is a search procedure, and the interpretive agreement is the actual evidence.",
+   "prerequisites": [
+    "feature-universality",
+    "pearson-correlation"
+   ],
+   "sectionIds": [
+    "3.1.5",
+    "3.2.4",
+    "3.3.1",
+    "3.4.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "run-b-different-seed",
+   "name": "Run B: A Second Transformer With A Different Seed",
+   "tier": "minor",
+   "parent": "feature-universality",
+   "summary": "An independently trained transformer on the same dataset with a different random seed, with its own dictionary learning run, used as the replication target.",
+   "explanation": "B is a transformer trained on the same data as A but from a different random initialization, and B/1 is a dictionary learning run on it. Because the two models share the dataset but not the initialization, a feature appearing in both is evidence about how one-layer transformers represent this data, not about one accident of optimization. The paper is careful about how much this shows: same architecture and same dataset means it does not establish universality across architectures or data distributions. The base64 case reaches slightly further, since a base64 neuron had already been found in a differently trained SoLU model.",
+   "prerequisites": [
+    "feature-universality"
+   ],
+   "sectionIds": [
+    "3.1.5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "solu-base64-neuron",
+   "name": "The Earlier Base64 Neuron",
+   "tier": "minor",
+   "parent": "base64-feature",
+   "summary": "A base64 neuron previously found in the SoLU paper, which the authors take as a hint that base64 might be universal across architectures and datasets.",
+   "explanation": "The paper says it is particularly interested in the base64 feature because a base64 neuron had already been discovered in its earlier Softmax Linear Units work. That model had a somewhat different dataset and a different architecture, so finding the same concept again suggests base64 may be a genuinely universal feature rather than an artifact of this setup. This is weaker evidence than the A-versus-B matching, since it is an observation about a different study rather than a controlled comparison.",
+   "prerequisites": [
+    "base64-feature",
+    "feature-universality"
+   ],
+   "sectionIds": [
+    "3.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "elhage2022solu",
+    "refText": "Elhage, Nelson et al. (2022). Softmax Linear Units. Transformer Circuits Thread",
+    "whyNeeded": "The base64 neuron, the SoLU architecture, and the evaluation methodology this paper is reacting against are all described there."
+   }
+  },
+  {
+   "id": "feature-density",
+   "name": "Feature Density",
+   "tier": "major",
+   "parent": null,
+   "summary": "The fraction of tokens on which a feature has a nonzero value; the paper's main quick proxy for autoencoder quality.",
+   "explanation": "Every feature in the autoencoder fires on only a very small percentage of tokens, and the density is that percentage. The paper hypothesizes that language models contain many features spread across a distribution of densities, and that lower-density features are harder for the autoencoder to find because they appear less often in training — which is why it uses large training datasets. Two summary numbers are read off the density distribution: how many features were recovered, and the minimum density among recovered features. The paper says these track subjective autoencoder quality well enough to be useful for fast iteration, and describes them as anecdotal.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "dictionary-learning"
+   ],
+   "sectionIds": [
+    "15",
+    "4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-density-histogram",
+   "name": "Feature Density Histogram",
+   "tier": "minor",
+   "parent": "feature-density",
+   "summary": "A log-scale histogram of all features' densities, typically bimodal, used to diagnose an autoencoder run at a glance.",
+   "explanation": "Plotting every feature's density on a log axis produces, for many runs, a clearly bimodal picture. For A/16 there is a left mode around $10^{-7}$ and a right mode around $10^{-5}$, with the paper noting the right mode may itself split into modes near $10^{-5}$ and $10^{-3}$, which it is still investigating. Across all Seed A runs grouped by L1 coefficient, increasing the number of autoencoder neurons yields not just more features but rarer ones, which the paper reads as evidence it has not exhausted the features in the one-layer transformer.",
+   "prerequisites": [
+    "feature-density",
+    "l1-coefficient"
+   ],
+   "sectionIds": [
+    "15"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "high-density-cluster",
+   "name": "High Density Cluster",
+   "tier": "minor",
+   "parent": "feature-density",
+   "summary": "The right mode of the density histogram, whose features are anecdotally almost all interpretable despite still being very rare in absolute terms.",
+   "explanation": "The paper calls the right mode the high density cluster, while noting the absolute magnitude of density there is still very low — around $10^{-5}$ in the A/16 example. Anecdotally almost all features in this cluster are interpretable. The name is relative: these are the ordinary, usable features, contrasted with the ultralow density mode to their left.",
+   "prerequisites": [
+    "feature-density"
+   ],
+   "sectionIds": [
+    "15"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "ultralow-density-cluster",
+   "name": "Ultralow Density Cluster",
+   "tier": "major",
+   "parent": "feature-density",
+   "summary": "A left mode of features firing on fewer than about one in a million tokens, almost none of which are interpretable; the paper treats them as a training artifact.",
+   "explanation": "Ideally autoencoder neurons would be either meaningful features or completely dead, and training does leave some completely unused. But many fall into a third category the paper tentatively names the ultralow density cluster: active on less than one in a million dataset examples and showing other atypical properties. Almost none of them are interpretable. In A/1 there are 292 such features out of 4,096, and they are excluded from all downstream analysis along with the dead ones. The paper says this cluster appears to be an artifact of the autoencoder training process rather than a real property of the underlying transformer, and that it is still investigating the cause and how to mitigate or automatically filter these features.",
+   "prerequisites": [
+    "feature-density"
+   ],
+   "sectionIds": [
+    "4",
+    "15"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dead-features",
+   "name": "Dead Features",
+   "tier": "minor",
+   "parent": "feature-density",
+   "summary": "Autoencoder features that never activate on any dataset example; 168 of A/1's 4,096, excluded from analysis.",
+   "explanation": "Some autoencoder neurons are left entirely unused by training — active on none of the 100 million dataset examples checked. In A/1 there are 168 of these, and along with the 292 ultralow density features they are removed before any interpretability analysis. The paper regards dead features as the acceptable outcome for unused capacity, in contrast with the ultralow density cluster, which occupies capacity without carrying meaning.",
+   "prerequisites": [
+    "feature-density",
+    "neuron-resampling"
+   ],
+   "sectionIds": [
+    "4",
+    "15"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "density-cluster-separation",
+   "name": "Separating the Density Clusters",
+   "tier": "minor",
+   "parent": "feature-density",
+   "summary": "When density alone does not separate the two clusters, adding the feature's bias and its encoder-decoder dot product does.",
+   "explanation": "In many small-scale experiments the ultralow and high density clusters are perfectly separable by density alone. But for runs with many autoencoder neurons and a large L1 coefficient the two overlap. The paper then plots, for each feature, its density together with its bias and the dot product between its encoder and decoder vectors; along those three dimensions the high density cluster is clearly separable. This is offered as a practical filtering technique rather than an explanation of what the ultralow cluster is.",
+   "prerequisites": [
+    "feature-density",
+    "ultralow-density-cluster",
+    "l1-coefficient"
+   ],
+   "sectionIds": [
+    "15"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "cross-dictionary-mcs",
+   "name": "Cross-Dictionary Mean Max Cosine Similarity",
+   "tier": "minor",
+   "parent": "feature-density",
+   "summary": "A measure of how well features from two separately trained dictionaries match up, reported elsewhere as bimodal; the paper suspects density bimodality explains it.",
+   "explanation": "Huben reported that sparse autoencoder features are bimodal under a cross-dictionary comparison, where each feature in one dictionary is matched to its closest counterpart in another by cosine similarity and the resulting similarities are averaged. The paper suggests in an aside that the bimodality in feature density it observes might partially explain that finding — ultralow density features would not be expected to match across dictionaries, so a mixture of two feature populations would produce two modes in the similarity distribution. This is offered as a suspicion, not a result.",
+   "prerequisites": [
+    "feature-density",
+    "feature-universality"
+   ],
+   "sectionIds": [
+    "15"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "huben2023update",
+    "refText": "Huben, Robert (2023). [Research Update] Sparse Autoencoder features are bimodal.",
+    "whyNeeded": "The MCS metric and the bimodality result being explained are defined only in that write-up."
+   }
+  },
+  {
+   "id": "activation-interval",
+   "name": "Activation Interval",
+   "tier": "major",
+   "parent": null,
+   "summary": "One of eleven evenly spaced bands between zero and a feature's maximum activation, used to sample examples uniformly across the whole activation spectrum rather than just the top.",
+   "explanation": "The paper divides each feature's activation spectrum into eleven bands evenly spaced from zero activation to the maximum activation, and samples uniformly from them. This is the unit of analysis for both the manual scoring and the automated interpretability work, and the appendix describes a thirteen-interval version used for prompt construction. The purpose is to defeat a specific failure mode: many polysemantic neurons look monosemantic if you only inspect their top dataset examples and are revealed as polysemantic lower down the spectrum. Sampling by interval forces the whole spectrum into view and makes it possible to ask how interpretability changes with activation strength.",
+   "prerequisites": [
+    "activation-specificity"
+   ],
+   "sectionIds": [
+    "4.1.1",
+    "4.1.4",
+    "22.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "manual-interpretability-scoring",
+   "name": "Manual Human Analysis",
+   "tier": "major",
+   "parent": null,
+   "summary": "A blinded human annotator scoring 412 activation intervals across 162 features and neurons on an interpretability rubric; the paper's most-trusted metric.",
+   "explanation": "The paper says it has no metric it trusts more than human judgment, so one of the authors, Adam Jermyn, scored features and neurons blind to which was which. Rather than scoring whole units, samples were drawn uniformly across activation intervals and each interval scored separately against the hypothesis suggested by the feature as a whole. In total 412 feature activation intervals were scored across 162 features and neurons — the paper is explicit that this is a small sample, because the method is labor intensive. The median neuron scored 0, meaning the annotator could not form any hypothesis about it, while the median feature interval scored 12 out of a possible 14, meaning a confident, specific, consistent hypothesis that also made sense of the logit weights.",
+   "prerequisites": [
+    "activation-interval",
+    "feature-interpretability-rubric"
+   ],
+   "sectionIds": [
+    "4.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-interpretability-rubric",
+   "name": "Feature Interpretability Rubric",
+   "tier": "major",
+   "parent": "manual-interpretability-scoring",
+   "summary": "The 0–14 scoring scheme combining confidence in an interpretation, consistency of activations, consistency of logit weights, effect-size separation, and specificity.",
+   "explanation": "The annotator first forms an interpretation from the positive logits and the activations across all intervals, then scores: confidence in the interpretation (0–3), consistency of the high-activation tokens with it (0–5), consistency of the positive logit effects with it (0–3), whether inconsistent logit effects were at least separated in effect size from consistent ones (0 or 1), and how specific the interpretation is (0–3). The total is the sum. The maximum is 14 rather than 15, because a perfect score on the logit consistency item makes the effect-size-separation item inapplicable. The paper says, very subjectively, that features scoring above 8 were quite interpretable. Note that the rubric includes logit interpretability, which is why the randomized transformer scores badly here even where automated activation scoring flatters it.",
+   "prerequisites": [
+    "logit-weight",
+    "activation-interval"
+   ],
+   "sectionIds": [
+    "4.1.1",
+    "14"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "blinded-annotation",
+   "name": "Blinded Annotation",
+   "tier": "minor",
+   "parent": "manual-interpretability-scoring",
+   "summary": "The annotator scored features and neurons without knowing which kind of unit was being shown.",
+   "explanation": "Because the comparison being made is between features and neurons, and the annotator is one of the paper's own authors, the scoring was done blind to unit type. This controls for the obvious risk that an author who wants features to win would score them more generously. It does not control for the sample being small, or for the annotator and the paper sharing a prior notion of what an interpretable unit looks like.",
+   "prerequisites": [
+    "manual-interpretability-scoring"
+   ],
+   "sectionIds": [
+    "4.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "max-dataset-example-bias",
+   "name": "The Maximal-Example Weakness",
+   "tier": "minor",
+   "parent": "manual-interpretability-scoring",
+   "summary": "The evaluation flaw the paper is correcting for: judging a unit only by its top-activating examples makes polysemantic units look monosemantic.",
+   "explanation": "The paper names this as a weakness it perceives in its own prior work, citing the SoLU paper, where evaluation focused predominantly on maximal dataset examples with less attention to the rest of the activation spectrum. Many polysemantic neurons look clean at the top and only reveal their mixture lower down. Sampling by activation interval is the direct fix. The same concern shapes the automated setup, where the paper deliberately departs from Bills et al.'s scoring mixture.",
+   "prerequisites": [
+    "polysemantic-neuron",
+    "activation-interval"
+   ],
+   "sectionIds": [
+    "4.1.1",
+    "4.1.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "elhage2022solu",
+    "refText": "Elhage, Nelson et al. (2022). Softmax Linear Units. Transformer Circuits Thread",
+    "whyNeeded": "The evaluation methodology being criticized is that paper's own; understanding what was done differently requires it."
+   }
+  },
+  {
+   "id": "automated-interpretability",
+   "name": "Automated Interpretability",
+   "tier": "major",
+   "parent": null,
+   "summary": "Having a language model write an explanation of a feature from examples where it activates, then use that explanation alone to predict the feature's activations on unseen tokens.",
+   "explanation": "Following Bills et al., the paper uses Claude to generate an explanation of each feature from examples of where it fires, then, in a separate interaction, asks the model to predict activations on previously unseen tokens using only that explanation. The score is the correlation between predicted and true activations. The setup is designed so that no information about activation patterns leaks except through the explanation — when predicting, the model cannot see any true activations of that feature. The paper finds Claude explains and predicts features significantly better than neurons, agreeing with the human analysis, and it also applies the same explanations to a second task on logit weights.",
+   "prerequisites": [
+    "activation-interval"
+   ],
+   "sectionIds": [
+    "4.1.2",
+    "4.1.3",
+    "22",
+    "22.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "bills2023language",
+    "refText": "Bills, Steven and Cammarata, Nick and Mossing, Dan and Tillman, Henk and Gao, Leo and Goh, Gabriel and Sutskever, Ilya and Leike, Jan and Wu, Jeff and Saunders, William (2023). Language models can explain neurons in language models.",
+    "whyNeeded": "The explain-then-simulate protocol, the activation quantization, and the scoring scheme this paper adapts and deliberately deviates from are all specified there."
+   }
+  },
+  {
+   "id": "explanation-generation-setup",
+   "name": "Explanation Generation Setup",
+   "tier": "minor",
+   "parent": "automated-interpretability",
+   "summary": "The exact prompt composition used to get a feature explanation out of Claude 2: 49 examples of specified kinds, plus logits, interval labels, and eight worked demonstrations.",
+   "explanation": "Claude 2 is given ten examples from the top activation interval, two from each of the other twelve intervals, five completely random examples, and ten examples where the feature's top activating tokens appear in different contexts — 49 in total. It also sees the feature's top and bottom logits and a label saying which interval each example came from. Eight human demonstrations on held-out features, including chain-of-thought reasoning, are included. The model is asked to be succinct and not to name specific tokens it activates for. Features with fewer than 49 available examples occur when repeated examples are removed, and any feature left with fewer than 20 examples total is dropped.",
+   "prerequisites": [
+    "automated-interpretability",
+    "activation-interval"
+   ],
+   "sectionIds": [
+    "22.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-prediction-scoring",
+   "name": "Activation Prediction and Spearman Scoring",
+   "tier": "minor",
+   "parent": "automated-interpretability",
+   "summary": "Claude predicts activations for 60 nine-token examples from the explanation alone; the score is the Spearman correlation between predicted and true activations.",
+   "explanation": "For each feature the model predicts activations on 60 dataset examples of nine tokens each, giving 540 predictions per feature, scored by Spearman correlation. The 60 comprise six from the top interval, two from each of the other twelve, ten completely random, and twenty top-activating tokens shown out of context; the examples are shuffled, and logits and interval labels are stripped. The paper notes that scoring on completely random sequences alone would be the most principled choice, but half the examples are drawn across intervals to get a more accurate correlation. For computational efficiency Claude scores all sixty examples in one shot, though the paper says that ideally each would be its own prompt. The appendix reports Pearson correlations too, with almost identical distributions and conclusions.",
+   "prerequisites": [
+    "automated-interpretability",
+    "spearman-correlation",
+    "activation-interval"
+   ],
+   "sectionIds": [
+    "4.1.2",
+    "22.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "spearman-correlation",
+   "name": "Spearman Rank Correlation",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Correlation computed on the ranks of values rather than the values themselves.",
+   "explanation": "Used as the main automated interpretability score because it only requires the model to get the ordering of activations right, not their exact magnitudes.",
+   "prerequisites": [
+    "pearson-correlation"
+   ],
+   "sectionIds": [
+    "4.1.2",
+    "22.1",
+    "22.3"
+   ],
+   "floor": true,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-quantization",
+   "name": "Quantizing Activations to 0–9",
+   "tier": "minor",
+   "parent": "automated-interpretability",
+   "summary": "Activations are rounded to integers 0 through 9 before being shown to or predicted by the language model.",
+   "explanation": "Following Bills et al., all activations in the automated pipeline are quantized to integers between 0 and 9 inclusive. This makes the prediction task a small discrete output the model can produce token by token, and makes the demonstrations legible. It also means the automated scores are insensitive to fine differences in magnitude, which is part of why Spearman rather than exact-value agreement is the natural score.",
+   "prerequisites": [
+    "automated-interpretability"
+   ],
+   "sectionIds": [
+    "22.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "bills2023language",
+    "refText": "Bills, Steven et al. (2023). Language models can explain neurons in language models.",
+    "whyNeeded": "The 0–9 quantization convention originates there."
+   }
+  },
+  {
+   "id": "no-activation-leakage",
+   "name": "No Leakage of Activation Information",
+   "tier": "minor",
+   "parent": "automated-interpretability",
+   "summary": "The design constraint that nothing about a feature's activation pattern reaches the prediction step except through the written explanation.",
+   "explanation": "The paper states this explicitly: when predicting new activations, the model cannot see any true activations of that feature, and the examples used to generate the explanation are kept separate from those used to test prediction. This is what makes the score a measure of the explanation's quality rather than of pattern-matching. It also constrains the logit task, where the top 10 logits used to generate the original explanation are held out of the 100 logits the model is later asked to judge.",
+   "prerequisites": [
+    "automated-interpretability"
+   ],
+   "sectionIds": [
+    "4.1.2",
+    "22.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "constant-prediction-zero-score",
+   "name": "Constant Predictions Score Zero",
+   "tier": "minor",
+   "parent": "automated-interpretability",
+   "summary": "When Claude predicts the same value for everything — usually all zeros — no correlation exists, and the paper assigns a score of zero.",
+   "explanation": "A correlation is undefined if one series has no variance. The paper handles this by assigning such cases a score of zero, and notes that this explains a visible uptick at zero in the score distributions. This convention interacts badly with importance scoring, where always predicting zero becomes a way to score well rather than a failure.",
+   "prerequisites": [
+    "automated-interpretability",
+    "spearman-correlation"
+   ],
+   "sectionIds": [
+    "4.1.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "automated-logit-scoring",
+   "name": "Automated Interpretability on Logit Weights",
+   "tier": "major",
+   "parent": "automated-interpretability",
+   "summary": "Asking Claude, from the feature's explanation alone, whether an unseen high-logit token is one the feature should predict; features score 74% versus 58% for neurons against a 50% chance baseline.",
+   "explanation": "Reusing the explanation generated for the activation task, the model is shown 100 logit tokens — 50 random and 50 drawn from the 10th to 60th largest positive logits, with the top 10 held out because they went into the explanation — and gives a binary label for each on whether that token would plausibly follow when the feature fires. Chance is 50%. The main text reports a 74% average across features against 58% across neurons; the appendix gives medians of 0.74 for A/1 features, 0.53 for neurons and 0.5 for the randomized transformer. Failures counted in the figure are cases where Claude did not reply in the format needed for scoring. This is the automated version of the logit cross-check the individual case studies do by eye.",
+   "prerequisites": [
+    "automated-interpretability",
+    "logit-weight"
+   ],
+   "sectionIds": [
+    "4.1.3",
+    "22.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "importance-scoring",
+   "name": "Importance Scoring",
+   "tier": "major",
+   "parent": "automated-interpretability",
+   "summary": "A reweighting that corrects for the non-random sampling of scored examples — and which, in this setting, mostly collapses feature scores toward zero.",
+   "explanation": "Because the scored examples are deliberately drawn from across activation intervals rather than at random, the score does not reflect performance on the real data distribution. Importance scoring corrects this: tokens from random examples get weight 1, and examples from each feature interval get weight equal to feature_density times interval_probability, where feature_density is how often the feature fires over a large portion of the dataset and interval_probability is the probability of that interval under the distribution of non-zero activations. Top-activating-tokens-out-of-context examples inherit the top interval's weighting. These weights are then used in the Spearman correlation. The paper presents this as the principled correction and then argues it fails in practice.",
+   "prerequisites": [
+    "automated-interpretability",
+    "feature-density",
+    "spearman-correlation"
+   ],
+   "sectionIds": [
+    "4.1.2",
+    "22.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "importance-scoring-degeneracy",
+   "name": "Why Importance Scoring Collapses Feature Scores",
+   "tier": "minor",
+   "parent": "importance-scoring",
+   "summary": "Because feature densities are around 1e-3 to 1e-6, nearly all the weight lands on random examples where the feature never fires, so predicting zero everywhere scores well.",
+   "explanation": "With densities that low, importance weighting puts almost all mass on random examples on which features essentially never fire. A feature can then score well by almost always predicting zero, and the scheme rewards explanations that are overly restrictive — that say what a feature does not fire for — while punishing even a small false positive rate very heavily. Empirically, averaged over features, 88% of true activations from random examples are zero, versus 54% for neurons, with medians around 91% and 58%. The paper's hypothesis is that neurons are relatively less affected precisely because being more polysemantic gives them more non-zero activations, so their explanations get tested on both what they do and do not fire for. The upshot is that the more principled score is the less usable one here.",
+   "prerequisites": [
+    "importance-scoring",
+    "feature-density"
+   ],
+   "sectionIds": [
+    "22.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "explanation-length-caveat",
+   "name": "Explanation Lengths Caveat",
+   "tier": "minor",
+   "parent": "automated-interpretability",
+   "summary": "Claude sometimes fails to wrap its explanation in answer tags, so the full chain of thought is used instead — a null result, since it does not change scores.",
+   "explanation": "When the model does not close its explanation in <answer></answer> tags, the whole chain of thought gets used as the explanation. That text is much longer and can leak specific tokens the feature fires for, which would be an unfair advantage. Plotting explanation character counts shows these cases as a second mode to the right. The paper reports that this happens infrequently and, importantly for the comparison, most often for neurons (19%) rather than features (13%), with the randomized transformer in between (15%) — and that splitting performance by long versus short explanations does not give significantly different scores. So the artifact exists but does not favor the paper's conclusion.",
+   "prerequisites": [
+    "automated-interpretability"
+   ],
+   "sectionIds": [
+    "22.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "randomized-transformer",
+   "name": "Randomized Transformer Baseline",
+   "tier": "major",
+   "parent": null,
+   "summary": "Dictionary learning run on a one-layer model whose weights have been randomly shuffled, used to ask how much of the features' structure comes from the data rather than the model.",
+   "explanation": "The paper runs its whole pipeline on a version of the run A transformer with randomized weights, so that any structure in the resulting features must come from the dataset rather than from learned computation. The resulting features contain many single-token features — \"span\", \"file\", \".\", \"nature\" — and some features firing on seemingly arbitrary subsets of broadly recognizable contexts such as LaTeX or code. The paper reports it was unable to construct sensible interpretations for the non-single-token features and invites readers to check for themselves, concluding that the model's learning process creates richer structure in its activations than the token distribution alone. Used as an ablation for the interpretability scores, it produces one uncomfortable result: on automated activation scoring the randomized features have a higher median score than the real ones.",
+   "prerequisites": [
+    "dictionary-learning",
+    "model-vs-data-question"
+   ],
+   "sectionIds": [
+    "4.3",
+    "22.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "weight-shuffling",
+   "name": "Weight Shuffling",
+   "tier": "minor",
+   "parent": "randomized-transformer",
+   "summary": "The randomization method: shuffle the entries within each weight matrix of the trained model rather than resampling them.",
+   "explanation": "The random model is generated by randomly shuffling the entries of each weight matrix of the trained transformer used in run A. Shuffling rather than resampling guarantees that the distribution of individual weights matches the trained model exactly, so any difference between the two must be due to structure — which entries sit where — rather than to scale or distributional differences. This makes it a tighter control than a freshly initialized network.",
+   "prerequisites": [
+    "randomized-transformer"
+   ],
+   "sectionIds": [
+    "4.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "single-token-features",
+   "name": "Single Token Features",
+   "tier": "minor",
+   "parent": "randomized-transformer",
+   "summary": "Features where the same token carries the largest activation in all twenty top-interval examples; abundant in the randomized model and trivially easy to explain and score.",
+   "explanation": "The paper labels a feature \"single token\" if, for all 20 examples in the top activation interval, the token with the largest activation is the same. The randomized transformer produces not only more of these but more thoroughly single-token ones — firing for the same token even in the weakest activation intervals. Such features are trivial to explain and to score, which produces a high-scoring peak that lifts the randomized model's median automated score above the real model's. The paper reads this as fitting the hypothesis that dictionary learning will pick up features of the dataset rather than representations of the transformer when there is no transformer computation to find.",
+   "prerequisites": [
+    "randomized-transformer",
+    "activation-interval"
+   ],
+   "sectionIds": [
+    "22.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "randomized-feature-bimodality",
+   "name": "Bimodality of Randomized Features",
+   "tier": "minor",
+   "parent": "randomized-transformer",
+   "summary": "The randomized model's features split into a single-token cluster and a polysemantic cluster; once separated, the real features win on the second.",
+   "explanation": "The randomized transformer's automated scores are distinctly bimodal. Splitting them out, the single-token cluster scores very highly and drives the misleading median, while the non-single-token cluster has a distribution similar to that of the polysemantic neurons — and there the A/1 features score higher. The same split appears in the manual human scores, with a cluster at 0 matching the polysemantic neurons and a non-zero cluster. In the manual case that non-zero cluster still scores worse than A/1 features, because the rubric includes logit interpretability, which is zero for a shuffled model. This is the paper's explanation for the one metric on which its features lose.",
+   "prerequisites": [
+    "randomized-transformer",
+    "single-token-features",
+    "feature-interpretability-rubric"
+   ],
+   "sectionIds": [
+    "22.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-interval-analysis",
+   "name": "Activation Interval Analysis",
+   "tier": "major",
+   "parent": "activation-interval",
+   "summary": "Scoring each band of a feature's activation spectrum separately against the feature's overall hypothesis, to see how interpretability varies with activation strength.",
+   "explanation": "Instead of asking whether a feature is interpretable, this asks whether a particular range of its activations is consistent with the hypothesis suggested by its full spectrum. The finding is that higher-activating intervals are more consistent with the interpretations than lower-activating ones. Two patterns appear: many features are consistent across the entire spectrum, while some are consistent across the top roughly 60% and then become rapidly less interpretable as activations shrink. The paper does not treat this as harmless — it says it is possible this is a sign the features are not quite right.",
+   "prerequisites": [
+    "activation-interval",
+    "manual-interpretability-scoring"
+   ],
+   "sectionIds": [
+    "4.1.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-at-slight-angle",
+   "name": "Features At A Slight Angle",
+   "tier": "minor",
+   "parent": "activation-interval-analysis",
+   "summary": "The paper's suggested explanation for the drop-off in low-interval interpretability: a learned direction slightly off from the true feature direction.",
+   "explanation": "If a learned feature is at a slight angle to the feature the model actually uses, then near the top of the spectrum the two agree well, but further down the mismatch dominates and the feature's behavior stops matching the interpretation. The paper offers this as a possibility rather than a demonstration. It sits alongside the earlier three hypotheses for weak activations and points at the same open question: whether the dictionary has recovered the true features or something close to them.",
+   "prerequisites": [
+    "activation-interval-analysis",
+    "feature-direction"
+   ],
+   "sectionIds": [
+    "4.1.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "interpretability-evaluation-caveats",
+   "name": "Caveats on the Interpretability Evaluations",
+   "tier": "major",
+   "parent": null,
+   "summary": "Two acknowledged weaknesses in the manual and automated experiments: most activations fall in the less-interpretable low intervals, and features were sampled without regard to importance.",
+   "explanation": "The paper lists both and then argues neither changes the conclusion, based on its own inspection of many features rather than on a further experiment. It also points readers at the interactive visualization for A/1 and the corresponding neurons, suggesting they sort by 'random' for an unbiased sample and run their own version of the experiment, or sort by importance metrics such as max activation and max density to test the second caveat themselves.",
+   "prerequisites": [
+    "manual-interpretability-scoring",
+    "automated-interpretability"
+   ],
+   "sectionIds": [
+    "4.1.5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "low-interval-activation-skew",
+   "name": "Caveat: Activations Are Skewed Toward Low Intervals",
+   "tier": "minor",
+   "parent": "interpretability-evaluation-caveats",
+   "summary": "Most actual feature activations are small, so they fall in exactly the intervals that score worst.",
+   "explanation": "The interval sampling deliberately gives equal weight to every band, but the real distribution of activations is concentrated at the bottom, where interpretability is lowest. Taken at face value, this means a randomly chosen live activation is less interpretable than the interval-averaged scores suggest. The paper's answer is the expected value argument: most of a feature's effect on model outputs comes from its higher activations, which are the interpretable ones.",
+   "prerequisites": [
+    "interpretability-evaluation-caveats",
+    "expected-value-plot",
+    "large-activations-dominate"
+   ],
+   "sectionIds": [
+    "4.1.5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "interpretability-importance-caveat",
+   "name": "Caveat: Uniform Sampling Ignores Importance",
+   "tier": "minor",
+   "parent": "interpretability-evaluation-caveats",
+   "summary": "Features were sampled uniformly from all features, but interpretability might correlate with how important a feature is.",
+   "explanation": "The evaluated features are drawn uniformly rather than weighted by influence, so the results say nothing directly about the features that matter most. One could instead evaluate the features with the largest activation magnitudes or the largest effect when ablated. The paper's sense is that those would be more interpretable, and it notes that inspection of the most active features suggests the opposite of the worrying case — but it acknowledges one could imagine a situation where the most important features were systematically less interpretable. This is stated as a hunch, not a measurement.",
+   "prerequisites": [
+    "interpretability-evaluation-caveats"
+   ],
+   "sectionIds": [
+    "4.1.5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "loss-recovered-by-features",
+   "name": "Fraction of MLP Loss Recovered",
+   "tier": "major",
+   "parent": null,
+   "summary": "The headline number: 79% of the log-likelihood loss reduction the MLP layer provides is recovered by A/1's features, rising to 94.5% for the much larger A/5.",
+   "explanation": "The measure works by substitution: replace the MLP activations with the autoencoder's reconstruction of them and see how much extra loss that costs, relative to the loss cost of zero-ablating the MLP entirely. For A/1 the extra loss is 21% of the zero-ablation loss, so 79% of the MLP's contribution is recovered. The penalty can be reduced by using more features or a lower L1 coefficient — A/5, with n_learned_sparse of 131,072 and an L1 coefficient of 0.004, recovers 94.5%. The paper says these numbers should be taken with a significant grain of salt, while also arguing that the individual feature analyses show the recovered loss is measuring something real.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "l1-coefficient",
+    "mlp-activations"
+   ],
+   "sectionIds": [
+    "4.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "zero-ablation-baseline",
+   "name": "Zero-Ablation Baseline",
+   "tier": "minor",
+   "parent": "loss-recovered-by-features",
+   "summary": "The denominator of the loss-recovered fraction: how much loss the model incurs if the MLP layer's output is removed entirely.",
+   "explanation": "To express reconstruction quality as a fraction, the paper needs a scale for how much the MLP is worth at all. Zero-ablating the MLP — removing its contribution entirely — gives that scale. The autoencoder's extra loss is then measured against it, so \"79% recovered\" means the reconstruction gets back 79% of the gap between no MLP and the real MLP. The number depends entirely on this choice of baseline.",
+   "prerequisites": [
+    "loss-recovered-by-features"
+   ],
+   "sectionIds": [
+    "4.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "loss-recovery-caveats",
+   "name": "Why 79% Should Be Read Cautiously",
+   "tier": "minor",
+   "parent": "loss-recovered-by-features",
+   "summary": "The paper's own reasons for distrusting its headline number: fraction-of-loss may be the wrong framing, and the features are not fully monosemantic.",
+   "explanation": "The biggest issue the paper names is that framing the question in terms of fraction of loss may be misleading, because of the long tail: as the fraction explained rises, more and more features are needed to explain the residual, so a high percentage may correspond to a small fraction of the features. It also notes it does not believe its features are completely monosemantic — some polysemanticity may be hiding in low activations — nor that all of them are cleanly interpretable. Against this it sets the case studies, where ablating a feature decreases probabilities in the appropriate way and artificially activating it produces the corresponding behavior. The paper calls measuring how much a feature-based interpretation explains a model an important open question needing work on both defining metrics and computing them.",
+   "prerequisites": [
+    "loss-recovered-by-features",
+    "monosemanticity"
+   ],
+   "sectionIds": [
+    "4.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "explanation-based-loss-measure",
+   "name": "Explanation-Based Loss Measurement",
+   "tier": "minor",
+   "parent": "loss-recovered-by-features",
+   "summary": "A proposed better measure — replacing activations with those predicted from natural-language explanations — that the paper judges computationally impractical for now.",
+   "explanation": "Rather than replacing MLP activations with the autoencoder's reconstruction, one could replace them with activations simulated from the features' written explanations, which would test the interpretations rather than just the reconstruction. The paper notes others in the community have been considering this. Its objection is cost: naively, simulating a layer with 100k features means sampling the explaining model once per feature per token, which it estimates at roughly \\$12,500–\\$25,000 for a single 4,096-token context at then-current prices, over many contexts. It suggests approximations may exist, and separately raises the possibility of formalizing feature importance as an independent loss contribution per feature.",
+   "prerequisites": [
+    "loss-recovered-by-features",
+    "automated-interpretability"
+   ],
+   "sectionIds": [
+    "4.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "model-vs-data-question",
+   "name": "Do Features Tell Us About The Model Or The Data?",
+   "tier": "major",
+   "parent": null,
+   "summary": "The worry that dictionary learning on activations might be recovering correlations in the dataset rather than anything the model computes, and the paper's answers to it.",
+   "explanation": "A model's activations reflect both the dataset's distribution and the way the model transforms it, so dictionary learning on activations mixes the two. Correlations in the data can survive the first part of the model, and the paper concedes it is in theory possible that the features are artifacts of dataset correlations projected into a different space. It gives two answers. First, the randomized-weight model: dictionary learning there yields mostly single-token features and non-single-token features it cannot interpret, so the trained model's activations have richer structure than the token distribution alone. Second, the structural argument: the second half of the model — MLP down-projection and unembedding — is not an input to dictionary learning, so the interpretability of downstream effects must be a property of the model, and the paper checks this three ways with logit weights, ablation, and pinned sampling.",
+   "prerequisites": [
+    "dictionary-learning",
+    "feature-downstream-effects"
+   ],
+   "sectionIds": [
+    "4.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-visualization-interface",
+   "name": "Feature Visualizations",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The interactive per-feature displays the paper repeatedly points readers to, showing activations by interval, logit weights, ablation effects and automated scores.",
+   "explanation": "Rather than printing everything, the paper hosts visualizations for A/1, A/0, the neurons, and the randomized model, and asks readers to check its claims there. Each shows a feature's activations across intervals with dataset examples, its logit weights, its ablation effects displayed as underlines, and its automated interpretability score. Features can be sorted by 'random' for an unbiased sample, or by importance metrics such as max activation and max density. The paper leans on these for several claims it does not otherwise substantiate in text — notably that the randomized model's non-single-token features resist interpretation.",
+   "prerequisites": [
+    "activation-interval",
+    "logit-weight",
+    "feature-ablation"
+   ],
+   "sectionIds": [
+    "3.1.3",
+    "4.1.5",
+    "4.3",
+    "22.4",
+    "20"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "global-analysis-framing",
+   "name": "From Cherry-Picked Features To Global Claims",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The turn in section 4 from four hand-chosen features to the population of all features, and the questions the paper says it cannot yet answer.",
+   "explanation": "Section 4's stated aim is to ask how interpretable the rest of the features are, given that section 3 dealt only in cherry-picked cases. Its answer is that both humans and language models find features significantly more interpretable than neurons, and quite interpretable in absolute terms. The paper also names questions it cannot answer to its satisfaction: whether dictionary learning is discovering all the features needed to understand the MLP layer, and how much of the layer's mechanics have been made interpretable — offering only preliminary speculation. All of this is computed after excluding A/1's 168 dead and 292 ultralow density features from the 4,096.",
+   "prerequisites": [
+    "cherry-picked-case-studies",
+    "dead-features",
+    "ultralow-density-cluster"
+   ],
+   "sectionIds": [
+    "4",
+    "4.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  }
+ ],
+ "citationFlags": [
+  {
+   "citationKey": "nelhage2021mathematical",
+   "refText": "Elhage, Nelson and Nanda, Neel and Olsson, Catherine and Henighan, Tom and Joseph, Nicholas and Mann, Ben and Askell, Amanda and Bai, Yuntao and Chen, Anna and Conerly, Tom and DasSarma, Nova and Drain, Dawn and Ganguli, Deep and Hatfield-Dodds, Zac and Hernandez, Danny and Jones, Andy and Kernion, Jackson and Lovitt, Liane and Ndousse, Kamal and Amodei, Dario and Brown, Tom and Clark, Jack and Kaplan, Jared and McCandlish, Sam and Olah, Chris (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+   "concept": "path-expansion-logit-attribution",
+   "whyNeeded": "The logit weight $d_i W_{down} \\pi L W_{unembed}$ is the paper's central downstream measurement and is defined only by reference to Framework's path expansion and its linearized layer norm treatment. Reproducing or trusting every logit weight figure in sections 3.1.3 through 3.4.2 depends on that construction."
+  },
+  {
+   "citationKey": "cammarata2020curve",
+   "refText": "Cammarata, Nick and Goh, Gabriel and Carter, Shan and Schubert, Ludwig and Petrov, Michael and Olah, Chris (2020). Curve Detectors. Distill",
+   "concept": "expected-value-plot",
+   "whyNeeded": "The expected value plot is used to argue that impure weak activations do not matter much, both in section 3.1.1 and again in the section 4.1.5 caveats. How the weighting is constructed and what it is meant to show is specified in Curve Detectors, not here."
+  },
+  {
+   "citationKey": "bills2023language",
+   "refText": "Bills, Steven and Cammarata, Nick and Mossing, Dan and Tillman, Henk and Gao, Leo and Goh, Gabriel and Sutskever, Ilya and Leike, Jan and Wu, Jeff and Saunders, William (2023). Language models can explain neurons in language models.",
+   "concept": "automated-interpretability",
+   "whyNeeded": "The entire automated interpretability pipeline is an adaptation of this protocol: explain-then-simulate, activations quantized 0–9, and the correlation score. The paper also explicitly deviates from its scoring mixture (maximal plus random examples) and explains why, which cannot be evaluated without knowing the original."
+  },
+  {
+   "citationKey": "elhage2022solu",
+   "refText": "Elhage, Nelson and Hume, Tristan and Olsson, Catherine and Nanda, Neel and Henighan, Tom and others (2022). Softmax Linear Units. Transformer Circuits Thread",
+   "concept": "solu-base64-neuron",
+   "whyNeeded": "Two things lean on it: the prior base64 neuron that motivates the base64 case study and its universality claim across architectures, and the maximal-dataset-example evaluation weakness that the interval-sampling methodology in 4.1.1 is designed to fix."
+  },
+  {
+   "citationKey": "olah2023distributed",
+   "refText": "Olah, Christopher (2023). Distributed Representations: Composition & Superposition.",
+   "concept": "mutually-exclusive-features-in-superposition",
+   "whyNeeded": "The claim that mutually exclusive features such as languages are natural to place in superposition together is the paper's explanation for why the neuron most correlated with the Arabic feature mixes many non-English languages. The reasoning behind which feature pairs are cheap to superpose lives there."
+  },
+  {
+   "citationKey": "rumbelow2023solid",
+   "refText": "Rumbelow, Jessica and Watkins, Matthew (2023). SolidGoldMagikarp (plus, prompt generation).",
+   "concept": "anomalous-token-exclusion",
+   "whyNeeded": "Every logit weight histogram in sections 3 and 4 excludes extremely rare or never-used vocabulary elements on the grounds that they resemble these anomalous tokens. Knowing what those are and why their unembedding directions are unconstrained is needed to judge whether the exclusion is fair."
+  },
+  {
+   "citationKey": "huben2023update",
+   "refText": "Huben, Robert (2023). [Research Update] Sparse Autoencoder features are bimodal.",
+   "concept": "cross-dictionary-mcs",
+   "whyNeeded": "Appendix 15 suggests the bimodality of feature density might partially explain the bimodality in cross-dictionary MCS reported there. The MCS metric is never defined in this paper, so the suggested connection is unreadable without it."
+  },
+  {
+   "citationKey": "olah2017feature",
+   "refText": "Olah, Chris and Mordvintsev, Alexander and Schubert, Ludwig (2017). Feature Visualization. Distill",
+   "concept": "classic-polysemantic-neuron-examples",
+   "whyNeeded": "Section 3 anchors what polysemanticity looks like on the cat-face/car-front vision neuron. The example and the feature visualization technique that produced it are described there."
+  },
+  {
+   "citationKey": "nanda2023patching",
+   "refText": "Nanda, Neel (2023). Attribution Patching: Activation Patching At Industrial Scale.",
+   "concept": "path-expansion-logit-attribution",
+   "whyNeeded": "Cited as similar work alongside the logit attribution method. Useful for placing the paper's linear logit weight approximation among related first-order attribution techniques, though the paper does not depend on it for any number."
+  },
+  {
+   "citationKey": "hernandez2021natural",
+   "refText": "Hernandez, Evan and Schwettmann, Sarah and Bau, David and Bagashvili, Teona and Torralba, Antonio and Andreas, Jacob. Natural language descriptions of deep visual features. International Conference on Learning Representations",
+   "concept": "automated-interpretability",
+   "whyNeeded": "Cited jointly with Bills et al. as prior work on generating natural-language descriptions of units. Secondary to Bills et al. for reproducing the setup, but relevant for what automated interpretability is taken to mean here."
+  }
+ ]
+}

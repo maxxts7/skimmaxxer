@@ -1,0 +1,201 @@
+{
+ "id": "fig-56",
+ "title": "The All-Caps Snake Case Loop",
+ "takeaway": "Two features from the smallest dictionary — one firing on all-caps word pieces, one on underscores — each raise the probability of the tokens that switch the other on, so alternating between them produces variable names like ARRAY_MAX_VALUE. The paper offers it as its simplest two-node case of a feature assembly that behaves like a state machine, with the hand-off happening through the sampled token stream rather than through weights.",
+ "walkthrough": "**What you are looking at.** Two boxes, three arrows, and the figure's own note in the right margin. Each box is one learned [[feature]] from dictionary learning run A/0, named in the paper's [[feature-notation]]: model A, then the run index, then the feature's index inside that run ([[dictionary-learning-run]]). Inside each box are dataset examples where that feature fires. Orange shading marks the per-token [[feature-activation]]; darker orange and bold mean a larger value. The snippets follow the paper's usual display: text drawn from a 100-million-token subset, four tokens of context shown on each side ([[activation-visualization-sampling]]).\n\n**How to read the arrows.** They are not weights running between the two features. A/0 decomposes a [[one-layer-transformer-testbed]], where two features in the same MLP have no path to each other within one forward pass. An arrow means something slower. The feature at its tail pushes up the next-token logits for the tokens written on the arrow ([[logit-weight]]) — the \"action\" reading of a feature ([[action-features]]). That token then gets sampled. At the next position it switches on the feature at the arrow's head. The loop closes through the generated text, which is why the paper calls these assemblies [[finite-state-automata-features]] and says plainly that they are not [[circuit]]s.\n\n**What it shows.** A/0/207 fires on all-caps word pieces — BOT, TAC, the ST in AC_SUBST, the SPA in SPACER. It upweights caps continuations (\"ING\", \"ES\", \"ABLE\", …), which land back on itself: that is the self-loop at top left, the same shape as the single-node case the section opens with ([[self-exciting-feature-loop]]). It also upweights \"_\", the arrow across the top.\n\nA/0/358 fires on exactly those underscores. In FORWARD_ADAPTER_MAX the underscores are shaded and the letters are not. It upweights openings of fresh caps segments — \"MEM\", \"MAX\", \"END\", … — the bottom arrow back into 207.\n\nAlternate the two: caps, more caps, underscore, caps again. That is ARRAY_MAX_VALUE.\n\nOne qualification the paper states: A/0 holds 512 features, equal to the MLP width, so it is not overcomplete ([[overcompleteness]]). In wider runs the caps node undergoes [[feature-splitting]] and this tidy two-node picture becomes a larger system.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "A/0/207",
+   "definition": "The left node: a feature in run A/0 that activates on all-caps text tokens, especially pieces of words inside all-caps identifiers. In the figure it is the source of both the caps self-loop and the underscore arrow.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "A/0/358",
+   "definition": "The right node: a feature in run A/0 that activates on the underscore character between all-caps segments. It is what fires immediately after 207 has emitted an underscore.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "A/0",
+   "definition": "The dictionary learning run these two features come from — model A, run index 0, the smallest dictionary in the A sequence. Its features are coarse, which is why the diagram has only two nodes.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "A/model/run/index notation",
+   "definition": "The paper's naming scheme for features: the letter is the transformer (A or B), the middle number is the autoencoder run, the last number is the feature's index within that run. Neurons get written A/neurons/32 instead.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "Node (box)",
+   "definition": "Here a node is one feature, drawn as a box containing sampled text where it fires. It is a state of the informal automaton the two features implement together.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Arrow",
+   "definition": "A transition: the feature at the tail raises the probability of the tokens labelling the arrow, and once such a token is sampled, the feature at the head fires on it at the next position. No weight connects the two features directly.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Orange highlighting",
+   "definition": "The activation display: shading intensity on a token shows how strongly that feature fired there, with the darkest, bolded tokens carrying the largest values and unshaded tokens carrying zero.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "\"All caps snake case\"",
+   "definition": "The naming convention the two features jointly model — words written in capitals and joined by underscores, as in variable and macro names.",
+   "conceptId": null
+  },
+  {
+   "term": "ARRAY_MAX_VALUE",
+   "definition": "The paper's worked example of the pattern; not text from the dataset panels but an illustration of what running the loop produces.",
+   "conceptId": null
+  },
+  {
+   "term": "\"ING\", \"ES\", \"ABLE\", \"EN\", \"ER\", \"ED\", \"RO\", \"STR\", \"LE\"",
+   "definition": "The label on the self-loop: tokens A/0/207 upweights that continue an all-caps word, so the next token re-activates 207 itself.",
+   "conceptId": "self-exciting-feature-loop"
+  },
+  {
+   "term": "\"_\"",
+   "definition": "The label on the top arrow from 207 to 358: the underscore token, which 207 upweights as an alternative to continuing the current word, and which is exactly what 358 responds to.",
+   "conceptId": null
+  },
+  {
+   "term": "\"MEM\", \"MAX\", \"RE\", \"NO\", \"END\", \"PER\", \"EN\", \"UN\", \"TYPE\", \"BEGIN\"",
+   "definition": "The label on the bottom arrow from 358 back to 207: tokens A/0/358 upweights after an underscore, each of which starts a new all-caps segment and so re-activates 207.",
+   "conceptId": null
+  },
+  {
+   "term": "DOMIZE_BOT_CAR_LOCATION",
+   "definition": "A dataset example in the 207 panel, with BOT most strongly shaded — a caps identifier fragment of the kind that drives this feature.",
+   "conceptId": null
+  },
+  {
+   "term": "SUBST1_TAC] (SPEC \"",
+   "definition": "A dataset example in the 207 panel from shell or autoconf-style code, peaking on TAC.",
+   "conceptId": null
+  },
+  {
+   "term": "AC_SUBST([",
+   "definition": "A dataset example in the 207 panel; the feature peaks on the ST piece of SUBST, showing it fires on sub-word caps tokens, not whole words.",
+   "conceptId": null
+  },
+  {
+   "term": "DEFINE_UNQUOTED(FORCE_",
+   "definition": "A dataset example in the 207 panel, peaking on OTED inside UNQUOTED.",
+   "conceptId": null
+  },
+  {
+   "term": "TITLE_BAR_SPACER,0",
+   "definition": "A dataset example in the 207 panel, peaking on SPA inside SPACER.",
+   "conceptId": null
+  },
+  {
+   "term": "FORWARD_ADAPTER_MAX",
+   "definition": "A dataset example in the 358 panel where the shading sits on the underscores and not on the capital letters — the cleanest read of what separates 358 from 207.",
+   "conceptId": null
+  },
+  {
+   "term": "SIM_PERF_LOW|RCERR",
+   "definition": "A dataset example in the 358 panel; again only the underscores are shaded.",
+   "conceptId": null
+  },
+  {
+   "term": "_SWDEINT_MODE,246,",
+   "definition": "A dataset example in the 358 panel, including a leading underscore at the start of the shown window.",
+   "conceptId": null
+  },
+  {
+   "term": "_MIN_ARM_NEON",
+   "definition": "A dataset example in the 358 panel, from what looks like a C preprocessor guard for ARM NEON.",
+   "conceptId": null
+  },
+  {
+   "term": "Margin note (\"Two features interact to model …\")",
+   "definition": "The figure's own annotation, stating that the first feature activates on all-caps tokens and predicts continuations or an underscore, and the second activates on the underscore and predicts the start of new all-caps components.",
+   "conceptId": null
+  },
+  {
+   "term": "Feature as action",
+   "definition": "Reading a feature by what it makes more likely next, not only by what makes it fire. The arrows in this diagram are the action reading; the shaded panels are the input reading.",
+   "conceptId": "action-features"
+  },
+  {
+   "term": "Finite state automaton (as used here)",
+   "definition": "The paper's loose label for a set of features that hand off to each other through the token stream, each firing state predicting tokens that move the model into the next state. It stresses these are unlike circuits, since the model never learned the parts to work together — they interact only because of patterns in the data.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Feature splitting",
+   "definition": "The effect that widening the autoencoder divides one feature into several narrower ones. Named here as the reason this two-node picture holds only for the small A/0 dictionary.",
+   "conceptId": "feature-splitting"
+  },
+  {
+   "term": "Overcomplete",
+   "definition": "A dictionary with more entries than the dimension of the space being decomposed. A/0 is not overcomplete, which the paper flags when presenting these diagrams.",
+   "conceptId": "overcompleteness"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "207",
+   "meaning": "The index of the all-caps feature within run A/0. It is an arbitrary label from the training run, carrying no ordering meaning; with 512 features in A/0 the indices run 0 to 511."
+  },
+  {
+   "value": "358",
+   "meaning": "The index of the underscore feature within run A/0, likewise arbitrary."
+  },
+  {
+   "value": "0 (in A/0)",
+   "meaning": "The run index: the first and smallest dictionary in the A/0…A/5 sequence, which holds the L1 coefficient fixed and increases dictionary size. The section explains its examples come from A/0 because the systems are simplest there."
+  },
+  {
+   "value": "512",
+   "meaning": "The number of features in A/0, stated in the section text as equal to the transformer's MLP dimension — which is why the paper calls this run not overcomplete."
+  },
+  {
+   "value": "2",
+   "meaning": "The number of nodes, one per feature. The paper presents this as the next step up from the single-node self-exciting loop shown just before it."
+  },
+  {
+   "value": "3",
+   "meaning": "The number of arrows drawn: a self-loop on 207, a 207-to-358 transition on the underscore, and a 358-to-207 transition on caps openings. The two-node description counts states, not transitions."
+  },
+  {
+   "value": "9",
+   "meaning": "The count of continuation tokens listed on the self-loop label (\"ING\" through \"LE\"). A sample of what 207 upweights, not an exhaustive list."
+  },
+  {
+   "value": "10",
+   "meaning": "The count of segment-opening tokens listed on the bottom arrow (\"MEM\" through \"BEGIN\"). Again a sample of the tokens 358 upweights."
+  },
+  {
+   "value": "5",
+   "meaning": "The number of dataset snippets shown inside the A/0/207 panel."
+  },
+  {
+   "value": "4",
+   "meaning": "The number of dataset snippets shown inside the A/0/358 panel."
+  },
+  {
+   "value": "100 million",
+   "meaning": "The size, in tokens, of the training-data subset the paper draws all its activation visualizations from, with only 10 tokens taken from each context."
+  },
+  {
+   "value": "4 (context tokens per side)",
+   "meaning": "The display window used throughout the paper: four tokens either side of the selected token, which is why the snippets here are short fragments rather than full lines."
+  },
+  {
+   "value": "1 (in SUBST1_TAC)",
+   "meaning": "Literal text from the dataset example, part of an identifier — not a measurement."
+  },
+  {
+   "value": "0 (in TITLE_BAR_SPACER,0)",
+   "meaning": "Literal text from the dataset example, an argument value following the identifier."
+  },
+  {
+   "value": "246 (in _SWDEINT_MODE,246,)",
+   "meaning": "Literal text from the dataset example, a numeric argument in the sampled code — no interpretive weight."
+  }
+ ]
+}

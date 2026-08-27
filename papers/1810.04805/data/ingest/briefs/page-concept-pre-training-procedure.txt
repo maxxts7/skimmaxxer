@@ -1,0 +1,40 @@
+PAGE FOR CONCEPT: pre-training-procedure
+NAME: Pre-training procedure
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+The concrete recipe: corpus, how input sequences are generated, batch size and step count, optimizer settings, and the sequence-length schedule.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Appendix A.2 spells out what Section 3.1 leaves at the level of ideas: sampling and packing two spans, masking after tokenization, 256-sequence batches of up to 512 tokens for 1,000,000 steps, Adam with warmup and linear decay, dropout 0.1 and gelu, the summed loss, the hardware, and the two-phase length schedule. Together these are what a reproduction would need.
+
+THEME IT BELONGS TO: theme-the-two-pre-training-tasks | The two pre-training tasks - The two self-supervised objectives, and the run that trained them. Masked LM hides 15% of the tokens and predicts them from both sides, which gets around the fact that a bidirectional model would otherwise reach the token it is predicting through the layers below. Next sentence prediction asks, from the [CLS] vector, whether span B really followed span A in the corpus. The rest is the recipe: 3.3 billion words of books and Wikipedia, one million steps, and a schedule that saves the long sequences for the final tenth of training.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - pre-training-data | Pre-training corpus: BooksCorpus (800M words) plus English Wikipedia (2,500M words), roughly 3.3 billion words in total.
+    - bookscorpus | BooksCorpus (800M words): A corpus of unpublished books forming the smaller half of BERT's pre-training data, and the whole of GPT's.
+    - english-wikipedia-corpus | English Wikipedia (2,500M words): The larger half of the pre-training data, with only running text kept.
+    - document-level-corpus | Document-level corpus: The requirement that pre-training text keep documents intact, so long contiguous sequences can be sampled.
+      - billion-word-benchmark | Billion Word Benchmark (as a counter-example): The shuffled sentence-level corpus the paper names as the kind of data it deliberately avoids.
+  - training-sequence-generation | Generating a training input sequence: Two spans are sampled, assigned the A and B embeddings, given the 50/50 NSP treatment, capped at 512 combined tokens, and then masked.
+    - max-sequence-length-512 | 512-token maximum sequence length: The two sampled spans are drawn so their combined length does not exceed 512 tokens.
+  - training-steps-and-epochs | 1,000,000 steps at 128,000 tokens per batch: Pre-training runs for one million updates on 256-sequence batches, approximately 40 passes over the 3.3 billion word corpus.
+  - pretraining-optimizer-settings | Adam settings for pre-training: Adam with learning rate 1e-4, $\beta_1=0.9$, $\beta_2=0.999$, L2 weight decay 0.01, warmup over the first 10,000 steps then linear decay, and dropout 0.1 on all layers.
+  - gelu-activation | gelu activation: BERT uses the gelu activation rather than relu, following OpenAI GPT.
+  - combined-pretraining-loss | Combined MLM + NSP training loss: The training loss is the sum of the mean masked LM likelihood and the mean next sentence prediction likelihood.
+  - sequence-length-schedule | 128-then-512 sequence length schedule: 90% of pre-training steps use length-128 sequences; the last 10% use length 512, specifically to learn the longer-range position embeddings.
+
+PREREQUISITES:
+  - masked-language-model | Masked LM (MLM): BERT's first pre-training task: mask a random 15% of input tokens and train the model to predict the originals from context on both sides.
+  - next-sentence-prediction | Next Sentence Prediction (NSP): BERT's second pre-training task: a binary classification of whether span B actually followed span A in the corpus, predicted from the [CLS] vector.
+  - pre-training-data | Pre-training corpus: BooksCorpus (800M words) plus English Wikipedia (2,500M words), roughly 3.3 billion words in total.
+
+EDGES TOUCHING THIS CONCEPT (2) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] <- effect-of-pre-training-tasks (Effect of pre-training tasks) | depends-on | ablation needs identical conditions: Table 5 charges each score drop to one removed piece of the recipe. That reading is only valid because the cut-down runs use exactly the same pre-training data, fine-tuning scheme and hyperparameters as BERT_BASE. The fixed procedure is the control the comparison rests on.
+  [supporting] <- fine-tuning-cost (Fine-tuning cost) | contrasts-with | four days once, an hour each: Pre-training BERT_LARGE took four days on 16 Cloud TPUs, which is the expensive half of the recipe and is paid once. Fine-tuning any of the paper's results takes at most an hour on a single Cloud TPU. The lopsidedness is what makes the exhaustive hyperparameter search and the random restarts affordable.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-1 | The Same Stack, Twice: The figure claims that pre-training and fine-tuning use one and the same network: an identical token-in, vector-out Transformer encoder appears in both panels, and the only thing that changes between them is the thin output layer bolted on top. The dotted arrows carry every pre-trained weight across to initialize the task model, so a downstream task inherits the whole network rather than a set of embeddings.
+
+PAPER SECTIONS TO READ (in papers/1810.04805/data/ingest/sections/):
+  - 08-3.1-pre-training-bert.txt
+  - 23-A.2-pre-training-procedure.txt

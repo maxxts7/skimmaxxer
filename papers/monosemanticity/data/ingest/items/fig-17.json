@@ -1,0 +1,193 @@
+{
+ "id": "fig-17",
+ "title": "The Arabic Feature Found Again in Model B",
+ "takeaway": "A second, independently seeded one-layer transformer, given its own independently seeded dictionary-learning run, produces a feature (B/1/1334) whose per-token activations correlate 0.91 with the Arabic-script feature A/1/3450 from the first model, and whose activation distribution looks like the same Arabic feature drawn again. The paper offers this as its per-feature evidence for universality: the feature appears to be a fact about how these models represent this data, not an accident of one training run.",
+ "walkthrough": "You are looking at one feature's activation distribution, drawn in exactly the format used earlier for [[arabic-script-feature]] A/1/3450. The point of the figure is that the two pictures can be laid side by side.\n\nStart with the name in the title. Under the paper's [[feature-notation]], \"B\" is the second one-layer transformer ([[transformer-a-and-b]]) — same architecture, same Pile data, same hyperparameters, different random seed. The \"1\" is a [[dictionary-learning]] run matched in size and L1 coefficient to A/1, but trained on activations from different tokens. \"1334\" is the index of one feature inside that run's 4,096.\n\nNow the axes. The horizontal axis is the feature's activation on a token, from a hard zero at the far left out to about 7.1. The vertical axis is density: how many sampled tokens land in that activation bin. Colour encodes the [[arabic-script-proxy]] score for the token, a [[computational-proxy]] of the form $\\log(P(s\\mid\\text{Arabic Script})/P(s))$, blue at $-5$ and red at $+5$.\n\nExact zeros are broken out separately, at the \"0\" and \">0\" marks: the sparsity penalty makes most tokens exactly zero, which would otherwise be a spike of infinite density. The strip under the main panel renormalizes each column to full height, so it shows the colour mix conditional on that activation level. The four boxes on top are dataset examples sampled near activation 0.75, 2.7, 4.75 and 6.8, with the scored token shaded orange.\n\nWhat it shows: red fills the whole right side, and the mass piles into a mode peaking near 9K density around activation 5.3–5.7. That is Arabic script. Below 1, red still holds most of the column, where A/1/3450's low range was largely blue — the text's claim that B's version is \"more specific in the 0–1 range.\"\n\nB/1/1334 was not picked by hunting for Arabic. It is the feature in B/1 whose per-token activation vector has the highest [[pearson-correlation]] with A/1/3450's across 40,960,000 shared tokens, the paper's [[activation-similarity]] measure. That correlation is 0.91.\n\nTwo seeds, two dictionaries, one Arabic direction: that is the [[universality]] claim, here for a single feature. The systematic version, a median of 0.72 across all of A/1, comes later.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Activation Distribution",
+   "definition": "The plot type: a density histogram of one feature's activation values over sampled dataset tokens, with each token colour-coded by an independent proxy score. It is the paper's standard first exhibit for a feature, used here so B/1/1334 can be compared against the same plot for A/1/3450.",
+   "conceptId": "feature-activation-distribution-plot"
+  },
+  {
+   "term": "B/1/1334",
+   "definition": "The feature this figure shows: feature number 1334 in dictionary-learning run 1 on transformer B. The paper picks it out as the closest match in B to the Arabic-script feature in A.",
+   "conceptId": null
+  },
+  {
+   "term": "A/1/3450",
+   "definition": "The paper's lead case-study feature, from the first transformer, which fires on Arabic script. This figure exists to be read against A/1/3450's version of the same plot.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "A and B (transformer letters)",
+   "definition": "Two one-layer transformers trained with identical hyperparameters, architecture and dataset, differing only in the random seed used for initialization. A is the model studied throughout; B exists mainly to test whether features recur.",
+   "conceptId": "transformer-a-and-b"
+  },
+  {
+   "term": "The middle number in a feature name (the \"1\" in B/1)",
+   "definition": "An index for which dictionary-learning run the feature came from; runs vary in dictionary size and L1 coefficient. B/1 is the run matched to A/1 in hyperparameters, but trained on activations from a different transformer and different tokens.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Feature",
+   "definition": "A direction in the MLP activation space recovered by the sparse autoencoder, treated as an interpretable unit in place of a neuron. Its activation on a token is the corresponding hidden unit's value in the autoencoder.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Activation Level (x axis)",
+   "definition": "The value the feature takes on a given token, after the autoencoder's ReLU. Higher means the feature is firing more strongly on that token.",
+   "conceptId": null
+  },
+  {
+   "term": "Density (y axis)",
+   "definition": "How many of the sampled tokens fall into each activation bin, stacked by proxy colour. It is a count-shaped density, so the total area over an interval is the number of tokens activating in that range.",
+   "conceptId": null
+  },
+  {
+   "term": "Log-Likelihood Ratio (colour legend)",
+   "definition": "The Arabic-script proxy's score for each token, $\\log(P(s\\mid\\text{Arabic Script})/P(s))$ — how much more likely the string is under the hypothesis that it is Arabic than under the general data distribution. Positive means the proxy thinks the token is Arabic script.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Arabic → (legend arrow)",
+   "definition": "The label telling you which end of the colour scale is Arabic: red, at the right of the bar, is high log-likelihood ratio for Arabic script. Blue is the other end, where the proxy judges the token unlikely to be Arabic.",
+   "conceptId": null
+  },
+  {
+   "term": "Arabic script proxy",
+   "definition": "The specific proxy behind the colours, built by checking whether a character falls in the Arabic Unicode blocks and dividing by a unigram estimate of the token's baseline probability. It is a yardstick that is independent of the model, so agreement between it and the feature is evidence rather than circular.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "Computational proxy",
+   "definition": "Generally, a cheaply computable score for \"is this string in the hypothesized context\", used as an outside check on a feature's interpretation. The paper's proxies are imperfect and it says so, which matters for reading the low-activation end of this plot.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "Conditional distribution (bottom strip)",
+   "definition": "The same colour breakdown as the main panel, but with every column stretched to full height. It answers \"of the tokens at this activation level, what fraction score as Arabic\", independent of how many tokens there are.",
+   "conceptId": null
+  },
+  {
+   "term": "Hard zeros (the \"0\" and \">0\" marks left of the axis)",
+   "definition": "Exact-zero activations are pulled out into their own marker rather than plotted as a bar. The L1 sparsity penalty makes the feature exactly zero on the vast majority of tokens, which would be a delta spike in the density.",
+   "conceptId": null
+  },
+  {
+   "term": "Dataset example panels",
+   "definition": "The four boxes across the top, each a handful of short text snippets drawn from a bin of the activation axis, with the scored token shaded. Orange intensity marks how strongly the feature fired on that token.",
+   "conceptId": null
+  },
+  {
+   "term": "Dotted vertical lines",
+   "definition": "They tie each dataset-example panel to the activation level it was sampled from, so you can see what text looks like at that strength of firing.",
+   "conceptId": null
+  },
+  {
+   "term": "\\xd8, \\xaf, \\xa9 and similar escape sequences in the snippets",
+   "definition": "Byte-level tokens shown when an Arabic Unicode character is split across several tokens by the tokenizer. The feature in A typically fires only on the last token of such a character, which is why partial byte strings appear highlighted.",
+   "conceptId": "subtoken-script-sampling"
+  },
+  {
+   "term": "corr = 0.91",
+   "definition": "The Pearson correlation between B/1/1334's activation vector and A/1/3450's, both indexed by the same tokens. It is the criterion by which B/1/1334 was selected, not a property discovered afterwards.",
+   "conceptId": "pearson-correlation"
+  },
+  {
+   "term": "Activation similarity",
+   "definition": "The paper's model-independent way of matching features across models: represent each feature as the vector of its activations over a fixed token set, then correlate. Two features count as the same feature if they fire on the same tokens to the same degree.",
+   "conceptId": "activation-similarity"
+  },
+  {
+   "term": "Universality",
+   "definition": "The claim that the same features form in separately trained models and are recoverable by separate dictionary-learning runs. It is one of the five things the paper tries to establish for each feature it studies in depth.",
+   "conceptId": "universality"
+  },
+  {
+   "term": "Activation specificity",
+   "definition": "Whether the feature being on implies the context is present — read here as how much red there is at each activation level. The paper says B/1/1334 is more specific than A/1/3450 in the 0–1 range.",
+   "conceptId": "activation-specificity"
+  },
+  {
+   "term": "Sparsity penalty",
+   "definition": "The L1 term on the autoencoder's hidden activations that produces the hard zeros this plot separates out. It is what makes only a few features active per token.",
+   "conceptId": "sparse-autoencoder"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.91",
+   "meaning": "Pearson correlation between the activations of A/1/3450 and B/1/1334. B/1/1334 is by construction the highest-correlating feature in B/1, so 0.91 is the maximum achievable match, not a typical one — the median across all A/1 features is much lower."
+  },
+  {
+   "value": "40,960,000 tokens",
+   "meaning": "The number of tokens the activation correlation is computed over: both features are evaluated on the same shared text, giving two vectors of that length which are then correlated. The paper states this size and does not break down how the tokens were sampled."
+  },
+  {
+   "value": "1334",
+   "meaning": "The feature's index within run B/1. Indices are arbitrary labels assigned by the autoencoder, so 1334 in B has no relation to 3450 in A — that they match at all is the finding."
+  },
+  {
+   "value": "1 (in B/1 and A/1)",
+   "meaning": "The dictionary-learning run index. A/1 and B/1 are the matched pair: same dictionary size and L1 coefficient, different transformer and different training activations."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of features in the A/1 dictionary, and so in its matched B/1 counterpart. It is an 8x expansion over the transformer's 512 MLP neurons, the size the paper does most of its detailed analysis on."
+  },
+  {
+   "value": "x-axis 0 to about 7.1, ticks at 1.0 through 7.0",
+   "meaning": "The range of activation values B/1/1334 takes on the sampled data; the axis stops where the feature's largest observed activation is. A/1/3450's version of this plot runs to about 9.0, so the two features are on different scales and only their shapes are directly comparable."
+  },
+  {
+   "value": "y-axis 0K to 10K, ticks each 1K",
+   "meaning": "Token counts per activation bin. The A/1/3450 plot tops out at 5K, so heights across the two figures should not be compared without noticing the different scales."
+  },
+  {
+   "value": "peak near 9K at activation about 5.3–5.7",
+   "meaning": "The bulk of the feature's firing, and it is almost entirely red. This is the Arabic mode: when the feature is strongly on, the proxy nearly always agrees the token is Arabic script."
+  },
+  {
+   "value": "about 1K–2K across activations 1.0 to 4.0",
+   "meaning": "The flat low plateau of weakly-activating tokens. The paper's three hypotheses for such weak activations are an imperfect proxy, a calibrated-but-wrong model, and an autoencoder too narrow to hold every true feature."
+  },
+  {
+   "value": "about 4K at the far left of the axis",
+   "meaning": "The spike of just-above-zero activations. Its top band is blue, meaning the tokens that barely activate the feature are the ones least likely to be Arabic — the same shape A/1/3450 shows, but with a larger red share here."
+  },
+  {
+   "value": "colour scale -5, -2.5, 0, 2.5, 5",
+   "meaning": "The log-likelihood ratio in nats: 0 means the token is exactly as likely under the Arabic hypothesis as under the general distribution, +5 means about 150 times more likely, -5 about 150 times less. The scale is clipped at both ends."
+  },
+  {
+   "value": "callout positions about 0.75, 2.7, 4.75 and 6.8",
+   "meaning": "The activation levels the four dataset-example panels are drawn from, chosen to span weak, middling, strong and near-maximal firing. They let you read what the text actually looks like at each height of the curve."
+  },
+  {
+   "value": "151, 3148, 59.55, 22, 1/2 and similar numerals inside the snippets",
+   "meaning": "Incidental content of the sampled text, not measurements. They appear because Arabic-script passages in the Pile contain digits and prices, and their presence shows the feature fires on the Arabic tokens around them rather than on the numerals."
+  },
+  {
+   "value": "0.13% and 81%",
+   "meaning": "From the specificity analysis of A/1/3450: Arabic script is 0.13% of training tokens but 81% of the tokens on which that feature is active. They set the baseline against which the red mass in this plot should be judged as far above chance."
+  },
+  {
+   "value": "0.74",
+   "meaning": "The correlation between A/1/3450's activations and the thresholded Arabic proxy, over 40 million tokens — a feature-versus-proxy number. It is lower than 0.91 partly because several features in A/1 share the job of representing Arabic script."
+  },
+  {
+   "value": "0.72 and 0.46",
+   "meaning": "Median best-match activation correlations across all of A/1: 0.72 when matching features to B/1 features, 0.46 when matching the two transformers' neurons instead. The 0.91 here is a strong case, and the paper's systematic claim rests on the medians, not on this feature."
+  },
+  {
+   "value": "0.23",
+   "meaning": "The logit weight correlation between A/1/3450 and B/1/1334, reported later. The two features fire on nearly the same tokens (0.91) but their output weight vectors agree far less, which the paper attributes to a central mode of near-zero weights it calls interference."
+  },
+  {
+   "value": "100 million tokens, 10 per context, 4 tokens of window either side",
+   "meaning": "The sampling behind the dataset-example panels: visualizations use a 100M-token subset of the training data, taking only 10 tokens per context, and show four tokens of context on each side of the scored token."
+  }
+ ]
+}

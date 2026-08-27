@@ -1,0 +1,59 @@
+PAGE FOR CONCEPT: activation-spectrum-by-proxy
+NAME: Activation spectrum coloured by a proxy
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A histogram of one unit's activation values across sampled tokens, with each column split by an independently computed score for whether that text matches the hypothesis about the unit. It is the paper's standard test of whether a unit fires only in the context claimed for it, and it reads by proportion within a column, not by bar height.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+The question behind every one of these figures is whether a unit fires *only* in the context someone has hypothesised for it — what the paper calls [[activation-specificity]], and the main thing that would rule out [[polysemanticity]]. A single percentage could answer that, and the paper does quote one: Arabic script is 0.13% of training tokens but 81% of the tokens where the Arabic feature is on. That number hides the thing the paper actually wants to say. Specificity is not constant along the firing range; it climbs from about 25% at the bottom to about 98% above activation 5. An average over all firings is dominated by the many weak ones, which are the least pure and — because a [[feature]] acts linearly on the logits — the least consequential ([[large-activations-dominate]]). A bar chart or a table of category counts would collapse the activation axis and lose exactly that gradient.
+
+The second reason is independence. The colour is not something the model reports. It is a [[computational-proxy]] computed from the token string alone. Laying the two side by side turns the picture into a joint distribution of two quantities produced by separate machinery, which is the form an argument about a unit's meaning has to take. It also lets the paper show its own bad cases rather than reporting one flattering number.
+
+### How to read it, step by step
+
+The horizontal axis is the [[feature-activation]]: the ReLU output of one hidden unit of the [[sparse-autoencoder]] on one token, running from just above zero out to roughly 7–12 depending on the feature. Exact zeros are not plotted. They sit in the small `0` / `>0` control at the far left, because the [[l1-sparsity-penalty]] makes hard zeros the overwhelming majority and would put a spike at the origin. Everything you see is therefore already conditioned on the unit firing at all.
+
+The vertical axis is density: how many sampled tokens land in each bin. Note its magnitude — features peak around 5K–40K, the neuron plots around 1.4M. That gap is itself evidence about how often each unit fires.
+
+Colour is the proxy score, a [[log-likelihood-ratio-proxy]] $\log(P(s\mid H)/P(s))$ maximised over prefixes ending at the token ([[prefix-maximization]]), clipped to $\pm 5$: deep blue at $-5$, white at $0$, deep red at $+5$. Within each vertical slice the tokens are stacked by that score, reddest at the bottom, so one column is a small stacked bar, and the claim lives in the red *fraction* band by band.
+
+Look first at the thin strip beneath the main panel, which renormalises every column to full height. Read it left to right: does red take over as activation rises? Then check the main panel's height where it does, so you know the red end is not three tokens. Then the four boxes on top, five random dataset examples each ([[activation-visualization-sampling]]), where orange shading means activation, not proxy score.
+
+The habitual misreading is the tall spike just above zero. It is a count of weak firings, not a statement that the unit is mostly about non-Arabic.
+
+### What a bad result would look like
+
+A polysemantic unit gives a conditional strip that is flat: the same red-blue sandwich at 0.5 as at 8. The paper draws that version itself, in the neuron figures — [[most-correlated-neuron]] plots that stay blue across the whole range with a red sliver that never grows ([[feature-neuron-nonalignment]]). A second failure is red arriving only in a tail with no mass under it. A third is red everywhere including at zero, which would mean the proxy fires on most text and proves nothing.
+
+The honest caveat runs the other way too. Blue surviving at high activation is read by the paper as the proxy's fault — punctuation inside Hebrew scores as non-Hebrew because it is outside the Unicode block ([[proxy-limitations]]) — and at low activation it offers three [[weak-activation-hypotheses]]. Those are judgements, not measurements. The proxy is a cheap yardstick, not ground truth about meaning.
+
+### Where it comes back
+
+Three jobs. As a feature's own specificity exhibit: fig-8 (Arabic), fig-20 (DNA, where the bimodal score is reduced to a yes/no by [[proxy-binarization]] and reported as a 0.8 correlation), fig-25 (base64), fig-33 (Hebrew). As a negative control on the nearest neuron: fig-14, fig-23, fig-30. And as the [[universality]] check, the same plot for the matched feature in the second transformer ([[transformer-a-and-b]]) found by [[activation-similarity]]: fig-17 (corr 0.91), fig-27 (0.85), fig-36 (0.92), where the picture, not a number, is the argument. What changes between them is the hypothesis and its proxy, the activation range, whether the proxy is graded or binarised, and the density scale. Figure 9 reuses the same axis with the histogram weighted by activation magnitude ([[expected-value-plot]]).
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - feature-activation | Feature activation: The scalar $f_i(\mathbf{x})$ giving how strongly feature $i$ fires on a datapoint; in the autoencoder it is the ReLU hidden-layer value.
+  - l1-sparsity-penalty | L1 penalty on feature activations: A penalty on the sum of feature activations, which pushes most of them to exactly zero. This is what buys sparsity in the decomposition.
+  - computational-proxy | Computational Proxy: A cheaply computable numerical score estimating how likely a string is to come from a hypothesized context, used as an independent yardstick against which feature activations are checked.
+  - log-likelihood-ratio-proxy | Log-Likelihood Ratio Form: Proxies take the form $\log(P(s|\text{hypothesis})/P(s))$ — how much more likely the string is under the feature's hypothesis than under the general distribution.
+  - activation-specificity | Activation Specificity: Whether a feature being on implies the hypothesized context is present. The paper treats this as the more important half of the case against polysemanticity.
+  - polysemanticity | Polysemanticity: A single neuron responding to a mixture of seemingly unrelated inputs, which makes it a poor unit for human understanding of the network.
+  - superposition | Superposition: A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 15-3.1.1-activation-specificity.txt
+  - 18-3.1.4-the-feature-is-not-a-neuron.txt
+  - 19-3.1.5-universality.txt
+  - 21-3.2.1-activation-specificity-and-sensitivity.txt
+  - 23-3.2.3-the-feature-is-not-a-neuron.txt
+  - 25-3.3-base64-feature.txt
+  - 26-3.3.1-universality.txt
+  - 27-3.3.2-the-feature-is-not-a-neuron.txt
+  - 28-3.4-hebrew-feature.txt
+  - 30-3.4.2-universality.txt

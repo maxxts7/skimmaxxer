@@ -1,0 +1,56 @@
+PAGE FOR CONCEPT: eleven-task-evaluation
+NAME: The eleven-task fine-tuning sweep
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+BERT is evaluated by fine-tuning it on eleven NLP tasks, each with a small task-specific output layer on the same pre-trained encoder.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Section 4 covers the nine reported GLUE tasks, SQuAD v1.1 and v2.0, and SWAG, with CoNLL-2003 NER appearing separately in the feature-based ablation. The point of the sweep is that one pre-trained model plus a handful of new parameters covers sentence classification, sentence-pair classification, span extraction and multiple choice. Each task differs only in how the input is packed and which output vectors are read. The count is the paper's evidence that one model can replace a family of specialised architectures.
+
+THEME IT BELONGS TO: theme-the-eleven-tasks-and-the-scores | The eleven tasks and the scores - The evaluation itself: eleven tasks, each a small output layer on the same pre-trained encoder. GLUE supplies the sentence and sentence-pair tasks, SQuAD 1.1 and 2.0 the span extraction, and SWAG a four-way completion. Each gets its own head — a linear layer on C for GLUE, a start vector and an end vector for spans, one scoring vector over four packed sequences for SWAG. Gains are reported as absolute point differences over the previous best, and this theme walks each benchmark and what BERT scored on it.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - glue-benchmark | GLUE benchmark: A collection of sentence and sentence-pair understanding datasets under one submission format and leaderboard, used as BERT's main sentence-level testbed.
+    - glue-score | GLUE leaderboard score: The single aggregate number GLUE reports per system, averaging its per-task scores.
+    - glue-evaluation-server | GLUE evaluation server and hidden test labels: GLUE does not distribute test labels; scores come from submitting predictions to a server, which limits how often a system can be evaluated on test.
+    - c-vector-classification-head | C-vector classification head: For GLUE, the final [CLS] vector is fed to one new linear layer with weights $W \in \mathbb{R}^{K \times H}$, trained with ordinary cross-entropy.
+    - glue-fine-tuning-protocol | GLUE fine-tuning protocol: Batch size 32 and 3 epochs for every task, with only the learning rate chosen per task from a small grid on Dev.
+      - fine-tuning-random-restarts | Random restarts for unstable fine-tuning: BERT_LARGE fine-tuning was sometimes unstable on small datasets, so several restarts from the same checkpoint were run and the best kept on Dev.
+    - mnli | MNLI (Multi-Genre NLI): A large crowdsourced entailment task over sentence pairs from multiple genres, with three labels.
+    - qqp | QQP (Quora Question Pairs): A binary task: decide whether two Quora questions are semantically equivalent.
+    - qnli | QNLI (Question NLI): SQuAD recast as binary classification: does this sentence contain the answer to this question?
+    - sst-2 | SST-2 (Stanford Sentiment Treebank): Binary single-sentence sentiment classification over sentences from movie reviews.
+    - cola | CoLA (Corpus of Linguistic Acceptability): Binary single-sentence classification of whether an English sentence is linguistically acceptable.
+    - sts-b | STS-B (Semantic Textual Similarity Benchmark): Sentence pairs from news headlines and other sources annotated with a 1-to-5 similarity score.
+    - mrpc | MRPC (Microsoft Research Paraphrase Corpus): Sentence pairs automatically extracted from online news, human-annotated for whether the two mean the same thing.
+    - rte | RTE (Recognizing Textual Entailment): A binary entailment task similar to MNLI but with much less training data.
+    - wnli | WNLI (Winograd NLI) and why it is excluded: A small inference set built from Winograd schemas, dropped from the reported results because its construction is known to be problematic.
+      - majority-class-baseline | Majority-class baseline: Always predicting the most frequent label, used as the floor a real system must beat.
+    - single-task-vs-multi-task-fine-tuning | Single-task fine-tuning (and the multi-task aside): All reported GLUE numbers come from fine-tuning one model per task; multi-task fine-tuning is mentioned only as an untested possibility.
+  - squad-v1-1 | SQuAD v1.1: Over 100,000 crowdsourced question/answer pairs where the answer is a span of a given Wikipedia passage.
+    - answer-span | Answer span: A contiguous stretch of passage tokens, identified by start and end positions, that constitutes the answer.
+    - packed-question-passage-sequence | Question and passage as one packed sequence: Question and passage are concatenated into a single input, the question tagged with the A segment embedding and the passage with B.
+    - span-prediction-head | Start/end vector span prediction head: SQuAD fine-tuning adds only two vectors, $S$ and $E$, whose dot products with each token's final hidden vector give start and end distributions over the passage.
+      - start-and-end-vectors | Start vector S and end vector E: The only task-specific parameters introduced for SQuAD: two $H$-dimensional vectors, one scoring each token as a span start, one as an end.
+      - span-score-and-decoding | Span score and maximum-scoring-span decoding: A candidate span from $i$ to $j$ scores $S \cdot T_i + E \cdot T_j$, and the prediction is the highest-scoring span with $j \geq i$.
+    - triviaqa-augmentation | TriviaQA data augmentation: Before fine-tuning on SQuAD, the model is first fine-tuned on TriviaQA, described as modest data augmentation to match leaderboard systems that may use any public data.
+    - exact-match-and-f1 | Exact Match and F1 on SQuAD: SQuAD's two metrics: EM counts a prediction correct only on an exact match, F1 gives partial credit for token overlap.
+    - squad-leaderboard-public-data-rules | SQuAD leaderboard conditions: Top leaderboard entries have no up-to-date public system descriptions and may train on any public data, which shapes how the comparison is set up.
+    - prior-squad-systems | Prior published SQuAD systems: The published baselines Table 2 compares against, mostly purpose-built reading comprehension architectures with attention machinery between question and passage.
+    - squad-v2-0 | SQuAD v2.0: SQuAD extended so a question may have no short answer in the paragraph, which the paper calls more realistic.
+      - unanswerable-questions | Unanswerable questions: Questions for which the paragraph contains no short answer; the correct output is an abstention.
+      - cls-as-null-span | [CLS] as the null span: Unanswerable questions are treated as having a span that starts and ends at [CLS], so abstention becomes another position in the same probability space.
+        - null-span-score | Null score s_null: The score of abstaining, $s_{null} = S \cdot C + E \cdot C$, computed with the same start and end vectors against the [CLS] representation.
+        - tau-threshold | Threshold τ for answering: A non-null answer is predicted only when $\hat{s}_{i,j} > s_{null} + \tau$, with τ chosen on dev to maximise F1.
+  - swag-dataset | SWAG (Situations With Adversarial Generations): 113k sentence-pair completion examples: given a sentence, choose the most plausible of four continuations.
+    - grounded-commonsense-inference | Grounded commonsense inference: Judging which continuation of a described situation is plausible, using everyday knowledge rather than logical entailment.
+    - swag-multiple-choice-head | Four packed sequences scored by one vector: Each candidate continuation is packed with the context into its own sequence; one learned vector dotted with each sequence's [CLS] representation gives four scores, normalised by softmax.
+
+PREREQUISITES:
+  - bert | BERT: A language representation model pre-trained on unlabeled text so that every layer conditions on both left and right context, then fine-tuned with one extra output layer per task.
+  - fine-tuning-bert | Fine-tuning BERT: Adapting the pre-trained model to a task by plugging in task-specific inputs and outputs and training every parameter end-to-end.
+
+PAPER SECTIONS TO READ (in papers/1810.04805/data/ingest/sections/):
+  - 01-abstract-abstract.txt
+  - 02-1-introduction.txt
+  - 10-4-experiments.txt

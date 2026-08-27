@@ -1,0 +1,115 @@
+{
+ "id": "eq-feature-decomposition",
+ "title": "Activations as a Sum of Features",
+ "takeaway": "The paper defines a decomposition of a layer as writing each token's MLP activation vector as a fixed bias plus a weighted sum of unit directions, one direction per feature. The weights are the feature activations, and the sum runs over many more features than the vector has dimensions, which the paper says is only workable because the weights are sparse.",
+ "walkthrough": "This is the paper's statement of what \"decomposing a layer\" means. It is an unnumbered display in Section 2.1, written down before any autoencoder is trained. Everything later in the paper is an attempt to fill it in.\n\nStart on the left. $\\mathbf{x}^j$ is the MLP activation vector at one token position, with $j$ indexing the datapoint. In the [[one-layer-transformer-testbed]] that vector has $d_{\\rm MLP} = 512$ entries, one per hidden neuron. Those 512 numbers are the thing the paper says it cannot avoid interpreting.\n\nNow the right side, term by term. $\\mathbf{b}$ is a single bias vector, the same for every token, absorbing a constant offset so that the sum only has to explain what varies. Each $\\mathbf{d}_i$ is a [[feature-direction]]: a unit vector in that same 512-dimensional space, fixed once and shared across all tokens. Each $f_i(\\mathbf{x}^j)$ is a [[feature-activation]]: a scalar, read off this particular token's activation, saying how strongly [[feature]] $i$ is present here.\n\nSo the direction says what a feature is, and the scalar says how much of it is there. A token's activation is then a weighted sum of directions, plus the bias. Note the $\\approx$ — this is a reconstruction, not an identity, and the paper does not claim the leftover is zero.\n\nThen the count. The sum over $i$ runs over far more features than the 512 dimensions the vectors live in: 4,096 at the 8× expansion the paper mostly uses, and 131,072 at its largest. More directions than dimensions is not a basis in the usual sense, and the paper calls such a set [[overcompleteness|overcomplete]]. The directions cannot all be orthogonal, so recovering the coefficients is not a matter of projecting onto an orthogonal basis.\n\nWhat makes recovery possible at all is that $f$ is sparse — on any one token, nearly every $f_i$ is exactly zero. That is the same assumption [[superposition]] rests on, and it is what makes this display an instance of [[dictionary-learning]]. The paper is plain that the equation itself is not new: it is an ordinary linear matrix factorization.\n\nOne thing it leaves open on purpose. Whether models are in some sense composed of features, or whether this is a convenient after-the-fact description, is a question the paper says it takes an agnostic position on.",
+ "latex": "\\mathbf{x}^j \\approx \\mathbf{b} + \\sum_i f_i(\\mathbf{x}^j) \\mathbf{d}_i",
+ "terms": [
+  {
+   "term": "$\\mathbf{x}^j$",
+   "definition": "The MLP activation vector for datapoint $j$ — the hidden-layer values of the transformer's MLP at one token position. It is what the paper sets out to decompose.",
+   "conceptId": "mlp-activations-as-target"
+  },
+  {
+   "term": "$j$ (superscript)",
+   "definition": "The datapoint index, meaning one token in one context. The decomposition is written per token, and $f_i$ is recomputed for each.",
+   "conceptId": null
+  },
+  {
+   "term": "$\\approx$",
+   "definition": "The decomposition is approximate, not exact. Some part of the activation vector is left unexplained by the bias and the sum.",
+   "conceptId": null
+  },
+  {
+   "term": "$\\mathbf{b}$",
+   "definition": "A bias vector in activation space, shared across all datapoints, that carries the constant part of the activations. In the autoencoder this is the tied bias, subtracted before the encoder and added back at the output.",
+   "conceptId": "pre-encoder-bias"
+  },
+  {
+   "term": "$\\sum_i$",
+   "definition": "The sum over features. It runs over the whole dictionary, which has many more entries than the activation vector has dimensions.",
+   "conceptId": null
+  },
+  {
+   "term": "$i$ (subscript)",
+   "definition": "The feature index. It identifies one feature, which owns both a direction $\\mathbf{d}_i$ and an activation function $f_i$.",
+   "conceptId": null
+  },
+  {
+   "term": "$f_i(\\mathbf{x}^j)$",
+   "definition": "The activation of feature $i$ on datapoint $j$: a single non-negative number saying how strongly the feature is present. In the sparse autoencoder it is the ReLU hidden-layer value, $\\text{ReLU}(W_e(\\mathbf{x}-\\mathbf{b}_d)+\\mathbf{b}_e)_i$.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "$\\mathbf{d}_i$",
+   "definition": "The direction of feature $i$: a fixed unit vector in the 512-dimensional activation space along which the feature writes when it fires. In the autoencoder these are the columns of the decoder weight matrix $W_d$.",
+   "conceptId": "feature-direction"
+  },
+  {
+   "term": "Feature",
+   "definition": "A basic interpretable direction in activation space, which the paper wants to use as the unit of explanation in place of a neuron. A feature can point anywhere and need not align with any neuron.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "$d_{\\rm MLP}$",
+   "definition": "The length of the activation vector $\\mathbf{x}^j$, i.e. the number of neurons in the MLP hidden layer. In this paper's transformer it is 512.",
+   "conceptId": null
+  },
+  {
+   "term": "Activation space",
+   "definition": "The $d_{\\rm MLP}$-dimensional space that $\\mathbf{x}^j$, $\\mathbf{b}$ and every $\\mathbf{d}_i$ live in. Its coordinate axes are the MLP neurons.",
+   "conceptId": null
+  },
+  {
+   "term": "Unit vector",
+   "definition": "Each $\\mathbf{d}_i$ has length one, so it carries direction only. All of a feature's magnitude is pushed into the scalar $f_i$, which makes activations across features comparable.",
+   "conceptId": null
+  },
+  {
+   "term": "Overcomplete",
+   "definition": "Having more dictionary directions than the dimension of the space they sit in. The paper says this is what separates its setting from ordinary disentanglement methods, and it forces the directions to be non-orthogonal.",
+   "conceptId": "overcompleteness"
+  },
+  {
+   "term": "Sparse",
+   "definition": "On any given token only a small number of the $f_i$ are non-zero; the rest are exactly zero. Sparsity is what makes recovering many coefficients from a low-dimensional vector possible at all.",
+   "conceptId": "feature-sparsity"
+  },
+  {
+   "term": "Linear matrix factorization / dictionary learning",
+   "definition": "Writing every activation vector as a sparse weighted sum of directions drawn from one fixed, larger-than-necessary set. The paper notes the form of the equation is standard and not its own contribution.",
+   "conceptId": "dictionary-learning"
+  },
+  {
+   "term": "Superposition",
+   "definition": "The hypothesis that a network represents more features than it has neurons by giving each feature its own direction in a lower-dimensional space, tolerating some interference. It is the reason the sum here is allowed more terms than the vector has dimensions.",
+   "conceptId": "superposition"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "512",
+   "meaning": "$d_{\\rm MLP}$: the number of entries in $\\mathbf{x}^j$ and the dimension every $\\mathbf{d}_i$ lives in. It is the MLP hidden width of the one-layer transformer the paper studies."
+  },
+  {
+   "value": "1",
+   "meaning": "The length of each $\\mathbf{d}_i$. The directions are constrained to be unit vectors, so scale is carried entirely by $f_i$ rather than being split between the two."
+  },
+  {
+   "value": "8× (4,096 features)",
+   "meaning": "The expansion factor the paper mostly works at: eight times as many features as neurons, so the sum over $i$ has 4,096 terms against 512 dimensions."
+  },
+  {
+   "value": "256× (131,072 features)",
+   "meaning": "The largest dictionary the paper trains: 256 times more features than neurons. It is the extreme of the same sum, with 131,072 terms in 512 dimensions."
+  },
+  {
+   "value": "1× – 256×",
+   "meaning": "The full range of dictionary sizes reported, from 512 features (as many as neurons, so not overcomplete) up to 131,072. Widening the dictionary is what produces feature splitting later in the paper."
+  },
+  {
+   "value": "0",
+   "meaning": "The value nearly all $f_i$ take on any given token. The ReLU in the encoder plus the L1 penalty push most feature activations to exactly zero, which is the sparsity the decomposition depends on."
+  }
+ ]
+}

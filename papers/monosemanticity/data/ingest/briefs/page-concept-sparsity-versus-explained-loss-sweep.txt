@@ -1,0 +1,47 @@
+PAGE FOR CONCEPT: sparsity-versus-explained-loss-sweep
+NAME: Sparsity against explained behaviour
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A scatter in which every dot is one trained sparse autoencoder, placed by how few features fire per token against how much of the MLP layer's loss contribution its reconstruction recovers. It is for pricing a hyperparameter choice: what a looser sparsity penalty, or a wider dictionary, actually buys.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+The paper reports finding no single number that says whether [[dictionary-learning]] is working, so it triangulates from several imperfect proxies ([[evaluating-dictionary-learning]]). Two of those proxies pull against each other. The [[l0-norm]] — the mean count of features with a nonzero activation on a token — rewards a code where almost nothing fires. The share of the MLP layer's loss contribution the reconstruction recovers ([[loss-recovered-by-features]]) rewards a code that reproduces the layer. Either alone is gameable: rank the runs in a bar chart by explained loss and the densest dictionary wins; rank by sparsity and the emptiest does. A table of chosen hyperparameters, or an average, hides that "best" is undefined until you say what a unit of sparsity is worth — and a dictionary firing two hundred features per token explains plenty while being no easier to read than the 512 neurons it replaced.
+
+Carrying both numbers on one dot lets a reader price a gain rather than rank it, which is as far as the appendix goes: no derived optimum, only a stated habit of targeting $L^0$ below 10 or 20 and distrusting codes whose $L^0$ is a large fraction of the layer's 512 dimensions ([[l0-nll-tradeoff]]).
+
+### How to read it, step by step
+
+The horizontal axis is average $L^0$: a plain count of active features per token, linear, running from about 4 to 20. Left is sparser. The vertical axis, 0.67 to about 0.95, comes from splicing the reconstruction in place of the real MLP activations, measuring how much the loss rises, dividing by the rise from zeroing the layer outright ([[zero-ablation-baseline]]), and subtracting from one. It is labelled "Percent" but ticked in fractions, so 0.95 means 95%.
+
+One dot is not a feature. It is an entire trained [[sparse-autoencoder]] — one [[dictionary-learning-run]], its width and penalty fixed, against the same one-layer transformer. Colour encodes the [[l1-coefficient]] $\lambda$ on the [[l1-sparsity-penalty]]: 0.004 blue, 0.006 red, 0.008 green, 0.01 purple. Each line joins six dictionary sizes ([[expansion-factor]]), 512 up to 131,072; it is a connector, not a fit.
+
+Look first at the horizontal gaps between colours, not along any one curve. The penalty fixes which vertical band a run lands in — purple near 4 to 7 active features, blue near 16 to 20 — and the bands barely overlap. Then look upward inside a band: a 256-fold wider dictionary climbs purple from about 0.67 to 0.89 while $L^0$ shifts by under three. Two knobs, two directions. Blue's best point, 0.945, buys about 1.5 points over red's 0.93 for roughly double the active features.
+
+### What a bad result would look like
+
+If the four colours lay strung along one shared curve, penalty and width would be the same lever and the two-knob reading would be wrong. If each line ran flat, width would buy nothing and the recovered fraction would belong to $\lambda$ alone. If the bands overlapped — some run at $L^0 \approx 5$ matching the best run at $L^0 \approx 20$ — there would be no tradeoff to read, only a dominated region and an obvious pick.
+
+The soft spots matter too. The paper calls the percentage an overestimate, because zero-ablating the MLP may be an unusually bad baseline ([[reconstructed-nll-overestimate-caveat]]), and says without showing data that a small-MLP transformer trained from scratch reaches similar numbers. The $\lambda = 0.001$ runs are dropped to keep the scale readable, cropping out the dense end. And the paper expects a long tail of features, each later percentage point needing more of them, so climbing a band is not closing in on a complete account.
+
+### Where it comes back
+
+This pairing of axes appears once, in the hyperparameter appendix. The y-axis number returns bare in the section on how much of the model the interpretation explains: 79% for A/1, 94.5% for A/5 — two of these blue dots, quoted without the tradeoff around them. The same sweep grid is shown a second way as feature density histograms grouped by L1 coefficient ([[feature-density-histogram]]), where widening the dictionary turns up rarer features rather than more explained loss, and a third way in [[feature-splitting]], where that same widening makes one feature divide into a family.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - dictionary-learning | Dictionary learning: The problem of writing each activation vector as a sparse combination of directions drawn from a fixed, larger-than-necessary set. The paper frames the search for a model's features as exactly this problem.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - l1-sparsity-penalty | L1 penalty on feature activations: A penalty on the sum of feature activations, which pushes most of them to exactly zero. This is what buys sparsity in the decomposition.
+  - l1-coefficient | L1 Coefficient $\lambda$: The scalar weighting the sparsity penalty against reconstruction error. It is one of the two hyperparameters the paper varies across dictionary learning runs.
+  - l0-norm | $L^0$ Norm: The average number of features active on a token. This is the paper's direct measure of how sparse the decomposition actually is.
+  - loss-recovered-by-features | Fraction of MLP Loss Recovered: The measure and its headline number: splice the autoencoder's reconstruction back into the transformer in place of the real MLP activations, and 79% of the loss reduction the MLP provides survives for A/1, rising to 94.5% for the much larger A/5.
+  - zero-ablation-baseline | Zero-Ablation Baseline: The loss increase from substitution is divided by the loss increase from removing the MLP layer entirely, giving a percentage of the MLP's contribution explained.
+  - dictionary-learning-run | Dictionary Learning Run: One trained autoencoder, identified by its number in the feature notation. Runs vary in dictionary size and L1 coefficient.
+  - expansion-factor | Expansion factor: The ratio of autoencoder hidden dimension to input dimension — how many times more features than neurons the dictionary has.
+  - evaluating-dictionary-learning | Telling Whether the Autoencoder Is Working: The paper has no single metric that tracks what it cares about, and instead triangulates from several imperfect signals.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 81-19-advice-for-training-sparse-autoencoders-hyperparameter-selec.txt

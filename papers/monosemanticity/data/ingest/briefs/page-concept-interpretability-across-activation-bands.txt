@@ -1,0 +1,52 @@
+PAGE FOR CONCEPT: interpretability-across-activation-bands
+NAME: Score across the activation spectrum
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A line chart that scores how well a unit's interpretation holds at each band of its own activation range, from its weakest firings to its maximum, with autoencoder features and raw MLP neurons on the same axes. It exists to test whether interpretability survives outside the top-activating examples.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+The paper's headline interpretability result — [[manual-interpretability-scoring|a blinded human scoring features against neurons]] — is one number per unit. That format cannot answer the question this section raises: does the interpretation the annotator settled on hold everywhere the unit fires, or only where it fires hardest? The worry is specific. The standard way to read a unit is to collect its top-activating dataset examples, and the paper admits that method flatters [[polysemanticity|polysemantic]] units, which often look clean at their maximum and messy further down ([[max-dataset-example-bias|the maximal-example weakness]]). Any summary that averages over a unit's whole range — a bar chart, a mean, a histogram of totals — folds that failure mode back in and hides it.
+
+So the spectrum has to become an axis. A table of per-band means for 162 units would carry the numbers but not the shape, and the claim here is about shape: interpretability should rise with activation strength, and the reader needs to see where it rises, how steeply, and how far the two series stay apart. Plotting [[feature|features]] and neurons on the same axes also exposes something a features-only plot would not — neurons improve with activation strength too, so the rise is a property of firing hard, not a property of the dictionary.
+
+### How to read it, step by step
+
+The x axis is the [[activation-interval|activation interval]]: each unit's range from zero to its own maximum, cut into eleven evenly spaced bands, with examples sampled uniformly from each. The labels `~0%` through `~100%` are fractions of that unit's own peak, so `~50%` means half of *this* unit's maximum and never an absolute activation. That normalisation is what lets a feature whose max is 9 and one whose max is 0.6 share a column.
+
+The y axis is a single line item of the [[feature-interpretability-rubric|interpretability rubric]], scored 0 to 5. The annotator commits to one interpretation of the whole unit first, then rates each band on how consistent that band's strongly-firing tokens are with it. A low score therefore does not mean the band is confusing on its own — it means the band disagrees with the one story the annotator committed to.
+
+Colour is the unit type: magenta for [[sparse-autoencoder|autoencoder]] features, teal for the transformer's own [[neuron-notation|MLP neurons]], both scored [[blinded-annotation|without the annotator knowing which was which]]. The faded dots are individual scored intervals, pinned to integer heights, darker where more of them stacked up. The lines are per-band averages over those dots — roughly 37 intervals per band, so small wobbles are noise.
+
+Look first at the dotted line at 3, then at where each curve meets it. The label calls it a *subjective* threshold; it is the authors' impression, not a derived cutoff.
+
+### What a bad result would look like
+
+The clearest failure would be a magenta line running along the teal one — dictionary learning buying no interpretability the neuron basis did not already have. The subtler and more interesting failure is a magenta line near 5 in the top band that collapses by the `~60%` band: that would say features look [[monosemanticity|monosemantic]] only through the very lens this analysis was built to distrust.
+
+Neither happens, but neither does the strong result. A magenta line above 3 in every band, including `~0%`, would mean the interpretation covers the whole range; instead it starts near 2.6 and crosses around `~20%`. The paper does not explain that low end, offering only that a direction learned [[feature-at-slight-angle|at a slight angle]] to the true one would misbehave there.
+
+Two cautions the chart invites. Move the threshold to 4 and the crossing slides to `~40%`; the gap between the curves is sturdier evidence than the crossing point. And check the dot cloud — a mean of 2.6 drawn from scores split between 5 and 0 would describe no unit at all.
+
+### Where it comes back
+
+This exact shape is used once. Its pieces recur. Read it against the rubric histogram, which is the same annotator and the same scoring collapsed to one total per unit: that plot sizes the feature–neuron gap, this one says where along the spectrum the gap lives. The per-feature activation-distribution plots in the case studies ask the same question with a [[computational-proxy|computational proxy]] instead of a human, colouring an absolute activation axis by how likely the context is under the hypothesis — and they show the same drift, purer at the top of the range than the bottom. The automated-interpretability plots swap the human for a language model but report distributions, not bands.
+
+That soft low end is the admitted weak point: [[low-interval-activation-skew|most activations are small]], so most of them land in the worst-scoring bands. The paper's defence is that [[large-activations-dominate|the large activations carry most of the effect]] on the model's output.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - polysemanticity | Polysemanticity: A single neuron responding to a mixture of seemingly unrelated inputs, which makes it a poor unit for human understanding of the network.
+  - monosemanticity | Monosemanticity: The property of a unit responding to one coherent thing, so that a single interpretation covers when it fires and what it does.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - manual-interpretability-scoring | Manual Human Analysis: A blinded human annotator scoring 412 activation intervals across 162 features and neurons on an interpretability rubric; the paper's most-trusted metric.
+  - feature-interpretability-rubric | Feature Interpretability Rubric: The 0–14 scoring scheme combining confidence in an interpretation, consistency of activations, consistency of logit weights, effect-size separation, and specificity.
+  - activation-interval | Activation Interval: One of eleven evenly spaced bands between zero and a feature's maximum activation, used to sample examples uniformly across the whole activation spectrum rather than just the top.
+  - max-dataset-example-bias | The Maximal-Example Weakness: The evaluation flaw the paper is correcting for: judging a unit only by its top-activating examples makes polysemantic units look monosemantic.
+  - blinded-annotation | Blinded Annotation: The annotator scored features and neurons without knowing which kind of unit was being shown.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 36-4.1.4-activation-interval-analysis.txt

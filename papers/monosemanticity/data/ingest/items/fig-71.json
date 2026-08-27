@@ -1,0 +1,185 @@
+{
+ "id": "fig-71",
+ "title": "Importance-Weighted Interpretability Scores",
+ "takeaway": "Once the automated-interpretability scores are reweighted to what random text would have given, features still beat neurons (median 0.28 vs 0.04) but both distributions collapse toward zero. The paper's explanation is that a feature's true activations on random text are almost all zero — 88% on average, versus 54% for neurons — so the reweighted correlation mostly rewards predicting zero rather than predicting when the unit fires.",
+ "walkthrough": "This is the scorecard for [[automated-interpretability]] with one correction applied. In that procedure Claude reads examples where a unit fires, writes a short explanation, and then — seeing only that explanation — predicts the unit's activation on fresh tokens. A unit's score is the [[spearman-correlation]] between predicted and true activations, so 1.0 is a perfect ranking and 0 is chance.\n\n### How to read it\n\nThe x-axis is that score; the y-axis is density, so each histogram integrates to 1 and the two populations can be compared despite very different sizes. Magenta is the 3,676 scored [[feature]]s of the A/1 [[dictionary-learning-run]]. Teal is the 512 MLP neurons of the [[one-layer-transformer-testbed]]. Where the two overlap the fill turns dark navy — navy is not a third group. The dotted line at 0 is labelled random chance, and the two small triangles under the axis mark the medians.\n\n### What the correction does\n\nHalf the scored examples were drawn on purpose from the unit's own [[activation-interval]]s rather than from random text, which oversamples tokens where the unit fires. [[importance-scoring]] undoes that: random-text tokens get weight 1, interval tokens get weight feature_density × interval_probability.\n\n### What it shows\n\nFeatures still score above neurons — median 0.28 against 0.04, mean 0.35 against 0.11. But both have slid toward zero: unweighted, the same features sat at median 0.58 and the neurons at 0.2. The bin at zero now reaches about 9 density units for features and about 7.6 for neurons; with bins roughly 0.03 wide, that is on the order of a quarter to a third of each population.\n\nThe paper attributes this to [[feature-density]], typically $10^{-3}$ to $10^{-6}$. Almost all the weight lands on random text where a feature never fires, so an explanation predicting zero everywhere already matches most of the truth.\n\nThe supporting measurement is stated in the text, not plotted here: averaged over units, 88% of a feature's true activations on random examples are zero, against 54% for neurons, with medians of ~91% and ~58%. The paper reads the gap as [[polysemanticity]] — a neuron firing for many things offers more non-zero values on which an explanation can be tested. That is the [[importance-scoring-degeneracy]]: the unweighted score is inflated by oversampling firing tokens, but the corrected one rewards explanations that say what a feature does not fire for.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Importance Sampled Automated Interpretability",
+   "definition": "The plot title. It means the automated-interpretability scores shown here have been recomputed with importance weights, rather than taken raw from the deliberately unbalanced sample of examples.",
+   "conceptId": "importance-scoring"
+  },
+  {
+   "term": "Spearman Correlation",
+   "definition": "The x-axis quantity: for one unit, the rank correlation between the activations Claude predicted from its explanation and the unit's true activations on the same tokens. Ranks are used rather than raw values, so only the ordering of activations matters.",
+   "conceptId": "spearman-correlation"
+  },
+  {
+   "term": "Density",
+   "definition": "The y-axis. Each histogram is normalized so its bars integrate to 1, which lets 3,676 features and 512 neurons be compared on the same panel; bar height is therefore not a count.",
+   "conceptId": null
+  },
+  {
+   "term": "random chance",
+   "definition": "The dotted vertical line at Spearman correlation 0, marking the score an explanation would get if its predicted ordering were unrelated to the true activations.",
+   "conceptId": null
+  },
+  {
+   "term": "Features",
+   "definition": "The magenta population: directions learned by the sparse autoencoder over the MLP activations, here the A/1 run's features that survived the paper's exclusions.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Neurons",
+   "definition": "The teal population: the 512 individual ReLU units of the transformer's MLP layer, scored the same way as a baseline for comparison.",
+   "conceptId": "polysemanticity"
+  },
+  {
+   "term": "navy overlap",
+   "definition": "The dark blue region where the magenta and teal histograms cover the same area. It is a drawing artifact of the two translucent fills, not a separate set of units.",
+   "conceptId": null
+  },
+  {
+   "term": "median (box row)",
+   "definition": "The middle score of that population: half its units score below this value. Reported separately for features and neurons in the two coloured boxes.",
+   "conceptId": null
+  },
+  {
+   "term": "mean (box row)",
+   "definition": "The arithmetic average score over that population. It sits above the median for both groups here, which tells you the distributions have long right tails.",
+   "conceptId": null
+  },
+  {
+   "term": "failures (box row)",
+   "definition": "The count of units for which no score could be produced at all, written as a fraction of the units attempted. Both read 0, so every feature and every neuron is represented in the histogram.",
+   "conceptId": null
+  },
+  {
+   "term": "medians (triangle legend)",
+   "definition": "The legend for the two small triangles below the x-axis; each triangle sits at its population's median score, in that population's colour.",
+   "conceptId": null
+  },
+  {
+   "term": "importance scoring",
+   "definition": "The reweighting shown here. Tokens from completely random examples get weight 1; tokens from a feature's own activation intervals get a smaller weight, so the correlation approximates what a fully random sample would have given.",
+   "conceptId": "importance-scoring"
+  },
+  {
+   "term": "feature_density",
+   "definition": "The fraction of tokens over a large slice of the dataset on which a unit has a non-zero activation. It is one of the two factors in the weight given to an interval example.",
+   "conceptId": "feature-density"
+  },
+  {
+   "term": "interval_probability",
+   "definition": "The other weighting factor: the non-zero activations of a feature are bucketed into activation intervals, and this is the probability mass of the interval an example came from.",
+   "conceptId": "activation-interval"
+  },
+  {
+   "term": "activation interval",
+   "definition": "One of the evenly spaced bands between zero and a unit's maximum activation. The paper samples examples across all of them rather than only the top band, so that weak activations are tested too.",
+   "conceptId": "activation-interval"
+  },
+  {
+   "term": "A/1",
+   "definition": "The paper's main dictionary learning run: 4,096 learned features trained on the MLP activations of the one-layer transformer. The magenta population comes from it.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "true activations",
+   "definition": "The unit's actual values on the scored tokens, held out from Claude when it makes its predictions so that nothing but the explanation carries information about the activation pattern.",
+   "conceptId": "activation-prediction-scoring"
+  },
+  {
+   "term": "random examples",
+   "definition": "Scored examples drawn uniformly from the dataset rather than from a unit's activation intervals. Under importance weighting they carry almost all the weight.",
+   "conceptId": "importance-scoring-degeneracy"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.28",
+   "meaning": "Median importance-weighted Spearman score for features. Half the 3,676 features score below it; the magenta triangle under the axis sits here."
+  },
+  {
+   "value": "0.35",
+   "meaning": "Mean importance-weighted score for features. It exceeds the median because a long tail of features scores between 0.5 and 1.0."
+  },
+  {
+   "value": "0.04",
+   "meaning": "Median importance-weighted score for neurons — barely above the random-chance line at 0, which is why the teal triangle nearly touches the dotted line."
+  },
+  {
+   "value": "0.11",
+   "meaning": "Mean importance-weighted score for neurons. Higher than their median for the same reason: a thin right tail pulls the average up."
+  },
+  {
+   "value": "0/3676",
+   "meaning": "Failures among features: no feature failed to receive a score. 3,676 is the number of A/1 features scored, the run's 4,096 features minus those excluded as dead or ultralow-density (the paper elsewhere gives 168 dead and 292 ultralow, so the filtering here is close but not identical)."
+  },
+  {
+   "value": "0/512",
+   "meaning": "Failures among neurons: none. 512 is the full MLP width of the one-layer transformer under study, so every neuron is scored."
+  },
+  {
+   "value": "88%",
+   "meaning": "Mean over features of the fraction of a feature's true activations on random examples that are exactly zero. This is the paper's evidence that the importance-weighted correlation is being computed against a mostly-zero target."
+  },
+  {
+   "value": "54%",
+   "meaning": "The same mean zero-fraction for neurons. It is much lower because a neuron responds to many unrelated things, so it fires on a far larger share of random tokens."
+  },
+  {
+   "value": "~91%",
+   "meaning": "Median over features of the per-feature zero-fraction on random examples. Close to the 88% mean, so the feature distribution is not being driven by a few extreme cases."
+  },
+  {
+   "value": "~58%",
+   "meaning": "Median over neurons of the per-neuron zero-fraction. Again close to the 54% mean, so the feature/neuron gap of roughly 34 percentage points holds at the centre of both distributions."
+  },
+  {
+   "value": "0.58 and 0.53",
+   "meaning": "Median and mean feature score before importance weighting, from the main-text activation figure. Comparing with 0.28 and 0.35 here shows how much the correction moves features."
+  },
+  {
+   "value": "0.2 and 0.2",
+   "meaning": "Median and mean neuron score before importance weighting. Falling to 0.04 and 0.11 here, neurons are moved less than features, which is the asymmetry the appendix is explaining."
+  },
+  {
+   "value": "≈9 and ≈7.6",
+   "meaning": "Approximate heights, in density units, of the feature and neuron bars in the single bin containing zero — read off the plot, not stated in the text. The magenta cap above the navy region is what makes the feature bar the taller of the two."
+  },
+  {
+   "value": "≈0.03",
+   "meaning": "Approximate bin width, from about 40 bins spanning roughly -0.25 to 1.0. Multiplying by the bar heights puts roughly 29% of features and 24% of neurons in the bin at zero."
+  },
+  {
+   "value": "-0.25 to 1.0",
+   "meaning": "The x-axis range. Neurons reach the negative end; features essentially do not go below about -0.05, so no unit's explanation predicts strongly in the wrong direction."
+  },
+  {
+   "value": "0 to about 9",
+   "meaning": "The y-axis range in density units, with labelled ticks at 0, 2, 4, 6 and 8. The scale is set by the spike at zero; everywhere else both histograms stay under about 2."
+  },
+  {
+   "value": "$10^{-3}$ to $10^{-6}$",
+   "meaning": "The typical range of feature densities in this run — the fraction of tokens on which a feature fires. This is the quantity that makes almost all importance weight fall on random examples."
+  },
+  {
+   "value": "1",
+   "meaning": "The importance weight assigned to every token from a completely random example, against which interval examples are downweighted by feature_density × interval_probability."
+  },
+  {
+   "value": "60 and 540",
+   "meaning": "The scoring sample per unit: 60 examples of nine tokens each, giving 540 individual activation predictions from which one Spearman correlation is computed."
+  },
+  {
+   "value": "6 / 2 / 10 / 20",
+   "meaning": "The composition of those 60 examples: six from the top activation interval, two from each of the other 12 intervals, ten completely random, and twenty top-activating tokens shown out of context. Half being interval-drawn is exactly the sampling bias importance scoring corrects."
+  },
+  {
+   "value": "49",
+   "meaning": "The number of examples Claude is shown when writing the explanation, in a separate interaction from the scoring one, with no overlap between the two sets of examples."
+  }
+ ]
+}

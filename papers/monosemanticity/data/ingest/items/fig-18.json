@@ -1,0 +1,216 @@
+{
+ "id": "fig-18",
+ "title": "The Same Arabic Feature in Model B",
+ "takeaway": "A dictionary trained on a second, separately seeded one-layer transformer contains a feature, B/1/1334, that behaves like the paper's Arabic script feature: its activations are dominated by Arabic-script tokens, and its logit weights show the same shape — one big mode at zero plus a small right-hand mode made almost entirely of Arabic and Arabic-byte tokens. The paper reads the low 0–1 activation band as slightly cleaner here than in the original feature, which is an eyeball comparison rather than a measured one.",
+ "walkthrough": "Two plots, one feature: **B/1/1334**. \"B\" is a second one-layer transformer, trained on the same data with a different random seed. \"1\" names the [[dictionary-learning-run]] on it, and \"1334\" the feature inside that run. It was not hand-picked by eye: it is the feature whose activations have the highest [[pearson-correlation]] (0.91) with the [[arabic-script-feature]] A/1/3450 over 40,960,000 tokens. The question being asked is [[universality]] — does the same feature reappear in a model trained from scratch?\n\n### The activation histogram\n\nThe x axis is activation level, running from 0 to about 7.1. The y axis is how many sampled tokens land at that level.\n\nEach slice is colored by the [[arabic-script-proxy]], a [[log-likelihood-ratio-proxy]] scoring $\\log(P(s|\\text{Arabic})/P(s))$. Deep red means the token looks Arabic; deep blue means it does not. The thin strip beneath rescales every column to full height, so it reads directly as \"what fraction of tokens here are Arabic.\"\n\nWatch the 0–1 band. That is where the original feature was murkiest: only about 25% of its barely-active tokens scored Arabic, against 98% above activation 5. That murk is why [[activation-specificity]] gets argued band by band rather than in one number.\n\nHere the blue non-Arabic wedge collapses sooner, and the sampled examples at roughly 0.75 are already mostly Arabic script. That is the entire content of \"more specific in the 0–1 range.\" The paper gives no percentage for B, so treat this as a visual claim.\n\n### The logit-weight histogram\n\nA [[logit-weight]] is one number per vocabulary token: how much this feature firing pushes that token's next-token logit up or down. It is computed by pushing the [[feature-direction]] through the MLP output weights, a linearized layer norm, and the unembedding. Softmax ignores constant shifts, so the weights are [[logit-weight-median-centering|shifted to put the median at zero]].\n\nThe x axis spans $-0.6$ to $0.6$. One tall blue mode sits at zero.\n\nThe inset magnifies the right tail. It is nearly all red, labelled with Arabic letters and with `\\xd8`, `\\xd9`, `\\xda`, `\\xdb` — first bytes of [[utf8-multi-token-characters|Arabic characters split across tokens]]. This is the [[logit-weight-second-mode]] again, in a different model.\n\nThe paper's guess about the central blue mode is [[weight-interference]]: weights the model would prefer to be zero, but cannot make zero under [[superposition]].",
+ "latex": null,
+ "terms": [
+  {
+   "term": "B/1/1334",
+   "definition": "The feature this figure is about: feature index 1334, from dictionary learning run 1, trained on transformer B. Under the paper's notation the three slots are model / run / feature index.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Transformer B",
+   "definition": "The second of two one-layer transformers the paper trained with identical hyperparameters, data and architecture, differing only in the random seed used at initialization. It exists mainly so features can be compared across models.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "A/1/3450",
+   "definition": "The original Arabic script feature from the main model, which B/1/1334 is being compared against. It is the paper's lead case study.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "Distribution of Logit Weights",
+   "definition": "Title of the lower figure. It plots, over the whole vocabulary, how strongly this feature pushes each token's next-token logit up or down.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Distribution of weights from feature to logit for each vocab element",
+   "definition": "The figure's subtitle, stating what each counted item is: one vocabulary token contributes one weight value to the histogram.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Logit Weight (x axis)",
+   "definition": "The signed strength with which this feature's firing raises or lowers a given token's logit, obtained by multiplying the feature direction through the MLP output weights, a linear approximation of layer norm, and the unembedding matrix.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Weight from feature to logits",
+   "definition": "The x axis sub-label. It restates that this is a weight along the direct path from the feature to the output logits, not a measured effect on real text.",
+   "conceptId": "direct-path"
+  },
+  {
+   "term": "Density (y axis)",
+   "definition": "How many vocabulary tokens fall at each logit-weight value, smoothed into a curve. The paper does not state the normalization, so read the height as relative rather than as a literal token count.",
+   "conceptId": null
+  },
+  {
+   "term": "Activation Distribution",
+   "definition": "Title of the upper figure. It plots how often the feature takes each activation value across sampled dataset tokens, colored by whether the token looks Arabic.",
+   "conceptId": "feature-activation-distribution-plot"
+  },
+  {
+   "term": "Activation Level (x axis)",
+   "definition": "The scalar output of this feature — the post-ReLU hidden unit of the sparse autoencoder — on a given token. Zero means the feature is off.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "Hard zeros (the separated 0 and >0 marks)",
+   "definition": "Tokens where the feature is exactly off are drawn as their own point rather than folded into the curve, because the L1 sparsity penalty makes exact zero enormously common and would otherwise put a spike of infinite density at 0.",
+   "conceptId": "l1-coefficient"
+  },
+  {
+   "term": "Log-Likelihood Ratio (color legend)",
+   "definition": "The color scale for the Arabic proxy score, from blue at low values to red at high. It is applied identically in both plots.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Arabic →",
+   "definition": "The legend's direction label: moving right along the color bar, toward red, means the token is more likely to be Arabic script under the proxy.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "Arabic script proxy",
+   "definition": "A cheap per-token score $\\log(P(s|\\text{Arabic Script})/P(s))$ built by checking whether characters fall inside Arabic Unicode blocks. It is an independent yardstick, computed without looking at the model at all.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "Conditional distribution strip",
+   "definition": "The thin band under each main plot, where every column is rescaled to full height. It shows the proportion of Arabic versus non-Arabic tokens at that x value, independent of how many tokens are there.",
+   "conceptId": "feature-activation-distribution-plot"
+  },
+  {
+   "term": "Dataset example panels",
+   "definition": "The four boxes above the activation histogram, each showing text sampled from a band of activation levels, with token background shaded by how strongly the feature fired.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "Inset / zoom callout",
+   "definition": "The magnified panel over the right tail of the logit-weight histogram, connected by dashed lines to the region it expands. Without it the second mode would be invisible next to the central peak.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "\\xd8, \\xd9, \\xda, \\xdb",
+   "definition": "Raw byte tokens that are the first halves of UTF-8 encodings of Arabic-block characters. They carry high logit weight because predicting them is the model's way of starting an Arabic character.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "\\xa4, \\xe0\\xa6",
+   "definition": "Other byte tokens appearing at the low end of the second mode. \\xe0\\xa6 is a prefix for Bengali-block characters, so these are not Arabic and sit in the mixed, bluer part of the tail.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Arabic letter tokens (و, ل, ب, ك, م, د, ر, ا, ص, ال, ة, ز, ى, ط)",
+   "definition": "Whole Arabic letters and short Arabic strings that receive the largest positive logit weights. These are the tokens the feature most raises the probability of when it fires.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "ות, ה",
+   "definition": "Hebrew tokens appearing near the left edge of the zoomed tail. They get mildly positive weight but score low on the Arabic proxy, so they are drawn blue.",
+   "conceptId": "hebrew-feature"
+  },
+  {
+   "term": "'Exception', 'ater', 'urar', 'Q'",
+   "definition": "Latin-script tokens sitting inside the positive tail. They are examples of weight that does not fit the Arabic interpretation, which the paper attributes to interference rather than intent.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "γ, ő, }, ¢, ﻟ",
+   "definition": "Assorted Greek, accented-Latin, punctuation, currency and Arabic-presentation-form tokens at the low end of the tail. Their presence shows the second mode is not perfectly pure.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "Weight interference",
+   "definition": "The paper's hypothesis for the large central mode: the model would ideally set these weights to zero, but because features share directions in superposition it cannot, so noise leaks through.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "Median centering",
+   "definition": "Because softmax is invariant to adding a constant to all logits, logit weights have no absolute zero. The paper shifts each feature's weight vector so its median is zero, which is what puts the main mode at 0.0.",
+   "conceptId": "logit-weight-median-centering"
+  },
+  {
+   "term": "Anomalous token exclusion",
+   "definition": "Weights for vocabulary elements that are extremely rare or never used are dropped before plotting, since their weights are untrained noise.",
+   "conceptId": "anomalous-token-exclusion"
+  },
+  {
+   "term": "Activation correlation",
+   "definition": "The criterion used to pick B/1/1334: the Pearson correlation between two features' activation values over a fixed large token sample. The match was found by search, not chosen by eye.",
+   "conceptId": "pearson-correlation"
+  },
+  {
+   "term": "Universality",
+   "definition": "The claim these two plots support: that dictionary learning on an independently trained model recovers the same feature, suggesting the feature is a fact about the task rather than an accident of one training run.",
+   "conceptId": "universality"
+  },
+  {
+   "term": "Specificity",
+   "definition": "Whether the feature being on implies Arabic script is present. It is what the color breakdown of the activation histogram is testing, and the 0–1 band is where it is weakest.",
+   "conceptId": "activation-specificity"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.91",
+   "meaning": "Pearson correlation between the activations of A/1/3450 and B/1/1334. B/1/1334 was selected precisely as the highest-correlation feature in run B/1, so this is the value of the maximum, not a value drawn at random."
+  },
+  {
+   "value": "40,960,000",
+   "meaning": "The number of tokens over which that activation correlation was computed. A large sample is needed because the feature fires on a rare slice of the data."
+  },
+  {
+   "value": "0–1",
+   "meaning": "The activation band the caption's claim is about. This is the low end of the range, where a feature is barely on and where the original A feature's activations were least purely Arabic."
+  },
+  {
+   "value": "about 7.1",
+   "meaning": "The right-hand edge of the activation axis, i.e. the largest activation this feature reaches on the sampled data. The original A/1/3450 ran to about 9, so the two features are on different activation scales; only the shape is comparable."
+  },
+  {
+   "value": "0K to 10K, in 1K steps",
+   "meaning": "The y-axis ticks of the activation histogram — the sampled-token density at each activation level. The curve peaks near 9K at an activation around 5.3–5.5, which is the feature's characteristic 'on' level."
+  },
+  {
+   "value": "roughly 0.75, 2.7, 4.75, 6.8",
+   "meaning": "The four activation levels the dataset-example panels are drawn from, marked by dotted lines dropping into the histogram. They sample the low, middle, high and extreme parts of the range."
+  },
+  {
+   "value": "-0.6 to 0.6, ticked every 0.1",
+   "meaning": "The logit-weight axis range. Because weights are median-centered, 0.0 means 'this feature leaves that token's logit where the median token sits', and the axis is symmetric to show that almost nothing is strongly negative."
+  },
+  {
+   "value": "0, 0.1M, 0.2M, 0.3M, 0.4M",
+   "meaning": "Ticks on the density axis of the logit-weight plot, with the central mode peaking near 0.43M. The height is large because nearly the whole vocabulary is packed into a narrow band around zero; the paper does not state the normalization, so treat these as relative."
+  },
+  {
+   "value": "about 0.3 to 0.6",
+   "meaning": "The slice of logit weight that the inset magnifies. Everything the paper cares about in the second mode lives here, at a density thousands of times below the central peak."
+  },
+  {
+   "value": "-5 to 5, midpoint 0",
+   "meaning": "The range of the log-likelihood-ratio color scale. A score of 0 means the token is equally likely under Arabic and under the general data distribution; +5 means about e^5 times more likely under Arabic; -5 the reverse."
+  },
+  {
+   "value": "25%",
+   "meaning": "For the original feature A/1/3450, the share of barely-active tokens that scored as Arabic by the proxy. It is the low-band number that B/1/1334 is being informally compared against — and the paper reports no matching figure for B."
+  },
+  {
+   "value": "98%",
+   "meaning": "For A/1/3450, the share of tokens with activation above 5 that scored as Arabic. The gap between this and 25% is exactly why the low band is worth arguing about separately."
+  },
+  {
+   "value": "81%",
+   "meaning": "For A/1/3450, the share of all tokens on which the feature is active at all that scored as Arabic, pooling every activation level."
+  },
+  {
+   "value": "0.13%",
+   "meaning": "The share of training tokens that are Arabic script. This is the base rate; against it, 81% is the size of the specificity result."
+  },
+  {
+   "value": "1",
+   "meaning": "The run index in both A/1 and B/1. Matched runs on the two transformers used the same dictionary size and L1 coefficient, so this is a like-for-like comparison; A/1 has 4,096 features."
+  }
+ ]
+}

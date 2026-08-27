@@ -1,0 +1,132 @@
+{
+ "id": "fig-54",
+ "title": "Attribution vs Activation Correlation",
+ "takeaway": "For each feature in one dictionary and its best-matching feature in a dictionary learned from a separately trained transformer, the plot compares how similarly the pair fires with how similarly the pair contributes to predicting the tokens that actually came next. The two agree closely, with the points hugging the diagonal. The paper reads this as saying that features which are coactive across models are also doing the same predictive job, so the activation correlation it uses everywhere else is a reasonable stand-in for both notions of sameness.",
+ "walkthrough": "You are looking at one scatterplot with a histogram along each of its two edges.\n\nEach dot is a **matched pair of features**. One member comes from dictionary learning run A/1; the other is the feature in run B/1 that best matches it. B is a second [[one-layer-transformer-testbed|one-layer transformer]] with the same architecture, data and hyperparameters as A, differing only in random seeds — so agreement across the pair is evidence for [[universality]] ([[transformer-a-and-b]]).\n\n### The two axes\n\nThe horizontal axis is **activation correlation**. Write each [[feature]] as a vector of its activations over a fixed set of dataset examples, then take the [[pearson-correlation]] between the two models' vectors; that is [[activation-similarity]]. This is also the quantity used to *choose* the partner, so horizontal position is by construction \"how good the match was.\"\n\nThe vertical axis is **attribution correlation**, and it takes more unpacking.\n\nFeature $f_i$ has a [[logit-weight]] $v_{ik}$ for every vocabulary token $k$: how much its firing pushes that token's logit up or down. At a given position $t_j$ you compute the feature's activation $f_i(t_j)$, and multiply it by the logit weight $v_{i,t_{j+1}}$ of the token that *actually* came next.\n\nThat product $f_i(t_j)\\,v_{i,t_{j+1}}$ is the **attribution score**. Stack it over a random sample of datapoints and you get the [[attribution-vector]]. Correlating those vectors across the pair gives [[attribution-similarity]].\n\nThe paper says this approximates the standard attribution method of multiplying gradient by activation, differing in that the denominators of the softmax and the layer norm are ignored.\n\n### Why not just compare logit weights\n\nThe obvious alternative, [[logit-weight-similarity]], correlates the raw vocabulary-indexed weight vectors — and it disagreed badly with activation similarity. Most entries of a logit weight vector are small [[interference]] noise on tokens that would never have occurred anyway. Weighting by whether the feature fired, and by which token really followed, strips most of that out.\n\n### Reading the plot\n\nThe cloud runs along the diagonal from bottom-left to top-right, densest near the top-right corner. The bottom histogram is the marginal distribution of activation correlation, rising towards 1.0; the left histogram is the marginal for attribution correlation, piled up near 1.0 with a thin tail running down.\n\nA handful of dots sit well below the band — the annotation calls them \"only a few outliers.\"\n\nOne caution the paper does not state: the attribution vector has the activation vector as a factor, so the two measures are not independent, and some of the agreement on display follows from how attribution is built.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Activation Correlation (x axis)",
+   "definition": "The Pearson correlation between a feature's activation vector in model A and its matched feature's activation vector in model B, over a fixed set of dataset examples. It is also the criterion used to pick the match, so every dot sits at its pair's matching score.",
+   "conceptId": "activation-similarity"
+  },
+  {
+   "term": "Attribution Correlation (y axis)",
+   "definition": "The Pearson correlation between the two matched features' attribution vectors. It measures whether the pair contributed to predicting the same actual next tokens, not merely whether they fired together.",
+   "conceptId": "attribution-similarity"
+  },
+  {
+   "term": "Attribution vector",
+   "definition": "For one feature, the list of its attribution scores across a random sample of datapoints, stacked into a vector. It is the model-independent representation being correlated on the vertical axis.",
+   "conceptId": "attribution-vector"
+  },
+  {
+   "term": "Attribution score",
+   "definition": "For feature $i$ at position $t_j$, the product $f_i(t_j)\\,v_{i,t_{j+1}}$ of the feature's activation there and its logit weight on the token that actually came next. It is large only when the feature was both active and pushing towards the correct continuation.",
+   "conceptId": "attribution-vector"
+  },
+  {
+   "term": "$f_i$",
+   "definition": "The $i$-th learned feature, treated as a function from a token position to a scalar activation.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "$f_i(t_j)$",
+   "definition": "The activation of feature $i$ at token position $t_j$ — how strongly that feature fired there.",
+   "conceptId": null
+  },
+  {
+   "term": "$v_{ik}$",
+   "definition": "The logit weight of feature $i$ on vocabulary token $k$: how much this feature firing raises or lowers that token's next-token logit, computed by tracing the linear path from the feature direction through the MLP output weights and unembedding.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "$v_{i,t_{j+1}}$",
+   "definition": "The one entry of that logit weight vector picked out by the token that empirically followed position $t_j$ in the dataset.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "$t_j$, $t_{j+1}$",
+   "definition": "A sampled token position and the token that actually comes after it in the corpus. The next token is taken from the data, not from the model's prediction.",
+   "conceptId": null
+  },
+  {
+   "term": "$k \\in \\{1,\\ldots,n_{\\text{vocab}}\\}$",
+   "definition": "The index over vocabulary tokens on which logit weights are defined; $n_\\text{vocab}$ is the size of the byte-pair vocabulary.",
+   "conceptId": null
+  },
+  {
+   "term": "Gradient-times-activation",
+   "definition": "A standard attribution method that scores a unit's contribution by multiplying its activation by the gradient of the output with respect to it. The attribution score here is that quantity with the softmax and layer-norm denominators dropped, which makes the logit weight a fixed vector rather than an input-dependent one.",
+   "conceptId": null
+  },
+  {
+   "term": "Softmax and layer-norm denominators",
+   "definition": "The normalizing terms that make the true gradient depend on the current input. Ignoring them is what turns the exact gradient into the constant logit weight $v_{ik}$, and is the stated approximation in this measure.",
+   "conceptId": "layer-norm-linearization"
+  },
+  {
+   "term": "Logit weight correlation",
+   "definition": "Named in the plot's annotation as the thing attribution correlation is being contrasted with: correlating the two features' full vocabulary-indexed logit weight vectors directly. That measure agreed poorly with activation correlation.",
+   "conceptId": "logit-weight-similarity"
+  },
+  {
+   "term": "A/1 and B/1",
+   "definition": "Two dictionary learning runs with identical hyperparameters, one on activations from transformer A and one from transformer B, which differ only in random seeds. Every dot pairs an A/1 feature with its closest B/1 feature.",
+   "conceptId": "transformer-a-and-b"
+  },
+  {
+   "term": "Marginal histograms",
+   "definition": "The bar charts along the bottom and left edges, showing the one-dimensional distribution of each axis on its own. They let you read how the matches are distributed without the scatter's overplotting.",
+   "conceptId": "feature-neuron-scatter-plots"
+  },
+  {
+   "term": "Outliers",
+   "definition": "The scattered dots that fall well below the main diagonal band: pairs that fire together closely but whose attributions agree much less. The annotation states there are only a few of them.",
+   "conceptId": null
+  },
+  {
+   "term": "\"Activation vs Attribution Correlation\" (title)",
+   "definition": "The plot's own heading, naming the two quantities being cross-plotted, in the order x then y.",
+   "conceptId": null
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.0 to 1.0",
+   "meaning": "The range of both axes. Both are Pearson correlations, which could in principle run to -1, but the plotted matches are all positive because each pair was selected as the best available match."
+  },
+  {
+   "value": "0.1",
+   "meaning": "The spacing of the labelled ticks on both axes — eleven gridline labels from 0.0 to 1.0."
+  },
+  {
+   "value": "a few thousand dots",
+   "meaning": "One dot per feature in run A/1 that has a counterpart. A/1 has 4,096 learned features, of which 168 are dead and 292 are ultralow density, so roughly 3,600 remain as live candidates."
+  },
+  {
+   "value": "0.72",
+   "meaning": "Context from the surrounding text: the median activation correlation between an A/1 feature and its best B/1 match. It is the centre of mass of the bottom marginal histogram in this plot."
+  },
+  {
+   "value": "0.46",
+   "meaning": "Context: the same median when matching individual MLP neurons across the two transformers instead of features. Features match across models far better than neurons do, which is the paper's universality claim."
+  },
+  {
+   "value": "0.91 and 0.23",
+   "meaning": "Context from the Arabic script feature: activation correlation 0.91 but logit weight correlation only 0.23. This gap between the two earlier measures is the reason attribution similarity was introduced."
+  },
+  {
+   "value": "0.98",
+   "meaning": "Context: the activation correlation of A/1/3949 with B/1/3321, a pair with a negative logit weight correlation despite firing almost identically. It is the extreme case that the attribution measure is meant to handle."
+  },
+  {
+   "value": "top-right density peak near (0.95, 0.95)",
+   "meaning": "Where the scatter is thickest. Most matched pairs both fire alike and attribute alike, which is the figure's point."
+  },
+  {
+   "value": "lower-left tail near (0.05, 0.05)",
+   "meaning": "The bottom end of the band: pairs whose match was poor on activations also agree poorly on attributions. The relationship holds at the low end as well as the high end."
+  }
+ ]
+}

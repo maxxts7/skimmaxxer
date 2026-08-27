@@ -1,0 +1,120 @@
+{
+ "id": "eq-attribution-vector",
+ "title": "Attribution Score for the Observed Next Token",
+ "takeaway": "This footnote formula defines one number per datapoint: a feature's activation there, multiplied by its logit weight on the token that actually came next. Stacking those numbers over sampled datapoints gives an attribution vector, which the paper uses as a cheap stand-in for measuring a feature's real effect on the loss instead of running an ablation everywhere.",
+ "walkthrough": "This is a formula from a footnote, not a numbered equation. It defines a single number: how much [[feature]] $i$ contributed to predicting the token that actually followed, at one position in one piece of text.\n\nRead it in pieces. $f_i(t_j)$ is the feature's activation at token $t_j$, which is how strongly feature $i$ fired at position $j$. $v_{ik}$ is the feature's [[logit-weight]] on vocabulary token $k$, meaning how much the logit for token $k$ moves when this feature is on. There is one such weight for every token in the vocabulary, which is what $k \\in \\{1,\\ldots,n_{\\text{vocab}}\\}$ says.\n\nThe formula then picks out exactly one of those weights. $t_{j+1}$ is the token that empirically came next in the dataset, so $v_{it_{j+1}}$ is the feature's push on that one token and no other.\n\nMultiplying the two gives a large score only when the feature was firing *and* was pushing up the continuation that in fact occurred. A feature that was silent contributes nothing. A feature that fired but pushed on tokens that did not appear also contributes nothing.\n\nStack that score across a random sample of datapoints and you get the attribution vector for feature $i$, with one entry per sampled position. Correlating two such vectors, one per model, is the paper's [[attribution-similarity]].\n\nThe reason for introducing it is that the two earlier measures disagree. [[activation-similarity]] asks whether two features fire on the same tokens; [[logit-weight-similarity]] asks whether they push the same vocabulary. For the Arabic feature the first is 0.91 and the second only 0.23, because the logit weight vector is dominated by a cloud of near-zero entries the paper reads as [[weight-interference]] rather than deliberate behaviour.\n\nWeighting by activation and by the observed next token suppresses that cloud.\n\nThe more direct alternative would be [[feature-ablation]] for every feature at every datapoint, which the paper says is too expensive computationally. The authors name what they do instead: the classic gradient-times-activation attribution, differing in that the softmax and layer norm denominators are ignored. It is an approximation, and the paper says so.",
+ "latex": "f_i(t_j)\\,v_{i t_{j+1}}, \\qquad v_{ik} \\ \\text{ for } \\ k \\in \\{1,\\ldots,n_{\\text{vocab}}\\}",
+ "terms": [
+  {
+   "term": "$f_i$",
+   "definition": "Feature $i$ from a dictionary learning run, treated here as a function that assigns an activation value to each token position. The subscript $i$ indexes which learned feature is being scored.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "$f_i(t_j)$",
+   "definition": "The activation of feature $i$ at token $t_j$: the value that feature's hidden unit takes in the sparse autoencoder when the model processes that position. It is zero whenever the feature is not firing there.",
+   "conceptId": null
+  },
+  {
+   "term": "$t_j$",
+   "definition": "The token at position $j$ in a sampled piece of text, i.e. the datapoint at which the feature's activation is read off.",
+   "conceptId": null
+  },
+  {
+   "term": "$t_{j+1}$",
+   "definition": "The token that actually follows $t_j$ in the dataset. The formula uses the observed continuation, not the model's most likely prediction.",
+   "conceptId": null
+  },
+  {
+   "term": "$v_{ik}$",
+   "definition": "The logit weight of feature $i$ on vocabulary token $k$: how much the logit of token $k$ rises or falls when feature $i$ is active, computed by pushing the feature direction through the MLP output weights, a linearized layer norm, and the unembedding.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "$v_{i t_{j+1}}$",
+   "definition": "The single entry of feature $i$'s logit weight vector corresponding to the token that actually came next. This is the term that ties the score to what the model was supposed to predict.",
+   "conceptId": null
+  },
+  {
+   "term": "$k$",
+   "definition": "The index over vocabulary tokens, running over the whole vocabulary. It labels which output token a logit weight refers to.",
+   "conceptId": null
+  },
+  {
+   "term": "$n_{\\text{vocab}}$",
+   "definition": "The size of the transformer's vocabulary, so the logit weight vector $v_i$ has $n_{\\text{vocab}}$ entries, one per token.",
+   "conceptId": null
+  },
+  {
+   "term": "attribution score",
+   "definition": "The product $f_i(t_j)v_{it_{j+1}}$ at one datapoint: the paper's estimate of how much this feature helped push up the token that in fact occurred.",
+   "conceptId": null
+  },
+  {
+   "term": "attribution vector",
+   "definition": "The stack of attribution scores for a random sampling of datapoints, giving one vector per feature with indices corresponding to sampled positions rather than to vocabulary tokens.",
+   "conceptId": "attribution-similarity"
+  },
+  {
+   "term": "attribution similarity",
+   "definition": "The correlation between two features' attribution vectors, one feature from each model. It is the paper's third way of asking whether two features are the same, after activation similarity and logit weight similarity.",
+   "conceptId": "attribution-similarity"
+  },
+  {
+   "term": "activation similarity",
+   "definition": "Correlation between two features' activation vectors over a fixed set of datapoints, which asks whether the features fire in the same places.",
+   "conceptId": "activation-similarity"
+  },
+  {
+   "term": "logit weight similarity",
+   "definition": "Correlation between two features' logit weight vectors, indexed by vocabulary token, which asks whether the features push the same output tokens.",
+   "conceptId": "logit-weight-similarity"
+  },
+  {
+   "term": "gradient-times-activation attribution",
+   "definition": "The standard attribution method of multiplying a unit's activation by the gradient of the output with respect to it. The paper says its score approximates this, differing by ignoring the softmax and layer norm denominators.",
+   "conceptId": null
+  },
+  {
+   "term": "softmax and layer norm denominators",
+   "definition": "The normalizing terms that a full gradient computation would include: the softmax's partition function over the logits, and layer norm's division by the activation's standard deviation. Dropping them keeps the score linear and cheap, at the cost of exactness.",
+   "conceptId": "layer-norm-linearization"
+  },
+  {
+   "term": "ablation effects vector",
+   "definition": "The alternative the paper rejects on cost grounds: for every feature and every datapoint, the change in the model's prediction when that feature's contribution is subtracted.",
+   "conceptId": "feature-ablation"
+  },
+  {
+   "term": "weight interference",
+   "definition": "The paper's reading of the large mode of near-zero logit weights as noise forced by superposition rather than deliberate behaviour. It is why raw logit weight correlations are low even for matching features.",
+   "conceptId": "weight-interference"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "1",
+   "meaning": "The lower end of the vocabulary index range $k \\in \\{1,\\ldots,n_{\\text{vocab}}\\}$; the logit weights are simply indexed from the first vocabulary token."
+  },
+  {
+   "value": "$n_{\\text{vocab}}$",
+   "meaning": "The upper end of that range: the number of tokens in the transformer's vocabulary, and hence the length of each feature's logit weight vector. The paper does not state the value here."
+  },
+  {
+   "value": "+1",
+   "meaning": "The offset in $t_{j+1}$. The activation is read at position $j$ but the logit weight is read for position $j+1$, because a next-token predictor's output at $j$ is a prediction about the following token."
+  },
+  {
+   "value": "0.91",
+   "meaning": "Activation correlation between the Arabic script feature in run A/1 and its closest match in run B/1. It is high, so the two features fire in the same places."
+  },
+  {
+   "value": "0.23",
+   "meaning": "Logit weight correlation for that same pair, far below the 0.91 activation correlation. The gap is the disagreement that motivates building the attribution vector."
+  },
+  {
+   "value": "0.98",
+   "meaning": "Activation correlation for the paper's most extreme case, features A/1/3949 and B/1/3321, whose logit weight correlation is nonetheless negative. The paper attributes this to interference, since only the '.' token has high logit weight in both models."
+  }
+ ]
+}

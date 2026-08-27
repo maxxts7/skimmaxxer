@@ -1,0 +1,148 @@
+{
+ "id": "fig-43",
+ "title": "Pinning Features to Steer Generation",
+ "takeaway": "Holding a single learned feature at a high value while sampling makes the model emit text of exactly the kind that feature normally fires on — Arabic script, DNA, base64, hexadecimal, Hebrew, Han Chinese, or uppercase. Because the autoencoder was fitted only to MLP activations and never to the model's outputs, the paper reads this as evidence that these features are used by the model's computation, not just artifacts of correlations in the data.",
+ "walkthrough": "### What you are looking at\n\nEight sampling runs from the same one-layer transformer ([[one-layer-transformer-testbed]]), all starting from the same prompt shown on the left: the token sequence `1,2,3,4,5,6,7,8,9,10`. Arrows fan out to eight boxes. Each box says what was done to the model. Each box then points right to the text the model generated.\n\nThe grey box on top is the control. Nothing is changed, and the model continues `,8,30,20,8,10,10`. This is a one-layer model and a weak one, so even the untouched continuation does not really count.\n\nThe seven magenta boxes each pin one [[feature]] — a direction in the MLP activation space that the sparse autoencoder recovered — to a fixed high number. Names like `A/1/2937` follow the paper's [[feature-notation]]: transformer A, [[dictionary-learning-run]] 1 (the 4,096-feature dictionary), feature 2937.\n\n### How to read one row\n\nPinning works like the ablation machinery run in reverse. The context goes through the model up to the MLP, the autoencoder decodes those activations into feature activations, the chosen feature's [[feature-activation]] is overwritten with a high constant instead of its true value, and the rest of the forward pass then runs on the edited activations. This is repeated at every token as sampling proceeds. For the Arabic case in the earlier deep dive, the pinned value was that feature's maximum observed activation.\n\nSampling is at temperature $0.5$, so the text is close to greedy but not fixed. Each row is one sample, not a summary of many.\n\n### What it shows\n\nEvery continuation lands in the category its box names. Pin the base64 feature and out comes `29VHA98Z1Y9Z1`. Pin the DNA feature and out comes a string of A, C, G and T. This is the paper's [[pinned-feature-sampling]] check, the third of three probes of [[feature-downstream-effects]], alongside [[logit-weight]] inspection and [[feature-ablation]].\n\nThe argument is about [[model-vs-data-question]]. Dictionary learning saw only MLP activations, so a sceptic could say its features merely re-describe correlations in the text. The effect of a feature on the output was never fitted ([[downstream-effects-outside-dictionary-learning]]), so steering that matches the label is a property of the model.\n\nHedge with the paper: this panel is seven hand-picked features with one sample each, and nothing here is quantified. The weight of the claim rests on the logit-weight and ablation analyses, which cover all features.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "No Intervention",
+   "definition": "The grey control row: the model is sampled from the same prompt with no feature pinned, so its continuation shows what the unmodified one-layer transformer does.",
+   "conceptId": null
+  },
+  {
+   "term": "Pinned (feature pinning)",
+   "definition": "The intervention shown in every magenta row: a chosen feature's activation is overwritten with a fixed high number at every token before the rest of the forward pass runs, so the feature is forced on regardless of the text.",
+   "conceptId": "pinned-feature-sampling"
+  },
+  {
+   "term": "Feature",
+   "definition": "One of the directions in MLP activation space recovered by the sparse autoencoder, together with the scalar activation attached to it; here each row pins exactly one of them.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "A/1/… notation",
+   "definition": "The paper's naming scheme for features: letter for which transformer (A), number for which dictionary learning run (1), final number for which feature within that run.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "A/1",
+   "definition": "The dictionary learning run the paper focuses its analysis on — 4,096 learned features trained on the activations of transformer A's 512-neuron MLP.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Han Chinese (A/1/2000)",
+   "definition": "A feature interpreted as firing on Han Chinese script; pinned, it makes the model emit Chinese characters. This feature is not given its own case study elsewhere in the paper.",
+   "conceptId": null
+  },
+  {
+   "term": "base64 (A/1/2357)",
+   "definition": "The feature studied in detail as a base64 detector — it fires inside base64-encoded strings, modelled as random sequences over [a-zA-Z0-9+/].",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "DNA (A/1/2937)",
+   "definition": "The feature studied as a DNA detector — it fires on long uppercase runs of A, T, C and G used to write nucleotide sequences.",
+   "conceptId": "dna-feature"
+  },
+  {
+   "term": "Uppercase (A/1/3405)",
+   "definition": "A feature interpreted as firing on all-caps text; pinned, the model writes in capitals. The paper elsewhere reports an all-caps feature (A/0/317) matching an all-caps neuron from its earlier SoLU work.",
+   "conceptId": null
+  },
+  {
+   "term": "Hexadecimal (A/1/3817)",
+   "definition": "A feature that fires on hexadecimal strings, discussed in the paper alongside the base64 family and matched to a hexadecimal neuron found in the earlier SoLU models.",
+   "conceptId": "hexadecimal-feature"
+  },
+  {
+   "term": "Arabic (A/1/3450)",
+   "definition": "The paper's lead case study: a feature that fires on text in Arabic script. Its pinned sample was shown earlier from this same prompt, with the value set to the feature's maximum observed activation.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "Hebrew (A/1/416)",
+   "definition": "A feature that fires on Hebrew script, identified by Unicode block; its logit weights have a second mode on Hebrew characters and on \\xd7, the first byte of most basic-Hebrew UTF-8 encodings.",
+   "conceptId": "hebrew-feature"
+  },
+  {
+   "term": "Temperature",
+   "definition": "The softmax temperature used when drawing tokens from the model; at 0.5 the samples are sharpened towards likely tokens but still random.",
+   "conceptId": null
+  },
+  {
+   "term": "Prompt prefix",
+   "definition": "The counting sequence on the far left that every run is conditioned on, chosen because the model has an obvious expected continuation for it, so any drift is attributable to the intervention.",
+   "conceptId": null
+  },
+  {
+   "term": "Generated text (right column)",
+   "definition": "The continuation the model produced under that row's condition; matching it against the feature's name is the whole test.",
+   "conceptId": null
+  },
+  {
+   "term": "Feature interpretation",
+   "definition": "The human-written label for what a feature responds to, read off its top activating dataset examples; the figure asks whether generation under pinning agrees with that label.",
+   "conceptId": null
+  },
+  {
+   "term": "Downstream effect",
+   "definition": "What a feature does to the model's output rather than what makes it fire; the paper checks it three ways, of which pinned sampling is one.",
+   "conceptId": "feature-downstream-effects"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "1,2,3,4,5,6,7,8,9,10",
+   "meaning": "The prompt every run starts from. The paper picks it because a counting list has an obvious expected continuation, so a change in output is easier to attribute to the pinned feature."
+  },
+  {
+   "value": "0.5",
+   "meaning": "The sampling temperature. Below 1, so the model's distribution is sharpened towards its likelier tokens; the samples are still stochastic rather than greedy."
+  },
+  {
+   "value": ",8,30,20,8,10,10",
+   "meaning": "The control continuation with no intervention. It does not continue the count correctly, which the paper flags as expected: this is a one-layer transformer and, in its own words, very weak."
+  },
+  {
+   "value": "8 rows / 7 interventions",
+   "meaning": "One control plus seven pinned features. Seven hand-picked features is a small, non-random sample; the paper's population-level evidence for downstream effects comes from logit weights and ablations instead."
+  },
+  {
+   "value": "A (in A/1/…)",
+   "meaning": "The transformer the features come from. The paper trained two identical one-layer transformers differing only in seed, A and B, and uses A for its main analysis."
+  },
+  {
+   "value": "1 (in A/1/…)",
+   "meaning": "The dictionary learning run: 4,096 learned features, an 8x expansion over the 512-neuron MLP. It is the run the paper's detailed analyses use."
+  },
+  {
+   "value": "2000, 2357, 2937, 3405, 3817, 3450, 416",
+   "meaning": "Index of each pinned feature within the A/1 dictionary. The numbers are identifiers only — they carry no ordering or magnitude, since a dictionary's features come out in arbitrary order."
+  },
+  {
+   "value": "29VHA98Z1Y9Z1",
+   "meaning": "Output under the pinned base64 feature. Mixed-case letters and digits with no word structure is what base64 looks like, which is the match being claimed."
+  },
+  {
+   "value": "AGACCAGAGAGAGACAGAGAGAGGG",
+   "meaning": "Output under the pinned DNA feature. Only the four nucleotide letters A, C, G and T appear, matching the feature's interpretation."
+  },
+  {
+   "value": "E9D9A0C1C2C3",
+   "meaning": "Output under the pinned hexadecimal feature. Every character is in 0-9 and A-F, the hexadecimal alphabet."
+  },
+  {
+   "value": "USING IN THE UNITED STATES",
+   "meaning": "Output under the pinned uppercase feature. Grammatically loose, but entirely capitals, which is the property the feature names."
+  },
+  {
+   "value": "\"a fixed high number\"",
+   "meaning": "The pinned value. The paper does not state it for this panel; in the earlier Arabic walkthrough the feature was set to its maximum observed activation, which is the natural reading of high here."
+  },
+  {
+   "value": "4,096",
+   "meaning": "Number of features in the A/1 dictionary these seven are drawn from. Of those, 168 are dead and 292 are ultralow density and excluded from the paper's global analyses."
+  }
+ ]
+}

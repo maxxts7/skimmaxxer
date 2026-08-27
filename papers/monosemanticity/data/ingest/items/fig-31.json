@@ -1,0 +1,133 @@
+{
+ "id": "fig-31",
+ "title": "Neuron 470's Mixed Logit Weights",
+ "takeaway": "The neuron most correlated with the base64 feature does push base64 tokens up a little, but the tokens it pushes up hardest are filename endings like 'htm', 'png' and 'pdf', which are not base64-specific. The paper reads this as a neuron that helps carry the base64 feature while mostly doing other work, so it is not a clean base64 unit the way the learned feature is.",
+ "walkthrough": "### What you are looking at\n\nThis is the output side of a single MLP neuron, not a learned feature. Under the paper's [[neuron-notation]], `A/neuron/470` is neuron 470 of the 512-neuron MLP in transformer A, the [[one-layer-transformer-testbed]] under study.\n\nEvery unit in that layer has a [[logit-weight]] vector: one number per vocabulary token, saying how much the unit firing raises or lowers that token's next-token logit. It is obtained by pushing the unit's direction through the MLP output weights, a [[layer-norm-linearization]], and the unembedding. The plot is a histogram of those numbers.\n\nNeuron 470 is on stage because it is the [[most-correlated-neuron]] to the [[base64-feature]] A/1/2357, at correlation 0.18. The question being asked is whether that neuron was already doing the feature's job.\n\n### How to read it\n\nThe x-axis is the logit weight, from $-0.6$ to $+0.6$. Softmax only cares about differences between logits, so the paper applies [[logit-weight-median-centering]]: each unit's weights are shifted so the median sits at zero.\n\nThe y-axis is density in vocabulary tokens per unit of logit weight, so the area under the curve is the vocabulary count, not the height.\n\nColor is the extra ingredient. Each token is tinted by its [[base64-proxy]] score, $\\log(P(s|\\text{base64})/P(s))$: deep blue at $-5$ means the token is far likelier in ordinary text, red at $+5$ means far likelier inside base64.\n\nThe thin band below the axis re-draws the same data with each column normalised to full height, so you can read the color mix at a logit weight where the density is too small to see.\n\n### What it shows\n\nOne broad mode sits near zero, which the paper elsewhere treats as [[weight-interference]] rather than deliberate behavior.\n\nA red sliver of base64 tokens does ride the positive side, cresting around $+0.10$ to $+0.15$. That is the \"somewhat increases base64 tokens\" part.\n\nBut the red thins out by about $+0.3$. The largest weights, out near $+0.55$, are `'htm'`, `'png'`, `'pdf'` — filename endings — and the strip there reads pale and blue, not red.\n\nSo the second mode this neuron has is not a base64 mode. That is the evidence for [[feature-neuron-nonalignment]] on the output side: a mixed effect, consistent with [[polysemanticity]].",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Distribution of Logit Weights",
+   "definition": "The plot title. It means a histogram over vocabulary tokens of how much this unit's firing changes each token's next-token logit.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "A/neuron/470",
+   "definition": "Neuron 470 of the 512-unit MLP in transformer A. The 'neuron' segment marks it as an actual MLP neuron rather than a dictionary-learned feature, which would be written A/1/2357.",
+   "conceptId": "neuron-notation"
+  },
+  {
+   "term": "Logit Weight (x-axis)",
+   "definition": "For one vocabulary token, the linear estimate of how much this neuron firing at unit activation adds to that token's logit. Positive means the neuron makes the token more likely.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Density (y-axis)",
+   "definition": "How many vocabulary tokens fall per unit of logit weight, plotted as a smoothed curve. Area under the curve counts tokens; height on its own does not.",
+   "conceptId": null
+  },
+  {
+   "term": "Log-Likelihood Ratio (color bar)",
+   "definition": "The base64 proxy score assigned to each token, $\\log(P(s|\\text{base64})/P(s))$. It says how much more likely the token is under a random-base64 model than under the model's general text distribution.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Blue end of the color scale",
+   "definition": "Tokens with strongly negative proxy scores, meaning they are much likelier in ordinary text than in base64. Most of the vocabulary sits here.",
+   "conceptId": "base64-proxy"
+  },
+  {
+   "term": "Red end of the color scale",
+   "definition": "Tokens with strongly positive proxy scores, meaning they are much likelier inside a base64 string than in ordinary text. These are the tokens a genuine base64 unit ought to be upweighting.",
+   "conceptId": "base64-proxy"
+  },
+  {
+   "term": "Stacked coloring within the histogram",
+   "definition": "At each logit weight the total density is split into colored sub-bands by proxy score, so the vertical thickness of the red band is the number of base64-leaning tokens receiving that weight.",
+   "conceptId": null
+  },
+  {
+   "term": "The narrow strip below the plot (the conditional)",
+   "definition": "The same stacked coloring with every column stretched to full height, showing the proportion of each proxy score at a given logit weight regardless of how few tokens are there. It is the only way to see the color of the sparse right tail.",
+   "conceptId": null
+  },
+  {
+   "term": "'htm', 'png', 'pdf'",
+   "definition": "The tokens annotated at the far right, the ones this neuron upweights most. They are filename endings, and the paper names them as the neuron's dominant downstream group rather than base64.",
+   "conceptId": null
+  },
+  {
+   "term": "Base64",
+   "definition": "An encoding that writes binary data as strings over the 64 characters [a-zA-Z0-9+/]. The paper models a base64 string as a uniform random draw from that alphabet.",
+   "conceptId": "base64-proxy"
+  },
+  {
+   "term": "Median-centering",
+   "definition": "Because softmax is shift-invariant, logit weights have no absolute zero. The paper subtracts each unit's median weight, which is why the bulk of this histogram sits at zero.",
+   "conceptId": "logit-weight-median-centering"
+  },
+  {
+   "term": "A/1/2357",
+   "definition": "The dictionary-learned base64 feature this neuron is being compared against. Its own logit weight plot, drawn the same way, has a right tail that is solidly red.",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "Interference weights",
+   "definition": "The paper's label, used on the companion feature plot, for the large near-zero central mode: small logit effects it reads as unwanted cross-talk from superposition rather than intended behavior.",
+   "conceptId": "weight-interference"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "470",
+   "meaning": "The index of the neuron being plotted, inside transformer A's MLP. It was picked by searching for the neuron whose activations correlate most with the base64 feature, not chosen for its logit weights."
+  },
+  {
+   "value": "512",
+   "meaning": "The width of the MLP in the one-layer transformer under study, so neuron 470 is one of 512 candidates. The residual stream is 128-dimensional."
+  },
+  {
+   "value": "0.18",
+   "meaning": "The Pearson correlation between this neuron's activations and the base64 feature's, over roughly 40 million dataset examples. It is the highest such correlation any neuron achieves for this feature, which is the paper's reason for showing this neuron and not another."
+  },
+  {
+   "value": "-0.6 to 0.6",
+   "meaning": "The plotted range of logit weights, with ticks every 0.1. Everything the neuron does to the output distribution is contained in a band of this width because logit weights are small compared with the logits themselves."
+  },
+  {
+   "value": "0, 50K, 0.1M, 0.15M",
+   "meaning": "The density axis ticks, in vocabulary tokens per unit of logit weight. They are large because the vocabulary is tens of thousands of tokens and almost all of them are packed into a mode about 0.2 wide."
+  },
+  {
+   "value": "about 0.18M",
+   "meaning": "The peak height of the histogram, reached just right of zero. It is the top of the central near-zero mode the paper attributes to interference rather than to intended upweighting."
+  },
+  {
+   "value": "about +0.03",
+   "meaning": "Where the central mode peaks. Since the median has been shifted to zero by construction, the mode sitting slightly above zero means the weight distribution has a somewhat longer left tail."
+  },
+  {
+   "value": "roughly +0.10 to +0.15",
+   "meaning": "Where the red base64-leaning band is thickest, at about 10K density against a local total near 0.15M. This is the visual content of the claim that the neuron 'somewhat increases' base64 tokens."
+  },
+  {
+   "value": "about +0.3",
+   "meaning": "The logit weight beyond which the red band has essentially vanished. Base64 tokens stop appearing well before the neuron's strongest positive weights are reached."
+  },
+  {
+   "value": "about +0.55",
+   "meaning": "The logit weight of the annotated top tokens 'htm', 'png' and 'pdf'. It is roughly four times the weight at which base64 tokens peak, which is why the paper calls the neuron 'much more focused' on these."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5",
+   "meaning": "The color bar ticks for the proxy's log-likelihood ratio. Zero means the token is equally likely under the base64 hypothesis and under the general text distribution; +5 means about $e^5$ times likelier under base64."
+  },
+  {
+   "value": "1/64",
+   "meaning": "The probability the proxy assigns to each character of a base64 string, since base64 uses a 64-character alphabet drawn uniformly. The numerator $P(s|\\text{base64})$ is the product of these over the string."
+  },
+  {
+   "value": "1e-10",
+   "meaning": "The probability the proxy assigns to any character outside the base64 alphabet, a stand-in for 'essentially impossible'. It is what drives ordinary punctuation and non-Latin tokens to the deep blue end of the scale."
+  }
+ ]
+}

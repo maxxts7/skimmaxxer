@@ -1,0 +1,1466 @@
+{
+ "paperId": "1706.03762",
+ "pages": 15,
+ "regions": [
+  {
+   "id": "p-abstract-01",
+   "kind": "heading",
+   "sectionId": "abstract",
+   "page": 1,
+   "rect": [
+    0.46366,
+    0.48688,
+    0.53635,
+    0.50197
+   ],
+   "text": "Abstract"
+  },
+  {
+   "id": "p-abstract-02",
+   "kind": "paragraph",
+   "sectionId": "abstract",
+   "page": 1,
+   "rect": [
+    0.23457,
+    0.52189,
+    0.76763,
+    0.7274
+   ],
+   "text": "The dominant sequence transduction models are based on complex recurrent or\nconvolutional neural networks that include an encoder and a decoder. The best\nperforming models also connect the encoder and decoder through an attention\nmechanism. We propose a new simple network architecture, the Transformer,\nbased solely on attention mechanisms, dispensing with recurrence and convolutions\nentirely. Experiments on two machine translation tasks show these models to\nbe superior in quality while being more parallelizable and requiring significantly\nless time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-\nto-German translation task, improving over the existing best results, including\nensembles, by over 2 BLEU. On the WMT 2014 English-to-French translation task,\nour model establishes a new single-model state-of-the-art BLEU score of 41.8 after\ntraining for 3.5 days on eight GPUs, a small fraction of the training costs of the\nbest models from the literature. We show that the Transformer generalizes well to\nother tasks by applying it successfully to English constituency parsing both with\nlarge and limited training data."
+  },
+  {
+   "id": "p-abstract-03",
+   "kind": "paragraph",
+   "sectionId": "abstract",
+   "page": 1,
+   "rect": [
+    0.17647,
+    0.75416,
+    0.82404,
+    0.89599
+   ],
+   "text": "∗Equal contribution. Listing order is random. Jakob proposed replacing RNNs with self-attention and started\nthe effort to evaluate this idea. Ashish, with Illia, designed and implemented the first Transformer models and\nhas been crucially involved in every aspect of this work. Noam proposed scaled dot-product attention, multi-head\nattention and the parameter-free position representation and became the other person involved in nearly every\ndetail. Niki designed, implemented, tuned and evaluated countless model variants in our original codebase and\ntensor2tensor. Llion also experimented with novel model variants, was responsible for our initial codebase, and\nefficient inference and visualizations. Lukasz and Aidan spent countless long days designing various parts of and\nimplementing tensor2tensor, replacing our earlier codebase, greatly improving results and massively accelerating\nour research.\n†Work performed while at Google Brain.\n‡Work performed while at Google Research."
+  },
+  {
+   "id": "p-abstract-04",
+   "kind": "paragraph",
+   "sectionId": "abstract",
+   "page": 1,
+   "rect": [
+    0.17647,
+    0.9256,
+    0.75186,
+    0.93692
+   ],
+   "text": "31st Conference on Neural Information Processing Systems (NIPS 2017), Long Beach, CA, USA."
+  },
+  {
+   "id": "p-1-01",
+   "kind": "heading",
+   "sectionId": "1",
+   "page": 2,
+   "rect": [
+    0.17647,
+    0.0919,
+    0.31179,
+    0.107
+   ],
+   "text": "1\nIntroduction"
+  },
+  {
+   "id": "p-1-02",
+   "kind": "paragraph",
+   "sectionId": "1",
+   "page": 2,
+   "rect": [
+    0.17647,
+    0.12502,
+    0.8238,
+    0.19279
+   ],
+   "text": "Recurrent neural networks, long short-term memory [13] and gated recurrent [7] neural networks\nin particular, have been firmly established as state of the art approaches in sequence modeling and\ntransduction problems such as language modeling and machine translation [35, 2, 5]. Numerous\nefforts have since continued to push the boundaries of recurrent language models and encoder-decoder\narchitectures [38, 24, 15]."
+  },
+  {
+   "id": "p-1-03",
+   "kind": "paragraph",
+   "sectionId": "1",
+   "page": 2,
+   "rect": [
+    0.17647,
+    0.20081,
+    0.8241,
+    0.3099
+   ],
+   "text": "Recurrent models typically factor computation along the symbol positions of the input and output\nsequences. Aligning the positions to steps in computation time, they generate a sequence of hidden\nstates ht, as a function of the previous hidden state ht−1 and the input for position t. This inherently\nsequential nature precludes parallelization within training examples, which becomes critical at longer\nsequence lengths, as memory constraints limit batching across examples. Recent work has achieved\nsignificant improvements in computational efficiency through factorization tricks [21] and conditional\ncomputation [32], while also improving model performance in case of the latter. The fundamental\nconstraint of sequential computation, however, remains."
+  },
+  {
+   "id": "p-1-04",
+   "kind": "paragraph",
+   "sectionId": "1",
+   "page": 2,
+   "rect": [
+    0.17588,
+    0.31804,
+    0.82623,
+    0.37192
+   ],
+   "text": "Attention mechanisms have become an integral part of compelling sequence modeling and transduc-\ntion models in various tasks, allowing modeling of dependencies without regard to their distance in\nthe input or output sequences [2, 19]. In all but a few cases [27], however, such attention mechanisms\nare used in conjunction with a recurrent network."
+  },
+  {
+   "id": "p-1-05",
+   "kind": "paragraph",
+   "sectionId": "1",
+   "page": 2,
+   "rect": [
+    0.17597,
+    0.37993,
+    0.82637,
+    0.43393
+   ],
+   "text": "In this work we propose the Transformer, a model architecture eschewing recurrence and instead\nrelying entirely on an attention mechanism to draw global dependencies between input and output.\nThe Transformer allows for significantly more parallelization and can reach a new state of the art in\ntranslation quality after being trained for as little as twelve hours on eight P100 GPUs."
+  },
+  {
+   "id": "p-2-01",
+   "kind": "heading",
+   "sectionId": "2",
+   "page": 2,
+   "rect": [
+    0.17647,
+    0.45846,
+    0.30854,
+    0.47355
+   ],
+   "text": "2\nBackground"
+  },
+  {
+   "id": "p-2-02",
+   "kind": "paragraph",
+   "sectionId": "2",
+   "page": 2,
+   "rect": [
+    0.17597,
+    0.49173,
+    0.82556,
+    0.61444
+   ],
+   "text": "The goal of reducing sequential computation also forms the foundation of the Extended Neural GPU\n[16], ByteNet [18] and ConvS2S [9], all of which use convolutional neural networks as basic building\nblock, computing hidden representations in parallel for all input and output positions. In these models,\nthe number of operations required to relate signals from two arbitrary input or output positions grows\nin the distance between positions, linearly for ConvS2S and logarithmically for ByteNet. This makes\nit more difficult to learn dependencies between distant positions [12]. In the Transformer this is\nreduced to a constant number of operations, albeit at the cost of reduced effective resolution due\nto averaging attention-weighted positions, an effect we counteract with Multi-Head Attention as\ndescribed in section 3.2."
+  },
+  {
+   "id": "p-2-03",
+   "kind": "paragraph",
+   "sectionId": "2",
+   "page": 2,
+   "rect": [
+    0.17647,
+    0.62262,
+    0.82557,
+    0.67646
+   ],
+   "text": "Self-attention, sometimes called intra-attention is an attention mechanism relating different positions\nof a single sequence in order to compute a representation of the sequence. Self-attention has been\nused successfully in a variety of tasks including reading comprehension, abstractive summarization,\ntextual entailment and learning task-independent sentence representations [4, 27, 28, 22]."
+  },
+  {
+   "id": "p-2-04",
+   "kind": "paragraph",
+   "sectionId": "2",
+   "page": 2,
+   "rect": [
+    0.17647,
+    0.68448,
+    0.82623,
+    0.7247
+   ],
+   "text": "End-to-end memory networks are based on a recurrent attention mechanism instead of sequence-\naligned recurrence and have been shown to perform well on simple-language question answering and\nlanguage modeling tasks [34]."
+  },
+  {
+   "id": "p-2-05",
+   "kind": "paragraph",
+   "sectionId": "2",
+   "page": 2,
+   "rect": [
+    0.17597,
+    0.73272,
+    0.82624,
+    0.78671
+   ],
+   "text": "To the best of our knowledge, however, the Transformer is the first transduction model relying\nentirely on self-attention to compute representations of its input and output without using sequence-\naligned RNNs or convolution. In the following sections, we will describe the Transformer, motivate\nself-attention and discuss its advantages over models such as [17, 18] and [9]."
+  },
+  {
+   "id": "p-3-01",
+   "kind": "heading",
+   "sectionId": "3",
+   "page": 2,
+   "rect": [
+    0.17647,
+    0.81124,
+    0.36943,
+    0.82634
+   ],
+   "text": "3\nModel Architecture"
+  },
+  {
+   "id": "p-3-02",
+   "kind": "paragraph",
+   "sectionId": "3",
+   "page": 2,
+   "rect": [
+    0.17647,
+    0.84446,
+    0.82638,
+    0.91213
+   ],
+   "text": "Most competitive neural sequence transduction models have an encoder-decoder structure [5, 2, 35].\nHere, the encoder maps an input sequence of symbol representations (x1, ..., xn) to a sequence\nof continuous representations z = (z1, ..., zn). Given z, the decoder then generates an output\nsequence (y1, ..., ym) of symbols one element at a time. At each step the model is auto-regressive\n[10], consuming the previously generated symbols as additional input when generating the next."
+  },
+  {
+   "id": "fig-1",
+   "kind": "item",
+   "sectionId": null,
+   "page": 3,
+   "rect": [
+    0.31209,
+    0.0846,
+    0.68791,
+    0.53157
+   ]
+  },
+  {
+   "id": "p-3-03",
+   "kind": "paragraph",
+   "sectionId": "3",
+   "page": 3,
+   "rect": [
+    0.17597,
+    0.55145,
+    0.82557,
+    0.59164
+   ],
+   "text": "The Transformer follows this overall architecture using stacked self-attention and point-wise, fully\nconnected layers for both the encoder and decoder, shown in the left and right halves of Figure 1,\nrespectively."
+  },
+  {
+   "id": "p-3.1-01",
+   "kind": "heading",
+   "sectionId": "3.1",
+   "page": 3,
+   "rect": [
+    0.17647,
+    0.60984,
+    0.41341,
+    0.62242
+   ],
+   "text": "3.1\nEncoder and Decoder Stacks"
+  },
+  {
+   "id": "p-3.1-02",
+   "kind": "paragraph",
+   "sectionId": "3.1",
+   "page": 3,
+   "rect": [
+    0.17588,
+    0.63489,
+    0.82624,
+    0.732
+   ],
+   "text": "Encoder:\nThe encoder is composed of a stack of N = 6 identical layers. Each layer has two\nsub-layers. The first is a multi-head self-attention mechanism, and the second is a simple, position-\nwise fully connected feed-forward network. We employ a residual connection [11] around each of\nthe two sub-layers, followed by layer normalization [1]. That is, the output of each sub-layer is\nLayerNorm(x + Sublayer(x)), where Sublayer(x) is the function implemented by the sub-layer\nitself. To facilitate these residual connections, all sub-layers in the model, as well as the embedding\nlayers, produce outputs of dimension dmodel = 512."
+  },
+  {
+   "id": "p-3.1-03",
+   "kind": "paragraph",
+   "sectionId": "3.1",
+   "page": 3,
+   "rect": [
+    0.17647,
+    0.74672,
+    0.82353,
+    0.84224
+   ],
+   "text": "Decoder:\nThe decoder is also composed of a stack of N = 6 identical layers. In addition to the two\nsub-layers in each encoder layer, the decoder inserts a third sub-layer, which performs multi-head\nattention over the output of the encoder stack. Similar to the encoder, we employ residual connections\naround each of the sub-layers, followed by layer normalization. We also modify the self-attention\nsub-layer in the decoder stack to prevent positions from attending to subsequent positions. This\nmasking, combined with fact that the output embeddings are offset by one position, ensures that the\npredictions for position i can depend only on the known outputs at positions less than i."
+  },
+  {
+   "id": "p-3.2-01",
+   "kind": "heading",
+   "sectionId": "3.2",
+   "page": 3,
+   "rect": [
+    0.17647,
+    0.86044,
+    0.27911,
+    0.87302
+   ],
+   "text": "3.2\nAttention"
+  },
+  {
+   "id": "p-3.2-02",
+   "kind": "paragraph",
+   "sectionId": "3.2",
+   "page": 3,
+   "rect": [
+    0.17588,
+    0.88579,
+    0.82557,
+    0.91212
+   ],
+   "text": "An attention function can be described as mapping a query and a set of key-value pairs to an output,\nwhere the query, keys, values, and output are all vectors. The output is computed as a weighted sum"
+  },
+  {
+   "id": "fig-2",
+   "kind": "item",
+   "sectionId": null,
+   "page": 4,
+   "rect": [
+    0.16667,
+    0.08333,
+    0.83333,
+    0.38068
+   ]
+  },
+  {
+   "id": "p-3.2-03",
+   "kind": "paragraph",
+   "sectionId": "3.2",
+   "page": 4,
+   "rect": [
+    0.17647,
+    0.40057,
+    0.82352,
+    0.42683
+   ],
+   "text": "of the values, where the weight assigned to each value is computed by a compatibility function of the\nquery with the corresponding key."
+  },
+  {
+   "id": "p-3.2.1-01",
+   "kind": "heading",
+   "sectionId": "3.2.1",
+   "page": 4,
+   "rect": [
+    0.17647,
+    0.44325,
+    0.43118,
+    0.45583
+   ],
+   "text": "3.2.1\nScaled Dot-Product Attention"
+  },
+  {
+   "id": "p-3.2.1-02",
+   "kind": "paragraph",
+   "sectionId": "3.2.1",
+   "page": 4,
+   "rect": [
+    0.17571,
+    0.4668,
+    0.82353,
+    0.52079
+   ],
+   "text": "We call our particular attention \"Scaled Dot-Product Attention\" (Figure 2). The input consists of\nqueries and keys of dimension dk, and values of dimension dv. We compute the dot products of the\nquery with all keys, divide each by √dk, and apply a softmax function to obtain the weights on the\nvalues."
+  },
+  {
+   "id": "p-3.2.1-03",
+   "kind": "paragraph",
+   "sectionId": "3.2.1",
+   "page": 4,
+   "rect": [
+    0.17647,
+    0.52881,
+    0.82381,
+    0.56903
+   ],
+   "text": "In practice, we compute the attention function on a set of queries simultaneously, packed together\ninto a matrix Q. The keys and values are also packed together into matrices K and V . We compute\nthe matrix of outputs as:"
+  },
+  {
+   "id": "p-3.2.1-04",
+   "kind": "paragraph",
+   "sectionId": "3.2.1",
+   "page": 4,
+   "rect": [
+    0.35943,
+    0.58708,
+    0.61661,
+    0.60978
+   ],
+   "text": "Attention(Q, K, V ) = softmax(QKT"
+  },
+  {
+   "id": "p-3.2.1-05",
+   "kind": "paragraph",
+   "sectionId": "3.2.1",
+   "page": 4,
+   "rect": [
+    0.58509,
+    0.59666,
+    0.82462,
+    0.62025
+   ],
+   "text": "√dk\n)V\n(1)"
+  },
+  {
+   "id": "p-3.2.1-06",
+   "kind": "paragraph",
+   "sectionId": "3.2.1",
+   "page": 4,
+   "rect": [
+    0.17597,
+    0.63068,
+    0.82623,
+    0.71501
+   ],
+   "text": "The two most commonly used attention functions are additive attention [2], and dot-product (multi-\nplicative) attention. Dot-product attention is identical to our algorithm, except for the scaling factor\nof\n1\n√dk . Additive attention computes the compatibility function using a feed-forward network with\na single hidden layer. While the two are similar in theoretical complexity, dot-product attention is\nmuch faster and more space-efficient in practice, since it can be implemented using highly optimized\nmatrix multiplication code."
+  },
+  {
+   "id": "p-3.2.1-07",
+   "kind": "paragraph",
+   "sectionId": "3.2.1",
+   "page": 4,
+   "rect": [
+    0.17571,
+    0.72283,
+    0.82353,
+    0.78367
+   ],
+   "text": "While for small values of dk the two mechanisms perform similarly, additive attention outperforms\ndot product attention without scaling for larger values of dk [3]. We suspect that for large values of\ndk, the dot products grow large in magnitude, pushing the softmax function into regions where it has\nextremely small gradients 4. To counteract this effect, we scale the dot products by\n1\n√dk ."
+  },
+  {
+   "id": "p-3.2.2-01",
+   "kind": "heading",
+   "sectionId": "3.2.2",
+   "page": 4,
+   "rect": [
+    0.17647,
+    0.79644,
+    0.37678,
+    0.80902
+   ],
+   "text": "3.2.2\nMulti-Head Attention"
+  },
+  {
+   "id": "p-3.2.2-02",
+   "kind": "paragraph",
+   "sectionId": "3.2.2",
+   "page": 4,
+   "rect": [
+    0.17588,
+    0.81979,
+    0.82556,
+    0.87475
+   ],
+   "text": "Instead of performing a single attention function with dmodel-dimensional keys, values and queries,\nwe found it beneficial to linearly project the queries, keys and values h times with different, learned\nlinear projections to dk, dk and dv dimensions, respectively. On each of these projected versions of\nqueries, keys and values we then perform the attention function in parallel, yielding dv-dimensional"
+  },
+  {
+   "id": "p-3.2.2-03",
+   "kind": "paragraph",
+   "sectionId": "3.2.2",
+   "page": 4,
+   "rect": [
+    0.1761,
+    0.88423,
+    0.82353,
+    0.91967
+   ],
+   "text": "4To illustrate why the dot products get large, assume that the components of q and k are independent random\nvariables with mean 0 and variance 1. Then their dot product, q · k = Pdk\ni=1 qiki, has mean 0 and variance dk."
+  },
+  {
+   "id": "p-3.2.2-04",
+   "kind": "paragraph",
+   "sectionId": "3.2.2",
+   "page": 5,
+   "rect": [
+    0.17647,
+    0.09385,
+    0.82353,
+    0.1203
+   ],
+   "text": "output values. These are concatenated and once again projected, resulting in the final values, as\ndepicted in Figure 2."
+  },
+  {
+   "id": "p-3.2.2-05",
+   "kind": "paragraph",
+   "sectionId": "3.2.2",
+   "page": 5,
+   "rect": [
+    0.17647,
+    0.1284,
+    0.82352,
+    0.15477
+   ],
+   "text": "Multi-head attention allows the model to jointly attend to information from different representation\nsubspaces at different positions. With a single attention head, averaging inhibits this."
+  },
+  {
+   "id": "p-3.2.2-06",
+   "kind": "paragraph",
+   "sectionId": "3.2.2",
+   "page": 5,
+   "rect": [
+    0.30546,
+    0.18411,
+    0.67144,
+    0.2
+   ],
+   "text": "MultiHead(Q, K, V ) = Concat(head1, ..., headh)W O"
+  },
+  {
+   "id": "p-3.2.2-07",
+   "kind": "paragraph",
+   "sectionId": "3.2.2",
+   "page": 5,
+   "rect": [
+    0.36683,
+    0.20449,
+    0.69454,
+    0.22367
+   ],
+   "text": "where headi = Attention(QW Q\ni , KW K\ni , V W V\ni )"
+  },
+  {
+   "id": "p-3.2.2-08",
+   "kind": "paragraph",
+   "sectionId": "3.2.2",
+   "page": 5,
+   "rect": [
+    0.17571,
+    0.2564,
+    0.82161,
+    0.28781
+   ],
+   "text": "Where the projections are parameter matrices W Q\ni\n∈Rdmodel×dk, W K\ni\n∈Rdmodel×dk, W V\ni\n∈Rdmodel×dv\nand W O ∈Rhdv×dmodel."
+  },
+  {
+   "id": "p-3.2.2-09",
+   "kind": "paragraph",
+   "sectionId": "3.2.2",
+   "page": 5,
+   "rect": [
+    0.17647,
+    0.29563,
+    0.82353,
+    0.33605
+   ],
+   "text": "In this work we employ h = 8 parallel attention layers, or heads. For each of these we use\ndk = dv = dmodel/h = 64. Due to the reduced dimension of each head, the total computational cost\nis similar to that of single-head attention with full dimensionality."
+  },
+  {
+   "id": "p-3.2.3-01",
+   "kind": "heading",
+   "sectionId": "3.2.3",
+   "page": 5,
+   "rect": [
+    0.17647,
+    0.35388,
+    0.49487,
+    0.36646
+   ],
+   "text": "3.2.3\nApplications of Attention in our Model"
+  },
+  {
+   "id": "p-3.2.3-02",
+   "kind": "paragraph",
+   "sectionId": "3.2.3",
+   "page": 5,
+   "rect": [
+    0.17597,
+    0.37805,
+    0.60883,
+    0.39063
+   ],
+   "text": "The Transformer uses multi-head attention in three different ways:"
+  },
+  {
+   "id": "p-3.2.3-03",
+   "kind": "paragraph",
+   "sectionId": "3.2.3",
+   "page": 5,
+   "rect": [
+    0.22124,
+    0.40428,
+    0.82556,
+    0.47205
+   ],
+   "text": "• In \"encoder-decoder attention\" layers, the queries come from the previous decoder layer,\nand the memory keys and values come from the output of the encoder. This allows every\nposition in the decoder to attend over all positions in the input sequence. This mimics the\ntypical encoder-decoder attention mechanisms in sequence-to-sequence models such as\n[38, 2, 9]."
+  },
+  {
+   "id": "p-3.2.3-04",
+   "kind": "paragraph",
+   "sectionId": "3.2.3",
+   "page": 5,
+   "rect": [
+    0.22124,
+    0.47937,
+    0.82353,
+    0.53336
+   ],
+   "text": "• The encoder contains self-attention layers. In a self-attention layer all of the keys, values\nand queries come from the same place, in this case, the output of the previous layer in the\nencoder. Each position in the encoder can attend to all positions in the previous layer of the\nencoder."
+  },
+  {
+   "id": "p-3.2.3-05",
+   "kind": "paragraph",
+   "sectionId": "3.2.3",
+   "page": 5,
+   "rect": [
+    0.22124,
+    0.54078,
+    0.82353,
+    0.60845
+   ],
+   "text": "• Similarly, self-attention layers in the decoder allow each position in the decoder to attend to\nall positions in the decoder up to and including that position. We need to prevent leftward\ninformation flow in the decoder to preserve the auto-regressive property. We implement this\ninside of scaled dot-product attention by masking out (setting to −∞) all values in the input\nof the softmax which correspond to illegal connections. See Figure 2."
+  },
+  {
+   "id": "p-3.3-01",
+   "kind": "heading",
+   "sectionId": "3.3",
+   "page": 5,
+   "rect": [
+    0.17647,
+    0.62798,
+    0.47854,
+    0.64056
+   ],
+   "text": "3.3\nPosition-wise Feed-Forward Networks"
+  },
+  {
+   "id": "p-3.3-02",
+   "kind": "paragraph",
+   "sectionId": "3.3",
+   "page": 5,
+   "rect": [
+    0.17647,
+    0.65376,
+    0.82409,
+    0.69398
+   ],
+   "text": "In addition to attention sub-layers, each of the layers in our encoder and decoder contains a fully\nconnected feed-forward network, which is applied to each position separately and identically. This\nconsists of two linear transformations with a ReLU activation in between."
+  },
+  {
+   "id": "p-3.3-03",
+   "kind": "paragraph",
+   "sectionId": "3.3",
+   "page": 5,
+   "rect": [
+    0.37075,
+    0.71736,
+    0.82462,
+    0.73182
+   ],
+   "text": "FFN(x) = max(0, xW1 + b1)W2 + b2\n(2)"
+  },
+  {
+   "id": "p-3.3-04",
+   "kind": "paragraph",
+   "sectionId": "3.3",
+   "page": 5,
+   "rect": [
+    0.17571,
+    0.74525,
+    0.82638,
+    0.80065
+   ],
+   "text": "While the linear transformations are the same across different positions, they use different parameters\nfrom layer to layer. Another way of describing this is as two convolutions with kernel size 1.\nThe dimensionality of input and output is dmodel = 512, and the inner-layer has dimensionality\ndff = 2048."
+  },
+  {
+   "id": "p-3.4-01",
+   "kind": "heading",
+   "sectionId": "3.4",
+   "page": 5,
+   "rect": [
+    0.17647,
+    0.81858,
+    0.3922,
+    0.83116
+   ],
+   "text": "3.4\nEmbeddings and Softmax"
+  },
+  {
+   "id": "p-3.4-02",
+   "kind": "paragraph",
+   "sectionId": "3.4",
+   "page": 5,
+   "rect": [
+    0.17647,
+    0.84436,
+    0.82638,
+    0.9131
+   ],
+   "text": "Similarly to other sequence transduction models, we use learned embeddings to convert the input\ntokens and output tokens to vectors of dimension dmodel. We also use the usual learned linear transfor-\nmation and softmax function to convert the decoder output to predicted next-token probabilities. In\nour model, we share the same weight matrix between the two embedding layers and the pre-softmax\nlinear transformation, similar to [30]. In the embedding layers, we multiply those weights by √dmodel."
+  },
+  {
+   "id": "table-1",
+   "kind": "item",
+   "sectionId": null,
+   "page": 6,
+   "rect": [
+    0.16585,
+    0.08371,
+    0.83333,
+    0.2447
+   ]
+  },
+  {
+   "id": "p-3.5-01",
+   "kind": "heading",
+   "sectionId": "3.5",
+   "page": 6,
+   "rect": [
+    0.17647,
+    0.26994,
+    0.35163,
+    0.28252
+   ],
+   "text": "3.5\nPositional Encoding"
+  },
+  {
+   "id": "p-3.5-02",
+   "kind": "paragraph",
+   "sectionId": "3.5",
+   "page": 6,
+   "rect": [
+    0.17647,
+    0.29537,
+    0.82557,
+    0.37672
+   ],
+   "text": "Since our model contains no recurrence and no convolution, in order for the model to make use of the\norder of the sequence, we must inject some information about the relative or absolute position of the\ntokens in the sequence. To this end, we add \"positional encodings\" to the input embeddings at the\nbottoms of the encoder and decoder stacks. The positional encodings have the same dimension dmodel\nas the embeddings, so that the two can be summed. There are many choices of positional encodings,\nlearned and fixed [9]."
+  },
+  {
+   "id": "p-3.5-03",
+   "kind": "paragraph",
+   "sectionId": "3.5",
+   "page": 6,
+   "rect": [
+    0.17647,
+    0.38484,
+    0.63703,
+    0.39742
+   ],
+   "text": "In this work, we use sine and cosine functions of different frequencies:"
+  },
+  {
+   "id": "p-3.5-04",
+   "kind": "paragraph",
+   "sectionId": "3.5",
+   "page": 6,
+   "rect": [
+    0.38482,
+    0.42445,
+    0.63122,
+    0.44155
+   ],
+   "text": "PE(pos,2i) = sin(pos/100002i/dmodel)"
+  },
+  {
+   "id": "p-3.5-05",
+   "kind": "paragraph",
+   "sectionId": "3.5",
+   "page": 6,
+   "rect": [
+    0.36878,
+    0.44575,
+    0.63122,
+    0.46285
+   ],
+   "text": "PE(pos,2i+1) = cos(pos/100002i/dmodel)"
+  },
+  {
+   "id": "p-3.5-06",
+   "kind": "paragraph",
+   "sectionId": "3.5",
+   "page": 6,
+   "rect": [
+    0.17588,
+    0.47638,
+    0.82409,
+    0.54511
+   ],
+   "text": "where pos is the position and i is the dimension. That is, each dimension of the positional encoding\ncorresponds to a sinusoid. The wavelengths form a geometric progression from 2π to 10000 · 2π. We\nchose this function because we hypothesized it would allow the model to easily learn to attend by\nrelative positions, since for any fixed offset k, PEpos+k can be represented as a linear function of\nPEpos."
+  },
+  {
+   "id": "p-3.5-07",
+   "kind": "paragraph",
+   "sectionId": "3.5",
+   "page": 6,
+   "rect": [
+    0.17571,
+    0.55245,
+    0.82353,
+    0.60636
+   ],
+   "text": "We also experimented with using learned positional embeddings [9] instead, and found that the two\nversions produced nearly identical results (see Table 3 row (E)). We chose the sinusoidal version\nbecause it may allow the model to extrapolate to sequence lengths longer than the ones encountered\nduring training."
+  },
+  {
+   "id": "p-4-01",
+   "kind": "heading",
+   "sectionId": "4",
+   "page": 6,
+   "rect": [
+    0.17647,
+    0.62738,
+    0.36771,
+    0.64248
+   ],
+   "text": "4\nWhy Self-Attention"
+  },
+  {
+   "id": "p-4-02",
+   "kind": "paragraph",
+   "sectionId": "4",
+   "page": 6,
+   "rect": [
+    0.17457,
+    0.65831,
+    0.82623,
+    0.72609
+   ],
+   "text": "In this section we compare various aspects of self-attention layers to the recurrent and convolu-\ntional layers commonly used for mapping one variable-length sequence of symbol representations\n(x1, ..., xn) to another sequence of equal length (z1, ..., zn), with xi, zi ∈Rd, such as a hidden\nlayer in a typical sequence transduction encoder or decoder. Motivating our use of self-attention we\nconsider three desiderata."
+  },
+  {
+   "id": "p-4-03",
+   "kind": "paragraph",
+   "sectionId": "4",
+   "page": 6,
+   "rect": [
+    0.17647,
+    0.73419,
+    0.82353,
+    0.76055
+   ],
+   "text": "One is the total computational complexity per layer. Another is the amount of computation that can\nbe parallelized, as measured by the minimum number of sequential operations required."
+  },
+  {
+   "id": "p-4-04",
+   "kind": "paragraph",
+   "sectionId": "4",
+   "page": 6,
+   "rect": [
+    0.17597,
+    0.76861,
+    0.82353,
+    0.86389
+   ],
+   "text": "The third is the path length between long-range dependencies in the network. Learning long-range\ndependencies is a key challenge in many sequence transduction tasks. One key factor affecting the\nability to learn such dependencies is the length of the paths forward and backward signals have to\ntraverse in the network. The shorter these paths between any combination of positions in the input\nand output sequences, the easier it is to learn long-range dependencies [12]. Hence we also compare\nthe maximum path length between any two input and output positions in networks composed of the\ndifferent layer types."
+  },
+  {
+   "id": "p-4-05",
+   "kind": "paragraph",
+   "sectionId": "4",
+   "page": 6,
+   "rect": [
+    0.17588,
+    0.8721,
+    0.82409,
+    0.91216
+   ],
+   "text": "As noted in Table 1, a self-attention layer connects all positions with a constant number of sequentially\nexecuted operations, whereas a recurrent layer requires O(n) sequential operations. In terms of\ncomputational complexity, self-attention layers are faster than recurrent layers when the sequence"
+  },
+  {
+   "id": "p-4-06",
+   "kind": "paragraph",
+   "sectionId": "4",
+   "page": 7,
+   "rect": [
+    0.17606,
+    0.09366,
+    0.82354,
+    0.1754
+   ],
+   "text": "length n is smaller than the representation dimensionality d, which is most often the case with\nsentence representations used by state-of-the-art models in machine translations, such as word-piece\n[38] and byte-pair [31] representations. To improve computational performance for tasks involving\nvery long sequences, self-attention could be restricted to considering only a neighborhood of size r in\nthe input sequence centered around the respective output position. This would increase the maximum\npath length to O(n/r). We plan to investigate this approach further in future work."
+  },
+  {
+   "id": "p-4-07",
+   "kind": "paragraph",
+   "sectionId": "4",
+   "page": 7,
+   "rect": [
+    0.17588,
+    0.18322,
+    0.82557,
+    0.29251
+   ],
+   "text": "A single convolutional layer with kernel width k < n does not connect all pairs of input and output\npositions. Doing so requires a stack of O(n/k) convolutional layers in the case of contiguous kernels,\nor O(logk(n)) in the case of dilated convolutions [18], increasing the length of the longest paths\nbetween any two positions in the network. Convolutional layers are generally more expensive than\nrecurrent layers, by a factor of k. Separable convolutions [6], however, decrease the complexity\nconsiderably, to O(k · n · d + n · d2). Even with k = n, however, the complexity of a separable\nconvolution is equal to the combination of a self-attention layer and a point-wise feed-forward layer,\nthe approach we take in our model."
+  },
+  {
+   "id": "p-4-08",
+   "kind": "paragraph",
+   "sectionId": "4",
+   "page": 7,
+   "rect": [
+    0.17588,
+    0.30072,
+    0.82354,
+    0.35452
+   ],
+   "text": "As side benefit, self-attention could yield more interpretable models. We inspect attention distributions\nfrom our models and present and discuss examples in the appendix. Not only do individual attention\nheads clearly learn to perform different tasks, many appear to exhibit behavior related to the syntactic\nand semantic structure of the sentences."
+  },
+  {
+   "id": "p-5-01",
+   "kind": "heading",
+   "sectionId": "5",
+   "page": 7,
+   "rect": [
+    0.17647,
+    0.37868,
+    0.27815,
+    0.39377
+   ],
+   "text": "5\nTraining"
+  },
+  {
+   "id": "p-5-02",
+   "kind": "paragraph",
+   "sectionId": "5",
+   "page": 7,
+   "rect": [
+    0.17597,
+    0.41167,
+    0.55144,
+    0.42425
+   ],
+   "text": "This section describes the training regime for our models."
+  },
+  {
+   "id": "p-5.1-01",
+   "kind": "heading",
+   "sectionId": "5.1",
+   "page": 7,
+   "rect": [
+    0.17647,
+    0.44536,
+    0.40773,
+    0.45794
+   ],
+   "text": "5.1\nTraining Data and Batching"
+  },
+  {
+   "id": "p-5.1-02",
+   "kind": "paragraph",
+   "sectionId": "5.1",
+   "page": 7,
+   "rect": [
+    0.17571,
+    0.47178,
+    0.82623,
+    0.56709
+   ],
+   "text": "We trained on the standard WMT 2014 English-German dataset consisting of about 4.5 million\nsentence pairs. Sentences were encoded using byte-pair encoding [3], which has a shared source-\ntarget vocabulary of about 37000 tokens. For English-French, we used the significantly larger WMT\n2014 English-French dataset consisting of 36M sentences and split tokens into a 32000 word-piece\nvocabulary [38]. Sentence pairs were batched together by approximate sequence length. Each training\nbatch contained a set of sentence pairs containing approximately 25000 source tokens and 25000\ntarget tokens."
+  },
+  {
+   "id": "p-5.2-01",
+   "kind": "heading",
+   "sectionId": "5.2",
+   "page": 7,
+   "rect": [
+    0.17647,
+    0.58821,
+    0.38079,
+    0.60079
+   ],
+   "text": "5.2\nHardware and Schedule"
+  },
+  {
+   "id": "p-5.2-02",
+   "kind": "paragraph",
+   "sectionId": "5.2",
+   "page": 7,
+   "rect": [
+    0.17571,
+    0.61463,
+    0.82353,
+    0.6824
+   ],
+   "text": "We trained our models on one machine with 8 NVIDIA P100 GPUs. For our base models using\nthe hyperparameters described throughout the paper, each training step took about 0.4 seconds. We\ntrained the base models for a total of 100,000 steps or 12 hours. For our big models,(described on the\nbottom line of table 3), step time was 1.0 seconds. The big models were trained for 300,000 steps\n(3.5 days)."
+  },
+  {
+   "id": "p-5.3-01",
+   "kind": "heading",
+   "sectionId": "5.3",
+   "page": 7,
+   "rect": [
+    0.17647,
+    0.70351,
+    0.28453,
+    0.71609
+   ],
+   "text": "5.3\nOptimizer"
+  },
+  {
+   "id": "p-5.3-02",
+   "kind": "paragraph",
+   "sectionId": "5.3",
+   "page": 7,
+   "rect": [
+    0.17571,
+    0.728,
+    0.82353,
+    0.75637
+   ],
+   "text": "We used the Adam optimizer [20] with β1 = 0.9, β2 = 0.98 and ϵ = 10−9. We varied the learning\nrate over the course of training, according to the formula:"
+  },
+  {
+   "id": "p-5.3-03",
+   "kind": "paragraph",
+   "sectionId": "5.3",
+   "page": 7,
+   "rect": [
+    0.26616,
+    0.77933,
+    0.82462,
+    0.79794
+   ],
+   "text": "lrate = d−0.5\nmodel · min(step_num−0.5, step_num · warmup_steps−1.5)\n(3)"
+  },
+  {
+   "id": "p-5.3-04",
+   "kind": "paragraph",
+   "sectionId": "5.3",
+   "page": 7,
+   "rect": [
+    0.17597,
+    0.81151,
+    0.82556,
+    0.85193
+   ],
+   "text": "This corresponds to increasing the learning rate linearly for the first warmup_steps training steps,\nand decreasing it thereafter proportionally to the inverse square root of the step number. We used\nwarmup_steps = 4000."
+  },
+  {
+   "id": "p-5.4-01",
+   "kind": "heading",
+   "sectionId": "5.4",
+   "page": 7,
+   "rect": [
+    0.17647,
+    0.87304,
+    0.31619,
+    0.88562
+   ],
+   "text": "5.4\nRegularization"
+  },
+  {
+   "id": "p-5.4-02",
+   "kind": "paragraph",
+   "sectionId": "5.4",
+   "page": 7,
+   "rect": [
+    0.17571,
+    0.89955,
+    0.54247,
+    0.91213
+   ],
+   "text": "We employ three types of regularization during training:"
+  },
+  {
+   "id": "table-2",
+   "kind": "item",
+   "sectionId": null,
+   "page": 8,
+   "rect": [
+    0.16585,
+    0.08359,
+    0.83333,
+    0.31591
+   ]
+  },
+  {
+   "id": "p-5.4-03",
+   "kind": "paragraph",
+   "sectionId": "5.4",
+   "page": 8,
+   "rect": [
+    0.17647,
+    0.34499,
+    0.82353,
+    0.40057
+   ],
+   "text": "Residual Dropout\nWe apply dropout [33] to the output of each sub-layer, before it is added to the\nsub-layer input and normalized. In addition, we apply dropout to the sums of the embeddings and the\npositional encodings in both the encoder and decoder stacks. For the base model, we use a rate of\nPdrop = 0.1."
+  },
+  {
+   "id": "p-5.4-04",
+   "kind": "paragraph",
+   "sectionId": "5.4",
+   "page": 8,
+   "rect": [
+    0.17647,
+    0.41811,
+    0.82352,
+    0.44475
+   ],
+   "text": "Label Smoothing\nDuring training, we employed label smoothing of value ϵls = 0.1 [36]. This\nhurts perplexity, as the model learns to be more unsure, but improves accuracy and BLEU score."
+  },
+  {
+   "id": "p-6-01",
+   "kind": "heading",
+   "sectionId": "6",
+   "page": 8,
+   "rect": [
+    0.17647,
+    0.4688,
+    0.26654,
+    0.48389
+   ],
+   "text": "6\nResults"
+  },
+  {
+   "id": "p-6.1-01",
+   "kind": "heading",
+   "sectionId": "6.1",
+   "page": 8,
+   "rect": [
+    0.17647,
+    0.5016,
+    0.35796,
+    0.51418
+   ],
+   "text": "6.1\nMachine Translation"
+  },
+  {
+   "id": "p-6.1-02",
+   "kind": "paragraph",
+   "sectionId": "6.1",
+   "page": 8,
+   "rect": [
+    0.17647,
+    0.52816,
+    0.82462,
+    0.60951
+   ],
+   "text": "On the WMT 2014 English-to-German translation task, the big transformer model (Transformer (big)\nin Table 2) outperforms the best previously reported models (including ensembles) by more than 2.0\nBLEU, establishing a new state-of-the-art BLEU score of 28.4. The configuration of this model is\nlisted in the bottom line of Table 3. Training took 3.5 days on 8 P100 GPUs. Even our base model\nsurpasses all previously published models and ensembles, at a fraction of the training cost of any of\nthe competitive models."
+  },
+  {
+   "id": "p-6.1-03",
+   "kind": "paragraph",
+   "sectionId": "6.1",
+   "page": 8,
+   "rect": [
+    0.17647,
+    0.61733,
+    0.82556,
+    0.67312
+   ],
+   "text": "On the WMT 2014 English-to-French translation task, our big model achieves a BLEU score of 41.0,\noutperforming all of the previously published single models, at less than 1/4 the training cost of the\nprevious state-of-the-art model. The Transformer (big) model trained for English-to-French used\ndropout rate Pdrop = 0.1, instead of 0.3."
+  },
+  {
+   "id": "p-6.1-04",
+   "kind": "paragraph",
+   "sectionId": "6.1",
+   "page": 8,
+   "rect": [
+    0.17588,
+    0.67955,
+    0.82354,
+    0.74732
+   ],
+   "text": "For the base models, we used a single model obtained by averaging the last 5 checkpoints, which\nwere written at 10-minute intervals. For the big models, we averaged the last 20 checkpoints. We\nused beam search with a beam size of 4 and length penalty α = 0.6 [38]. These hyperparameters\nwere chosen after experimentation on the development set. We set the maximum output length during\ninference to input length + 50, but terminate early when possible [38]."
+  },
+  {
+   "id": "p-6.1-05",
+   "kind": "paragraph",
+   "sectionId": "6.1",
+   "page": 8,
+   "rect": [
+    0.17597,
+    0.75553,
+    0.82353,
+    0.80933
+   ],
+   "text": "Table 2 summarizes our results and compares our translation quality and training costs to other model\narchitectures from the literature. We estimate the number of floating point operations used to train a\nmodel by multiplying the training time, the number of GPUs used, and an estimate of the sustained\nsingle-precision floating-point capacity of each GPU 5."
+  },
+  {
+   "id": "p-6.2-01",
+   "kind": "heading",
+   "sectionId": "6.2",
+   "page": 8,
+   "rect": [
+    0.17647,
+    0.83034,
+    0.33323,
+    0.84291
+   ],
+   "text": "6.2\nModel Variations"
+  },
+  {
+   "id": "p-6.2-02",
+   "kind": "paragraph",
+   "sectionId": "6.2",
+   "page": 8,
+   "rect": [
+    0.17597,
+    0.85671,
+    0.82353,
+    0.88318
+   ],
+   "text": "To evaluate the importance of different components of the Transformer, we varied our base model\nin different ways, measuring the change in performance on English-to-German translation on the"
+  },
+  {
+   "id": "p-6.2-03",
+   "kind": "paragraph",
+   "sectionId": "6.2",
+   "page": 8,
+   "rect": [
+    0.19715,
+    0.89856,
+    0.7411,
+    0.91183
+   ],
+   "text": "5We used values of 2.8, 3.7, 6.0 and 9.5 TFLOPS for K80, K40, M40 and P100, respectively."
+  },
+  {
+   "id": "table-3",
+   "kind": "item",
+   "sectionId": null,
+   "page": 9,
+   "rect": [
+    0.16585,
+    0.08371,
+    0.8415,
+    0.49343
+   ]
+  },
+  {
+   "id": "p-6.2-04",
+   "kind": "paragraph",
+   "sectionId": "6.2",
+   "page": 9,
+   "rect": [
+    0.17647,
+    0.52232,
+    0.82353,
+    0.54877
+   ],
+   "text": "development set, newstest2013. We used beam search as described in the previous section, but no\ncheckpoint averaging. We present these results in Table 3."
+  },
+  {
+   "id": "p-6.2-05",
+   "kind": "paragraph",
+   "sectionId": "6.2",
+   "page": 9,
+   "rect": [
+    0.17647,
+    0.55698,
+    0.82556,
+    0.59701
+   ],
+   "text": "In Table 3 rows (A), we vary the number of attention heads and the attention key and value dimensions,\nkeeping the amount of computation constant, as described in Section 3.2.2. While single-head\nattention is 0.9 BLEU worse than the best setting, quality also drops off with too many heads."
+  },
+  {
+   "id": "p-6.2-06",
+   "kind": "paragraph",
+   "sectionId": "6.2",
+   "page": 9,
+   "rect": [
+    0.17647,
+    0.60483,
+    0.82556,
+    0.68657
+   ],
+   "text": "In Table 3 rows (B), we observe that reducing the attention key size dk hurts model quality. This\nsuggests that determining compatibility is not easy and that a more sophisticated compatibility\nfunction than dot product may be beneficial. We further observe in rows (C) and (D) that, as expected,\nbigger models are better, and dropout is very helpful in avoiding over-fitting. In row (E) we replace our\nsinusoidal positional encoding with learned positional embeddings [9], and observe nearly identical\nresults to the base model."
+  },
+  {
+   "id": "p-6.3-01",
+   "kind": "heading",
+   "sectionId": "6.3",
+   "page": 9,
+   "rect": [
+    0.17647,
+    0.70769,
+    0.41826,
+    0.72027
+   ],
+   "text": "6.3\nEnglish Constituency Parsing"
+  },
+  {
+   "id": "p-6.3-02",
+   "kind": "paragraph",
+   "sectionId": "6.3",
+   "page": 9,
+   "rect": [
+    0.17597,
+    0.73412,
+    0.82353,
+    0.7881
+   ],
+   "text": "To evaluate if the Transformer can generalize to other tasks we performed experiments on English\nconstituency parsing. This task presents specific challenges: the output is subject to strong structural\nconstraints and is significantly longer than the input. Furthermore, RNN sequence-to-sequence\nmodels have not been able to attain state-of-the-art results in small-data regimes [37]."
+  },
+  {
+   "id": "p-6.3-03",
+   "kind": "paragraph",
+   "sectionId": "6.3",
+   "page": 9,
+   "rect": [
+    0.17571,
+    0.79592,
+    0.82556,
+    0.86389
+   ],
+   "text": "We trained a 4-layer transformer with dmodel = 1024 on the Wall Street Journal (WSJ) portion of the\nPenn Treebank [25], about 40K training sentences. We also trained it in a semi-supervised setting,\nusing the larger high-confidence and BerkleyParser corpora from with approximately 17M sentences\n[37]. We used a vocabulary of 16K tokens for the WSJ only setting and a vocabulary of 32K tokens\nfor the semi-supervised setting."
+  },
+  {
+   "id": "p-6.3-04",
+   "kind": "paragraph",
+   "sectionId": "6.3",
+   "page": 9,
+   "rect": [
+    0.17571,
+    0.87202,
+    0.82353,
+    0.91216
+   ],
+   "text": "We performed only a small number of experiments to select the dropout, both attention and residual\n(section 5.4), learning rates and beam size on the Section 22 development set, all other parameters\nremained unchanged from the English-to-German base translation model. During inference, we"
+  },
+  {
+   "id": "table-4",
+   "kind": "item",
+   "sectionId": null,
+   "page": 10,
+   "rect": [
+    0.16585,
+    0.08371,
+    0.83252,
+    0.3072
+   ]
+  },
+  {
+   "id": "p-6.3-05",
+   "kind": "paragraph",
+   "sectionId": "6.3",
+   "page": 10,
+   "rect": [
+    0.17647,
+    0.33062,
+    0.82394,
+    0.35727
+   ],
+   "text": "increased the maximum output length to input length + 300. We used a beam size of 21 and α = 0.3\nfor both WSJ only and the semi-supervised setting."
+  },
+  {
+   "id": "p-6.3-06",
+   "kind": "paragraph",
+   "sectionId": "6.3",
+   "page": 10,
+   "rect": [
+    0.17647,
+    0.36528,
+    0.82623,
+    0.40551
+   ],
+   "text": "Our results in Table 4 show that despite the lack of task-specific tuning our model performs sur-\nprisingly well, yielding better results than all previously reported models with the exception of the\nRecurrent Neural Network Grammar [8]."
+  },
+  {
+   "id": "p-6.3-07",
+   "kind": "paragraph",
+   "sectionId": "6.3",
+   "page": 10,
+   "rect": [
+    0.17647,
+    0.41355,
+    0.82624,
+    0.43997
+   ],
+   "text": "In contrast to RNN sequence-to-sequence models [37], the Transformer outperforms the Berkeley-\nParser [29] even when training only on the WSJ training set of 40K sentences."
+  },
+  {
+   "id": "p-7-01",
+   "kind": "heading",
+   "sectionId": "7",
+   "page": 10,
+   "rect": [
+    0.17647,
+    0.46063,
+    0.29913,
+    0.47573
+   ],
+   "text": "7\nConclusion"
+  },
+  {
+   "id": "p-7-02",
+   "kind": "paragraph",
+   "sectionId": "7",
+   "page": 10,
+   "rect": [
+    0.17647,
+    0.49129,
+    0.82352,
+    0.53142
+   ],
+   "text": "In this work, we presented the Transformer, the first sequence transduction model based entirely on\nattention, replacing the recurrent layers most commonly used in encoder-decoder architectures with\nmulti-headed self-attention."
+  },
+  {
+   "id": "p-7-03",
+   "kind": "paragraph",
+   "sectionId": "7",
+   "page": 10,
+   "rect": [
+    0.17647,
+    0.53944,
+    0.82353,
+    0.59344
+   ],
+   "text": "For translation tasks, the Transformer can be trained significantly faster than architectures based\non recurrent or convolutional layers. On both WMT 2014 English-to-German and WMT 2014\nEnglish-to-French translation tasks, we achieve a new state of the art. In the former task our best\nmodel outperforms even all previously reported ensembles."
+  },
+  {
+   "id": "p-7-04",
+   "kind": "paragraph",
+   "sectionId": "7",
+   "page": 10,
+   "rect": [
+    0.17571,
+    0.60157,
+    0.82616,
+    0.65543
+   ],
+   "text": "We are excited about the future of attention-based models and plan to apply them to other tasks. We\nplan to extend the Transformer to problems involving input and output modalities other than text and\nto investigate local, restricted attention mechanisms to efficiently handle large inputs and outputs\nsuch as images, audio and video. Making generation less sequential is another research goals of ours."
+  },
+  {
+   "id": "p-7-05",
+   "kind": "paragraph",
+   "sectionId": "7",
+   "page": 10,
+   "rect": [
+    0.17597,
+    0.66347,
+    0.82528,
+    0.69023
+   ],
+   "text": "The code we used to train and evaluate our models is available at https://github.com/\ntensorflow/tensor2tensor."
+  },
+  {
+   "id": "p-7-06",
+   "kind": "paragraph",
+   "sectionId": "7",
+   "page": 10,
+   "rect": [
+    0.17647,
+    0.70575,
+    0.82353,
+    0.73231
+   ],
+   "text": "Acknowledgements\nWe are grateful to Nal Kalchbrenner and Stephan Gouws for their fruitful\ncomments, corrections and inspiration."
+  },
+  {
+   "id": "fig-3",
+   "kind": "item",
+   "sectionId": null,
+   "page": 13,
+   "rect": [
+    0.16667,
+    0.08523,
+    0.83415,
+    0.45581
+   ]
+  },
+  {
+   "id": "fig-4",
+   "kind": "item",
+   "sectionId": null,
+   "page": 14,
+   "rect": [
+    0.16667,
+    0.20833,
+    0.83415,
+    0.82323
+   ]
+  },
+  {
+   "id": "fig-5",
+   "kind": "item",
+   "sectionId": null,
+   "page": 15,
+   "rect": [
+    0.16667,
+    0.22664,
+    0.83333,
+    0.80871
+   ]
+  }
+ ]
+}

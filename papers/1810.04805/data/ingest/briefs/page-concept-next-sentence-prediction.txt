@@ -1,0 +1,36 @@
+PAGE FOR CONCEPT: next-sentence-prediction
+NAME: Next Sentence Prediction (NSP)
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+BERT's second pre-training task: a binary classification of whether span B actually followed span A in the corpus, predicted from the [CLS] vector.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+The stated motivation is that tasks like question answering and inference depend on the relationship between two sentences, which language modeling does not directly capture. The task can be trivially generated from any monolingual corpus: half the time B is the real next span, half the time a random one. The paper calls it simple, reports the final model reaching 97-98% accuracy on NSP itself against a 50% chance baseline, and points to Section 5.1 rather than that number for evidence that it helps downstream.
+
+THEME IT BELONGS TO: theme-the-two-pre-training-tasks | The two pre-training tasks - The two self-supervised objectives, and the run that trained them. Masked LM hides 15% of the tokens and predicts them from both sides, which gets around the fact that a bidirectional model would otherwise reach the token it is predicting through the layers below. Next sentence prediction asks, from the [CLS] vector, whether span B really followed span A in the corpus. The rest is the recipe: 3.3 billion words of books and Wikipedia, one million steps, and a schedule that saves the long sequences for the final tenth of training.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - isnext-notnext | IsNext / NotNext labels: The two NSP labels: B genuinely followed A, or B is a random span from elsewhere in the corpus, balanced 50/50.
+  - c-not-a-sentence-representation | C is not a sentence representation without fine-tuning: A footnote cautioning that the pre-trained [CLS] vector should not be read as a general-purpose sentence embedding.
+  - full-parameter-transfer-vs-sentence-embeddings | Transferring all parameters, not just sentence embeddings: The paper's stated difference from prior sentence-representation objectives: those transfer only sentence embeddings downstream, while BERT transfers every parameter.
+
+PREREQUISITES:
+  - cls-token | [CLS] token: A special token placed first in every sequence, whose final hidden state is used as the aggregate representation of the whole input.
+  - sentence-pair-packing | Sentence A / sentence B packing: Two spans are concatenated into one sequence, the first labeled A and the second B, so a pair of texts is handled by the same single-sequence model.
+
+EDGES TOUCHING THIS CONCEPT (4) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] -> sentence-pair-packing (Sentence A / sentence B packing) | depends-on | NSP needs the A/B slots: The label being predicted is whether span B really followed span A. That question only exists once two spans are packed into one sequence and marked as first and second. Without the A/B format there is nothing for NSP to classify.
+  [load-bearing] -> final-hidden-vector-c (C, the final [CLS] vector) | depends-on | NSP is read off C: The binary IsNext/NotNext decision is made from the final hidden vector at the [CLS] position. The paper reports the final model reaching 97-98% accuracy on this task. A footnote adds a caution: because C was trained this way, it should not be read as a general sentence representation without fine-tuning.
+  [load-bearing] -> table-5 (Pre-training Task Ablation (table-5)) | supported-by | NSP's contribution is small: Removing NSP takes BERT_BASE from 88.4 to 84.9 on QNLI, which is the largest single drop. The other columns move much less: MNLI 84.4 to 83.9, SQuAD 88.5 to 87.9, SST-2 92.7 to 92.6. The paper calls this hurting performance significantly, but on three of five tasks the change is under a point, so the evidence is thinner than the wording.
+  [supporting] -> no-nsp-ablation (No NSP) | contrasts-with | with and without the sentence-pair loss: No NSP is BERT_BASE with the second pre-training task deleted and nothing else changed. Table 5 shows the drops it causes: QNLI from 88.4 to 84.9, MNLI from 84.4 to 83.9, SQuAD F1 from 88.5 to 87.9. The paper calls the QNLI, MNLI and SQuAD losses significant, which is the evidence behind its claim that NSP helps question answering and inference.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-1 | The Same Stack, Twice: The figure claims that pre-training and fine-tuning use one and the same network: an identical token-in, vector-out Transformer encoder appears in both panels, and the only thing that changes between them is the thin output layer bolted on top. The dotted arrows carry every pre-trained weight across to initialize the task model, so a downstream task inherits the whole network rather than a set of embeddings.
+  - table-5 | Pre-training Task Ablation: Holding architecture, data and fine-tuning fixed, the table charges each drop in score to one removed piece of the pre-training recipe. Dropping next sentence prediction costs a little; replacing the masked LM with a left-to-right LM costs much more, above all on SQuAD (88.5 to 77.8 F1), and bolting a BiLSTM onto the left-to-right model repairs only part of that gap while making the GLUE numbers slightly worse.
+
+PAPER SECTIONS TO READ (in papers/1810.04805/data/ingest/sections/):
+  - 02-1-introduction.txt
+  - 08-3.1-pre-training-bert.txt
+  - 22-A.1-illustration-of-the-pre-training-tasks.txt
+  - 23-A.2-pre-training-procedure.txt
+  - 25-A.4-comparison-of-bert-elmo-and.txt

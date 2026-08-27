@@ -1,0 +1,26 @@
+[18] Advice for Training Sparse Autoencoders: Autoencoder Architecture
+
+Our dictionary learning model is a one hidden layer MLP. It is trained as an autoencoder, using the input weights as an encoder and output weights as the decoder. The hidden layer is much wider than the inputs and applies a ReLU non-linearity. We use the default Pytorch Kaiming Uniform initialization [cite: he2015delving] .
+
+Formally, let $n$ be the input and output dimension and $m$ be the autoencoder hidden layer dimension. Given encoder weights $W_e \in \mathbb{R}^{m \times n}$ , decoder weights $W_d \in \mathbb{R}^{n \times m}$ with columns of unit norm, and biases $\mathbf{b}_e \in \mathbb{R}^{m}, \mathbf{b}_d \in \mathbb{R}^{n}$ , the operations and loss function over a dataset $X$ are:
+
+$\begin{aligned} \bar{\mathbf{x}} &= \mathbf{x} - \mathbf{b}_{d} \\ \mathbf{f} &= \text{ReLU}( W_e \bar{\mathbf{x}}+\mathbf{b}_e ) \\ \hat{\mathbf{x}} &= W_d \mathbf{f}+\mathbf{b}_d \\ \mathcal{L} &= \frac{1}{|X|} \sum_{\mathbf{x}\in X} ||\mathbf{x}-\hat{\mathbf{x}}||_2^2 + \lambda||\mathbf{f}||_1 \end{aligned}$
+
+Note that our hidden layer is overcomplete $m\geq n$ , and the MSE is a mean over each vector element while the L1 penalty is a sum (with $\lambda$ being the L1 coefficient). The hidden layer activations $\mathbf{f}$ are our learned features. As shown, we subtract the decoder bias from the inputs, and call this a pre-encoder bias. Recall that the decoder is also referred to as the “dictionary” while the encoder can be thought of as a linear, amortized approximation to more powerful sparse coding algorithms.
+
+Our modifications to a standard autoencoder are backed by theory and empirical ablations. However, because these modifications appeared at different periods during our research and can interact with each other, we do not provide rigorous ablation experiments and instead provide intuition and anecdotal evidence for why each is justified. There are likely many important modifications that could further improve performance.
+
+Here is a summary of the modifications sorted both between and within sections in rough order of importance
+
+Pre encoder bias – this boosted performance in toy models.
+
+Decoder weights not tied – the learned encoder weights are often far from the corresponding decoder weights and this is important for increasing model capacity.
+
+Neuron resampling – helps finding more features and achieve a lower total loss.
+
+Many training steps – beyond when the training loss looks to have plateaued.
+
+Learning rate sweep – lower learning rate results in more real features.
+
+Interaction Between Adam and Decoder Normalization – a principled way to account for how the dictionary vector L2 normalization interacts with Adam, resulting in lower total loss.
+

@@ -1,0 +1,113 @@
+{
+ "id": "fig-2",
+ "title": "Where the Dictionary Attaches",
+ "takeaway": "This schematic names the exact tensor the paper decomposes: the 512-dimensional post-ReLU MLP activation vector at a single token position of a one-layer transformer. It shows that vector being sent out to a sparse, overcomplete autoencoder and coming back, and that the thing the autoencoder returns is a set of between 512 and 131,072 feature activations rather than the 512 neuron values.",
+ "walkthrough": "### What you are looking at\n\nThe whole model under study, drawn as one vertical column, with a single tensor pulled out to the right.\n\nRead the column bottom to top. `tokens` enter, `embed` turns them into vectors, and the tall vertical line is the [[residual-stream]] — 128-dimensional in this model. Each small circled junction on that line is a point where a block's output is added back in.\n\nThe lower junction is fed by the attention heads $h_0$, $h_1$, and so on. Above it, `MLP (ReLU)` reads from the stream and its output rejoins at the upper junction. Then `unembed` maps the stream to `logits`. That is the entire [[one-layer-transformer-testbed]]: one attention block, then one MLP block.\n\n### How to read the pulled-out part\n\n`acts (512)` is the MLP's hidden layer after the ReLU, for one token position — 512 numbers. This is the tensor being decomposed.\n\nThe caption's phrase, \"the activations we can't avoid needing to decompose\", is the reason it was chosen. A one-layer attention-only transformer can be rewritten so its hidden states never appear; adding a ReLU MLP closes that route off ([[mlp-activations-as-target]]).\n\nThe two arrows form a round trip. The lower arrow, `acts` to `\"features\"`, is the encoder: a linear map, a bias, a ReLU, producing one non-negative [[feature-activation]] per dictionary element ([[autoencoder-encoder]]). The upper arrow runs back: the decoder rebuilds the 512-vector as a weighted sum of unit [[feature-direction]]s ([[dictionary-decoder]]).\n\nTraining minimizes reconstruction error on that loop plus an [[l1-sparsity-penalty]] on the middle layer, which drives most feature activations to exactly zero. Sparsity is what makes the middle layer readable rather than just another dense recoding.\n\n### What it shows\n\nThe count on the right box carries the claim. The dictionary holds 512 to 131,072 elements, so at the wide end there are 256 times more feature slots than neurons — [[overcompleteness]] ([[dictionary-learning]]).\n\nThe paper's stated reason for going wide is [[superposition]]: it takes the MLP to represent more features than it has neurons, which would leave individual neurons [[polysemanticity|polysemantic]] and not the right unit to interpret. So the output is a sparse set of [[feature]] activations, not neuron activations. The scare quotes around \"features\" are the authors' own hedge that these are learned objects, not confirmed ones.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "tokens",
+   "definition": "The integer token ids fed into the model, produced by a byte-pair-encoding tokenizer, so a token need not correspond to a whole character or word.",
+   "conceptId": "byte-pair-encoding"
+  },
+  {
+   "term": "embed",
+   "definition": "The lookup that maps each token id to its initial vector in the residual stream. Drawn here only to show where the column starts.",
+   "conceptId": null
+  },
+  {
+   "term": "the vertical line",
+   "definition": "The residual stream: the running 128-dimensional vector that each block reads from and adds its output back into.",
+   "conceptId": "residual-stream"
+  },
+  {
+   "term": "the circled junction nodes",
+   "definition": "The two points where a block's output is summed back into the residual stream — the lower one for the attention heads, the upper one for the MLP block.",
+   "conceptId": null
+  },
+  {
+   "term": "h₀, h₁, …",
+   "definition": "The individual attention heads of the single attention block. The ellipsis stands for the remaining heads; the paper does not state how many there are.",
+   "conceptId": null
+  },
+  {
+   "term": "MLP (ReLU)",
+   "definition": "The model's one MLP block, whose elementwise nonlinearity is a ReLU. The elementwise nonlinearity is what makes the neuron basis a privileged basis, which is why neurons were ever a plausible unit of analysis.",
+   "conceptId": "privileged-basis"
+  },
+  {
+   "term": "acts",
+   "definition": "The MLP's hidden activation vector at one token position, taken after the ReLU. This is the tensor the paper decomposes; the schematic elides the output weight matrix that maps it back down into the residual stream.",
+   "conceptId": "mlp-activations-as-target"
+  },
+  {
+   "term": "\"features\" (in quotes)",
+   "definition": "The autoencoder's hidden layer: one non-negative activation per dictionary element. The quotation marks are the authors' hedge — these are what the method returns, and whether they correspond to anything the model itself uses is the question the rest of the paper argues.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "the two arrows between the shaded boxes",
+   "definition": "The autoencoder's round trip. Lower arrow: the encoder mapping the 512-vector to feature activations. Upper arrow: the decoder rebuilding the 512-vector from them.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "sparse (in the annotation)",
+   "definition": "Only a small number of the feature activations are non-zero on any given token, enforced by an L1 penalty on the hidden layer during training.",
+   "conceptId": "l1-sparsity-penalty"
+  },
+  {
+   "term": "overcomplete (in the annotation)",
+   "definition": "The dictionary has more directions than the dimension of the space it decomposes. The paper insists this is what separates its setting from ordinary disentanglement work, and it is what makes recovering the activations a hard inverse problem solvable only because the answer is sparse.",
+   "conceptId": "overcompleteness"
+  },
+  {
+   "term": "autoencoder (in the annotation)",
+   "definition": "The specific approximation to dictionary learning used here: a one-hidden-layer network trained with MSE reconstruction loss, chosen over classical dictionary learning algorithms because it scales to billions of datapoints and is no more computationally capable than an MLP layer itself.",
+   "conceptId": "dictionary-learning"
+  },
+  {
+   "term": "unembed",
+   "definition": "The final linear map from the residual stream to one logit per vocabulary token.",
+   "conceptId": "unembedding-matrix"
+  },
+  {
+   "term": "logits",
+   "definition": "The model's unnormalized next-token scores. In a one-layer model these are close to linear in the feature activations, which the paper later uses to check features against the model's actual behavior.",
+   "conceptId": "linear-logit-effects"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "512",
+   "meaning": "The width of the MLP hidden layer, and therefore the length of the activation vector being decomposed. It is a design choice of the transformer the authors trained, paired with a 128-dimensional residual stream."
+  },
+  {
+   "value": "512 – 131,072",
+   "meaning": "The range of dictionary sizes trained, shown on the features box. The low end matches the number of neurons exactly; the high end is 512 multiplied by 256. The paper sweeps this range rather than picking one size because how many features you ask for changes what you get."
+  },
+  {
+   "value": "256",
+   "meaning": "The largest expansion factor: 256 times more dictionary elements than neurons. 512 × 256 = 131,072, the upper number printed in the figure."
+  },
+  {
+   "value": "1×",
+   "meaning": "The smallest expansion factor, giving 512 features — exactly as many features as neurons. Included as the floor of the sweep, so the effect of going overcomplete can be seen against a matched-size baseline."
+  },
+  {
+   "value": "8× (4,096 features)",
+   "meaning": "Not printed in the figure, but the run the paper actually analyzes in detail, called A/1. 512 × 8 = 4,096. The authors describe it as a deliberately modest expansion compared with what they trained at the top end."
+  },
+  {
+   "value": "128",
+   "meaning": "The residual stream dimension of the transformer — the width of the vertical line in the schematic. Stated in the appendix, not printed on the figure. Note it is smaller than the 512-wide MLP layer that sits on it."
+  },
+  {
+   "value": "1 (one layer)",
+   "meaning": "The whole column contains one attention block and one MLP block. The paper picks this size because it is, in its words, the simplest language model it does not understand: a one-layer attention-only model could be handled without decomposing hidden states, and adding the MLP is what forces the problem."
+  },
+  {
+   "value": "subscripts 0 and 1 on h",
+   "meaning": "Index labels on the attention heads, not quantities. They serve only to indicate that the attention block has several parallel heads writing into the residual stream."
+  }
+ ]
+}

@@ -1,0 +1,52 @@
+[5.4] "Finite State Automata"
+
+One of the most striking phenomena we've observed in our study of the features in one-layer models is the existence of "finite state automata"-like assemblies of features. These assemblies aren't circuits in the conventional sense – they're formed by one feature increasing the probability of tokens, which in turn cause another feature to fire on the next step, and so on. (note: The "finite state automata"-esque feature assemblies are also different from circuits in that the model didn't learn them to work together. Rather, in the course of learning to autoregressively model text, it learned features that interact via the token stream because of patterns in the real datasets. In contrast, a language model trained with reinforcement learning might have systems like this – circuits whose feature components interact via generated tokens – which co-evolved and adapted to work together during RL training.)
+
+The simplest example of this is features which excite themselves on the next token, forming a single node loop. For example, a base64 feature increases the probability of tokens like Qg and zA – plausible continuations which would continue to activate it.
+
+[fig-55] For example, a base64 feature increases the probability of tokens like Qg and zA – plausible continuations which would continue to activate it.
+
+It's worth noting that these examples are from A/0, a dictionary learning run which is not overcomplete (the dictionary dimensionality is 512, equal to the transformer MLP dimension). As we move to runs with larger numbers of features, the central feature will experience feature splitting, and become a more complex system.
+
+Let's now consider a two-node system for producing variables in "all caps snake case" (e.g. ARRAY_MAX_VALUE). One node (A/0/207) activates on the all caps text tokens, the other (A/0/358) on underscores:
+
+[fig-56] Let's now consider a two-node system for producing variables in "all caps snake case" (e.g. ARRAY_MAX_VALUE). One node (A/0/207) activates on the all caps text tokens, the other (A/0/358) on underscores:
+
+This type of two-node system is quite common for languages where Unicode characters are sometimes split into two tokens. (Again, with more feature splitting, these would expand into more complex systems.)
+
+For example, Tamil Unicode characters (block U+0B80–U+0BFF) are typically split into two tokens. For example, the character "ண" (U+0BA3) is tokenized as \xe0\xae followed by \xa3. The first part (\xe0\xae or \xe0\xaf) roughly specifies the Unicode block, while the second component specifies the character within that block. Thus, it's natural for the model to alternate between two features, one for the Unicode prefix token, and one for the suffix token.
+
+A more complex example is Chinese. While many common Chinese characters get dedicated tokens, many others are split. This is further complicated by Chinese characters being spread over many Unicode blocks, and those blocks being large and cutting across many logical blocks specified in terms of bytes. To understand the state machine the model implements to handle this, the key observation is that complete characters are similar to the "suffix" part of a split character: both can be followed by either a new complete character, or a new prefix. Thus, we observe two features, one of which fires on either complete characters or the suffix (predicting either a new complete character, or a prefix), while the other only fires on the prefixes and predicts suffixes.
+
+[fig-57] Thus, we observe two features, one of which fires on either complete characters or the suffix (predicting either a new complete character, or a prefix), while the other only fires on the prefixes and predicts suffixes.
+
+Let's now consider a very simple four node system which models HTML. The "main path" through it is:
+
+A/0/20 fires on open tags and predicts tag names
+
+A/0/0 fires on tag names and predicts tag closes
+
+A/0/30 fires on tag closes and predicts whitespace
+
+A/0/494 fires on whitespace and predicts new tag opens.
+
+A prototypical sample this might generate is something like <div>\n\t\t<span>.
+
+The full system can be seen below:
+
+[fig-58] The full system can be seen below:
+
+Keep in mind that we're focusing on the A/0 features where this is very simple – if we looked at A/1, we'd find something much more complex! One particularly striking shortcoming of the A/0 features is that they don't describe what happens when A/0/0 emits a token like href, which leads to a more complex state.
+
+It's important to note that these features can be quite contextual. There are several features related to IRC transcripts which form a totally different finite state automata like system:
+
+[fig-59] It's important to note that these features can be quite contextual. There are several features related to IRC transcripts which form a totally different finite state automata like system:
+
+A prototypical sample this might generate is something like <nickonia_> lol ubuntu ;). Presumably the Pile dataset heavily represents IRC transcripts about linux.
+
+One particularly interesting behavior is the apparent memorization of specific phrases. This can be observed only in runs with relatively large numbers of features (like A/4). In the following example, a sequence of features seem to functionally memorize the bolded part of the phrase MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. This is a relatively standard legal language, and notably occurs in the file headers for popular open source software licenses, meaning the model likely saw it many times during training.
+
+[fig-60] This is a relatively standard legal language, and notably occurs in the file headers for popular open source software licenses, meaning the model likely saw it many times during training.
+
+This seems like an example of the mechanistic theory of memorization we described in Henighan et al. [cite: henighan2023superposition] – we observe features which appear to be relatively binary and respond to a very specific situation. This might also be seen as an instance of mechanistic anomaly detection [cite: christiano2022anomaly] : the model behaves differently in a specific, narrow case. It's somewhat surprising that something so narrow can be found in a model with only 512 neurons; from this perspective it's an interesting example of superposition's ability to embed many things in few neurons. On the other hand, because these mechanisms are buried deep in superposition, they are likely very noisy.
+

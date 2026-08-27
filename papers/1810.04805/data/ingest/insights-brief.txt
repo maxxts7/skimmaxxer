@@ -1,0 +1,623 @@
+EVERY RELATIONSHIP THE PIPELINE FOUND IN 'ATTENTION IS ALL YOU NEED'
+
+138 edges, found by four agents each looking through a different lens.
+
+=== THE EDGE-THEMES (how a previous stage grouped them) ===
+
+[etheme-two-routes-one-direction] Two ways to reuse pre-training, both stuck in one direction  (16 edges)
+    The paper sorts earlier pre-training work into two routes. On the feature-based route, which ELMo takes, the pre-trained model is frozen and its vectors are handed to a separate task architecture as extra inputs. On the fine-tuning route, which OpenAI GPT takes and where BERT places itself, the pre-trained weights are trained further on the labeled task. The paper's complaint cuts across that split: both routes learn from a one-directional objective, so GPT's Transformer lets a token attend only
+    members: e066, e067, e068, e069, e100, e101, e102, e103, e107, e051, e035, e036, e040, e122, e138, e136
+
+[etheme-masking-buys-bidirectionality] Masking is what buys bidirectional training  (19 edges)
+    A standard language model cannot simply be trained on both sides at once. With context available in both directions, a token in a multi-layer model reaches its own prediction through the layers below and can see itself. Masking removes the token from the input, so the see-itself path is cut and every layer may condition on both sides; the paper notes this is the old cloze task, run at a rate of 15% of WordPiece positions. The price is a mismatch: [MASK] appears constantly during pre-training and
+    members: e001, e002, e003, e004, e005, e006, e028, e056, e057, e058, e059, e075, e076, e077, e078, e105, e106, e108, e109
+
+[etheme-one-encoder-one-input-format] One encoder, one input format, every task  (21 edges)
+    BERT's encoder is the Transformer encoder, which the paper describes as almost identical to the original implementation; the architectural change is that self-attention is left unmasked, where GPT's is masked to the left. Everything else that makes tasks look alike happens in the input format. Each token's input vector is the sum of three learned rows — what the token is, whether it sits in span A or span B, and where it sits — and every sequence opens with [CLS], whose final vector C is the agg
+    members: e012, e013, e014, e015, e020, e032, e033, e034, e037, e070, e071, e072, e073, e074, e079, e082, e083, e104, e117, e118, e120
+
+[etheme-the-pre-training-run] What the pre-training run actually consists of  (12 edges)
+    Alongside masked prediction, BERT is trained on a second task: decide whether span B genuinely followed span A in the corpus, or was sampled from somewhere else. That task needs the A/B slots the input format already provides, and it is read off C, the final vector at [CLS] — a footnote warns that C should not be treated as a general sentence embedding without fine-tuning. Sampling contiguous spans requires documents left intact, so BooksCorpus and English Wikipedia are used and the shuffled-sen
+    members: e007, e008, e009, e010, e011, e031, e080, e081, e116, e123, e125, e137
+
+[etheme-one-added-layer-per-task] Each task adds one layer, sometimes only a vector  (25 edges)
+    For a GLUE classification task the entire task-specific model is one matrix W of shape K by H applied to C, trained with ordinary cross-entropy. For extractive question answering it is two H-dimensional vectors: S scores each token as a span start, E scores it as an end, and each score is a dot product with that token's final vector T_i. A candidate span from i to j is scored by adding the two, S·T_i + E·T_j, and the prediction is the highest-scoring pair with j at or after i. SQuAD 2.0 adds no 
+    members: e016, e017, e018, e019, e038, e060, e061, e062, e063, e064, e065, e084, e085, e086, e087, e088, e089, e090, e091, e092, e119, e128, e129, e130, e132
+
+[etheme-the-eleven-task-scoreboard] The scoreboard, and how it was assembled  (19 edges)
+    On the eight scored GLUE tasks both model sizes lead every column, lifting the average by 4.5 points for BERT_BASE and 7.0 for BERT_LARGE. Some of the scoreboard's construction is stated openly: WNLI is dropped because no system beats the majority-class baseline on it, GLUE's own aggregate score therefore differs from the paper's average, and BERT_LARGE fine-tuning was unstable enough on small sets that several restarts were run and the best kept on Dev. Because fine-tuning costs about an hour, 
+    members: e021, e029, e030, e039, e041, e042, e043, e044, e045, e046, e047, e093, e095, e099, e124, e126, e127, e131, e133
+
+[etheme-taking-pieces-away] Taking pieces away: what each part is worth  (26 edges)
+    Two cut-down models are pre-trained under identical data, architecture and fine-tuning conditions, so any drop can be charged to the one removed piece. No NSP keeps masked prediction but drops the sentence-pair task; LTR & No NSP goes further and masks attention to the left, making an in-house stand-in for GPT that is kept left-only through fine-tuning as well. In Table 5 the sentence-pair task contributes modestly, while the left-only model loses around ten F1 on SQuAD, and a randomly initialis
+    members: e022, e023, e024, e025, e026, e027, e048, e049, e050, e052, e053, e054, e055, e094, e096, e097, e098, e110, e111, e112, e113, e114, e115, e121, e134, e135
+
+=== DEPENDS-ON  (understanding or building X requires Y first) - 32 edges ===
+
+e001 [load-bearing] deep-bidirectionality (Deep bidirectional representations)  -->  masked-language-model (Masked LM (MLM))
+    label: bidirectional training needs masking
+    The paper wants every layer to condition on both sides at once. A standard language model cannot be trained that way, so the masked LM objective is what makes deep bidirectionality trainable at all. Remove the masking and the central claim has no training procedure behind it.
+
+e002 [load-bearing] masked-language-model (Masked LM (MLM))  -->  see-itself-problem (The "see itself" problem)
+    label: masking answers the see-itself problem
+    If a token could attend to both sides while also being the prediction target, it would reach its own prediction through the layers below. The paper says such a model could then predict the target trivially. Masking exists to break that path: the target is removed from the input before the model reads it.
+
+e003 [load-bearing] masking-recipe-80-10-10 (The 80/10/10 masking recipe)  -->  pretrain-finetune-mismatch (Pre-train / fine-tune mismatch)
+    label: recipe exists to soften the mismatch
+    Of the 15% of positions chosen for prediction, 80% become [MASK], 10% become a random token, and 10% are left alone. The paper gives the mismatch as the reason for the last two cases: the model should not learn that a prediction is only ever needed where a [MASK] sits. Appendix C.2 then reports that fine-tuning is fairly robust to the mixture, so the recipe matters less in practice than the motivation suggests.
+
+e004 [supporting] pretrain-finetune-mismatch (Pre-train / fine-tune mismatch)  -->  mask-token ([MASK] token)
+    label: mismatch arises from the placeholder
+    The [MASK] token is a symbol invented for pre-training. It never appears in a downstream task's input. That asymmetry is the whole content of the mismatch the paper is worried about.
+
+e005 [supporting] mlm-output-softmax (Output softmax over the vocabulary)  -->  wordpiece-vocabulary-30k (30,000-token vocabulary)
+    label: vocabulary size fixes softmax width
+    Each masked position's final hidden vector is projected to a distribution over the whole vocabulary. Because that vocabulary holds 30,000 WordPiece tokens, the output layer is 30,000 wide. Choosing a different subword vocabulary would change the shape of this layer.
+
+e006 [supporting] mlm-convergence-cost (MLM's slower convergence)  -->  masking-rate-15-percent (15% masking rate)
+    label: 15% rate causes slower convergence
+    A left-to-right model gets a prediction target at every position. Masking 15% means only about one position in seven produces a gradient signal per sequence. The paper confirms the masked LM converges slightly slower, but reports it passes the left-to-right model on absolute MNLI accuracy almost immediately.
+
+e007 [supporting] sequence-length-schedule (128-then-512 sequence length schedule)  -->  attention-quadratic-cost (Attention is quadratic in sequence length)
+    label: quadratic cost forces the schedule
+    Each attention layer scores every pair of positions, so cost grows with the square of the length. Going from 128 tokens to 512 is a factor of four in length, and therefore roughly sixteen times the attention work per sequence. That is why 90% of pre-training steps run at length 128 rather than at the full 512.
+
+e008 [supporting] sequence-length-schedule (128-then-512 sequence length schedule)  -->  position-embeddings (Position embeddings)
+    label: last 10% trains the long positions
+    Position embeddings are learned, one vector per slot. Training only at length 128 would leave the vectors for positions 128 through 511 untouched. The paper says the final 10% of steps run at length 512 specifically to learn those longer-range position embeddings.
+
+e009 [supporting] training-sequence-generation (Generating a training input sequence)  -->  document-level-corpus (Document-level corpus)
+    label: contiguous spans need intact documents
+    Each training example samples two spans that are usually genuine neighbours, then caps their combined length at 512 tokens. Both the length and the neighbour relation require the corpus to keep documents whole. The paper names the Billion Word Benchmark, a shuffled sentence-level corpus, as the kind of data it deliberately avoids.
+
+e010 [load-bearing] next-sentence-prediction (Next Sentence Prediction (NSP))  -->  sentence-pair-packing (Sentence A / sentence B packing)
+    label: NSP needs the A/B slots
+    The label being predicted is whether span B really followed span A. That question only exists once two spans are packed into one sequence and marked as first and second. Without the A/B format there is nothing for NSP to classify.
+
+e011 [load-bearing] next-sentence-prediction (Next Sentence Prediction (NSP))  -->  final-hidden-vector-c (C, the final [CLS] vector)
+    label: NSP is read off C
+    The binary IsNext/NotNext decision is made from the final hidden vector at the [CLS] position. The paper reports the final model reaching 97-98% accuracy on this task. A footnote adds a caution: because C was trained this way, it should not be read as a general sentence representation without fine-tuning.
+
+e012 [load-bearing] self-attention-unifies-cross-attention (Self-attention subsuming cross-attention)  -->  bidirectional-self-attention (Bidirectional self-attention)
+    label: argument needs unmasked attention
+    The paper argues that encoding a concatenated pair with self-attention already includes attention between the two texts in both directions. That holds only because every position may attend to every other position. Under left-only masking, tokens in the first span could never attend to the second, and the argument would fail.
+
+e013 [supporting] degenerate-text-pair (Degenerate text-∅ pair)  -->  sentence-pair-packing (Sentence A / sentence B packing)
+    label: single text reuses the pair format
+    Classification and tagging tasks have only one piece of text. Rather than adding a second input format, the paper treats them as a pair whose second half is empty. The trick is available only because the pair format is the default.
+
+e014 [load-bearing] unified-architecture-across-tasks (Unified architecture across tasks)  -->  input-representation (Input/output representation)
+    label: one format enables one architecture
+    The paper calls it a distinctive feature that the pre-trained and downstream architectures differ minimally. That is possible because a single token-sequence format already covers one span or two. Each task changes what goes into the slots, not the network that reads them.
+
+e015 [supporting] packed-question-passage-sequence (Question and passage as one packed sequence)  -->  segment-embeddings (Segment embeddings)
+    label: segment tags separate question from passage
+    For SQuAD the question and the passage become one sequence. The model still has to tell them apart, and it does so through the learned A/B embedding added to every token: A for the question, B for the passage. Without segment embeddings the two would be indistinguishable apart from the [SEP] boundary.
+
+e016 [load-bearing] span-prediction-head (Start/end vector span prediction head)  -->  final-hidden-vector-ti (T_i, the final vector for token i)
+    label: span scores read per-token vectors
+    The start distribution is a softmax over dot products S·T_i, taken across every token in the passage. So the head needs one final-layer vector per position, not a single pooled vector. This is the token-level output path, in contrast with the [CLS] path used for classification.
+
+e017 [load-bearing] cls-as-null-span ([CLS] as the null span)  -->  span-prediction-head (Start/end vector span prediction head)
+    label: abstention reuses the same head
+    SQuAD 2.0 allows a question with no answer in the passage. Rather than adding a new classifier, the paper treats no-answer as a span that starts and ends at [CLS], scored with the same S and E vectors. The extension adds no task-specific parameters beyond the ones SQuAD 1.1 already introduced, and reaches 83.1 test F1 against 78.0 for the best prior system.
+
+e018 [supporting] null-span-score (Null score s_null)  -->  final-hidden-vector-c (C, the final [CLS] vector)
+    label: null score is computed against C
+    The abstention score is s_null = S·C + E·C. It uses the [CLS] vector in the same slot where an ordinary span uses a passage token's vector. That is what puts answering and abstaining into one comparable probability space.
+
+e019 [supporting] swag-multiple-choice-head (Four packed sequences scored by one vector)  -->  final-hidden-vector-c (C, the final [CLS] vector)
+    label: one vector dotted with each C
+    Each of the four candidate continuations is packed with the context into its own sequence, giving four [CLS] vectors. A single learned vector is dotted with each one, and a softmax over the four dot products picks the answer. The only task-specific parameters are that one vector.
+
+e020 [supporting] first-sub-token-classification (First sub-token as the token representation)  -->  wordpiece-tokenization (WordPiece embeddings)
+    label: subword splitting forces a choice
+    NER labels are attached to words, but WordPiece may break a rare word into several pieces. Something has to decide which piece carries the tag. The paper's rule is to feed the first sub-token's final vector to the token-level classifier.
+
+e021 [supporting] triviaqa-augmentation (TriviaQA data augmentation)  -->  squad-leaderboard-public-data-rules (SQuAD leaderboard conditions)
+    label: augmentation answers the leaderboard rules
+    Top SQuAD leaderboard entries have no current public system descriptions and are permitted to train on any public data. The paper responds by fine-tuning on TriviaQA before SQuAD, which it describes as modest augmentation. It also reports that dropping TriviaQA costs only 0.1-0.4 F1, so the augmentation is not what carries the result.
+
+e022 [load-bearing] ltr-no-nsp-ablation (LTR & No NSP)  -->  constrained-self-attention (Constrained (left-context-only) self-attention)
+    label: ablation built by masking attention
+    The LTR & No NSP run is the same network with attention masked so each token sees only its left context. That masking is exactly the constraint the GPT Transformer uses. It is what makes this run a stand-in for GPT while holding data, input format and fine-tuning scheme fixed.
+
+e023 [supporting] ltr-no-nsp-ablation (LTR & No NSP)  -->  pretrain-finetune-mismatch (Pre-train / fine-tune mismatch)
+    label: left-only kept through fine-tuning
+    The authors report that they also applied the left-only constraint during fine-tuning. Their stated reason is that lifting it created a gap between pre-training and fine-tuning conditions, which hurt downstream scores. So the same mismatch concern that shapes the masking recipe also shapes how the ablation is run.
+
+e024 [load-bearing] effect-of-pre-training-tasks (Effect of pre-training tasks)  -->  pre-training-procedure (Pre-training procedure)
+    label: ablation needs identical conditions
+    Table 5 charges each score drop to one removed piece of the recipe. That reading is only valid because the cut-down runs use exactly the same pre-training data, fine-tuning scheme and hyperparameters as BERT_BASE. The fixed procedure is the control the comparison rests on.
+
+e025 [supporting] few-random-parameters-hypothesis (Why fine-tuning may scale better on small data)  -->  minimal-task-specific-parameters (Minimal task-specific parameters)
+    label: explanation rests on few new weights
+    Larger models help even on MRPC, which has only 3,600 training examples. The paper offers a hypothesis rather than a demonstration: because fine-tuning adds very few randomly initialised parameters, a small task can still exploit a large pre-trained representation. If task adaptation introduced a big new network, that reasoning would not apply.
+
+e026 [supporting] feature-based-approach-with-bert (Feature-based approach with BERT)  -->  task-specific-architecture (Task-specific architecture)
+    label: frozen features need a model on top
+    Freezing BERT means the pre-trained weights produce fixed vectors and nothing more. Some model must then be trained on those vectors to do the task. The paper gives this as one reason the feature-based setting is worth keeping: not every task fits neatly onto a Transformer encoder.
+
+e027 [supporting] feature-based-amplifies-mask-mismatch (Why the feature-based setting amplifies the mismatch)  -->  feature-based-approach-with-bert (Feature-based approach with BERT)
+    label: frozen model cannot adapt away mismatch
+    When BERT is fine-tuned, it can adjust its representations to the absence of [MASK] at test time. When it is frozen, it cannot. That is the paper's stated reason for expecting, and then observing, that a MASK-only masking strategy is more damaging in the feature-based NER setting.
+
+e028 [minor] masking-procedure-ablation (Ablation for different masking procedures)  -->  concat-last-four-layers (Concatenating the top four hidden layers)
+    label: reuses the best extraction setting
+    Table 8's feature-based column has to pick which hidden layers to read. It uses the concatenation of the top four layers, because Section 5.3 found that the best of the extraction options tested, at 0.3 F1 behind full fine-tuning. The masking ablation inherits that choice rather than re-deriving it.
+
+e029 [supporting] exhaustive-hyperparameter-search (Exhaustive search on the development set)  -->  fine-tuning-cost (Fine-tuning cost)
+    label: cheap fine-tuning permits full search
+    The grid is two batch sizes, three learning rates and three epoch counts, which is eighteen runs per task. The paper says such a search is reasonable precisely because fine-tuning is fast, at most an hour on a single Cloud TPU. If fine-tuning cost what pre-training costs, this protocol would not be affordable.
+
+e030 [supporting] glue-fine-tuning-protocol (GLUE fine-tuning protocol)  -->  glue-evaluation-server (GLUE evaluation server and hidden test labels)
+    label: hidden test labels push tuning to Dev
+    GLUE withholds test labels and scores only submitted predictions, and the paper reports making a single submission for each model size. Everything else must therefore be settled on the development set. So batch size and epoch count are fixed at 32 and 3 for all tasks, with only the learning rate chosen per task on Dev.
+
+e031 [minor] gelu-activation (gelu activation)  -->  openai-gpt (OpenAI GPT)
+    label: activation choice follows GPT
+    BERT uses gelu inside each block rather than the more common relu. The paper's stated reason is that it follows OpenAI GPT. It is one of several small settings inherited so the two systems stay comparable.
+
+e032 [load-bearing] bert-model-architecture (BERT's model architecture)  -->  transformer-encoder (Transformer encoder)
+    label: reuses the Transformer unchanged
+    The paper does not describe the encoder in any detail. It states that the implementation is almost identical to the original Transformer and points readers to Vaswani et al. and to the Annotated Transformer guide. Everything BERT adds sits around a mechanism it borrows rather than defines.
+
+=== SUPPORTED-BY  (a claim and the evidence under it) - 33 edges ===
+
+e033 [load-bearing] bert-framework (BERT's two-stage framework)  -->  fig-1 (The Same Stack, Twice)
+    label: same encoder drawn twice
+    The paper's framing claim is that pre-training and fine-tuning are two stages of one network, not two networks. Figure 1 puts the two panels side by side and the encoder block is identical in both. What changes between them is only the output layer and the arrows feeding it.
+
+e034 [load-bearing] input-embedding-sum (Sum of token, segment and position embeddings)  -->  fig-2 (The Three-Row Input Sum)
+    label: three rows added per token
+    Figure 2 draws each token's input as three stacked rows joined by plus signs: the token embedding, the segment embedding for span A or span B, and the position embedding. The picture is the definition. It shows that BERT does not concatenate these three signals into a wider vector, it adds them, so the input width stays H.
+
+e035 [load-bearing] deep-bidirectionality (Deep bidirectional representations)  -->  fig-3 (BERT, GPT and ELMo Side by Side)
+    label: arrow patterns, not scores
+    Figure 3 draws BERT, GPT and ELMo as three connection diagrams. Only BERT's has arrows running into a position from both sides at every layer. This is the paper's central claim rendered as a picture, so it establishes what is being asserted rather than measuring what it buys.
+
+e036 [supporting] bert-elmo-gpt-comparison (BERT vs. ELMo vs. OpenAI GPT)  -->  fig-3 (BERT, GPT and ELMo Side by Side)
+    label: architecture split from training differences
+    Appendix A.4 lists differences between the three models that the figure cannot show, such as corpus size, the use of [SEP] and [CLS], and fine-tuning learning rates. The figure covers only the attention pattern and the transfer strategy. The paper is explicit that the remaining differences are not architectural, which matters when reading any BERT-versus-GPT gap.
+
+e037 [supporting] unified-architecture-across-tasks (Unified architecture across tasks)  -->  fig-4 (Four task shapes, one encoder)
+    label: four tasks, one diagram repeated
+    Figure 4 draws sentence-pair classification, single-sentence classification, question answering and tagging as four copies of the same encoder. Only two things differ between the panels: what gets packed into the input sequence, and which output vectors a small head reads. It is an illustration rather than a measurement, so it demonstrates the claim's shape and leaves the accuracy question to the result tables.
+
+e038 [minor] swag-multiple-choice-head (Four packed sequences scored by one vector)  -->  fig-4 (Four task shapes, one encoder)
+    label: multiple choice as four sequences
+    SWAG does not fit the single-sequence or pair-of-sequences mould directly, because there are four candidate continuations. Figure 4's sentence-pair panel is what the paper reuses: each continuation is packed with the context as its own A/B pair, and one learned vector scores each resulting [CLS] representation. Four forward passes are softmaxed together.
+
+e039 [load-bearing] glue-benchmark (GLUE benchmark)  -->  table-1 (The GLUE test scoreboard)
+    label: eight columns, all won
+    Table 1 reports BERT_BASE at 79.6 average and BERT_LARGE at 82.1, against 75.1 for OpenAI GPT and 74.0 for the pre-OpenAI state of the art. That is the 4.5 and 7.0 point improvement the abstract quotes. Both BERT rows are also ahead in every individual column, which is what makes the average hard to attribute to one easy task.
+
+e040 [load-bearing] gpt-size-match (Deliberate size match with OpenAI GPT)  -->  table-1 (The GLUE test scoreboard)
+    label: matched size isolates bidirectionality
+    BERT_BASE was built at OpenAI GPT's size on purpose, so a gap in Table 1 cannot simply be capacity. On that row-to-row comparison BERT_BASE scores 79.6 against GPT's 75.1. The paper hedges this itself in Appendix A.4: GPT was trained on BooksCorpus alone while BERT adds Wikipedia, and other training details differ, so the matched parameter count does not make the two runs identical.
+
+e041 [minor] fine-tuning-random-restarts (Random restarts for unstable fine-tuning)  -->  table-1 (The GLUE test scoreboard)
+    label: best-of-restarts feeds the scoreboard
+    Section 4.1 says BERT_LARGE fine-tuning was sometimes unstable on small datasets, so several restarts were run and the best kept on Dev. Table 1's small-data columns are exactly where that selection bites, with RTE at 2.5k training examples and MRPC at 3.5k. The table reports one number per cell and no spread, so the reader cannot see how much of the gain on those columns is the selection.
+
+e042 [minor] wnli (WNLI (Winograd NLI) and why it is excluded)  -->  table-1 (The GLUE test scoreboard)
+    label: one GLUE task quietly dropped
+    GLUE has nine tasks and Table 1 scores eight. WNLI is excluded, and the caption states plainly that the Average column therefore differs from the official GLUE score. The paper's reason is that the dataset's construction is problematic, but the effect is still that the headline 4.5 and 7.0 point averages are computed over a set the authors chose.
+
+e043 [load-bearing] squad-v1-1 (SQuAD v1.1)  -->  table-2 (BERT against the SQuAD leaderboard)
+    label: span extraction against a leaderboard
+    Table 2 puts the fine-tuned model against both published systems and live leaderboard entries. A single BERT_LARGE reaches 91.8 test F1 and the seven-model ensemble reaches 93.2, against 91.7 for the top ensemble on the board. The single model therefore edges past the best ensemble it is compared with, which is the sharper of the two claims.
+
+e044 [supporting] triviaqa-augmentation (TriviaQA data augmentation)  -->  table-2 (BERT against the SQuAD leaderboard)
+    label: augmentation worth 0.1-0.4 F1
+    BERT was fine-tuned on TriviaQA before SQuAD, which raises the question of whether the leaderboard win is extra data rather than the model. Table 2 answers it partly: the non-TriviaQA rows give 90.9 Dev F1 single and 91.8 Dev ensemble, so the paper reports losing only 0.1 to 0.4 F1 without it. Note that those rows carry Dev numbers only, so the test-set comparison is never run without the augmentation.
+
+e045 [load-bearing] squad-v2-0 (SQuAD v2.0)  -->  table-3 (SQuAD 2.0 Leaderboard Comparison)
+    label: abstention handled by the same head
+    SQuAD 2.0 allows questions with no answer in the passage. Table 3 shows a single BERT_LARGE at 83.1 test F1 against 78.0 for the best prior system, the +5.1 the paper quotes. Human performance is 89.5, so the gap to people is wider here than on SQuAD 1.1.
+
+e046 [supporting] cls-as-null-span ([CLS] as the null span)  -->  table-3 (SQuAD 2.0 Leaderboard Comparison)
+    label: null trick scores without new parameters
+    Treating an unanswerable question as a span starting and ending at [CLS] means no new task-specific machinery is added for abstention. Table 3's 83.1 F1 is the only evidence that this reuse works. There is no ablation against a separate answerability classifier, so the table shows the trick is sufficient rather than that it is the better design.
+
+e047 [load-bearing] swag-dataset (SWAG (Situations With Adversarial Generations))  -->  table-4 (The SWAG Commonsense Scoreboard)
+    label: +27.1 over the dataset baseline
+    Table 4 reports BERT_LARGE at 86.3% test accuracy on SWAG's four-way completion task. The dataset authors' ESIM+ELMo baseline sits at 59.2%, which is the +27.1 point figure, and OpenAI GPT at 78.0% gives the 8.3 point margin. The larger number is against a baseline the SWAG authors built, so the smaller GPT margin is the more informative comparison.
+
+e048 [load-bearing] deep-bidirectionality (Deep bidirectional representations)  -->  table-5 (Pre-training Task Ablation)
+    label: left-only costs 10 F1 on SQuAD
+    Table 5 compares No NSP against LTR & No NSP with the same data, hyperparameters and fine-tuning, so the only change is the direction of context. SQuAD F1 falls from 87.9 to 77.8 and MRPC from 86.5 to 77.5. MNLI moves much less, 83.9 to 82.1, so the bidirectionality argument is carried mainly by the token-level task where right-side context is obviously needed.
+
+e049 [load-bearing] next-sentence-prediction (Next Sentence Prediction (NSP))  -->  table-5 (Pre-training Task Ablation)
+    label: NSP's contribution is small
+    Removing NSP takes BERT_BASE from 88.4 to 84.9 on QNLI, which is the largest single drop. The other columns move much less: MNLI 84.4 to 83.9, SQuAD 88.5 to 87.9, SST-2 92.7 to 92.6. The paper calls this hurting performance significantly, but on three of five tasks the change is under a point, so the evidence is thinner than the wording.
+
+e050 [supporting] bilstm-on-top-of-ltr (BiLSTM on top of the LTR model)  -->  table-5 (Pre-training Task Ablation)
+    label: a repair that does not close the gap
+    Bolting a randomly initialised BiLSTM onto the left-to-right model is the paper's attempt to give that model right-side context after the fact. SQuAD F1 recovers from 77.8 to 84.9, which is a real gain, but still sits 3.6 below the bidirectional 88.5. On the GLUE columns it makes things worse, with MRPC dropping from 77.5 to 75.7.
+
+e051 [minor] ltr-rtl-concatenation-alternative (Why not concatenate LTR and RTL models)  -->  table-5 (Pre-training Task Ablation)
+    label: the ELMo-style option is argued, not run
+    Section 5.1 gives three reasons for not training separate left-to-right and right-to-left models and concatenating them: twice the cost, no way for the right-to-left half to condition an answer on the question, and strictly less power than conditioning on both sides at every layer. Table 5 contains no such run. The argument is reasoned rather than measured, so the concatenation alternative is the one competitor the ablation never puts a number on.
+
+e052 [load-bearing] effect-of-model-size (Effect of model size)  -->  table-6 (The Model-Size Ladder)
+    label: six sizes, monotonic gains
+    Table 6 lines up six separately pre-trained models from three layers to twenty-four. Held-out masked-LM perplexity falls at every step, from 5.84 down to 3.23, and the fine-tuning accuracies rise with it: MNLI from 77.9 to 86.6, MRPC from 79.8 to 87.8, SST-2 from 88.4 to 93.7. MRPC is the point of the table, because it has only 3,600 training examples and still improves at every size.
+
+e053 [supporting] few-random-parameters-hypothesis (Why fine-tuning may scale better on small data)  -->  table-6 (The Model-Size Ladder)
+    label: the explanation is stated, not tested
+    The paper suggests that fine-tuning scales to small tasks because it adds very few randomly initialised parameters, letting a small task draw on a large pre-trained representation. Table 6 shows the scaling but tests only the fine-tuning setting. No matching size ladder is run under the feature-based approach, so the proposed reason for the contrast with earlier feature-based results is left as a hypothesis.
+
+e054 [load-bearing] feature-based-approach-with-bert (Feature-based approach with BERT)  -->  table-7 (Fine-tuned versus frozen BERT on NER)
+    label: frozen BERT nearly matches fine-tuning
+    Table 7 runs CoNLL-2003 NER both ways from the same pre-trained model. Fine-tuned BERT_BASE reaches 96.4 Dev F1; the best frozen-feature setup reaches 96.1, which is the 0.3 F1 gap the paper cites. The frozen rows report Dev scores only, so the comparison is never repeated on test.
+
+e055 [supporting] concat-last-four-layers (Concatenating the top four hidden layers)  -->  table-7 (Fine-tuned versus frozen BERT on NER)
+    label: which layers to tap
+    Table 7 sweeps the extraction choice and the spread is wide at the bottom end. Static embeddings alone give 91.0 Dev F1, the last hidden layer gives 94.9, and concatenating the top four gives 96.1. The interesting part is that the last layer is worse than the second-to-last at 95.6, which suggests the top layer has specialised toward the pre-training objectives.
+
+e056 [supporting] masking-recipe-80-10-10 (The 80/10/10 masking recipe)  -->  table-8 (The masking mixture ablation)
+    label: the recipe barely matters when fine-tuning
+    The 80/10/10 mixture is justified as reducing the pre-train/fine-tune mismatch, since [MASK] never appears at fine-tuning time. Table 8 tests six mixtures and the fine-tuned MNLI column moves within a range of 0.8 points, from 83.6 to 84.4. Using [MASK] 100% of the time actually scores 84.3 against the recipe's 84.2, so on this evidence the mixture is not what makes fine-tuned BERT work.
+
+e057 [supporting] feature-based-amplifies-mask-mismatch (Why the feature-based setting amplifies the mismatch)  -->  table-8 (The masking mixture ablation)
+    label: mismatch shows only when frozen
+    With BERT frozen, the model cannot adapt away a habit formed in pre-training, so a mismatch should show up more sharply. Table 8's feature-based NER column is where the recipe earns its keep: 94.9 for 80/10/10 against 94.0 for 100% [MASK]. That 0.9 point gap is the clearest effect in the table, and it is still under a point.
+
+e058 [supporting] training-steps-and-epochs (1,000,000 steps at 128,000 tokens per batch)  -->  fig-5 (MLM vs. Left-to-Right Over a Million Steps)
+    label: is a million steps needed
+    Figure 5 fine-tunes from checkpoints taken at increasing pre-training step counts and plots MNLI Dev accuracy. The paper reads off roughly 1.0 point between 500k and 1M steps, which is its answer to whether the full budget is required. The curve is close to flat over the last stretch, moving only a few tenths from 800k to 1M, so the case for going further than a million steps is not made here.
+
+e059 [load-bearing] mlm-convergence-cost (MLM's slower convergence)  -->  fig-5 (MLM vs. Left-to-Right Over a Million Steps)
+    label: slower per step, ahead in accuracy
+    Masked LM predicts only 15% of tokens per batch, so it gets fewer gradient signals per step than a left-to-right model and should converge more slowly. Figure 5 shows exactly that in the curve shapes, while the masked LM line still sits above the left-to-right line for almost the whole run. At the earliest checkpoint the left-to-right model is actually ahead, so the paper's phrase about outperforming almost immediately is right about almost and not about immediately.
+
+e060 [load-bearing] c-vector-classification-head (C-vector classification head)  -->  eq-classification-loss (The GLUE Classification Head)
+    label: one matrix is the whole head
+    For a GLUE task the model takes C, the final hidden vector at the [CLS] position, multiplies it by one new weight matrix W of shape K by H, and applies a softmax. That expression is the entire task-specific model. Everything else in the network was already pre-trained.
+
+e061 [supporting] minimal-task-specific-parameters (Minimal task-specific parameters)  -->  eq-classification-loss (The GLUE Classification Head)
+    label: counting the new weights
+    The design goal is that adapting to a new task should add as few new weights as possible. Walk the count for a three-way task like MNLI: K is 3 and H is 1024, so W holds 3,072 numbers. That is set against 340 million pre-trained parameters, which is the concrete form the claim takes.
+
+e062 [load-bearing] start-and-end-vectors (Start vector S and end vector E)  -->  eq-span-start-probability (The start-position softmax)
+    label: one vector per span endpoint
+    For question answering the paper adds a start vector S and an end vector E, each of dimension H. The start probability for token i is the softmax of S dotted with that token's final vector, taken over all tokens in the paragraph. So the head is two vectors and a softmax, not an attention module between question and passage the way earlier reading-comprehension systems were built.
+
+e063 [load-bearing] span-score-and-decoding (Span score and maximum-scoring-span decoding)  -->  eq-span-score (The additive span score)
+    label: start plus end, best pair wins
+    A candidate span from token i to token j scores as S dotted with T_i plus E dotted with T_j, and the prediction is the highest-scoring pair with j at or after i. The score is additive, which means start and end are chosen jointly at decoding time but the two distributions were trained independently. Nothing in the score checks that the resulting span is a sensible phrase.
+
+e064 [load-bearing] null-span-score (Null score s_null)  -->  eq-null-answer-threshold (The Null-Answer Threshold Rule)
+    label: abstention scored like a span
+    On SQuAD 2.0 the no-answer score is s_null equals S dotted with C plus E dotted with C, using the same start and end vectors against the [CLS] vector. Abstaining is therefore just another candidate span in the same score space. No separate answerability classifier is introduced.
+
+e065 [supporting] tau-threshold (Threshold τ for answering)  -->  eq-null-answer-threshold (The Null-Answer Threshold Rule)
+    label: one number tuned on dev
+    A non-null answer is predicted only when the best span beats s_null by more than a threshold tau. That tau is picked on the development set to maximise F1, which is a free parameter fitted to the same metric the paper then reports on test. The paper gives no value for tau and no sensitivity curve, so how much the SQuAD 2.0 result depends on that choice is not shown.
+
+=== INSTANCE-OF  (a specific case or setting of a general thing) - 34 edges ===
+
+e066 [load-bearing] bert (BERT)  -->  fine-tuning-approach (Fine-tuning approach)
+    label: BERT is a fine-tuning method
+    The paper's own taxonomy splits transfer into feature-based and fine-tuning. BERT sits in the second box: it adds one small output layer and then trains every pre-trained parameter on the labeled task. Reading BERT as an instance of that strategy is what makes its comparison with OpenAI GPT a like-for-like one.
+
+e067 [supporting] language-model-pre-training (Language model pre-training)  -->  transfer-learning (Transfer learning)
+    label: pre-training as transfer learning
+    Transfer learning is the general move of training on one thing and reusing the weights on another. Language model pre-training is the particular version the paper works in, where the first task is predicting text from unlabeled text.
+
+e068 [supporting] elmo (ELMo)  -->  feature-based-approach (Feature-based approach)
+    label: ELMo realizes the feature-based route
+    ELMo is the paper's worked example of keeping a pre-trained model fixed and feeding its outputs into a separate task model as extra features. Its two independently trained directional LSTMs are then the concrete thing BERT's deep bidirectionality is set against.
+
+e069 [supporting] openai-gpt (OpenAI GPT)  -->  fine-tuning-approach (Fine-tuning approach)
+    label: GPT realizes the fine-tuning route
+    OpenAI GPT is the specific prior system that pre-trains a Transformer and then fine-tunes all of it downstream. Because it belongs to the same family as BERT, the paper can attribute the gap between them to the objective rather than to the transfer strategy.
+
+e070 [load-bearing] bert-model-architecture (BERT's model architecture)  -->  transformer-encoder (Transformer encoder)
+    label: a particular Transformer encoder stack
+    The paper says its architecture is a multi-layer bidirectional Transformer encoder, almost identical to the original implementation, and declines to re-describe it. So BERT's encoder is one configured instance of the cited Transformer encoder, not a new design.
+
+e071 [load-bearing] bidirectional-self-attention (Bidirectional self-attention)  -->  self-attention (Self-attention)
+    label: self-attention with no mask
+    Self-attention in general lets each position mix information from the positions it may attend to. Bidirectional self-attention is the case where that permitted set is the whole sequence, left and right, at every layer.
+
+e072 [supporting] constrained-self-attention (Constrained (left-context-only) self-attention)  -->  self-attention (Self-attention)
+    label: self-attention masked to the left
+    The GPT Transformer runs the same operation but with a mask that hides every position to the right of the current token. The paper notes this is the only architectural difference between BERT_BASE and GPT, apart from the masking.
+
+e073 [supporting] bert-base-and-bert-large (BERT_BASE and BERT_LARGE)  -->  model-size-notation (Model size notation: L, H, A)
+    label: two settings of L, H, A
+    L, H and A are the paper's three dials: layers, hidden size, attention heads. BERT_BASE fixes them at 12, 768 and 12 for 110M parameters; BERT_LARGE at 24, 1024 and 16 for 340M. Every reported result belongs to one of these two settings.
+
+e074 [minor] wordpiece-vocabulary-30k (30,000-token vocabulary)  -->  wordpiece-tokenization (WordPiece embeddings)
+    label: the vocabulary size actually used
+    WordPiece is a general subword scheme; the size of its vocabulary is a free choice. BERT sets it to 30,000 tokens, which also fixes the width of the masked LM output softmax.
+
+e075 [supporting] masked-language-model (Masked LM (MLM))  -->  cloze-task (Cloze task)
+    label: MLM is a cloze task
+    The paper names its own objective a masked LM, then adds that this is what the literature has long called a Cloze task, citing Taylor (1953). Delete a word, ask a reader to restore it from what surrounds it on both sides: BERT's pre-training objective is that procedure run at scale.
+
+e076 [supporting] masking-rate-15-percent (15% masking rate)  -->  masked-language-model (Masked LM (MLM))
+    label: the rate MLM is run at
+    MLM says mask some fraction of tokens and predict them. The paper fixes that fraction at 15% of WordPiece positions, uniformly, in every experiment. The choice is stated rather than tuned, and it is also what leaves only 15% of positions producing gradient per batch.
+
+e077 [load-bearing] masking-recipe-80-10-10 (The 80/10/10 masking recipe)  -->  mask-same-rnd-strategies (MASK, SAME and RND)
+    label: BERT's mixture of the three strategies
+    Once a token is selected for prediction, three things can happen to it: MASK, SAME or RND. BERT's recipe is one particular mixture of those three, 80/10/10. Appendix C.2 varies the mixture and reports that fine-tuning barely moves, so the recipe is a choice the results do not strongly force.
+
+e078 [supporting] mask-token ([MASK] token)  -->  pretrain-finetune-mismatch (Pre-train / fine-tune mismatch)
+    label: the mismatch BERT actually has
+    A pre-train/fine-tune mismatch is any difference between training conditions and downstream conditions. BERT's concrete case is the [MASK] symbol: it is everywhere during pre-training and never appears at fine-tuning time. The 80/10/10 recipe exists to soften exactly this instance.
+
+e079 [supporting] final-hidden-vector-c (C, the final [CLS] vector)  -->  final-hidden-vector-ti (T_i, the final vector for token i)
+    label: C is T at the [CLS] position
+    T_i is the notation for the top-layer vector at any position i. C is that same vector taken at position zero, where [CLS] sits, and given its own name because so many output heads read it. Both live in R^H.
+
+e080 [supporting] bookscorpus (BooksCorpus (800M words))  -->  document-level-corpus (Document-level corpus)
+    label: one of the two document corpora
+    The paper insists on a corpus that keeps documents intact, so long contiguous spans can be sampled. BooksCorpus, at 800M words of unpublished books, is one of the two sources chosen to meet that requirement.
+
+e081 [minor] english-wikipedia-corpus (English Wikipedia (2,500M words))  -->  document-level-corpus (Document-level corpus)
+    label: the larger document-level source
+    English Wikipedia contributes 2,500M words, with lists, tables and headers stripped so only running text remains. Together with BooksCorpus it makes the roughly 3.3 billion word corpus, and both are picked for keeping documents whole.
+
+e082 [supporting] packed-question-passage-sequence (Question and passage as one packed sequence)  -->  sentence-pair-packing (Sentence A / sentence B packing)
+    label: QA as an A/B pair
+    Pre-training already teaches BERT to read two spans packed into one sequence, tagged A and B. SQuAD reuses that format directly: the question takes the A embedding and the passage takes B. No new input machinery is added for question answering.
+
+e083 [supporting] degenerate-text-pair (Degenerate text-∅ pair)  -->  sentence-pair-packing (Sentence A / sentence B packing)
+    label: single text as an empty-B pair
+    Classification and tagging have only one input text, so there is nothing to put in slot B. The paper handles this by calling it a degenerate text-empty pair, which keeps single-text tasks inside the same packing format rather than needing a second one.
+
+e084 [load-bearing] c-vector-classification-head (C-vector classification head)  -->  task-specific-output-layer (One additional output layer)
+    label: GLUE's one added layer
+    The design goal is that a task adds a single output layer. For GLUE that layer is one weight matrix W in R^(K x H) applied to C, where K is the number of labels. That matrix is the only new parameter set fine-tuning introduces.
+
+e085 [load-bearing] span-prediction-head (Start/end vector span prediction head)  -->  task-specific-output-layer (One additional output layer)
+    label: SQuAD's one added layer
+    Extractive question answering adds only two H-dimensional vectors, S and E. Dotted against each token's final vector they give a start distribution and an end distribution over the passage. Prior SQuAD systems carried purpose-built attention machinery instead.
+
+e086 [supporting] swag-multiple-choice-head (Four packed sequences scored by one vector)  -->  task-specific-output-layer (One additional output layer)
+    label: SWAG's one added vector
+    Each of the four candidate continuations is packed with the context into its own sequence. A single learned vector is dotted with each sequence's C, and a softmax over the four scores picks the answer. One vector is the entire task-specific model.
+
+e087 [supporting] c-vector-classification-head (C-vector classification head)  -->  eq-classification-loss (The GLUE Classification Head)
+    label: defined by log softmax(CW^T)
+    The GLUE head is not described in prose beyond the expression that introduces it. Take C, multiply by W transposed, softmax, take the log: that inline equation is the whole classification model.
+
+e088 [supporting] span-prediction-head (Start/end vector span prediction head)  -->  eq-span-start-probability (The start-position softmax)
+    label: defined by the start softmax
+    The start head is exactly the equation P_i = exp(S.T_i) / sum_j exp(S.T_j). One learned vector S scores every passage token, and the softmax turns those scores into a distribution over start positions. The end head is the same formula with E.
+
+e089 [supporting] span-score-and-decoding (Span score and maximum-scoring-span decoding)  -->  eq-span-score (The additive span score)
+    label: defined by S.T_i + E.T_j
+    A candidate answer running from i to j gets its score by adding the start score at i to the end score at j. The prediction is the highest-scoring pair with j at or after i. That addition, and that constraint, are the whole decoding rule.
+
+e090 [supporting] tau-threshold (Threshold τ for answering)  -->  eq-null-answer-threshold (The Null-Answer Threshold Rule)
+    label: defined by the answering rule
+    Tau is only meaningful inside the rule that introduces it: a non-null answer is emitted when the best span's score exceeds s_null plus tau. The paper picks tau on the dev set to maximise F1, so it is a tuned knob rather than a derived quantity.
+
+e091 [load-bearing] null-span-score (Null score s_null)  -->  span-score-and-decoding (Span score and maximum-scoring-span decoding)
+    label: abstaining scored as a span
+    s_null = S.C + E.C is the ordinary span score with both ends placed at [CLS]. Nothing new is computed; the same S and E vectors are read against the same kind of hidden vector. That is how abstention enters the same probability space as real answers.
+
+e092 [supporting] cls-as-null-span ([CLS] as the null span)  -->  cls-token ([CLS] token)
+    label: a second job for [CLS]
+    [CLS] was introduced as the aggregate representation of the sequence. SQuAD 2.0 gives it a further specific use: an unanswerable question is treated as a span that starts and ends there, so 'no answer' becomes just another position.
+
+e093 [supporting] squad-v1-1 (SQuAD v1.1)  -->  question-answering (Question answering)
+    label: the extractive QA dataset used
+    Question answering in general can mean generating an answer. SQuAD v1.1 is the extractive case: over 100,000 crowdsourced questions whose answers are spans of a supplied Wikipedia passage, which is what lets a start/end head suffice.
+
+e094 [supporting] conll-2003-ner (CoNLL-2003 NER)  -->  named-entity-recognition (Named entity recognition)
+    label: the NER dataset used here
+    CoNLL-2003 is the shared-task dataset that stands in for named entity recognition throughout the paper. It carries both the feature-based comparison in Section 5.3 and the masking ablation in Appendix C.2.
+
+e095 [supporting] mnli (MNLI (Multi-Genre NLI))  -->  natural-language-inference (Natural language inference)
+    label: the largest entailment dataset used
+    MNLI is the crowdsourced multi-genre realization of the entailment task, with three labels per sentence pair. The paper calls it the largest and most widely reported GLUE task, and reports a 4.6 point absolute accuracy gain on it.
+
+e096 [load-bearing] feature-based-approach-with-bert (Feature-based approach with BERT)  -->  feature-based-approach (Feature-based approach)
+    label: BERT used as frozen features
+    Section 5.3 applies the general feature-based strategy to BERT itself: freeze the encoder, extract activations, train something else on top. It is included to show the pre-trained model is not only useful when fine-tuned, and the best frozen variant lands 0.3 F1 behind full fine-tuning on NER.
+
+e097 [supporting] frozen-feature-bilstm-classifier (Two-layer 768-dimensional BiLSTM over frozen features)  -->  task-specific-architecture (Task-specific architecture)
+    label: the model built on frozen features
+    The feature-based route needs a separate hand-built model to receive the features. Here that model is a randomly initialised two-layer 768-dimensional BiLSTM sitting under the tag classifier.
+
+e098 [load-bearing] ltr-no-nsp-ablation (LTR & No NSP)  -->  left-to-right-language-model (Left-to-right language model)
+    label: an in-house left-to-right model
+    To charge a score drop to bidirectionality rather than to data or scale, the paper trains a left-to-right model itself, on the same corpus and with the same fine-tuning. It is the closest stand-in for GPT the authors control, and Table 5 reports it losing badly on SQuAD.
+
+e099 [supporting] glue-fine-tuning-protocol (GLUE fine-tuning protocol)  -->  fine-tuning-hyperparameters (Fine-tuning hyperparameter grid)
+    label: one point in the fine-tuning grid
+    The general grid offers batch sizes 16 or 32, learning rates 5e-5, 3e-5 or 2e-5, and 2, 3 or 4 epochs. GLUE pins batch size at 32 and epochs at 3 for every task, leaving only the learning rate to be chosen per task on Dev.
+
+=== CONTRASTS-WITH  (alternatives, tensions, trade-offs) - 39 edges ===
+
+e100 [load-bearing] feature-based-approach (Feature-based approach)  -->  fine-tuning-approach (Fine-tuning approach)
+    label: two ways to reuse pre-training
+    The paper opens by sorting all prior pre-training work into two camps. One camp freezes the pre-trained model and feeds its vectors into a hand-built task architecture as extra features. The other adds almost no new weights and trains every pre-trained parameter further on the task's labeled data.
+
+e101 [supporting] elmo (ELMo)  -->  openai-gpt (OpenAI GPT)
+    label: frozen features versus fine-tuned weights
+    These are the paper's two named representatives of the two transfer strategies, and it treats them as rivals. On GLUE, Table 1 puts BiLSTM+ELMo+Attn at 71.0 average and OpenAI GPT at 75.1. On SWAG the gap is wider still: ESIM+ELMo reaches 59.2 test accuracy against GPT's 78.0.
+
+e102 [load-bearing] bert (BERT)  -->  openai-gpt (OpenAI GPT)
+    label: bidirectional against left-to-right
+    GPT is the method BERT is set up to be measured against, and Appendix A.4 calls it the most comparable existing approach. Both pre-train a Transformer and then fine-tune every parameter. The stated difference is that GPT's tokens attend only leftward, while BERT's attend in both directions at every layer.
+
+e103 [load-bearing] deep-bidirectionality (Deep bidirectional representations)  -->  shallow-concatenation (Shallow concatenation of two directional models)
+    label: joint conditioning versus late joining
+    Both designs aim to give a token access to text on both sides of it. Shallow concatenation trains a left-to-right model and a right-to-left model separately, then glues their outputs together at the end. BERT instead conditions on both sides inside every layer, which the paper argues is the stronger of the two.
+
+e104 [load-bearing] bidirectional-self-attention (Bidirectional self-attention)  -->  constrained-self-attention (Constrained (left-context-only) self-attention)
+    label: attend everywhere versus attend leftward
+    The two are the same operation with different masks over which positions a token may look at. Constrained attention blanks out everything to a token's right, which is what makes standard left-to-right pre-training possible. Removing that mask is the single architectural change the paper says separates BERT from GPT.
+
+e105 [load-bearing] masked-language-model (Masked LM (MLM))  -->  left-to-right-language-model (Left-to-right language model)
+    label: competing pre-training objectives
+    A left-to-right language model predicts each token from what came before it, so each prediction sees one side only. Masked LM instead hides a random subset of tokens and predicts them from both sides at once. The paper's whole case is that swapping the first objective for the second is what buys the downstream gains.
+
+e106 [supporting] mlm-convergence-cost (MLM's slower convergence)  -->  left-to-right-language-model (Left-to-right language model)
+    label: slower per step, better per point
+    A left-to-right model gets a training signal at every position, while masked LM only gets one at the 15% of positions it hid. Appendix C.1 confirms the consequence the reader would expect: MLM does converge slightly slower. It also reports that MLM's absolute MNLI accuracy overtakes the left-to-right model's almost immediately, so the paper treats the slower convergence as a price worth paying.
+
+e107 [supporting] ltr-rtl-concatenation-alternative (Why not concatenate LTR and RTL models)  -->  deep-bidirectionality (Deep bidirectional representations)
+    label: three reasons against two models
+    Section 5.1 grants that one could train separate left-to-right and right-to-left models and concatenate them, as ELMo does, and then gives three reasons not to. It costs twice as much as one bidirectional model. It is awkward for question answering, since the right-to-left half cannot condition the answer on the question. And the paper calls it strictly less powerful than conditioning on both sides at every layer.
+
+e108 [load-bearing] mask-token ([MASK] token)  -->  pretrain-finetune-mismatch (Pre-train / fine-tune mismatch)
+    label: bidirectionality bought with a mismatch
+    The [MASK] placeholder is what makes bidirectional prediction trainable at all. But [MASK] never appears in any downstream task, so the model spends pre-training in conditions it will never meet again. The paper names this cost plainly as a downside of its own objective.
+
+e109 [supporting] masking-recipe-80-10-10 (The 80/10/10 masking recipe)  -->  mask-token ([MASK] token)
+    label: mixed recipe versus always masking
+    The simplest thing to do with a selected token is replace it with [MASK] every time; BERT instead does so only 80% of the time. Table 8 puts the two side by side. Under fine-tuning the mixture barely matters, 84.2 against 84.3 on MNLI, but in the frozen feature-based NER setting the all-[MASK] run drops from 94.9 to 94.0.
+
+e110 [load-bearing] fine-tuning-bert (Fine-tuning BERT)  -->  feature-based-approach-with-bert (Feature-based approach with BERT)
+    label: update the weights or freeze them
+    Section 5.3 runs BERT both ways on CoNLL-2003 NER to price the difference. Fine-tuning the whole model reaches 96.4 Dev F1 for BERT_BASE; freezing it and concatenating the top four layers reaches 96.1, which is 0.3 F1 behind. The paper reads that small gap as showing BERT works in either mode, and notes the frozen route's own advantages: it suits tasks a Transformer encoder cannot express, and its representations can be computed once and reused across many cheap experiments.
+
+e111 [supporting] feature-based-amplifies-mask-mismatch (Why the feature-based setting amplifies the mismatch)  -->  fine-tuning-approach (Fine-tuning approach)
+    label: who can absorb the mismatch
+    Fine-tuning lets every weight move during task training, so a model can adjust away from habits formed around [MASK]. A frozen model has no such chance. Appendix C.2 predicts on that basis that the masking mismatch will show up more sharply in the feature-based setting, and Table 8 is consistent with the prediction.
+
+e112 [load-bearing] no-nsp-ablation (No NSP)  -->  ltr-no-nsp-ablation (LTR & No NSP)
+    label: isolating bidirectionality from NSP
+    These two cut-down models are trained on the same data, with the same fine-tuning scheme and hyperparameters, and differ in one thing: whether the pre-training objective sees both sides. Comparing them charges the difference to bidirectionality alone. The left-to-right model is worse on all five reported tasks, with MRPC falling from 86.5 to 77.5 and SQuAD F1 from 87.9 to 77.8.
+
+e113 [supporting] next-sentence-prediction (Next Sentence Prediction (NSP))  -->  no-nsp-ablation (No NSP)
+    label: with and without the sentence-pair loss
+    No NSP is BERT_BASE with the second pre-training task deleted and nothing else changed. Table 5 shows the drops it causes: QNLI from 88.4 to 84.9, MNLI from 84.4 to 83.9, SQuAD F1 from 88.5 to 87.9. The paper calls the QNLI, MNLI and SQuAD losses significant, which is the evidence behind its claim that NSP helps question answering and inference.
+
+e114 [supporting] bilstm-on-top-of-ltr (BiLSTM on top of the LTR model)  -->  deep-bidirectionality (Deep bidirectional representations)
+    label: bolted-on right context falls short
+    To be fair to the left-to-right model, the authors added a randomly initialised BiLSTM above it so that right-side context was available somewhere. On SQuAD this lifts F1 from 77.8 to 84.9. That is still well below the 88.5 the bidirectionally pre-trained model reaches, which the paper offers as evidence that supplying right context late does not substitute for pre-training with it.
+
+e115 [supporting] bilstm-on-top-of-ltr (BiLSTM on top of the LTR model)  -->  ltr-no-nsp-ablation (LTR & No NSP)
+    label: helps SQuAD, hurts GLUE
+    The added BiLSTM is a case where two sets of numbers point opposite ways. SQuAD F1 rises by 7.1 points, from 77.8 to 84.9. MRPC falls from 77.5 to 75.7 and SST-2 from 92.1 to 91.6, so the paper states plainly that the BiLSTM hurts the GLUE tasks.
+
+e116 [supporting] attention-quadratic-cost (Attention is quadratic in sequence length)  -->  sequence-length-schedule (128-then-512 sequence length schedule)
+    label: speed traded against long positions
+    Attention scores every pair of positions, so long sequences are disproportionately expensive. Training entirely at length 512 would be slow; training entirely at 128 would leave the higher position embeddings untrained. The schedule splits the difference, spending 90% of steps at length 128 and the final 10% at 512 specifically to learn the longer-range position embeddings.
+
+e117 [supporting] task-specific-architecture (Task-specific architecture)  -->  minimal-task-specific-parameters (Minimal task-specific parameters)
+    label: hand-built model versus one layer
+    The feature-based route assumes a model designed by hand for each task, into which pre-trained vectors are inserted. The fine-tuning route treats new weights as something to minimise. BERT's contribution list makes the contrast a claim: pre-trained representations reduce the need for heavily-engineered task-specific architectures.
+
+e118 [supporting] unified-architecture-across-tasks (Unified architecture across tasks)  -->  separate-fine-tuned-models-per-task (One fine-tuned model per task)
+    label: one architecture, eleven models
+    The paper calls it a distinctive feature that the pre-trained network and the downstream network differ only minimally. That uniformity is about shape, not about weights. Every task still ends up with its own fully fine-tuned copy, so eleven tasks means eleven models branching from one checkpoint.
+
+e119 [supporting] prior-squad-systems (Prior published SQuAD systems)  -->  span-prediction-head (Start/end vector span prediction head)
+    label: attention machinery versus two vectors
+    The published SQuAD systems Table 2 compares against are purpose-built reading-comprehension models with attention machinery between question and passage. BERT's entire task-specific addition is a start vector S and an end vector E, each dotted with the token representations. The point of the comparison is that the smaller head scores higher: 91.8 test F1 for a single fine-tuned BERT_LARGE against 88.5 for the best published ensemble.
+
+e120 [supporting] self-attention-unifies-cross-attention (Self-attention subsuming cross-attention)  -->  bidirectional-cross-attention (Bidirectional cross attention)
+    label: concatenate instead of cross-attend
+    The usual way to relate two texts is to encode each one separately and then run attention between them in both directions. BERT packs both texts into one sequence and runs ordinary self-attention over the whole thing. The paper's argument is that this already includes the cross attention, so the separate mechanism is not needed.
+
+e121 [supporting] effect-of-model-size (Effect of model size)  -->  prior-scaling-evidence (Prior mixed evidence on scaling)
+    label: strict gains against mixed prior results
+    Earlier work had found scaling less reliable: one result reported mixed effects from going from two to four bi-LM layers, another that raising hidden size from 200 to 600 helped but going to 1,000 did not. Table 6 instead shows accuracy rising at every step of the ladder on all four tasks, including MRPC with only 3,600 training examples. The paper notes that both earlier results used a feature-based approach, and hypothesises that fine-tuning with few randomly initialised parameters is what let
+
+e122 [supporting] gpt-size-match (Deliberate size match with OpenAI GPT)  -->  bert-elmo-gpt-comparison (BERT vs. ELMo vs. OpenAI GPT)
+    label: matched size, unmatched training
+    BERT_BASE was deliberately given GPT's parameter count so the comparison would isolate bidirectionality rather than capacity. Appendix A.4 then lists what is still not matched: BERT adds Wikipedia to BooksCorpus, learns [SEP], [CLS] and segment embeddings during pre-training rather than at fine-tuning, uses a four-times larger batch, and tunes the fine-tuning learning rate per task. The paper acknowledges these differences and points to the Section 5.1 ablations as its answer to them.
+
+e123 [supporting] fine-tuning-cost (Fine-tuning cost)  -->  pre-training-procedure (Pre-training procedure)
+    label: four days once, an hour each
+    Pre-training BERT_LARGE took four days on 16 Cloud TPUs, which is the expensive half of the recipe and is paid once. Fine-tuning any of the paper's results takes at most an hour on a single Cloud TPU. The lopsidedness is what makes the exhaustive hyperparameter search and the random restarts affordable.
+
+e124 [supporting] bert-base-and-bert-large (BERT_BASE and BERT_LARGE)  -->  fine-tuning-random-restarts (Random restarts for unstable fine-tuning)
+    label: bigger model, less stable fine-tuning
+    BERT_LARGE beats BERT_BASE on every GLUE task, and the paper says the margin is largest where training data is scarcest. The same section reports that BERT_LARGE fine-tuning was sometimes unstable on those small datasets. The fix was to run several restarts from the same checkpoint with different shuffling and classifier initialisation, and keep the best on Dev, so part of the reported gain rests on that selection.
+
+e125 [supporting] document-level-corpus (Document-level corpus)  -->  billion-word-benchmark (Billion Word Benchmark (as a counter-example))
+    label: documents versus shuffled sentences
+    BERT needs long contiguous text, both to sample 512-token sequences and to have a genuine next sentence for NSP. The Billion Word Benchmark is named as the kind of corpus that cannot supply this, because its sentences are shuffled. The paper calls keeping documents intact critical, which makes the choice of corpus a constraint rather than a convenience.
+
+e126 [supporting] wnli (WNLI (Winograd NLI) and why it is excluded)  -->  majority-class-baseline (Majority-class baseline)
+    label: no system beats the floor
+    WNLI is one of GLUE's nine tasks but is left out of the paper's reported results. The stated reason is that the set's construction is problematic. Always predicting the most frequent label is the floor any real system should clear, and on WNLI it is not reliably cleared.
+
+e127 [minor] glue-score (GLUE leaderboard score)  -->  wnli (WNLI (Winograd NLI) and why it is excluded)
+    label: official score versus paper's average
+    Table 1's Average column is not the official GLUE number, because WNLI is excluded from it. The two therefore differ: the table reports 82.1 for BERT_LARGE, while the official leaderboard score quoted in the text is 80.5 against GPT's 72.8. A reader comparing across sources needs to know which of the two averages is being quoted.
+
+e128 [supporting] squad-v1-1 (SQuAD v1.1)  -->  squad-v2-0 (SQuAD v2.0)
+    label: answer guaranteed versus not
+    In v1.1 the passage always contains the answer, so the model only has to find it. v2.0 drops that guarantee, and some questions must be answered with an abstention. The paper calls the second setting more realistic, and it requires an extra decision the first never asks for.
+
+e129 [supporting] cls-as-null-span ([CLS] as the null span)  -->  answer-span (Answer span)
+    label: abstention dressed as a span
+    Every prediction in SQuAD v1.1 is a stretch of passage tokens with a start and an end. For unanswerable questions there is no such stretch. The paper's move is to treat abstention as a span that starts and ends at [CLS], so refusing to answer competes in the same probability space as answering.
+
+e130 [supporting] tau-threshold (Threshold τ for answering)  -->  null-span-score (Null score s_null)
+    label: how much evidence to answer
+    The null score is what abstaining is worth, and the best real span is what answering is worth. Simply taking the higher of the two would set the balance implicitly. Instead a non-null answer is predicted only when it beats the null score by a margin τ, and τ is chosen on the dev set to maximise F1, so the trade between answering and abstaining is tuned rather than assumed.
+
+e131 [supporting] triviaqa-augmentation (TriviaQA data augmentation)  -->  squad-leaderboard-public-data-rules (SQuAD leaderboard conditions)
+    label: extra data to match rivals
+    The leaderboard entries BERT is compared against have no up-to-date public descriptions and are allowed to train on any public data. Fine-tuning on TriviaQA before SQuAD is described as modest augmentation to put BERT on the same footing. The paper also reports how little it depends on: without TriviaQA the system loses only 0.1 to 0.4 F1 and still leads.
+
+e132 [minor] exact-match-and-f1 (Exact Match and F1 on SQuAD)  -->  answer-span (Answer span)
+    label: exact span versus overlap credit
+    SQuAD scores the same prediction two ways. Exact Match counts it only if the span is exactly right, while F1 gives partial credit for token overlap. The two disagree by several points on every row of Table 2, with BERT_LARGE at 85.1 EM against 91.8 F1 on test, so which metric is quoted changes how large a margin looks.
+
+e133 [supporting] ensembling (Ensembling)  -->  table-2 (BERT against the SQuAD leaderboard)
+    label: seven models for 1.4 F1
+    Table 2 reports a single fine-tuned BERT_LARGE at 91.8 test F1 and a seven-model ensemble at 93.2. The ensemble uses different pre-training checkpoints and fine-tuning seeds, so it costs seven runs rather than one. The paper is explicit that the single model already beats the top leaderboard ensemble, which puts the extra 1.4 F1 in perspective.
+
+e134 [minor] concat-last-four-layers (Concatenating the top four hidden layers)  -->  final-hidden-vector-ti (T_i, the final vector for token i)
+    label: top layer alone loses ground
+    The obvious feature to extract from a frozen BERT is the top-layer vector for each token. Table 7 shows that choice scoring 94.9 Dev F1 on NER. Concatenating the top four layers instead reaches 96.1, so where the features are tapped from matters by more than a point.
+
+e135 [minor] tagging-without-crf (Tagging without a CRF layer)  -->  frozen-feature-bilstm-classifier (Two-layer 768-dimensional BiLSTM over frozen features)
+    label: architecture dropped, then re-added
+    For fine-tuned NER the output is a plain per-token classifier, with no conditional random field on top, in keeping with the goal of adding as few new weights as possible. The frozen setting cannot be that thin. It puts a randomly initialised two-layer 768-dimensional BiLSTM between the extracted features and the classifier, which is task-specific architecture coming back in.
+
+e136 [supporting] full-parameter-transfer-vs-sentence-embeddings (Transferring all parameters, not just sentence embeddings)  -->  sentence-embeddings (Sentence embeddings)
+    label: all weights versus one vector
+    Earlier sentence-representation objectives resemble NSP in what they train on. The paper's stated difference is in what crosses over to the downstream task. Those methods transfer a sentence embedding; BERT transfers every parameter to initialise the end-task model.
+
+e137 [minor] c-not-a-sentence-representation (C is not a sentence representation without fine-tuning)  -->  final-hidden-vector-c (C, the final [CLS] vector)
+    label: aggregate vector is not a sentence vector
+    C is the final hidden state at [CLS] and is used as the aggregate representation of the input for classification. A footnote warns against reading more into it. Because it was trained only through NSP, the paper says it is not a meaningful sentence representation before fine-tuning.
+
+e138 [supporting] pre-trained-word-embeddings (Pre-trained word embeddings)  -->  contextual-representations (Contextual representations)
+    label: one vector per word type
+    Pre-trained word embeddings give each word form a single vector, fixed no matter where it appears. Contextual representations give the same word form different vectors in different sentences. The paper places both under language model pre-training and treats the move from the first to the second as the line its own work extends.
+
+=== EVIDENCE ITEMS (linkable as [[fig-1]] etc.) ===
+  fig-1 | The Same Stack, Twice: The figure claims that pre-training and fine-tuning use one and the same network: an identical token-in, vector-out Transformer encoder appears in both panels, 
+  fig-2 | The Three-Row Input Sum: Every token BERT reads is a single vector formed by adding three learned vectors together: what the token is, which of the two packed spans it belongs to, and w
+  table-1 | The GLUE test scoreboard: On the eight scored GLUE tasks, both BERT sizes beat every prior system in every column, lifting the average by 4.5 points (BERT_BASE) and 7.0 points (BERT_LARG
+  table-2 | BERT against the SQuAD leaderboard: On SQuAD 1.1 span extraction, a fine-tuned BERT_LARGE ensemble reaches 93.2 test F1 and a single fine-tuned BERT_LARGE reaches 91.8, which the paper reports as 
+  table-3 | SQuAD 2.0 Leaderboard Comparison: On SQuAD 2.0, where some questions have no answer in the passage, a single fine-tuned BERT_LARGE reaches 83.1 Test F1 against 78.0 for the best prior entry the 
+  table-4 | The SWAG Commonsense Scoreboard: On SWAG's four-way sentence-completion task, BERT_LARGE reaches 86.3% test accuracy, which the paper reports as +27.1 points over the dataset authors' own ESIM+
+  table-5 | Pre-training Task Ablation: Holding architecture, data and fine-tuning fixed, the table charges each drop in score to one removed piece of the pre-training recipe. Dropping next sentence p
+  table-6 | The Model-Size Ladder: Six separately pre-trained BERT models, from 3 layers up to 24, are lined up smallest to largest: held-out masked-LM perplexity falls at every step (5.84 to 3.2
+  table-7 | Fine-tuned versus frozen BERT on NER: On CoNLL-2003 named entity recognition, BERT scores close to the best published systems when fine-tuned, and — the point of the table — nearly as well when its 
+  fig-3 | BERT, GPT and ELMo Side by Side: The figure states the paper's central architectural claim as arrows: only BERT lets every position depend on both its left and its right neighbours at every lay
+  fig-4 | Four task shapes, one encoder: Four families of downstream task are drawn as four copies of the same diagram, differing only in what is packed into the input sequence and which output vectors
+  fig-5 | MLM vs. Left-to-Right Over a Million Steps: Fine-tuning from progressively later pre-training checkpoints shows that MNLI accuracy is still climbing at 1,000,000 steps, so BERT's long pre-training run is 
+  table-8 | The masking mixture ablation: Six BERT pre-training runs that differ only in what happens to a token once it has been selected for prediction. Changing the mixture barely moves the fine-tune
+  eq-classification-loss | The GLUE Classification Head: This inline expression is the whole task-specific model BERT adds for a GLUE sentence-classification task: take the final hidden vector at the [CLS] position, m
+  eq-span-start-probability | The start-position softmax: This is the whole task-specific output layer BERT adds for extractive question answering: one learned vector $S$ is dotted with each passage token's final hidde
+  eq-span-score | The additive span score: A candidate answer running from token $i$ to token $j$ is scored by adding its start score $S{\cdot}T_i$ to its end score $E{\cdot}T_j$, and the prediction is w
+  eq-null-answer-threshold | The Null-Answer Threshold Rule: This is the prediction-time rule BERT uses on SQuAD 2.0, where a question may have no answer. It scores "no answer" as an ordinary span that starts and ends at 
+
+=== THE MAIN NARRATIVE'S CHAPTERS (do not retell these; Insights is the other read) ===
+  1. The data you have and the data you want
+  2. Only one side of the sentence
+  3. One stack, used twice
+  4. One input format for every task
+  5. Hiding words to train on both sides
+  6. The second task, and the run
+  7. Turning it into a task model
+  8. Eleven tasks and the numbers
+  9. What each piece is worth, and what is not shown

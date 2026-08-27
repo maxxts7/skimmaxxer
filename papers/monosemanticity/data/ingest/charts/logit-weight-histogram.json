@@ -1,0 +1,43 @@
+{
+ "id": "logit-weight-histogram",
+ "name": "Logit-weight histogram over the vocabulary",
+ "summary": "A histogram of one unit's logit weights — one number per vocabulary entry, saying how much that token's next-token logit moves when the unit fires — with each entry coloured by whether it matches the unit's hypothesised context. It is the paper's check that a feature pushes the output toward what makes it fire, and the result is the small far-right mode, not the towering one at zero.",
+ "explanation": "### Why this chart and not another\n\nThe [[dictionary-learning]] objective never sees the model's output. It is fit to MLP activations alone ([[activations-only-decomposition]]), which leaves open the worry that a [[feature]] is structure in the data rather than anything the transformer computes ([[model-vs-data-question]]). So the paper wants a check drawn from a quantity training never touched, and takes the cheapest: the [[logit-weight]], one number per vocabulary entry saying how much that token's next-token logit moves when the unit fires ([[path-expansion-logit-attribution]]).\n\nThat is some fifty thousand numbers per feature, and the claim about them is about shape. A mean says nothing: softmax cares only about logit differences, so the origin is fixed by convention ([[logit-weight-median-centering]]) and the average only reports the centring. A bar per entry is fifty thousand bars. A table of top-weighted tokens — which the figures also give, as labels — shows that Arabic tokens sit at the top, but not whether they are a separate population or the upper end of a smooth tail, which is the whole claim. Only the full distribution shows a group coming loose. Colour carries the other half: whether that group is the one the interpretation predicts, judged by a [[computational-proxy]] read off the token string without consulting the model.\n\n### How to read it, step by step\n\nOne point is one vocabulary entry, not one token of text. That is the trap: it looks like the activation histogram and shares its legend, but says what the unit writes, never when it fires.\n\nThe horizontal axis is the logit weight, usually $-0.6$ to $0.6$, got by pushing the [[feature-direction]] through the MLP output weights, a linearised layer norm and the unembedding. Positive raises that token, negative lowers it. Zero is not absolute — each unit's weights are slid until their median sits there — and never-used entries are dropped first ([[anomalous-token-exclusion]]). The vertical axis is density, entries per unit of weight: area is a count, height is not, so a peak of $0.4$M reflects a 1.2-unit-wide axis, not 400,000 tokens at one weight. Colour tints each entry by its proxy score, a [[log-likelihood-ratio-proxy]] from $-5$ (blue) to $+5$ (red).\n\nDo not start at the peak: almost the whole vocabulary is in it, and the paper's label is \"Interference Weights?\", question mark included — a guess that this is cross-talk forced by [[superposition]] rather than anything used ([[weight-interference]]). Start at the inset over the right tail, and at the strip below the axis: the same stack renormalised to full height, so proportions stay visible where the raw count has collapsed. Find where the strip turns red; read the tokens labelled past that point.\n\n### What a bad result would look like\n\nA tail thinning smoothly to nothing, with no bump — then the top tokens are merely the top of one distribution and there is no [[logit-weight-second-mode]] to interpret. Or a second mode of tokens unrelated to what the unit fires on. Or red mass buried inside the central bulk, straddling zero.\n\nThe paper supplies both itself. Fig-15 and fig-31 plot the neurons most correlated with two features ([[most-correlated-neuron]]): 489's Arabic tokens sit inside the bulk, about $-0.25$ to $+0.32$; 470's far-right mode is 'htm', 'png', 'pdf' ([[feature-neuron-nonalignment]]).\n\nTwo limits remain. The strip is renormalised, so where few entries remain it reads decisive whatever it holds. And the weight is a linear estimate; the paper lists three ways it could overstate real influence, and rests on its ablation results for thinking they do not bite ([[logit-weight-caveats]]).\n\n### Where it comes back\n\nNine instances, three roles. Four are features getting their own downstream check ([[feature-downstream-effects]]): Arabic (fig-10), DNA (fig-22), Hebrew (fig-34), base64 (fig-26). The script cases are cleanest: the mode is largely byte tokens — \\xd8, \\xd7 — the shared UTF-8 lead byte of a whole alphabet ([[utf8-multi-token-characters]]), so raising one entry raises the script. Base64 is the contrast: its strip slides blue through pink to red instead of stepping, which the paper reads as base64-ness being graded where script membership is near-binary. Two are the neuron controls above. Three repeat a feature's plot in a second, separately seeded transformer — fig-18, fig-28, fig-37 — where matching modes, not just matching activations, carries [[universality]].",
+ "prerequisites": [
+  "feature",
+  "dictionary-learning",
+  "sparse-autoencoder",
+  "superposition",
+  "polysemanticity",
+  "logit-weight",
+  "path-expansion-logit-attribution",
+  "logit-weight-median-centering",
+  "anomalous-token-exclusion",
+  "computational-proxy",
+  "log-likelihood-ratio-proxy",
+  "feature-downstream-effects",
+  "byte-pair-encoding"
+ ],
+ "sectionIds": [
+  "3.1.3",
+  "3.1.4",
+  "3.1.5",
+  "3.2.2",
+  "3.3",
+  "3.3.1",
+  "3.3.2",
+  "3.4",
+  "3.4.2"
+ ],
+ "itemIds": [
+  "fig-10",
+  "fig-15",
+  "fig-18",
+  "fig-22",
+  "fig-26",
+  "fig-28",
+  "fig-31",
+  "fig-34",
+  "fig-37"
+ ]
+}

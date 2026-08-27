@@ -1,0 +1,106 @@
+{
+ "id": "fig-66",
+ "title": "Three Diagnostics That Isolate the High-Density Cluster",
+ "takeaway": "In a run where feature density alone leaves the two modes overlapping, plotting each feature's density together with its encoder bias and its decoder-encoder dot product pulls the high-density cluster out as a compact, separate blob. That separation is what lets the paper draw a line around the ultralow-density features and set them aside as a training artifact rather than as things the transformer actually computes.",
+ "walkthrough": "### What you are looking at\n\nOne 3-D scatter plot. Every point is one feature — one hidden unit of the [[sparse-autoencoder]] — from a single dictionary learning run. The run is not named. From the surrounding text it is one of the hard cases: a large dictionary trained with a large [[l1-coefficient]], where the ordinary [[feature-density-histogram]] no longer shows two clean modes.\n\nThree numbers are computed per feature, one per axis.\n\n*Density* is the [[feature-density]]: the fraction of tokens on which the feature's activation is nonzero. It is plotted as $\\log_{10}$, running $-10$ to $-3$. So the plotted features fire on somewhere between one token in $10^{10}$ and one in $10^{3}$.\n\n*Bias* is that feature's entry of the encoder bias $\\mathbf{b}_e$ in $\\mathbf{f} = \\mathrm{ReLU}(W_e\\bar{\\mathbf{x}} + \\mathbf{b}_e)$ ([[autoencoder-encoder]]). Every plotted value is negative, roughly $-3$ down to $-22$. Read it as a firing threshold: the input's projection onto the feature's read-in direction has to clear that magnitude before the ReLU passes anything.\n\n*D/E projection* is the dot product of the feature's decoder column with its encoder row. The decoder column is the [[feature-direction]] the feature writes along, held at unit norm ([[dictionary-decoder]]); the encoder row is the direction it reads with. The two are learned independently ([[untied-decoder-weights]]), so they can drift apart. The axis runs $-3$ to $+3$.\n\nPoint color tracks the density coordinate — dark navy at the rare end, crimson in the middle, orange at the top.\n\n### What it shows\n\nA compact orange blob, tagged by a dashed leader as the [[high-density-cluster]], sits off on its own. The large crimson mass is the [[ultralow-density-cluster]].\n\nTake the axes one at a time. In density the blob is orange and the mass crimson — higher, but the mass reaches up into the same range. In bias the blob occupies a narrow band; the mass fans out both above and below it. In D/E projection the blob sits at positive values near $+1$, while the mass spreads across most of the axis, including that band.\n\nNo single axis cuts cleanly. Together they do: the blob is an island.\n\nThat is the claim, and its limit ([[density-cluster-separation]]). Separability is not itself evidence of an artifact. It gives the paper a rule for drawing the boundary; the artifact reading rests on the separate observations that almost none of those features are interpretable, and that longer training kills them off. The paper says the ultralow cluster \"appears to be\" a training artifact, and says it is still investigating why. The darkest points, at the least negative biases, are the extreme end — units that fire so rarely they are [[de-facto-dead-neurons]].",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Bias (vertical axis)",
+   "definition": "The single entry of the autoencoder's encoder bias vector $\\mathbf{b}_e$ belonging to this feature. It sits inside the ReLU, so it acts as the threshold that the feature's read-in projection must exceed before the feature fires at all.",
+   "conceptId": "autoencoder-encoder"
+  },
+  {
+   "term": "Density (depth axis)",
+   "definition": "The feature's density: the fraction of tokens in the dataset on which its activation is nonzero, plotted on a base-10 log scale. It is the paper's quick proxy for whether an autoencoder run is working.",
+   "conceptId": "feature-density"
+  },
+  {
+   "term": "D/E projection (horizontal axis)",
+   "definition": "The dot product of this feature's decoder column with its corresponding encoder row — the direction the feature writes along, dotted with the direction it is read out with. Large positive values mean read-in and write-out agree.",
+   "conceptId": "untied-decoder-weights"
+  },
+  {
+   "term": "High-Density Cluster (label with dashed leader)",
+   "definition": "The right mode of the feature density histogram, drawn here as the compact orange blob. Anecdotally almost all of its features are interpretable, even though their absolute densities are still tiny.",
+   "conceptId": "high-density-cluster"
+  },
+  {
+   "term": "The large unlabeled mass",
+   "definition": "The ultralow density cluster — the left mode of the histogram, made of features that fire on fewer than roughly one token in a million. Almost none of them are interpretable, and the paper treats them as an artifact of autoencoder training.",
+   "conceptId": "ultralow-density-cluster"
+  },
+  {
+   "term": "One point",
+   "definition": "One feature, i.e. one hidden unit of the sparse autoencoder in this run, positioned by its own three diagnostic numbers.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "Point color",
+   "definition": "A continuous scale carrying the same quantity as the density axis: dark navy for the rarest-firing features, crimson through the middle of the range, orange for the densest plotted here. There is no printed color legend.",
+   "conceptId": "feature-density"
+  },
+  {
+   "term": "Dark navy tip (top of the mass)",
+   "definition": "The rarest features in the plot, at densities near the $10^{-10}$ end of the axis and at the least negative biases. These are units that fire so seldom they are effectively dead without registering as dead by a zero-activity check.",
+   "conceptId": "de-facto-dead-neurons"
+  },
+  {
+   "term": "Decoder column",
+   "definition": "The output weight vector for one feature, constrained to unit L2 norm. The paper calls it the feature's direction, or its dictionary vector, and it is one half of what the D/E projection multiplies.",
+   "conceptId": "feature-direction"
+  },
+  {
+   "term": "Encoder row",
+   "definition": "The input weight vector for one feature — the direction along which the activation vector is projected before the bias and the ReLU. It is learned independently of the decoder column, which is why their dot product carries information.",
+   "conceptId": "untied-decoder-weights"
+  },
+  {
+   "term": "Separable along three dimensions",
+   "definition": "The claim the plot is offered for: no one of these three numbers cuts the two clusters apart in this run, but taken jointly they place the high-density cluster in a region of its own.",
+   "conceptId": "density-cluster-separation"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "−10 to −3 (Density axis)",
+   "meaning": "The plotted range of $\\log_{10}$ feature density: features firing on one token in $10^{10}$ up to one in $10^{3}$. The axis is logarithmic because densities span many orders of magnitude, and every feature in this autoencoder is rare in absolute terms."
+  },
+  {
+   "value": "−5, −10, −15, −20 (Bias ticks)",
+   "meaning": "The labeled encoder-bias values; the plotted points run roughly from −3 down to −22. All are negative, meaning every feature needs a positive input projection of at least that size to fire."
+  },
+  {
+   "value": "−3 to 3 (D/E projection axis)",
+   "meaning": "The plotted range of the decoder-encoder dot product. Since decoder columns are unit norm, the magnitude here is set by the encoder vector's length and by the angle between the two."
+  },
+  {
+   "value": "about +1",
+   "meaning": "Roughly where the high-density blob sits on the D/E projection axis in this view — positive, i.e. the feature reads along approximately the direction it writes along. The ultralow mass, by contrast, spreads over most of the axis including negative values."
+  },
+  {
+   "value": "$10^{-5}$",
+   "meaning": "The density of the histogram's right mode, i.e. the high-density cluster, as stated in the text accompanying this appendix. It is why the blob here falls at the orange end of the color scale."
+  },
+  {
+   "value": "$10^{-7}$",
+   "meaning": "The density of the histogram's left mode, the ultralow density cluster — about a hundred times rarer than the high-density mode, and where the bulk of the crimson mass sits."
+  },
+  {
+   "value": "$10^{-3}$",
+   "meaning": "A possible third mode the paper notices in one histogram, splitting the right mode; the authors say they are still investigating whether that split is real. It marks the dense end of the density axis here."
+  },
+  {
+   "value": "3",
+   "meaning": "The number of per-feature diagnostics combined in this plot: density, bias, and the decoder-encoder dot product. The paper reaches for the second and third only because the first alone stops separating the clusters in large runs."
+  },
+  {
+   "value": "512",
+   "meaning": "The MLP width of the one-layer transformer being decomposed, and so the input and output dimension of the autoencoder. It is the baseline against which a dictionary counts as large."
+  },
+  {
+   "value": "131,072 (256×)",
+   "meaning": "The largest dictionary the paper trains, at 256 times the MLP width. Runs of this size, paired with a large L1 coefficient, are the ones where the two density modes overlap and this three-way plot is needed."
+  }
+ ]
+}

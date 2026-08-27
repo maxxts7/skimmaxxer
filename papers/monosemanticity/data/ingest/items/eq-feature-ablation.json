@@ -1,0 +1,115 @@
+{
+ "id": "eq-feature-ablation",
+ "title": "Subtracting One Feature's Contribution",
+ "takeaway": "Ablating a feature means subtracting exactly that feature's own contribution — its activation times its dictionary direction — from the MLP activation at every token, then finishing the forward pass. Because everything else in the activation is left alone, the resulting change in the model's predicted log-likelihood is evidence that the model actually uses the feature, not merely that the feature co-occurs with the text.",
+ "walkthrough": "This is the one-line edit behind every ablation result in the paper. It is not part of training and not a measurement of the activations. It is a surgical change made to the model's internals in the middle of a forward pass, so that the rest of the model runs on activations with one thing removed.\n\n### How to read it\n\n$\\mathbf{x}^j$ is the MLP activation vector at token position $j$ — the vector the [[sparse-autoencoder]] was trained to reconstruct. That reconstruction writes the vector as a bias plus a sum of terms, one per [[feature]]: each contributes its own activation $f_i(\\mathbf{x}^j)$, a scalar, times its own unit direction $\\mathbf{d}_i$ in activation space.\n\nThe expression on the right removes exactly one of those summands. Nothing is scaled, clipped or renormalised. The coefficient subtracted is the feature's own activation on that very token, so feature $i$ ends up at zero there.\n\nThe full procedure: run the model up through the MLP layer, run the encoder to get feature activations, apply this subtraction on every token in the context, then complete the forward pass as normal.\n\n### What it shows\n\nNotice what survives the edit. Every other feature's term stays. The bias stays. Whatever the autoencoder failed to reconstruct stays. Only the component along $\\mathbf{d}_i$ moves. [[directional-ablation]] matters because under [[superposition]] feature directions are not orthogonal — zeroing a neuron, or blanking the activation, would knock out things you did not mean to test.\n\nThe reported effect is the change in the model's predicted log-likelihood for each token, drawn as a coloured underline in the paper's displays. [[ablation-effect-visualization]]\n\nThis is what makes ablation a causal test. The [[dictionary-learning]] procedure only ever saw MLP activations; what those activations do to the output was never an input to it. So if removing a feature makes a prediction worse, the model was using it.\n\nThe test is narrow, though. It shows the feature was load-bearing for those tokens in that context. It does not by itself confirm the feature's interpretation, which is why the paper reads ablations alongside [[logit-weight]] estimates and pinned sampling. [[feature-downstream-effects]]",
+ "latex": "\\mathbf{x}^j \\;\\longrightarrow\\; \\mathbf{x}^j - f_i(\\mathbf{x}^j)\\,\\mathbf{d}_j",
+ "terms": [
+  {
+   "term": "$\\mathbf{x}^j$",
+   "definition": "The MLP activation vector at datapoint $j$ — that is, at one token position in one context. It has length $d_{\\rm MLP}$, the width of the transformer's MLP layer, and it is the vector the autoencoder was trained to reconstruct.",
+   "conceptId": null
+  },
+  {
+   "term": "$j$",
+   "definition": "The index over datapoints, meaning token positions in the context being run. The ablation is applied at every $j$ in the context, not just where the feature is strongest.",
+   "conceptId": null
+  },
+  {
+   "term": "$i$",
+   "definition": "The index of the single feature being ablated. It is held fixed for the whole intervention: one feature is removed, everywhere.",
+   "conceptId": null
+  },
+  {
+   "term": "$f_i(\\mathbf{x}^j)$",
+   "definition": "The activation of feature $i$ at token $j$ — a single non-negative number, produced by the autoencoder's ReLU encoder, $f_i(x) = \\text{ReLU}(W_e(\\mathbf{x} - \\mathbf{b}_d) + \\mathbf{b}_e)_i$. It is zero wherever the feature is not firing, so the ablation changes nothing at those tokens.",
+   "conceptId": null
+  },
+  {
+   "term": "$\\mathbf{d}_i$",
+   "definition": "The direction of feature $i$: a unit vector in MLP activation space, taken as a column of the autoencoder's decoder weight matrix $W_d$. This is the sense in which a feature is a direction rather than a neuron.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "$\\mathbf{d}_j$ (as printed)",
+   "definition": "The article prints the subscript as $j$, but $j$ indexes datapoints, not features. The direction subtracted is the ablated feature's own direction, $\\mathbf{d}_i$; read the printed $\\mathbf{d}_j$ as a slip for $\\mathbf{d}_i$.",
+   "conceptId": null
+  },
+  {
+   "term": "$f_i(\\mathbf{x}^j)\\mathbf{d}_i$",
+   "definition": "The feature's contribution to this particular activation vector: how strongly it fired, times where it points. This whole product is what ablation removes, which is why the feature ends up at exactly zero rather than merely reduced.",
+   "conceptId": null
+  },
+  {
+   "term": "$d_{\\rm MLP}$",
+   "definition": "The number of neurons in the transformer's MLP layer, and hence the length of $\\mathbf{x}^j$. The dictionary has many more directions $\\mathbf{d}_i$ than this, which is what overcomplete means here.",
+   "conceptId": "overcompleteness"
+  },
+  {
+   "term": "$\\mathbf{b}$",
+   "definition": "The bias term in the decomposition $\\mathbf{x}^j \\approx \\mathbf{b} + \\sum_i f_i(\\mathbf{x}^j)\\mathbf{d}_i$. Ablation does not touch it; only one summand is removed.",
+   "conceptId": null
+  },
+  {
+   "term": "Feature ablation",
+   "definition": "The intervention this equation defines: subtract one feature's contribution from the MLP activations and let the rest of the model run, to see which token predictions depended on that feature.",
+   "conceptId": "feature-ablation"
+  },
+  {
+   "term": "Completing the forward pass",
+   "definition": "After the subtraction, the edited activation is fed through the remainder of the model — the MLP output weights, layer norm and unembedding — so the effect shows up in real output probabilities rather than in a linear approximation.",
+   "conceptId": null
+  },
+  {
+   "term": "Change in predicted log-likelihood",
+   "definition": "The quantity reported for each token: the log-probability the model assigns to the token that actually comes next, after ablation minus before. A drop means the feature was helping that prediction.",
+   "conceptId": null
+  },
+  {
+   "term": "Orange background",
+   "definition": "In the paper's displays, shading behind a token marks where the feature was active, with intensity tracking $f_i(\\mathbf{x}^j)$.",
+   "conceptId": "ablation-effect-visualization"
+  },
+  {
+   "term": "Coloured underline",
+   "definition": "Marks the ablation effect on a token's prediction. Blue means ablation decreased the likelihood, so the feature was helping; red or orange means ablation increased it, so the feature was hurting.",
+   "conceptId": "ablation-effect-visualization"
+  },
+  {
+   "term": "Directional removal",
+   "definition": "The point that only the component along $\\mathbf{d}_i$ is taken out; every other feature's contribution to the same vector survives intact.",
+   "conceptId": "directional-ablation"
+  },
+  {
+   "term": "Logit weight",
+   "definition": "A separate, linear estimate of a feature's downstream effect, obtained by pushing $\\mathbf{d}_i$ through the MLP output weights, a linearised layer norm and the unembedding. Ablation is the on-data check of what that estimate predicts.",
+   "conceptId": "logit-weight"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "$i$, $j$",
+   "meaning": "Index families, not quantities. $i$ ranges over the learned dictionary features (thousands to over a hundred thousand, depending on the run); $j$ ranges over token positions in the context being run."
+  },
+  {
+   "value": "0",
+   "meaning": "The value feature $i$ is left at after the subtraction. Because the coefficient removed is the feature's own activation at that token, the removal is exact rather than approximate, and the feature is off across the entire context."
+  },
+  {
+   "value": "1",
+   "meaning": "The implicit multiplier on the removed term. Ablation subtracts one times the feature's contribution — the paper is not scaling the feature down or turning it up, which are separate interventions it reports elsewhere (pinned sampling sets a feature to its maximum observed value instead)."
+  },
+  {
+   "value": "[A][B][C]",
+   "meaning": "The schematic three-token context the appendix uses to explain the display. A feature active on [B] whose ablation lowers the probability of [C] gets an orange background on [B] and a blue underline on [C]: it was helping predict [C]."
+  },
+  {
+   "value": "A/1/3450",
+   "meaning": "The feature identifier in the worked ablation example: model A, dictionary learning run 1, feature number 3450 — the Arabic script feature. Ablating it lowered the likelihood of Arabic script tokens and raised that of a period."
+  },
+  {
+   "value": "Interval 0 vs interval 5",
+   "meaning": "Two activation ranges the visualisations sample from. Examples in interval 5 have roughly half the feature activation of those in interval 0, and the paper notes the ablation effects there are correspondingly smaller — the effect size scales with $f_i(\\mathbf{x}^j)$, as the equation implies."
+  }
+ ]
+}

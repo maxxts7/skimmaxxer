@@ -1,0 +1,180 @@
+{
+ "id": "fig-53",
+ "title": "Matched Features That Fire Alike But Write Differently",
+ "takeaway": "For thousands of feature pairs matched across two independently trained models, agreement on *when* the features fire is much higher than agreement on *what* they push the next-token logits toward. The paper reads this gap not as the features being different, but as the logit weight vector being a noisy way to compare them, because superposition fills it with interference.",
+ "walkthrough": "### What you are looking at\n\nOne point per matched pair of features. For every feature in dictionary run A/1, the authors find the single most similar feature in run B/1 — a dictionary trained on a second one-layer transformer that differs only in random seed, with all other hyperparameters held fixed ([[feature-notation]] explains the slash naming). A/1 holds 4,096 features, so the cloud holds roughly that many points. The question behind the plot is [[universality]]: do two separately trained models learn the same things?\n\nThe horizontal axis is [[activation-similarity]] — the correlation between the two features' activation values over a fixed set of dataset tokens. The vertical axis is [[logit-weight-similarity]] — the correlation between the two features' [[logit-weight]] vectors, which have one entry per vocabulary token and say how much the feature's firing pushes each next-token logit up or down.\n\nThe two axes ask different questions of the same pair. One asks whether the features turn on together. The other asks whether they write the same thing to the output.\n\n### How to read it\n\nThe pairing is chosen to maximise the horizontal coordinate, so each point sits as far right as that A/1 feature can get. The vertical coordinate is then whatever falls out.\n\nThe marginal histograms give each axis on its own. Along the bottom, activation correlations pile up near $1.0$, with a median of $0.72$. Along the left, logit weight correlations bunch around $0.5$–$0.6$ and stop short of about $0.87$.\n\n### What it shows\n\nThe cloud rises from left to right, so the two measures do agree in direction. But it sits well under the diagonal. A pair matched at $0.9$ activation correlation typically lands near $0.6$–$0.7$ on logit weight correlation.\n\nThe circled point at the lower right is the sharpest case, expanded in the inset. Each inset point is one vocabulary token, its logit weight in run B against run A. Only the period token sits far from the origin. Everything else forms a round, roughly isotropic blob — [[weight-interference]], the near-zero noise the paper attributes to [[superposition]] rather than to anything the model intends.\n\nSo the disagreement is systematic, and the paper's stated reading is that logit weight correlation understates a real match. It backs that reading with a third measure, [[attribution-similarity]], rather than with this plot alone.",
+ "terms": [
+  {
+   "term": "Why do Activation Correlation and Logit Weight Correlation Disagree? (title)",
+   "definition": "The figure's own heading, posed as a question. It presumes the gap shown below is real and asks for its cause; the side panel supplies the paper's proposed answer.",
+   "conceptId": null
+  },
+  {
+   "term": "Activation Correlation (x-axis)",
+   "definition": "The Pearson correlation between the two matched features' activation vectors, each indexed by a fixed set of dataset tokens. High values mean the two features fire on the same text.",
+   "conceptId": "activation-similarity"
+  },
+  {
+   "term": "Logit Weight Correlation (y-axis)",
+   "definition": "The Pearson correlation between the two matched features' logit weight vectors, each indexed by vocabulary token. High values mean the two features push the model's next-token prediction in the same direction.",
+   "conceptId": "logit-weight-similarity"
+  },
+  {
+   "term": "Logit weight",
+   "definition": "For one feature, a vector with one entry per vocabulary token, computed by pushing the feature's direction through the MLP output weights, a linearised layer norm, and the unembedding. It says how much the feature's firing raises or lowers each token's logit.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Point in the main scatter",
+   "definition": "One matched pair of features: an A/1 feature and the B/1 feature most correlated with it in activation. Its position records how well that pair agrees on each of the two measures.",
+   "conceptId": null
+  },
+  {
+   "term": "Marginal histograms",
+   "definition": "The bar plots along the left and bottom edges, showing the one-dimensional distribution of each axis on its own. They let you read the typical level of each measure without eyeballing the cloud.",
+   "conceptId": null
+  },
+  {
+   "term": "Run A/1",
+   "definition": "The dictionary learning run the paper analyses throughout: 4,096 learned features, trained on MLP activations from transformer A.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "Run B/1",
+   "definition": "The matched dictionary learning run on transformer B — same hyperparameters, different random seeds, different activations. It exists so features can be compared across independently trained models.",
+   "conceptId": "universality"
+  },
+  {
+   "term": "A/1/3949",
+   "definition": "Feature 3949 in run A/1, the A-side member of the circled outlier pair. It fires on PLoS journal abbreviations inside citations.",
+   "conceptId": "logit-weight-disagreement"
+  },
+  {
+   "term": "B/1/3321",
+   "definition": "Feature 3321 in run B/1, the B-side member of the circled pair, found independently in the second model and firing on the same PLoS citation contexts.",
+   "conceptId": null
+  },
+  {
+   "term": "Circled point (gold)",
+   "definition": "The highlighted outlier at far right and slightly below zero: the A/1/3949 – B/1/3321 pair. The dotted line ties it to the inset that unpacks it.",
+   "conceptId": null
+  },
+  {
+   "term": "Logit Weight (Run A) — inset y-axis",
+   "definition": "In the inset, the logit weight A/1/3949 assigns to a given vocabulary token. Each inset point is one token.",
+   "conceptId": null
+  },
+  {
+   "term": "Logit Weight (Run B) — inset x-axis",
+   "definition": "In the inset, the logit weight B/1/3321 assigns to the same token. Plotting the two against each other shows token-by-token where the pair agrees.",
+   "conceptId": null
+  },
+  {
+   "term": "\".\" (red annotation in the inset)",
+   "definition": "The period token, the one point far from the origin in the inset. Both features strongly raise its probability, because a period follows the citation abbreviation.",
+   "conceptId": null
+  },
+  {
+   "term": "Interference blob (inset central cloud)",
+   "definition": "The dense, roughly circular mass of tokens near the origin in the inset, where the two features' weights are small and unrelated. It swamps the single agreeing token when a correlation is taken over all vocabulary.",
+   "conceptId": "interference"
+  },
+  {
+   "term": "Weight interference",
+   "definition": "The paper's hypothesis that the near-zero central mass of logit weights is unwanted cross-talk forced by superposition, not a deliberate prediction the model is making. It is the side panel's explanation for the disagreement.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "Superposition",
+   "definition": "Representing more features than there are neurons by giving each feature its own non-orthogonal direction. Because the directions cannot all be perpendicular, each feature's weights pick up small contributions from others.",
+   "conceptId": "superposition"
+  },
+  {
+   "term": "\"important logits\"",
+   "definition": "The side panel's phrase for the handful of tokens a feature genuinely acts on — the second, far-right mode of its logit weight distribution — as opposed to the bulk sitting at noise level.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "@pone.0114343 (highlighted activation snippet)",
+   "definition": "An example token sequence where both features fire, shown with the orange activation highlight the paper uses throughout. \"pone\" is the PLoS ONE abbreviation in a citation identifier.",
+   "conceptId": null
+  },
+  {
+   "term": "PLoS",
+   "definition": "The Public Library of Science, a scientific publisher. Its journal abbreviations (pone, pgen, pcbi) appear in citation strings frequently enough in the Pile for a dedicated feature to form.",
+   "conceptId": null
+  },
+  {
+   "term": "Direct path",
+   "definition": "The route from token embedding straight to the unembedding, skipping attention and the MLP. The paper offers it as one reason the model may not care about a feature's weights on tokens that were already implausible.",
+   "conceptId": "direct-path"
+  },
+  {
+   "term": "Attribution similarity",
+   "definition": "The follow-up measure the paper introduces after this figure: correlate vectors of activation times the logit weight on the token that actually came next. It agrees with activation similarity far better than logit weight similarity does.",
+   "conceptId": "attribution-similarity"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.0 to 1.0",
+   "meaning": "Range of the horizontal axis, activation correlation, tick-marked every 0.1. It starts at zero because a feature's best match in the other run is essentially never anticorrelated."
+  },
+  {
+   "value": "-0.1 to 1.0",
+   "meaning": "Range of the vertical axis, logit weight correlation. It dips below zero only to accommodate the single circled outlier pair, whose logit weight correlation is slightly negative."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of features in run A/1, and so roughly the number of points in the main scatter, since each A/1 feature contributes one matched pair."
+  },
+  {
+   "value": "0.72",
+   "meaning": "The median activation correlation between an A/1 feature and its closest B/1 counterpart. This is the centre of the bottom marginal histogram and the paper's headline evidence that features are largely universal across models."
+  },
+  {
+   "value": "0.46",
+   "meaning": "The median activation correlation when the same matching is done between the two transformers' MLP neurons rather than their learned features. Lower than 0.72, which the paper takes as features being more universal than neurons."
+  },
+  {
+   "value": "roughly 0.5 to 0.6",
+   "meaning": "Where the left marginal histogram peaks: the typical logit weight correlation for a matched pair. Well below the activation correlation of the same pairs, which is the figure's point."
+  },
+  {
+   "value": "about 0.87",
+   "meaning": "The approximate upper edge of the left marginal histogram. No matched pair reaches near-perfect logit weight agreement, even though many reach near-perfect activation agreement."
+  },
+  {
+   "value": "0.91",
+   "meaning": "The activation correlation between the Arabic script feature A/1/3450 and its B-run counterpart, quoted in the surrounding text as the first sign of the gap."
+  },
+  {
+   "value": "0.23",
+   "meaning": "The logit weight correlation for that same Arabic pair — far below its 0.91 activation correlation. The agreeing tokens are the Arabic-script ones; the rest is near-isotropic noise."
+  },
+  {
+   "value": "0.98",
+   "meaning": "The activation correlation of the circled pair A/1/3949 and B/1/3321. Almost perfect agreement on when the two features fire."
+  },
+  {
+   "value": "negative (just below 0)",
+   "meaning": "The logit weight correlation of that same circled pair. The paper calls it the most dramatic case of the disparity: near-identical firing, no agreement at all in the linear output weights."
+  },
+  {
+   "value": "-0.6 to 0.6",
+   "meaning": "Range of both inset axes, tick-marked every 0.2, in units of median-centred logit weight. The scale is set by the one token that escapes the central blob."
+  },
+  {
+   "value": "about 0.4 (run B) and 0.5 (run A)",
+   "meaning": "The approximate inset coordinates of the period token, read off the plot — the sole token both features strongly upweight, sitting far outside the interference cloud."
+  },
+  {
+   "value": "0.02%",
+   "meaning": "The fraction of tokens on which A/1/3949 fires. The paper notes this means at least 1 in 10,000 Pile tokens is a PLoS citation abbreviation, which it offers as evidence of the dataset's bias toward scientific text."
+  },
+  {
+   "value": "0114343",
+   "meaning": "The digits in the example citation @pone.0114343 shown in the side panel — a PLoS ONE article identifier, included to show the context in which both features activate."
+  }
+ ]
+}

@@ -1,0 +1,58 @@
+PAGE FOR CONCEPT: feature-density-histogram
+NAME: Feature-density histogram of a dictionary
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A log-scale histogram counting every feature in one trained autoencoder by how often it fires, typically splitting into an ultralow-density mode the paper discards as a training artifact and a bulk mode it keeps. It is the paper's quick per-run health check, read for its shape and its left edge rather than for any individual feature.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+The paper says outright that it has no test-loss equivalent for [[dictionary-learning]] — nothing cheap to watch that tracks what it wants, interpretable features ([[evaluating-dictionary-learning]]). What it settles for is [[feature-density]]: the fraction of tokens on which a learned [[feature]] has a nonzero activation. Two things are wanted from a run — how many usable features came out, and how rare the rarest recovered one is.
+
+Neither survives being averaged. The densities in a run are not one population but two, and a mean lands in the gap between them, describing no feature in either. A count of live features counts the junk as live: units firing on one token in ten million pass any zero-activity test. A bar chart with one height per run says nothing about where the left edge sits — and that edge is what the appendix's scaling argument rests on. The histogram is the smallest shape carrying both.
+
+The log axis is forced too: the busiest features fire on well under 1% of tokens and the rarest around $10^{-7}$, so a linear axis would stack five orders of magnitude against the origin.
+
+### How to read it, step by step
+
+One chart covers one [[dictionary-learning-run]]: a single trained [[sparse-autoencoder]], named in the paper's run notation ([[feature-notation]]). Every hidden unit of it contributes one count to one bin, so this is a census, not a picture of any one feature.
+
+The x axis is $\log_{10}$ of density. A tick at $-7$ is one token in ten million, $-5$ one in a hundred thousand, $-2$ one in a hundred. The y axis is a raw count of features per bin, not normalised by dictionary width — so in an overlay a wider run is taller for free, and height alone is not the evidence.
+
+Units that never fire have density exactly $0$, which has no logarithm: [[dead-neurons]] are absent from the chart, not sitting at its left edge.
+
+Look at the left edge first, then for a valley. The narrow spike near $10^{-7}$ is the [[ultralow-density-cluster]], which the paper reports is almost never interpretable and reads as a training artifact rather than anything in the transformer — [[de-facto-dead-neurons]]. The broad mass to its right is the [[high-density-cluster]], anecdotally almost all interpretable, the name comparative only. Colour differs by instance: in the single-run charts it hand-marks the bars the authors assign to the ultralow cluster; in the grid it encodes dictionary width.
+
+### What a bad result would look like
+
+For the diagnostic use: no valley. One smooth mound, nowhere to cut, and the run's usable feature count cannot be read off at all — a failure the paper itself puts on the page. For the sparsity check: a substantial pile of features above $10^{-2}$, which the paper's own checklist ([[feature-density-diagnostics]]) treats as the [[l1-sparsity-penalty]] being too weak.
+
+For the scaling claim: curves growing taller as the dictionary widens while their left edge stays put. That would mean extra capacity going to duplicates of features already found — the signature of having exhausted the model's [[true-features]]. The paper's hedge is fair: more mass in the rare tail cannot, by counting alone, distinguish a genuinely new feature from [[feature-splitting]] of an old one.
+
+### Where it comes back
+
+Fig-64 is the clean case, run A/16, two modes separated and the left one labelled. Fig-65 is the same shape for A/5, the widest run at $131{,}072$ units, where the modes run together and the diagnostic stops working; the paper reports overlap as coming with large width and a large [[l1-coefficient]] $\lambda$, anecdotally and with no threshold. Its fallback is [[density-cluster-separation]] — add each feature's bias and its encoder-decoder dot product and the clusters pull apart in three dimensions.
+
+Fig-67 stacks the shape into a grid: five panels of $\lambda$, six curves of dictionary width each, $512$ up to $131{,}072$ ([[expansion-factor]] $1\times$ to $256\times$). Read within a panel for the left edge marching left; across panels, for the whole distribution sliding left as the penalty rises. A reader who learned only "look for two humps" will over-read the two strongest-penalty panels, where the tall spikes are exactly the overlapping case.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - superposition | Superposition: A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.
+  - polysemanticity | Polysemanticity: A single neuron responding to a mixture of seemingly unrelated inputs, which makes it a poor unit for human understanding of the network.
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - dictionary-learning | Dictionary learning: The problem of writing each activation vector as a sparse combination of directions drawn from a fixed, larger-than-necessary set. The paper frames the search for a model's features as exactly this problem.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - l1-sparsity-penalty | L1 penalty on feature activations: A penalty on the sum of feature activations, which pushes most of them to exactly zero. This is what buys sparsity in the decomposition.
+  - l1-coefficient | L1 Coefficient $\lambda$: The scalar weighting the sparsity penalty against reconstruction error. It is one of the two hyperparameters the paper varies across dictionary learning runs.
+  - feature-density | Feature Density: The fraction of tokens on which a feature has a nonzero value; the paper's main quick proxy for autoencoder quality.
+  - dead-neurons | Dead Neurons: Autoencoder hidden units with zero activation across a large number of datapoints. They waste dictionary capacity, so the paper resamples them.
+  - feature-notation | Feature Notation: The paper's identifier scheme: run seed, autoencoder size index, and feature index, as in A/1/3450 or B/1/1334; neurons are written A/neurons/489.
+  - expansion-factor | Expansion factor: The ratio of autoencoder hidden dimension to input dimension — how many times more features than neurons the dictionary has.
+  - feature-splitting | Feature splitting: The observation that as the autoencoder is made wider, single features divide into families of more specific features covering roughly the same territory.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-64 | The Two Density Modes of A/16: Plotting how often each learned feature fires, on a log axis, splits the features of run A/16 into two humps: a spike of features that fire on roughly one token in ten million, and a broad bulk centred near one token in a hundred thousand. The paper reports that almost all of the right-hand features are interpretable and almost none of the left-hand ones are, and treats the left hump — which it names the ultralow density cluster — as a suspected artifact of autoencoder training rather than anything in the transformer.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 72-15-feature-density-histograms.txt

@@ -1,0 +1,55 @@
+PAGE FOR CONCEPT: feature-relationship-graph
+NAME: Feature relationship graph
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Features drawn as boxes, with labelled edges standing for a relation between them: either a handoff, where the tokens one feature promotes are the tokens the next one fires on, or a similarity link between features in dictionaries of different widths. It is for claims that live between features rather than inside any one of them.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+Two of the paper's claims are about *relations between* features, and neither survives being written one feature at a time.
+
+The first: some [[feature]]s hand off to each other through generated text — the tokens one promotes are the tokens the next fires on ([[finite-state-automata-features]]). The evidence is a coincidence between two lists — a feature's top predicted tokens, another's firing set — which only reads as evidence with both adjacent. A table hides it: you would do the matching yourself and never see the chain close into a cycle.
+
+The second: [[feature-splitting]] across dictionary widths, where the paper argues refinement is not a tree — features at one size both split and merge into the next ([[splitting-is-not-a-tree]]). A dendrogram forbids that by construction; a table buries the one node with two parents. And there is no specificity score to bar-chart: "more specific" is read off human descriptions, which therefore have to be on the page for the reader to check.
+
+### How to read it, step by step
+
+No axes; position is layout. One exception: the splitting graph's horizontal is an ordered sweep of [[dictionary-learning-run]]s — $512$, $4{,}096$, $16{,}384$ features, same transformer, only width changing.
+
+A node is one feature: a direction in the 512-dimensional MLP activation space recovered by the [[sparse-autoencoder]], named model / run / index ([[feature-notation]]), the index arbitrary. What fills it is evidence: in the automaton figures a strip of [[top-dataset-examples]] with orange marking the [[feature-activation]] per token, darker for stronger ([[activation-visualization-sampling]]); in the splitting graph, a human description.
+
+The edges are the trap. In the automaton figures an arrow is not a weight, a wire, or a circuit. Its label lists the source's largest positive [[logit-weight]] entries — the tokens it pushes hardest in the next-token distribution — and points at the feature those tokens switch on. The handoff travels through emitted text, one token later; nothing inside the model joins the two. So read an arrow's token list, then the orange tokens in the box it points at: the same tokens? If so the arrow is earned. Then check whether you return where you started. A dashed arrow exits the diagram: a predicted token no node accounts for.
+
+In the splitting graph an edge means only that a [[masked-cosine-similarity]] cleared a threshold: cosine between two features' activations over the tokens where the first fires, again over those where the second fires, keep the larger, line drawn above about $0.4$. The paper says it was chosen for display. Colour marks which coarse feature a branch descends from, nothing else.
+
+### What a bad result would look like
+
+For the automata: arrows whose labelled tokens are not the tokens the target box highlights. Or no cycle. Or labels made of high-frequency tokens any feature would promote, making the handoff a fact about token statistics.
+
+Nothing here is an intervention. Both ends of every arrow are truncated top-$k$ lists from the interface: no ablation, no measure that emitting the token raises the target's activation. The tidiness is also resolution-dependent: A/0 has 512 features for a 512-dimensional space, so it is not overcomplete ([[overcompleteness]]), and the paper says wider runs split each node and complicate the system.
+
+For the splitting graph: children as broad as their parents, or wandering off the parent's subject. Or threshold sensitivity — lower it enough and everything links to everything; no sweep is shown. The one corroboration beyond descriptions is downstream: the coarse "the in mathematical prose" feature promotes generic tokens (*the theorem*), its fine descendants topical ones (*the classifier*).
+
+### Where it comes back
+
+Fig-58 is the reference case: four A/0 features cycling open bracket, tag name, tag close, newline-and-indent, back to open bracket ([[html-feature-automaton]]). Fig-57 runs the shape twice on Unicode, where a character arrives as a prefix byte plus a suffix byte ([[utf8-multi-token-characters]]): Tamil is a clean two-node cycle, Chinese adds a self-loop because a complete single-token character sits where a suffix would ([[unicode-token-state-machines]]).
+
+Fig-46 keeps the boxes and changes what an edge means entirely — and pulls the opposite way: the automata are legible because A/0 is coarse, while the splitting graph shows what happens when you stop being coarse.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - feature-notation | Feature Notation: The paper's identifier scheme: run seed, autoencoder size index, and feature index, as in A/1/3450 or B/1/1334; neurons are written A/neurons/489.
+  - dictionary-learning-run | Dictionary Learning Run: One trained autoencoder, identified by its number in the feature notation. Runs vary in dictionary size and L1 coefficient.
+  - feature-activation | Feature activation: The scalar $f_i(\mathbf{x})$ giving how strongly feature $i$ fires on a datapoint; in the autoencoder it is the ReLU hidden-layer value.
+  - logit-weight | Logit Weight: The vector, one entry per vocabulary token, giving how much a feature's firing pushes up or down each next-token logit.
+  - top-dataset-examples | Top activating dataset examples: The standard inspection method: collect the datapoints on which a unit fires most strongly and read off what they have in common.
+  - action-features | Features as actions: The dual reading of every feature in a one-layer model: it both responds to something and acts to raise the probability of something.
+  - feature-splitting | Feature splitting: The observation that as the autoencoder is made wider, single features divide into families of more specific features covering roughly the same territory.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 43-5.2.1-example-mathematics-and-physics-features.txt
+  - 48-5.4-finite-state-automata.txt

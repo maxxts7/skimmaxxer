@@ -1,0 +1,152 @@
+{
+ "id": "table-1",
+ "title": "The Two Models, Side by Side",
+ "takeaway": "The table is the paper's specification sheet for both models it works with: the small transformer under study on the left, and the sparse autoencoder trained on that transformer's MLP activations on the right. It establishes that the transformer is an ordinary language model trained in the ordinary way, and that the only unusual thing about the autoencoder is its width and its sparsity penalty. The paper flags that although it trains dictionaries up to 256 times wider than the MLP, the analyses it presents mostly use an 8x expansion.",
+ "walkthrough": "This is a two-column specification sheet, not a results table. The left column, headed **Transformer**, describes the model the paper is trying to understand: the [[one-layer-transformer-testbed]]. The right column, headed **Sparse Autoencoder**, describes the tool the paper builds to understand it.\n\nFour rows run across both: Layers, MLP Size, Dataset, Loss. Read across a row to compare the two models on one dimension. Read down a column to get one model's full recipe.\n\n### The transformer column\n\nLayers: one attention block, one MLP block with a ReLU. That is the entire model. It is chosen as the smallest network whose MLP cannot be analysed away by rewriting ([[mlp-activations-as-target]]).\n\nMLP Size: 512 neurons. Those 512 post-ReLU activations are the vectors everything else in the paper decomposes. The appendix adds that they sit on a 128-dimensional [[residual-stream]].\n\nDataset: The Pile, 100 billion tokens. The Pile is public, so the run can be reproduced. 100 billion tokens is far more than a model this small needs; the paper calls this [[overtraining]] and hopes it produces cleaner representations.\n\nLoss: plain autoregressive log-likelihood. Nothing in the training was changed to make the model easier to read. That matters — the interpretability work has to take the model as it comes.\n\n### The autoencoder column\n\nLayers: a ReLU up-projection, then a linear down-projection. The encoder maps a 512-dimensional activation to $m$ hidden units; the decoder maps back down to 512. The decoder's columns are the [[dictionary-decoder]] — one direction per learned [[feature]].\n\nMLP Size: 512 at $1\\times$, up to 131,072 at $256\\times$. Since the input is 512-wide, $m/512$ is the [[expansion-factor]]. Multiply: $512 \\times 256 = 131{,}072$. A hidden layer wider than its input is [[overcompleteness]], and the paper wants it because it believes the MLP packs more features than neurons via [[superposition]].\n\nDataset: 8 billion sampled MLP activation vectors, harvested by running the transformer over Pile text.\n\nLoss: squared reconstruction error plus an [[l1-sparsity-penalty]] on the hidden activations. The L1 term is what pushes most feature activations to exactly zero.\n\nThe last line of the caption is the caveat. The $256\\times$ run exists, but the detailed analyses use $8\\times$ — 4,096 features — because wider dictionaries keep splitting features into finer ones ([[feature-splitting]]).",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Transformer (column header)",
+   "definition": "The left-hand column, specifying the one-layer language model the paper is trying to interpret. Everything in it describes an ordinary model trained in an ordinary way.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "Sparse Autoencoder (column header)",
+   "definition": "The right-hand column, specifying the analysis tool: a one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct the transformer's MLP activations. Its hidden units are what the paper calls features.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "Layers (row header)",
+   "definition": "The row giving each model's structural depth. It is where the reader sees that both models are about as small as they can be.",
+   "conceptId": null
+  },
+  {
+   "term": "MLP Size (row header)",
+   "definition": "The row giving the width of the hidden layer in each model. For the transformer this is the neuron count; for the autoencoder it is the number of learned features, which the paper varies.",
+   "conceptId": null
+  },
+  {
+   "term": "Dataset (row header)",
+   "definition": "The row naming what each model is trained on. Note the dependency: the autoencoder's dataset is produced by running the transformer, so the transformer must be trained first.",
+   "conceptId": null
+  },
+  {
+   "term": "Loss (row header)",
+   "definition": "The row giving each model's training objective. The two objectives have nothing in common, which is the point — the autoencoder is fitted to the transformer's activations, not co-trained with it.",
+   "conceptId": null
+  },
+  {
+   "term": "1 Attention Block",
+   "definition": "The transformer's single attention layer, which moves information between token positions. The paper does not decompose it; it decomposes only what the MLP produces.",
+   "conceptId": null
+  },
+  {
+   "term": "1 MLP Block (ReLU)",
+   "definition": "The transformer's single feedforward layer with a ReLU nonlinearity. Its post-ReLU activations are the target of the whole decomposition effort.",
+   "conceptId": "mlp-activations-as-target"
+  },
+  {
+   "term": "1 ReLU (up)",
+   "definition": "The autoencoder's encoder: a linear map with a bias followed by a ReLU, projecting a 512-dimensional activation vector up to the wider hidden layer. Its output vector is the set of feature activations for that token.",
+   "conceptId": "autoencoder-encoder"
+  },
+  {
+   "term": "1 Linear (down)",
+   "definition": "The autoencoder's decoder: a linear map with a bias projecting the hidden layer back down to 512 dimensions. Its weight matrix columns are the feature directions, which is why the paper also calls the decoder the dictionary.",
+   "conceptId": "dictionary-decoder"
+  },
+  {
+   "term": "The Pile",
+   "definition": "The public text corpus the transformers are trained on. The paper says it chose it over Anthropic's internal dataset so the experiments would be reproducible, while noting that some features are likely idiosyncratic to whatever dataset is used.",
+   "conceptId": "pile-dataset"
+  },
+  {
+   "term": "Transformer MLP Activations",
+   "definition": "The autoencoder's training data: the 512-dimensional post-ReLU vectors produced by the transformer's MLP, one per token, collected by running the trained transformer over Pile text. The autoencoder never sees the text directly.",
+   "conceptId": "autoencoder-training-dataset"
+  },
+  {
+   "term": "Autoregressive Log-Likelihood",
+   "definition": "The transformer's ordinary next-token prediction objective. Listing it here signals that no interpretability-friendly modification was made to the model's training.",
+   "conceptId": null
+  },
+  {
+   "term": "L2 reconstruction",
+   "definition": "The first half of the autoencoder's loss: the squared error between the original MLP activation vector and the autoencoder's reconstruction of it. The paper takes a mean over vector elements for this term.",
+   "conceptId": "mse-reconstruction-term"
+  },
+  {
+   "term": "L1 on hidden layer activation",
+   "definition": "The second half of the autoencoder's loss: a penalty on the sum of the absolute hidden activations, weighted by a coefficient the paper calls $\\lambda$. It is what forces most features to be exactly zero on any given token, which is what makes the decomposition sparse.",
+   "conceptId": "l1-sparsity-penalty"
+  },
+  {
+   "term": "Expansion notation (1x, 256x, 8x)",
+   "definition": "The multiplier written after each autoencoder width, equal to the hidden-layer size divided by the 512-dimensional input. It says how many times more features the dictionary has than the MLP has neurons.",
+   "conceptId": "expansion-factor"
+  },
+  {
+   "term": "Hidden layer activations (the features)",
+   "definition": "The vector produced by the encoder's ReLU, one entry per dictionary element. The paper treats each nonzero entry as one feature firing on that token, and each corresponding decoder column as that feature's direction in activation space.",
+   "conceptId": "feature"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "1 attention block, 1 MLP block",
+   "meaning": "The transformer's layer count. The paper wants the simplest model it cannot already analyse: a one-layer attention-only network can be rewritten without reference to its hidden states, but adding a ReLU MLP makes that impossible, so the MLP has to be decomposed."
+  },
+  {
+   "value": "1 ReLU up-projection, 1 linear down-projection",
+   "meaning": "The autoencoder's layer count. It is a one-hidden-layer MLP trained as an autoencoder, with the input weights serving as encoder and the output weights as decoder; the ReLU is what allows most feature activations to be exactly zero."
+  },
+  {
+   "value": "512",
+   "meaning": "The transformer's MLP width — the number of neurons whose post-ReLU activations are being decomposed. This is also the input and output dimension of the autoencoder, since the autoencoder reconstructs those same vectors."
+  },
+  {
+   "value": "128",
+   "meaning": "The transformer's residual stream dimension, given in the appendix rather than in the table. The MLP is four times wider than the residual stream, which is standard."
+  },
+  {
+   "value": "512 (1x)",
+   "meaning": "The smallest dictionary trained: exactly as many features as the transformer has neurons. This is the degenerate end of the sweep, where the autoencoder has no room to represent more features than neurons at all."
+  },
+  {
+   "value": "131,072 (256x)",
+   "meaning": "The largest dictionary trained. It is 512 multiplied by 256, so the autoencoder has 256 times more features available than the MLP has neurons. The paper trains this wide because it believes the MLP represents more features than neurons through superposition."
+  },
+  {
+   "value": "8x / 4,096",
+   "meaning": "The expansion factor and feature count the paper says it primarily focuses on, corresponding to the dictionary learning run it labels A/1. It is a compromise: wide enough to unpack superposition, narrow enough that a person can review the features."
+  },
+  {
+   "value": "100 billion tokens",
+   "meaning": "How much Pile text the transformer is trained on. This is far more than compute-optimal for a 512-neuron model; the paper hypothesizes that heavy overtraining lets the model learn cleaner representations in superposition."
+  },
+  {
+   "value": "8 billion",
+   "meaning": "The number of MLP activation vectors used to train the autoencoder. The paper says scale mattered: training on more data made features subjectively sharper and more interpretable."
+  },
+  {
+   "value": "10 billion",
+   "meaning": "The total size of the collected activation dataset, of which just over 8 billion are actually consumed. The surplus exists because the paper samples without replacement and never repeats a data point."
+  },
+  {
+   "value": "40 million contexts, 250 tokens each",
+   "meaning": "How the activation dataset was built: the transformer is run over 40 million Pile contexts and activation vectors are sampled from 250 tokens in each. Multiplying gives the 10 billion total, and the vectors are shuffled so a batch draws from many different contexts."
+  },
+  {
+   "value": "8,192 batch size, 1 million steps",
+   "meaning": "The autoencoder's training schedule. Multiplying 8,192 by 1,000,000 gives 8.192 billion activation vectors, which is the 'just over 8 billion' figure the table rounds to."
+  },
+  {
+   "value": "16,384",
+   "meaning": "The size of run A/2, the next dictionary up from A/1, mentioned in the feature splitting section. Going 512 to 4,096 to 16,384 takes the number of base64-specific features from 1 to 3 to many more, which is the evidence for feature splitting and the reason the paper does not simply use its widest dictionary."
+  },
+  {
+   "value": "2 transformers (A and B)",
+   "meaning": "The paper trains two one-layer transformers with identical hyperparameters and data, differing only in initialization seed. A is the model studied throughout; B is used to check whether the same features reappear, which the paper calls universality."
+  }
+ ]
+}

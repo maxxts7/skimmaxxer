@@ -1,0 +1,180 @@
+{
+ "id": "fig-55",
+ "title": "Single-Node Feature Loops",
+ "takeaway": "Four features from the smallest dictionary each raise the probability of exactly the kind of token that would make them fire again one position later, so each one behaves as a one-state machine that keeps re-entering itself. The paper offers this as the simplest case of its \"finite state automata\" motif. The evidence shown is a list of top-promoted tokens, not a measured transition rate.",
+ "walkthrough": "### What you are looking at\n\nFour one-state diagrams, side by side, independent of each other. Each is a single box, and each box is one [[feature]] from [[dictionary-learning-run]] A/0, labelled with its index and with the name the authors gave it by hand: A/0/45 base64, A/0/489 Uppercase DNA, A/0/14 French, A/0/209 SQL.\n\n### How to read one panel\n\nInside a box are dataset snippets on which that feature fires. The orange background marks where it is active, darker meaning a larger [[feature-activation]]. Each row is a window of four tokens either side of one selected token, shown in bold ([[activation-visualization-sampling]]). So the box is the input side: all four are [[context-features]], active across a whole stretch of text of one kind rather than on one word.\n\nThe arrow is the output side. It leaves the box and comes straight back into the same box, and the tokens above it are among those the feature most promotes when it fires. Those come from the [[logit-weight]] — the feature direction pushed through the MLP output weights, a linearised layer norm, and the [[unembedding-matrix]], one number per vocabulary token, shifted so the median is zero. The figure prints the top of that list and no magnitudes.\n\n### What it shows\n\nTake A/0/45. It fires on base64 text. The tokens it raises are Qg, zA, YW, MQ — fragments that occur in almost nothing but base64. If the model samples one of those, the text at the next position is still base64.\n\nSo A/0/45 fires again there, on a token it helped put there itself.\n\nThe feature's output re-supplies its own input. One state, one transition back to itself; the paper calls this a single-node loop ([[self-exciting-feature-loop]]). The other three panels repeat the shape with different material.\n\nTwo hedges the paper states itself. Nothing wires the feature to itself inside the network — the loop closes through the emitted token stream, and the model never learned the pieces to cooperate ([[finite-state-automata-features]]). And A/0 holds 512 features, exactly the MLP width, so it is not overcomplete; in wider runs [[feature-splitting]] turns each node here into a family and the tidy one-state picture becomes a larger system.\n\nNote also what is not shown: no sampled continuations, no ablation, no probabilities. The loop is read off a ranked token list.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "A/0/45 - base64",
+   "definition": "The first panel's feature: feature number 45 of dictionary learning run 0 on transformer A, which the authors label as a base64 feature because it fires on strings of the base64 alphabet. It is a different, coarser feature from the base64 feature the paper case-studies in depth (A/1/2357).",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "A/0/489 - Uppercase DNA",
+   "definition": "The second panel's feature, which fires on long uppercase runs of A, T, C and G. The label is the authors' own reading of the dataset examples, not an output of the method.",
+   "conceptId": "dna-feature"
+  },
+  {
+   "term": "A/0/14 - French",
+   "definition": "The third panel's feature, which fires across passages of French prose rather than on any single French word.",
+   "conceptId": "context-features"
+  },
+  {
+   "term": "A/0/209 - SQL",
+   "definition": "The fourth panel's feature, which fires across SQL query text — table names, clauses, aliases.",
+   "conceptId": null
+  },
+  {
+   "term": "A (in A/0/45)",
+   "definition": "The transformer the features were learned from. The paper trains two one-layer transformers differing only in random seed, calls them A and B, and studies A throughout.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "0 (the middle slot in A/0/45)",
+   "definition": "The dictionary learning run. A/0 is the smallest run in the A/0…A/5 sequence, which holds the sparsity penalty fixed and grows the dictionary.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Feature index (45, 489, 14, 209)",
+   "definition": "The position of the feature inside that run's dictionary. The numbers are arbitrary identifiers with no ordering meaning.",
+   "conceptId": null
+  },
+  {
+   "term": "The box",
+   "definition": "One node of the state machine — a single feature, shown together with a sample of the text on which it activates.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "The looping arrow",
+   "definition": "A transition from a feature back to itself, drawn leaving the box and re-entering it. It stands for: this feature promotes these tokens, and those tokens would put the model in a state where this same feature fires again.",
+   "conceptId": "self-exciting-feature-loop"
+  },
+  {
+   "term": "The token list above each arrow",
+   "definition": "The tokens whose next-token logits the feature raises most when it is active, taken from the feature's logit weight vector. The figure shows the top of the list only, with no values attached.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Logit weight",
+   "definition": "For one feature, a vector with one entry per vocabulary token saying how much the feature's firing pushes that token's logit up or down. It is computed by multiplying the feature direction by the MLP output weights, an approximation of the layer norm, and the unembedding matrix, then shifting so the feature's median weight is zero (softmax is shift-invariant, so only differences matter).",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Orange background shading",
+   "definition": "Marks tokens on which the feature is active in that snippet; darker orange means a larger activation. Uncoloured text is where the feature is off.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "Bold token in a row",
+   "definition": "The token the snippet is centred on. The paper's visualisations sample tokens from the dataset and show four tokens either side of the sampled one.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "The ⏎ / ↵ glyph inside snippets",
+   "definition": "A rendered newline character in the source text, drawn as a symbol so line breaks stay visible inside a one-line snippet.",
+   "conceptId": null
+  },
+  {
+   "term": "Leading spaces inside quoted tokens (\" dans\", \" WHERE\")",
+   "definition": "Part of the token itself. Under byte-pair encoding a word preceded by a space is usually a different token from the same word without one, so the paper prints the space.",
+   "conceptId": "byte-pair-encoding"
+  },
+  {
+   "term": "\"Qg\", \"zA\", \"YW\", \"MQ\", \"zc\", \"ZY\", \"qh\", \"qn\", \"Ct\", \"YW\", \"q\", \"Q\", \"J\", \"Y\"",
+   "definition": "The base64 feature's promoted tokens. They are short mixed-case letter fragments drawn from the base64 alphabet [a-zA-Z0-9+/]; several of them are near-meaningless in ordinary English text, which is why emitting one keeps the context reading as base64.",
+   "conceptId": null
+  },
+  {
+   "term": "\"GAC\", \"AGG\", \"AGC\", \"GAT\", \"CTT\", \"GG\", \"AGT\", \"GT\", \"CACT\"",
+   "definition": "The DNA feature's promoted tokens — uppercase groupings of the four nucleotide letters, as the tokenizer happens to chunk them. Any of them continues a nucleotide string.",
+   "conceptId": null
+  },
+  {
+   "term": "\"à\", \" dans\", \" avec\", \" qui\", \" pour\", \" des\", \" été\", \" é\", \" les\"",
+   "definition": "The French feature's promoted tokens: common French function words plus accented fragments. \" é\" is a partial token that appears inside accented French words, so it is French-specific in a way that \" les\" alone is not.",
+   "conceptId": null
+  },
+  {
+   "term": "\" WHERE\", \" JOIN\", \" SELECT\", \" varchar\", \" FROM\", \"SQL\"",
+   "definition": "The SQL feature's promoted tokens: query keywords, a column type, and the bare string SQL. \"SQL\" is printed without a leading space, so it is the token that appears inside identifiers such as mySQL rather than as a standalone word.",
+   "conceptId": null
+  },
+  {
+   "term": "\"IL\" (light-shaded, first DNA row)",
+   "definition": "Text following the end of the nucleotide run in that snippet. Its pale shading shows the feature dropping off once the DNA stops, which is the visual signature of a context feature switching off.",
+   "conceptId": null
+  },
+  {
+   "term": "Context feature",
+   "definition": "A feature that fires across a whole region of text of a given kind — base64, DNA, French, SQL — rather than on one particular token. All four panels here are of this type.",
+   "conceptId": "context-features"
+  },
+  {
+   "term": "Action feature",
+   "definition": "The paper's second reading of any feature in a one-layer model: as well as responding to base64, a base64 feature acts to make base64 more likely. This figure is that reading drawn as a diagram.",
+   "conceptId": "action-features"
+  },
+  {
+   "term": "Finite state automata (the paper's usage)",
+   "definition": "Its name for assemblies of features where one feature raises tokens that cause another feature to fire at the next position. The paper is careful that these are not circuits: the features interact through the emitted token stream, and were never trained to work together.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Feature splitting",
+   "definition": "As the dictionary is made wider, one broad feature divides into several narrower ones covering roughly the same territory. The paper notes this is why the single nodes here would become multi-node systems in a larger run.",
+   "conceptId": "feature-splitting"
+  },
+  {
+   "term": "Overcomplete",
+   "definition": "A dictionary with more directions than the dimension of the space it decomposes. The paper flags that A/0 is not overcomplete, which is what keeps these diagrams as small as they are.",
+   "conceptId": "overcompleteness"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0 (in A/0)",
+   "meaning": "The dictionary learning run index. A/0 is the smallest run the paper trains on transformer A; the figure draws its features specifically because that run is coarse enough for the loops to have one node each."
+  },
+  {
+   "value": "45, 489, 14, 209",
+   "meaning": "The feature indices inside run A/0 for the base64, Uppercase DNA, French and SQL features. They are arbitrary slot numbers assigned during training and carry no order or magnitude."
+  },
+  {
+   "value": "512",
+   "meaning": "The number of features in A/0 — equal to the transformer's MLP width, also 512. Because the dictionary is the same size as the layer it decomposes, A/0 is not overcomplete, which the paper gives as the reason these systems stay so simple."
+  },
+  {
+   "value": "4,096 and 16,384",
+   "meaning": "The dictionary sizes of A/1 and A/2, the next runs in the sequence. Not shown in this figure, but they are the reason for the caveat: the base64 features go from 1 in A/0 to 3 in A/1 to many more in A/2, so the single node splits."
+  },
+  {
+   "value": "13, 9, 9, 6",
+   "meaning": "How many promoted tokens are printed above each panel's arrow (base64, DNA, French, SQL respectively). These are display counts — the top of a ranked list — not a property of the features; the full logit weight vector has one entry per vocabulary token."
+  },
+  {
+   "value": "4",
+   "meaning": "The number of tokens shown on each side of the selected token in every snippet row, per the paper's visualisation settings. It is why the rows are short and cut off mid-word."
+  },
+  {
+   "value": "100 million and 10",
+   "meaning": "The visualisations draw from a 100-million-token subset of the training data, taking only 10 tokens from any one context. Sampling sparsely across contexts is meant to stop the displayed examples all coming from a handful of documents."
+  },
+  {
+   "value": "64",
+   "meaning": "The size of the base64 alphabet, [a-zA-Z0-9+/], which is how the paper models base64 strings. Six bits per character means base64 text looks like uniform random draws from those 64 symbols, which is exactly what makes fragments like Qg and zA base64-specific rather than English."
+  },
+  {
+   "value": "Digits inside the base64 snippets (ILNdCxmNt1pPtV5, pWK2bVrV7PRd, 15P8Vr/sc7m, 7wFLfcSJT43JD6)",
+   "meaning": "Raw dataset text, not measurements. Digits are part of the base64 alphabet, so they appear interleaved with letters at roughly one character in six; the strings have no meaning to decode."
+  },
+  {
+   "value": "Numbers inside the SQL snippets (246, table1, parent_id, tableid, tablealias1)",
+   "meaning": "Also raw dataset text — literal values and table identifiers scraped from SQL in the training corpus. They are there to show what the feature fires on, not to be read as quantities."
+  },
+  {
+   "value": "128 and 100 billion (context, not printed here)",
+   "meaning": "The residual stream width of the transformer under study and the number of Pile tokens it was trained on. The paper deliberately overtrains this small model, hypothesising that many training tokens give cleaner representations in superposition."
+  }
+ ]
+}

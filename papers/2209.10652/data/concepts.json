@@ -1,0 +1,124 @@
+{
+ "concepts": [
+  {
+   "id": "superposition-hypothesis",
+   "name": "The superposition hypothesis",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The claim that a network can represent more features than it has dimensions by assigning each feature its own direction and letting those directions be only almost orthogonal rather than exactly orthogonal. The paper offers this as an explanation for why individual neurons often respond to several unrelated things.",
+   "explanation": "The setup rests on three prior commitments. First, decomposability: activations can be broken into independently meaningful features, where a \"feature\" is taken here to mean a property of the input that a sufficiently large network would reliably dedicate a whole neuron to. Second, linearity: each feature f_i has a representation direction W_i, and several features active with values x_1, x_2, ... are represented by the sum x_1 W_1 + x_2 W_2 + .... Third, the distinction between a privileged and a non-privileged basis: a word embedding can be rotated by any invertible M (absorbing M^-1 into the next layer) without changing the model, so its basis directions mean nothing, whereas an elementwise activation function breaks that rotational symmetry and makes the basis directions special. Only in a privileged basis is it meaningful to call a basis direction a \"neuron\" and ask whether it is interpretable. Superposition is then the case where the representation matrix W has more feature columns than dimensions, so that W W^T is not invertible; a representation is basis-aligned only if the W_i are one-hot, and a neuron that carries several features at once is called polysemantic. Two mathematical facts are offered as grounds for thinking this is feasible: an n-dimensional space holds only n exactly orthogonal vectors but exponentially many almost-orthogonal ones (cosine similarity below any fixed epsilon), by the Johnson-Lindenstrauss lemma; and compressed sensing shows that a vector projected into a lower-dimensional space can often be recovered if the original is known to be sparse. The price is interference: because directions are not exactly orthogonal, one feature firing makes other features appear slightly active. The paper's argument is that when features are sparse the price is small, since features rarely co-occur to interfere, and a nonlinearity plus a negative bias can filter small amounts of noise away. Superposition is defined by the count of features versus dimensions, so it can occur in unprivileged bases too; polysemantic neurons are what it looks like when the basis is privileged.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Definitions and Motivation: Features, Directions, and Superposition — subsections \"What are Features?\", \"Features as Directions\", \"Privileged vs Non-privileged Bases\", \"The Superposition Hypothesis\", and \"Summary: A Hierarchy of Feature Properties\".",
+   "ownerPaper": "2209.10652",
+   "sources": {
+    "paperId": "2209.10652",
+    "note": "Definitions and Motivation: Features, Directions, and Superposition — subsections \"What are Features?\", \"Features as Directions\", \"Privileged vs Non-privileged Bases\", \"The Superposition Hypothesis\", and \"Summary: A Hierarchy of Feature Properties\".",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "noisy-simulation-of-a-larger-sparse-model",
+   "name": "Noisy simulation of a larger sparse network",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The paper's framing of a network in superposition as a noisy stand-in for an imagined, much larger network in which every feature has its own neuron and nothing interferes. On this view the observed model is doing \"the same thing as\" the larger one, with added noise.",
+   "explanation": "The framing runs throughout the toy setups: the high-dimensional input vector x is treated as the activations of an idealized disentangled model whose features are perfectly aligned with neurons, and the low-dimensional hidden vector h is the observed model that has to fit them into fewer dimensions. Superposition is then a compression of the larger model into the smaller one, and interference is the noise that compression introduces. The paper strengthens the claim beyond storage by showing that a toy network can compute in superposition, not merely hold values: it trains a model to output abs(x) on sparse inputs drawn uniformly from [-1, 1] when non-zero, a function ReLU neurons can implement directly since abs(x) = ReLU(x) + ReLU(-x), and finds the hidden layer carrying more such computations than it has neurons. This is what supports the stronger reading that the smaller model simulates the larger one's circuits, not just its activations. The framing also implies a route back: if one could enumerate the feature directions, compressed sensing could be used to \"unfold\" a superposition model's activations into those of the larger, interference-free model with high probability. The paper is explicit that this is a hypothesis about real networks extrapolated from small ReLU networks trained on synthetic data, and says it is very unclear what generalizes. It also notes the demonstration of computation in superposition covers only simple functions in limited cases.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Introduction (the \"noisily simulating larger, highly sparse networks\" claim); Demonstrating Superposition — Experiment Setup, \"The Feature Vector (x)\"; Computation in Superposition; The Strategic Picture of Superposition — \"Safety, Interpretability, & Solving Superposition\" (the unfolding argument).",
+   "ownerPaper": "2209.10652",
+   "sources": {
+    "paperId": "2209.10652",
+    "note": "Introduction (the \"noisily simulating larger, highly sparse networks\" claim); Demonstrating Superposition — Experiment Setup, \"The Feature Vector (x)\"; Computation in Superposition; The Strategic Picture of Superposition — \"Safety, Interpretability, & Solving Superposition\" (the unfolding argument).",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "toy-model-setup",
+   "name": "The toy model and its synthetic sparse data",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A small ReLU network trained to compress and reconstruct synthetic sparse feature vectors, where the features are known by construction. It is the paper's substitute for the missing ground truth about what features a real network has.",
+   "explanation": "Each input dimension x_i is declared to be a feature. The data generator gives every feature a sparsity S_i and an importance I_i: x_i is zero with probability S_i and otherwise uniform on [0, 1], with experiments mostly using one shared sparsity S_i = S. Two models are compared, differing only in the final activation. The linear model is h = Wx, x' = W^T h + b, i.e. x' = W^T W x + b. The ReLU output model is h = Wx, x' = ReLU(W^T h + b). Weights are tied — the same W projects down and its transpose reads back — which removes any ambiguity about which direction in the hidden space represents a feature; the bias lets the model set unrepresented features to their expected value and, with a negative value, discard small interference. The loss is mean squared error weighted by importance, L = sum over x of sum over i of I_i (x_i - x'_i)^2. Typical configurations are n = 20 features into m = 5 dimensions with I_i = 0.7^i, and n = 80 into m = 20 with I_i = 0.9^i. Two per-feature readouts are used to see what happened: the norm ||W_i||, which says whether feature i is represented at all, and sum over j not equal to i of (Ŵ_i · W_j)^2, where Ŵ_i is the unit vector along W_i, which says how much other features share its direction — zero if orthogonal to everything, at or above one if some group of other features can drive that direction as hard as the feature itself. The result is that the linear model always learns roughly the top m most important features, like principal components, regardless of sparsity, while the ReLU output model matches it on dense data (1 - S = 1.0) but as sparsity rises begins packing extra features non-orthogonally, starting with the least important ones, initially as antipodal pairs where one feature's vector is exactly the negative of another's. The paper's point in using this setup is that the features are known in advance, which is what real networks do not offer.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Demonstrating Superposition — Experiment Setup (\"The Feature Vector (x)\", \"The Model\", \"The Loss\") and Basic Results.",
+   "ownerPaper": "2209.10652",
+   "sources": {
+    "paperId": "2209.10652",
+    "note": "Demonstrating Superposition — Experiment Setup (\"The Feature Vector (x)\", \"The Model\", \"The Loss\") and Basic Results.",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "feature-benefit-and-interference",
+   "name": "Feature benefit versus interference",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The paper's analytic account of why superposition happens: representing a feature lowers loss, but representing more features than fit orthogonally raises it through interference, and sparsity plus a ReLU changes the balance between the two.",
+   "explanation": "For the linear model the paper borrows results on the learning dynamics of linear networks to write the loss as two competing terms, one rewarding each feature represented (\"feature benefit\") and one penalising non-orthogonality between represented features (\"interference\"). In the linear case the second term always outweighs the first past m features, so a linear model never represents more features than it has dimensions. For the ReLU output model the loss integral over x is decomposed by sparsity pattern using the binomial expansion of ((1 - S) + S)^n, giving L = (1 - S)^n L_n + ... + (1 - S) S^(n-1) L_1 + S^n L_0, where L_k is the loss on k-sparse inputs. As S approaches 1 only L_1 and L_0 matter. L_0, the loss on the zero vector, is just a penalty on positive biases, sum over i of ReLU(b_i)^2. L_1, the loss on one-hot-ish inputs, is where the interesting structure lives, and under the simplifying assumptions of uniform importance, ||W_i|| = 1 for represented features and 0 otherwise, and b_i = 0, the feature benefit term becomes constant and the interference term reduces to a generalized Thomson problem: packing points on the surface of a sphere under an unusual energy function. Two consequences follow. Under ReLU, negative interference in the 1-sparse case is free, which is why the solutions the model finds prefer negative interference where they can get it — hence antipodal pairs. And a negative bias converts small positive interference into effectively negative interference, which is the second reason the bias matters. For less sparse inputs the higher L_k terms bring compounding interference among simultaneously active features; the paper observes that models tend to arrange features into sparse interference graphs, which lowers the chance of compounding and makes the 1-sparse term relatively more important. It leaves those higher terms unwritten.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Mathematical Understanding (the Saxe-derived decomposition for the linear case; the binomial decomposition of the loss into L_n ... L_1, L_0 and the Thomson-problem reduction for the ReLU output model).",
+   "ownerPaper": "2209.10652",
+   "sources": {
+    "paperId": "2209.10652",
+    "note": "Mathematical Understanding (the Saxe-derived decomposition for the linear case; the binomial decomposition of the loss into L_n ... L_1, L_0 and the Thomson-problem reduction for the ReLU output model).",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "feature-dimensionality-and-geometry",
+   "name": "Feature dimensionality and the geometry of superposition",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Two measures of how much of a dimension a feature gets — one averaged over the model, one per feature — and the finding that in these toy models the values cluster at specific fractions corresponding to specific geometric arrangements.",
+   "explanation": "To count how many features a model has learned, the paper uses the squared Frobenius norm ||W||_F^2, since ||W_i||^2 is near 1 for a represented feature and near 0 otherwise, and this quantity is basis-independent so it still behaves sensibly in the dense regime. Dividing gives D* = m / ||W||_F^2, read as \"dimensions per feature\". Plotted against sparsity this curve is \"sticky\" at 1 (each feature gets its own dimension) and at 1/2 (antipodal pairs, two features per dimension). The per-feature version is the feature dimensionality D_i = ||W_i||^2 / sum over j of (Ŵ_i · W_j)^2, where the numerator is how strongly the feature is represented and the denominator counts how many features share the direction it sits in, by projecting every feature onto it. A feature in an antipodal pair has D_i = 1/(1 + 1) = 1/2; an unlearned feature has 0; empirically the D_i sum to roughly the number of hidden dimensions when packing is efficient. Scattering the individual D_i reveals more sticky values — 3/4 (tetrahedron), 2/3 (triangle), 1/2 (antipodal pair), 2/5 (pentagon), 3/8 (square antiprism) — each corresponding to a specific weight geometry, which the paper visualises as a graph whose nodes are features and whose edges are absolute dot products between embedding vectors. The reading offered is that superposition is not one thing but a family of configurations, distinguished by fractional dimensionality, several of them known solutions to the Thomson problem; uniform polyhedra give every feature the same D_i, while non-uniform solutions split into separate lines because different vertices interfere differently. Many solutions factor as tegum products, embedding smaller polytopes in orthogonal subspaces, so there is no interference across factors — disconnected subgraphs in the visualisation are exactly different tegum factors. Away from the uniform case, features that differ in importance or sparsity deform the polytope smoothly until it snaps to another one; correlated features prefer to be orthogonal, often landing in different tegum factors, so that in larger models a correlated set considered on its own can look nearly orthogonal even while the model as a whole is in superposition, which the paper calls a local almost-orthogonal basis; anti-correlated features prefer to interfere, ideally antipodally. The paper hedges hard here, saying the structure seems too clean to be true and is likely at least partly idiosyncratic to the toy model.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "The Geometry of Superposition — \"Uniform Superposition\" (D* = m/||W||_F^2), \"Feature Dimensionality\" (the D_i formula and the fraction lines), \"Why These Geometric Structures?\" (Thomson solutions, tegum products), and \"Non-Uniform Superposition\" including \"Local Almost-Orthogonal Bases\".",
+   "ownerPaper": "2209.10652",
+   "sources": {
+    "paperId": "2209.10652",
+    "note": "The Geometry of Superposition — \"Uniform Superposition\" (D* = m/||W||_F^2), \"Feature Dimensionality\" (the D_i formula and the fraction lines), \"Why These Geometric Structures?\" (Thomson solutions, tegum products), and \"Non-Uniform Superposition\" including \"Local Almost-Orthogonal Bases\".",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "three-ways-out",
+   "name": "Three approaches to resolving superposition",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The paper's taxonomy of routes to a model whose features can be enumerated: train models that have no superposition, decode an overcomplete basis out of models that do, or change models to make the decoding easier.",
+   "explanation": "The paper first defines the target. It calls any method that lets you enumerate all of a model's features — equivalently, unfold its activations into those of the larger non-superposition model — a \"solution to superposition\", and argues this is what many other interpretability goals reduce to: decomposing activation space, describing an activation as a sum of pure features, reading weights between features rather than between polysemantic neurons, and even trusting cosine similarity, which superposition can make misleading because unrelated features acquire positive dot products. Approach one is to create models without superposition. In the toy models this is easy: add an L1 penalty on the hidden activations, lambda * ||h||_1, which kills features below an importance threshold, at the cost of higher loss. The objection is that superposition appears to buy real capacity, since many language-model features are extremely rare; the counter-objection is that flops, not neurons, are the true constraint, and architectures such as mixture of experts that decouple the two may leave less room for superposition. Approach two is to leave the model alone and find an overcomplete basis describing how features are embedded, which the paper describes as a fairly standard sparse coding problem over layer activations. It lists four difficulties: you no longer know how many features to look for; the recovered features are \"virtual neurons\" not integrated into the surface structure of neurons and heads; the scale is a serious engineering problem, factoring something like a millions-by-billions matrix into a basis perhaps a thousand times overcomplete; and interference no longer works in your favour, since during training it pushes against superposition, whereas after the fact whatever superposition exists is baked in. Approach three is hybrid — produce models with less superposition, or with architectural changes that make the basis easier to find, then decode. The paper reads the phase-change results as grounds for cautious hope, since a regime with no superposition at all appears to exist, and notes that even an uncompetitive superposition-free model would be useful as ground truth for studying superposition in normal ones.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "The Strategic Picture of Superposition — \"Safety, Interpretability, & Solving Superposition\", \"Three Ways Out\", Approaches 1-3, and \"Additional Considerations\".",
+   "ownerPaper": "2209.10652",
+   "sources": {
+    "paperId": "2209.10652",
+    "note": "The Strategic Picture of Superposition — \"Safety, Interpretability, & Solving Superposition\", \"Three Ways Out\", Approaches 1-3, and \"Additional Considerations\".",
+    "sections": [],
+    "pages": []
+   }
+  }
+ ]
+}

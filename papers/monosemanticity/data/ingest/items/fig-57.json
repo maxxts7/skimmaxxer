@@ -1,0 +1,185 @@
+{
+ "id": "fig-57",
+ "title": "Unicode Prefix–Suffix Feature Loops",
+ "takeaway": "Where a script's characters are tokenized as a prefix byte plus a suffix byte, the paper finds a pair of features that hand off to each other: each one's top predicted tokens are exactly the tokens the other one fires on. Chinese adds a wrinkle — because a complete single-token character sits in the same position as a suffix, one feature covers both, and it also predicts back into itself.",
+ "walkthrough": "Four boxes, arranged as two independent panels that share a layout. Tamil on the left, Chinese on the right.\n\nEach box is one [[feature]] found by the sparse autoencoder. It carries the feature's identifier, a hand-written name, and a strip of [[top-dataset-examples]] — snippets of text where it fires, with orange shading for the [[feature-activation]] and darker orange for stronger firing.\n\nThe arrows are not weights and not wires. Each arrow is labelled with the tokens the source feature most raises in the next-token distribution — its largest positive [[logit-weight]] entries. It points at the feature those tokens would activate on the following step.\n\nSo a path through this diagram is a path through generated text, not through the network. That is the claim behind [[finite-state-automata-features]]: no circuit joins these features, they meet only through the token stream.\n\n### The token vocabulary\n\nThe tokenizer is [[byte-pair-encoding]] over bytes, so a non-Latin character often arrives as several tokens ([[utf8-multi-token-characters]]). Tamil ண (U+0BA3) is UTF-8 bytes E0 AE A3, tokenized as `\\xe0\\xae` then `\\xa3`.\n\nCall `\\xe0\\xae` a **prefix token** and `\\xa3` a **suffix token**. The prefix roughly fixes the Unicode block; the suffix picks the character inside it.\n\n### Left panel: the plain two-node case\n\nA/1/2499 fires on suffix bytes. Its top logit weights are the two Tamil prefixes `\\xe0\\xae` and `\\xe0\\xaf` — precisely what A/1/522 fires on.\n\nA/1/522 fires on prefixes, and its top logit weights are continuation bytes `\\x8d`, `\\x81`, and so on — precisely what A/1/2499 fires on. Two arrows, one cycle, alternating forever ([[unicode-token-state-machines]]).\n\n### Right panel: Chinese\n\nCommon Chinese characters get their own single token; rarer ones split. The paper's observation is that a complete character occupies the same position as a suffix — either can be followed by a whole new character or by a new prefix.\n\nSo one feature covers both. A/0/397 fires on complete characters *and* on suffix bytes, and its top logit weights fall into two groups, drawn as two arrows. Whole-character tokens (是, 的, 在) loop straight back into itself. Prefix tokens (`\\xe5\\x8f`, `\\xe4\\xbe`) land on A/0/101.\n\nA/0/101 fires only on prefixes and predicts suffix bytes, which land back in A/0/397. Three arrows, two nodes, one self-loop.\n\nTwo caveats the paper states. A/0 holds 512 features while A/1 holds 4,096, and wider runs make these systems messier through [[feature-splitting]] — so the tidiness depends on dictionary size. And the diagram is read off top examples and top logit weights, not measured by intervention.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "A/1/2499 — \"Tamil unicode suffix\"",
+   "definition": "The top-left node: a feature from model A, dictionary learning run 1, index 2499, which fires on the second (suffix) byte token of a split Tamil character. Its name is the authors' own label, not an output of the method.",
+   "conceptId": "unicode-token-state-machines"
+  },
+  {
+   "term": "A/1/522 — \"Tamil unicode prefix\"",
+   "definition": "The top-right node of the left panel: a feature that fires on the first (prefix) byte token of a split Tamil character, the token that names the Unicode block.",
+   "conceptId": "unicode-token-state-machines"
+  },
+  {
+   "term": "A/0/397 — \"Chinese\"",
+   "definition": "The left node of the right panel: a feature that fires both on complete single-token Chinese characters and on the suffix byte of a split Chinese character. The paper argues these two cases are equivalent for prediction purposes, which is why one feature covers both.",
+   "conceptId": "unicode-token-state-machines"
+  },
+  {
+   "term": "A/0/101 — \"Chinese unicode prefix\"",
+   "definition": "The right node of the right panel: a feature that fires only on the prefix byte token of a split Chinese character, never on complete characters.",
+   "conceptId": "unicode-token-state-machines"
+  },
+  {
+   "term": "A (first field of the identifier)",
+   "definition": "Which transformer the features come from. The paper studies two one-layer models, A and B; every feature here is from A.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "0 and 1 (second field of the identifier)",
+   "definition": "Which sparse autoencoder training run produced the feature. Runs A/0 through A/5 share an L1 coefficient and increase in dictionary size, so the run index is effectively a resolution setting.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "2499, 522, 397, 101 (third field)",
+   "definition": "The index of the individual feature within its run. The numbers are arbitrary labels assigned by training; nothing is encoded in their magnitude.",
+   "conceptId": null
+  },
+  {
+   "term": "Prefix token",
+   "definition": "The first byte token of a multi-token character, such as \\xe0\\xae for Tamil or \\xe5\\x8f for Chinese. It roughly determines which Unicode block the character sits in, but leaves the character itself undetermined.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Suffix token",
+   "definition": "The trailing continuation byte, such as \\xa3 or \\x93, which selects the specific character inside the block the prefix opened. It only makes sense following a prefix.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Complete character token",
+   "definition": "A Chinese character frequent enough that the byte-pair tokenizer gave it a single dedicated token, such as 是 or 的. No prefix or suffix is involved.",
+   "conceptId": "byte-pair-encoding"
+  },
+  {
+   "term": "Arrow",
+   "definition": "Not a connection inside the network. It runs from a feature to the feature that would fire next, and its label lists the tokens the source feature raises the probability of — tokens that happen to belong to the target's firing set.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Arrow label (the quoted token list)",
+   "definition": "The tokens with the largest positive logit weight for the source feature: those it most pushes up when it fires. Logit weight is computed by pushing the feature direction through the MLP output weights, a linearized layer norm, and the unembedding.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Orange highlight in the example strips",
+   "definition": "How strongly the feature activates on that token, from a 100-million-token sample of the training data. Darker orange means a larger activation; unshaded tokens are context only.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "Bolded byte token inside a snippet",
+   "definition": "In the A/1/522 and A/0/101 panels, the bolded byte sequence marks the prefix token the feature is firing on, distinguishing it from the neighbouring bytes shown for context.",
+   "conceptId": null
+  },
+  {
+   "term": "Grey byte text above rendered glyphs",
+   "definition": "The raw token sequence the model actually sees, written as escaped hex bytes, with the human-readable characters those bytes decode to shown beneath. The two rows are the same text at two levels.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Dotted circle glyph (◌ followed by a mark)",
+   "definition": "A Tamil combining vowel sign rendered with a placeholder circle because it has no standalone form. It appears where the decoded character is a diacritic rather than a base letter.",
+   "conceptId": null
+  },
+  {
+   "term": "\\xe0\\xae and \\xe0\\xaf",
+   "definition": "The two Tamil prefix tokens, the only ones the block needs. \\xe0\\xae opens the lower half of the Tamil block and \\xe0\\xaf the upper half.",
+   "conceptId": null
+  },
+  {
+   "term": "\\xe5\\x8f, \\xe5\\xb0, \\xe4\\xbe, \\xe5\\xbf, \\xe9\\x80, \\xe5\\x90",
+   "definition": "Six of the Chinese prefix tokens A/0/397 predicts. There are many of them because Chinese characters are spread across large Unicode blocks that do not line up with byte boundaries.",
+   "conceptId": null
+  },
+  {
+   "term": "是, 的, 在, 。, 不, 有, 一, 到, 为",
+   "definition": "High-frequency Chinese characters and punctuation that each have a single dedicated token. They are what A/0/397 predicts on the self-loop arrow, and they land back in its own firing set.",
+   "conceptId": null
+  },
+  {
+   "term": "Finite state automaton (the paper's framing)",
+   "definition": "A set of features that behave like states in a state machine: each raises the probability of tokens that then trigger the next feature. The paper is explicit that the model never learned these to work together — they interact only because of patterns in the text.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Feature splitting (named in the surrounding text)",
+   "definition": "As the autoencoder dictionary is widened, one feature divides into several more specific ones. The paper warns that these two-node systems become more complicated systems at larger dictionary sizes.",
+   "conceptId": "feature-splitting"
+  },
+  {
+   "term": "Feature",
+   "definition": "A direction in the MLP's activation space recovered by the sparse autoencoder, treated as an interpretable unit in place of a neuron. The scalar attached to it on a given token is its activation.",
+   "conceptId": "feature"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "A/1/2499, A/1/522",
+   "meaning": "The two Tamil feature identifiers. Both come from run 1, which has 4,096 features — noticeably wider than the run used for most other examples in this section."
+  },
+  {
+   "value": "A/0/397, A/0/101",
+   "meaning": "The two Chinese feature identifiers, both from run 0. The section notes run 0 is the one where these systems stay simple."
+  },
+  {
+   "value": "512",
+   "meaning": "The number of features in run A/0, and also the number of neurons in the transformer's MLP. The paper flags this: A/0 is not overcomplete, so its dictionary has exactly as many directions as the space has dimensions."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of features in run A/1, eight times the MLP width. The Tamil pair is drawn from this wider run, so it already reflects some feature splitting relative to A/0."
+  },
+  {
+   "value": "U+0B80–U+0BFF",
+   "meaning": "The Unicode block for Tamil, given in the surrounding text. It is 128 code points wide, which is why two prefix tokens suffice to cover it."
+  },
+  {
+   "value": "U+0BA3",
+   "meaning": "The code point of ண, the worked example in the text. It sits in the lower half of the Tamil block."
+  },
+  {
+   "value": "E0 AE A3",
+   "meaning": "The UTF-8 encoding of U+0BA3 as three bytes. The tokenizer merges the first two into \\xe0\\xae and leaves \\xa3 alone, which is the split the two Tamil features track."
+  },
+  {
+   "value": "0x80–0xBF",
+   "meaning": "The byte range every suffix token falls in, because UTF-8 continuation bytes all start with the bits 10. Every value on the two bottom arrow labels — \\x81 through \\xa7 — lies inside it."
+  },
+  {
+   "value": "0xE4–0xE9",
+   "meaning": "The leading byte range of the Chinese prefix tokens shown, reflecting that CJK characters occupy the three-byte UTF-8 range starting around U+4E00. All six labelled prefixes begin \\xe4, \\xe5 or \\xe9."
+  },
+  {
+   "value": "2",
+   "meaning": "How many tokens label the Tamil top arrow: \\xe0\\xae and \\xe0\\xaf. Two is the whole set of Tamil prefixes, so this feature's prediction covers the block completely."
+  },
+  {
+   "value": "10",
+   "meaning": "How many suffix bytes label each bottom arrow — the Tamil one lists \\x8d through \\x9f, the Chinese one \\x93 through \\x94. These are truncated top-logit lists, not exhaustive: many more continuation bytes exist."
+  },
+  {
+   "value": "9",
+   "meaning": "How many complete-character tokens label the Chinese self-loop arrow. They are the most frequent single-token characters, which is why they dominate the logit weights."
+  },
+  {
+   "value": "6",
+   "meaning": "How many prefix tokens label the arrow from A/0/397 to A/0/101. Fewer than the suffix list, but far more than Tamil's two, because Chinese spans many Unicode blocks."
+  },
+  {
+   "value": "3 (rows per Tamil box)",
+   "meaning": "How many activating dataset examples the figure shows for each Tamil feature. It is an illustrative sample from the interface, not a measured statistic."
+  },
+  {
+   "value": "4 (lines in the A/0/397 box)",
+   "meaning": "How many Chinese text snippets are shown for that feature. They contain no escaped bytes, illustrating the complete-character half of its firing set."
+  },
+  {
+   "value": "100 million",
+   "meaning": "The size of the token subset the example strips are drawn from, with only 10 tokens kept per context. Each highlighted token is displayed with four tokens of context on either side."
+  }
+ ]
+}

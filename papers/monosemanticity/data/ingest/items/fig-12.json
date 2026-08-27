@@ -1,0 +1,107 @@
+{
+ "id": "fig-12",
+ "title": "Pinning the Arabic Script Feature",
+ "takeaway": "Holding one learned feature's activation at its maximum, with nothing else in the network touched, turns the model's continuation of a counting prefix into Arabic script. The paper offers this as its most direct causal check that the feature is used by the model to produce Arabic text, rather than merely co-occurring with it in the data.",
+ "walkthrough": "### What you are looking at\n\nTwo side-by-side panels of generated text. Each panel has a **Prefix** column and a column of five samples drawn from the same [[one-layer-transformer-testbed]].\n\nThe prefix is identical in both: `1,2,3,4,5,6,7,8,9,10`. The paper picks it because the model has an expected continuation there — more numbers.\n\nThe left panel, **Normal Samples**, is the untouched model. Its five continuations are runs of comma-separated numbers: `8,3,3,3,3,3`, then `8,8,8,9,7,6`, then `8,30,20,8,10,10`, and so on. They are numbers, and not much more than that.\n\n### The intervention\n\nThe right panel, **Pinned Samples**, changes exactly one thing inside the forward pass.\n\nRun the context up to the MLP layer. Encode the MLP activation with the [[sparse-autoencoder]], which gives one activation value per dictionary feature. Now overwrite a single one of those values: set [[arabic-script-feature]] A/1/3450 to the largest activation ever observed for it on data.\n\nEvery other feature coordinate is left as the encoder produced it. Decode back to an activation vector, finish the rest of the model, sample a token, repeat.\n\nThat is what \"pinned\" means here: clamped to a fixed high value at every step, rather than nudged.\n\n### What it shows\n\nAll five pinned samples come out in Arabic script. The counting continuation is gone.\n\nThis is the third and most direct of the paper's three [[feature-downstream-effects]] checks, after logit weights and [[feature-ablation]]. Its force comes from the training setup: the autoencoder only ever saw MLP activations, never the model's output, so an interpretable effect on generation cannot be an artifact of the fitting procedure.\n\n### How much to read into it\n\nThe paper flags in the same sentence that this is a one-layer model that is very weak. The left panel makes that concrete — the plain model's own numeric continuation already drifts to `30,20`.\n\nSo fluency is not the claim, and the Arabic samples are not claimed to be meaningful Arabic; one line even contains a replacement glyph where the byte tokens did not compose a character, which is expected given [[utf8-multi-token-characters]].\n\nWhat the figure supports is narrower: the change of script. It is also a demonstration rather than a measurement — one prefix, five samples, one feature, and no score attached.",
+ "terms": [
+  {
+   "term": "Prefix",
+   "definition": "The column heading for the shared prompt the model is asked to continue. It is the same string in both panels, so any difference between the panels comes from the intervention and not from the input.",
+   "conceptId": null
+  },
+  {
+   "term": "Normal Samples",
+   "definition": "The column heading for text sampled from the unmodified model. It is the control condition of the figure.",
+   "conceptId": null
+  },
+  {
+   "term": "Pinned Samples",
+   "definition": "The column heading for text sampled while feature A/1/3450's activation is held fixed at its maximum observed value throughout generation. Everything else in the model is unchanged.",
+   "conceptId": "pinned-feature-sampling"
+  },
+  {
+   "term": "Pinning",
+   "definition": "The paper's word for overwriting one feature's activation with a chosen number and keeping it there for the whole sample, instead of letting the encoder set it. It is a causal intervention on the decomposition, not on the weights.",
+   "conceptId": "pinned-feature-sampling"
+  },
+  {
+   "term": "A/1/3450",
+   "definition": "The feature being pinned: the Arabic script feature, which fires on text in Arabic, Farsi, Urdu and other languages using the Arabic script. It is the paper's lead case study.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "A (in A/1/3450)",
+   "definition": "The first slot in the paper's feature naming scheme, identifying which transformer the feature comes from. The paper trained two one-layer transformers differing only in random seed, A and B, and studies A throughout.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "1 (in A/1/3450)",
+   "definition": "The second slot, identifying which dictionary learning run the feature comes from. Runs differ in dictionary size and L1 coefficient; A/1 is the run the paper analyses in detail.",
+   "conceptId": "dictionary-learning"
+  },
+  {
+   "term": "3450 (in A/1/3450)",
+   "definition": "The third slot, the index of this particular feature within run A/1. It carries no meaning beyond identity — feature indices are arbitrary.",
+   "conceptId": null
+  },
+  {
+   "term": "Maximum observed value",
+   "definition": "The largest activation this feature reached anywhere in the sampled dataset, used here as the pinned value. Using the observed maximum rather than an arbitrary large number keeps the intervention inside the range the model actually experiences.",
+   "conceptId": "pinned-feature-sampling"
+  },
+  {
+   "term": "Arabic script",
+   "definition": "The writing system shared by Arabic, Farsi, Urdu and others, and the thing this feature is interpreted as detecting. The figure's claim is about the script the samples are written in, not about their meaning.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "Replacement glyph (the black diamond with a question mark)",
+   "definition": "The character a text renderer shows when a byte sequence is not valid text. It appears in one pinned sample because Arabic characters occupy several byte tokens and the model emitted a combination that does not compose into a character.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Right-to-left rendering of the sample lines",
+   "definition": "The pinned panel is set right-to-left for Arabic, and the commas in the left panel sit at the left edge of each line as a consequence of that text direction. The paper does not comment on this; read the number samples as comma-separated runs and ignore where the punctuation lands.",
+   "conceptId": null
+  }
+ ],
+ "numbers": [
+  {
+   "value": "1,2,3,4,5,6,7,8,9,10",
+   "meaning": "The prefix, identical in both panels. The paper chooses it because it is a case where the model has an expected continuation, so a change in the continuation is easy to see."
+  },
+  {
+   "value": "5",
+   "meaning": "The number of sample lines shown in each panel. Enough to show the effect is not a single lucky draw, but far too few to be a measurement — the paper attaches no statistic to this figure."
+  },
+  {
+   "value": "8, 3, 6, 7, 9, 10, 20, 30",
+   "meaning": "The numbers appearing in the normal samples. They are the unmodified model's continuations of the counting prefix; that they include 30 and 20 out of order is itself evidence of how weak the model is."
+  },
+  {
+   "value": "6 to 7",
+   "meaning": "Roughly how many comma-separated numbers each normal sample contains, i.e. the sample length shown. Nothing hinges on this length; it is a display choice."
+  },
+  {
+   "value": "1 (layer)",
+   "meaning": "The depth of the transformer under study. The paper picks a one-layer model because a feature's effect on the output logits is then close to linear in its activation, which is what makes downstream analysis like this tractable — and it flags in the same sentence that such a model is very weak."
+  },
+  {
+   "value": "512",
+   "meaning": "The number of neurons in the model's MLP layer, the activations that dictionary learning is fitted to. It bounds how much the model can represent without superposition."
+  },
+  {
+   "value": "128",
+   "meaning": "The width of the model's residual stream. Together with the 512-neuron MLP it is why the paper calls the model very weak, and why fluency is not the point of this figure."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of features learned in run A/1, an 8x expansion over the 512 neurons. A/1/3450 is one of these 4,096, and pinning it leaves the other 4,095 coordinates untouched."
+  },
+  {
+   "value": "100 billion",
+   "meaning": "The number of training tokens the one-layer transformer was trained on. The paper overtrains deliberately, hypothesising that heavy training yields cleaner representations in superposition; it does not fix the model's weakness in depth."
+  }
+ ],
+ "latex": null
+}

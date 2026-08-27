@@ -1,0 +1,28 @@
+[19] Advice for Training Sparse Autoencoders: Hyperparameter Selection
+
+The ultimate goal of dictionary learning is to produce features that are interpretable and also accurately represent the underlying model. Quantitatively measuring interpretability is currently difficult and slow, so we frequently look at proxy metrics when testing changes or optimizing hyperparameters. Our methods for optimizing hyperparameters are far from perfect, but we want to share insights that may be useful for other researchers doing similar work.
+
+We most frequently look at the following proxy metrics:
+
+Training loss: This is the simplest metric, and useful for testing changes such as optimizers or learning rates. Unfortunately, it isn’t meaningful to compare training loss across hyperparameters that change the loss function, such as L1 coefficients.
+
+Feature Density Histograms: Specific metrics from these histograms include:
+
+The number of alive features outside of the ultralow density cluster
+
+The minimum feature density at which we see a significant number of non-ultralow-density-cluster features.
+
+The number of features with density above 1%. A significant number of features above this level seems to correspond to an L1 coefficient that is too low.
+
+$\mathbf{L^0}$ norm: The average number of nonzero entries in a sparse representation. We don’t yet know of a principled way to determine a target level of sparsity, but we generally target a $L^0$ norm that is less than 10 or 20. We especially distrust solutions where the $L^0$ norm is a significant fraction of the transformer’s activation dimensionality.
+
+Reconstructed Transformer NLL: We would like the features we discover to explain almost all of the behavior of the underlying transformer. One way to measure this is to take a transformer, run the MLP activations through our autoencoder, replace the MLP activations with the autoencoder predictions, measure the loss on the training dataset, and calculate the difference in loss.
+
+We often normalize this by dividing by the difference in loss between the baseline transformer’s performance and its performance after ablating the MLP layer. This gives us a fraction of the MLP’s loss contribution that is explained by our transformer. However, the performance with an ablated MLP may be an especially bad baseline, so this percentage is considered an overestimate. Ad hoc experiments (data not shown) show that similarly high percentages can be reached by training a transformer from scratch with a small MLP.
+
+The $L^0$ norm and Reconstructed Transformer NLL metrics, taken together, display a human-interpretable tradeoff between sparsity and explained behavior:
+
+[fig-68] The $L^0$ norm and Reconstructed Transformer NLL metrics, taken together, display a human-interpretable tradeoff between sparsity and explained behavior:
+
+Each line on this plot shows data for a single L1 coefficient and varying autoencoder sizes. The lowest L1 coefficient is excluded to create a reasonable scale.
+

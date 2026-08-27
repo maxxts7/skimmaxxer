@@ -1,0 +1,55 @@
+PAGE FOR CONCEPT: cross-model-agreement-population-scatter
+NAME: Cross-model agreement scatter with marginals
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A scatter in which every dot is a matched pair of features from two independently trained models — one axis the activation correlation used to choose the pair, the other a second, free measure of agreement — with a histogram of each axis along the edges. It is how the paper checks whether two different definitions of "the same feature" agree across a whole population rather than on chosen examples.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+Section 5.3 asks whether the same [[feature|features]] form in two separately trained models — the paper's test of [[universality]]. It already has a headline number for that: the median [[activation-similarity|activation correlation]] between an A/1 feature and its closest partner in B/1 is $0.72$. These two figures ask a harder, second question, which no single number can answer: when you compare features by two different definitions of "the same feature", do the definitions agree on the same pairs?
+
+That is a question about a joint distribution, so it needs a scatter. A bar chart or an average of each measure gives two levels and nothing about pairing — you could not tell whether the pairs that fire alike are the pairs that write alike, which is the whole point. A table of a few examples invites suspicion that they were chosen. The paper also needs both a population-wide pattern and one pair (A/1/3949 and B/1/3321) where the mechanism is visible; only a scatter shows both, with the outlier in view rather than averaged away.
+
+### How to read it, step by step
+
+One dot is **one matched pair of features**, not a token and not a vocabulary entry. This is the most common misreading: the per-feature comparison plots earlier in the paper look almost identical, and there each dot is a datapoint or a vocabulary token. Here, each [[sparse-autoencoder]] feature in run A/1 is paired with the run B/1 feature it correlates with most — B being a second one-layer transformer differing only in random seed ([[transformer-a-and-b]]), with its own dictionary. A/1 has 4,096 features, so the cloud holds a few thousand dots.
+
+The horizontal axis is always activation correlation: the [[pearson-correlation]] between the two features' activation vectors over a fixed set of dataset tokens. That coordinate is also the criterion used to pick the partner, so every point is pushed as far right as that A/1 feature can get. The bottom marginal is therefore not "how similar are two features in general" but "how good was the best match available", and it should lean right.
+
+The vertical axis is the only free measurement. In fig-53 it is [[logit-weight-similarity]], the correlation of the two features' [[logit-weight]] vectors over vocabulary. In fig-54 it is [[attribution-similarity]], the correlation of their [[attribution-vector|attribution vectors]].
+
+Colour encodes nothing: both plots are monochrome, and density of overplotted grey is the only intensity channel. Colour appears only as annotation — the gold ring on the outlier, the red period label in fig-53's inset.
+
+Look first at the diagonal $y = x$: both axes are correlations on the same $0$–$1$ scale, so it is meaningful. Then read the left marginal — where the free measure piles up, and whether it reaches $1.0$ at all.
+
+### What a bad result would look like
+
+For fig-54, whose claim is that attribution correlation tracks activation correlation, the failure case is a round blob with no tilt: pairs that fire together attributing no better than pairs that do not. A second failure is a band pinned near $1.0$ regardless of $x$, meaning attribution correlation is high for any pair and measures nothing. One caution the paper does not raise: the attribution vector has the activation as a factor, so the axes are not independent — some diagonal is built in.
+
+Fig-53 inverts this: it is drawn to show a gap, so a tight diagonal would have meant no problem. What undercuts its reading is if the low points sat at low $x$ too — then they are bad matches rather than [[interference]] from [[superposition]] — or if the inset showed several large disagreeing tokens instead of one large agreeing one.
+
+Neither plot can say whether $0.72$ is high; that needs the neuron baseline of $0.46$ from the companion histogram.
+
+### Where it comes back
+
+The shape appears twice in the same subsection, on the same population, with the same $x$. Only $y$ changes: logit weight correlation, then attribution correlation. Read them as a pair — the second is the repair of the first, and the change in cloud shape between them is the argument. The neighbouring [[feature-vs-neuron-universality|feature-versus-neuron histograms]] use the same matched pairs with the scatter dropped.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - universality | Universality: The question of whether the same features form across different models, and the paper's finding that they largely do.
+  - transformer-a-and-b | The A and B Transformers: A second one-layer transformer with the same architecture, data and hyperparameters as the first, differing only in random seed, with its own dictionary learning run B/1.
+  - activation-similarity | Activation similarity: The procedure for finding a feature's counterpart in another dictionary: take the feature with the highest Pearson correlation of activations over 40,960,000 tokens.
+  - logit-weight | Logit Weight: The vector, one entry per vocabulary token, giving how much a feature's firing pushes up or down each next-token logit.
+  - logit-weight-similarity | Logit weight similarity: Comparing features by what they do rather than when they fire: correlate their logit weight vectors, indexed by vocabulary token.
+  - attribution-similarity | Attribution similarity: A third comparison measure that weights a feature's logit effects by whether the feature was actually active and the token actually came next.
+  - attribution-vector | Attribution vector: For each sampled datapoint, the product of a feature's activation there and its logit weight on the token that actually came next.
+  - superposition | Superposition: A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.
+  - interference | Interference: The cross-talk that arises because feature directions in superposition cannot all be orthogonal: activating one feature slightly activates others.
+  - pearson-correlation | Pearson Correlation: The standard linear correlation coefficient between two variables, ranging from -1 to 1.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 46-5.3.1-comparing-features-between-two-one-layer-transformers.txt

@@ -1,0 +1,50 @@
+PAGE FOR CONCEPT: feature-direction-stem-plot
+NAME: Feature direction in the neuron basis (stem plot)
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+One learned feature's decoder column drawn coordinate by coordinate, one stem per MLP neuron. It exists to answer a single question: is this feature one neuron under a new name, or is it spread across many?
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+Section 3.1.4 asks a negative question: did [[dictionary-learning]] find something the neuron basis did not already contain, or did it hand back a well-behaved neuron under a new name? That check is [[feature-neuron-nonalignment]], and what settles it is a count — how many coordinates are large — not a ranking of which ones.
+
+That rules out the usual displays. A bar chart of the ten biggest contributing neurons names the loudest players and throws the count away, which is the whole argument. A summary statistic — mean absolute coefficient, an effective-dimension score — takes similar values for a spike and a spread, so it separates nothing. A 512-row table is unreadable, and trimming it to the top rows assumes the answer. The stem plot is the bar chart that refuses to select: every coordinate gets a mark at its true height, so the flat majority and the loud minority sit together.
+
+Sign is the second reason. Magnitude-sorted and absolute-value displays lose it, and here the three largest coefficients are negative — invisible to any search for neurons that light up on the target context, which is the other search the paper ran ([[top-dataset-example-search]]).
+
+### How to read it, step by step
+
+One stem is one MLP neuron of the [[one-layer-transformer-testbed]], which has 512 of them. The x axis, *Dictionary Vector Index*, is that neuron's index and nothing more. The ordering is arbitrary, so left-versus-right carries no information and there is no trend to read.
+
+The y axis, *Weight Value*, is that neuron's entry in one column of the [[dictionary-decoder]] — the [[feature-direction]] the [[sparse-autoencoder]] writes along when the feature fires. These are [[neuron-basis-coefficients]]: read a stem as how much of that neuron's activation the feature adds when it is on, not as how strongly the neuron responds to the feature's context. Colour only restates the sign. Because MLP activations are non-negative, a red stem means the feature pushes that neuron down.
+
+The scale is the part that misleads. Decoder columns are held at [[unit-norm-dictionary-columns]], so the 512 squared coefficients sum to $1$. That fixes two reference marks. A feature that *is* a neuron shows one stem at $\pm 1$ and 511 flat. A feature spread perfectly evenly shows every stem at $1/\sqrt{512} \approx 0.044$. So $0.044$ is the yardstick for "large", not $1.0$, and the paper's counting threshold of $0.1$ is a little over twice it — a chosen cutoff, not a derived one.
+
+Look first at the zero line and judge what fraction of the 512 sits on it. Then count the stems past $0.1$. Then check the sign of the tallest few; individual neurons come last.
+
+### What a bad result would look like
+
+The falsifying picture is easy to draw: one stem near $0.9$, the rest flat. That would say the autoencoder relabelled a neuron, and for this feature the [[polysemanticity]] problem was never there. A softer failure is three or four stems near $0.5$ and nothing else — a feature in a small neuron subspace, which neuron-first analysis could still have found. The opposite failure is a flat comb at $0.044$ with no heavy tail, which would weaken the [[privileged-basis]] claim by making the neuron basis look like any random rotation.
+
+One story this plot cannot exclude, and the paper says so: the coefficients might cancel so as to sharpen one neuron. That is why the argument moves on to the [[most-correlated-neuron]] over roughly 40 million examples.
+
+### Where it comes back
+
+Inside the paper's own case studies it does not — this is the only stem plot. The DNA section uses the quantity in prose without drawing it, naming the highest-coefficient neuron and noting it has no DNA in its top examples; the base64 and Hebrew sections switch to correlation scatter plots. The shape returns in bulk in the [[external-replication]], where each feature's coefficients are squared and ranked so that one dot stands for a whole vector: 92% of features come out spread rather than concentrated, alongside a [[kurtosis-privileged-basis-test]] that no single vector could support. Both are pictures of what [[superposition]] predicts, and of why some features end up [[features-invisible-in-the-neuron-basis]].
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - feature-direction | Feature direction: The unit vector $\mathbf{d}_i$ in activation space along which feature $i$ writes when it fires; in the autoencoder these are the columns of the decoder weight matrix.
+  - dictionary-decoder | Decoder as Dictionary: The output weight matrix $W_d$, whose columns are the feature directions. The paper uses "decoder" and "dictionary" interchangeably.
+  - unit-norm-dictionary-columns | Unit-Norm Dictionary Columns: The columns of $W_d$ are constrained to have L2 norm 1, so that the L1 penalty cannot be gamed by shrinking directions.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - superposition | Superposition: A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.
+  - polysemanticity | Polysemanticity: A single neuron responding to a mixture of seemingly unrelated inputs, which makes it a poor unit for human understanding of the network.
+  - privileged-basis | Privileged basis: A basis that the architecture singles out — here the neuron basis, made special by the elementwise activation function — so that features have some tendency to align with it even though they need not.
+  - one-layer-transformer-testbed | The One-Layer Transformer Testbed: The model under study: a one-layer transformer with a 128-dimensional residual stream and a 512-neuron ReLU MLP, overtrained on 100 billion Pile tokens.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 18-3.1.4-the-feature-is-not-a-neuron.txt

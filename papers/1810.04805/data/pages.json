@@ -1,0 +1,4237 @@
+{
+ "pages": [
+  {
+   "id": "page-ablation-studies",
+   "forId": "ablation-studies",
+   "kind": "concept",
+   "body": "Section 5 and Appendix C hold every part of [[bert]] fixed except one, then re-run the experiment to see what that one part was worth. The programme is here because BERT's headline results change several things at once relative to prior work — a bidirectional objective, a second sentence-level objective, more data, a bigger model — and a table of wins cannot say which of those changes earned them.\n\n### The thing being held fixed\n\nEach ablation is its own pre-training run from scratch. The [[pre-training-data|pre-training corpus]], the fine-tuning scheme and the hyperparameters are pinned to BERT_BASE's values, and only the named facet moves. That control is what licenses the paper to charge a particular drop in score to a particular removal.\n\nFive facets are varied across the two locations. [[effect-of-pre-training-tasks]] takes away [[next-sentence-prediction]], then takes away bidirectionality on top of that ([[table-5]]). [[effect-of-model-size]] walks a ladder of six separately pre-trained configurations, from three layers up to twenty-four ([[table-6]]). [[feature-based-approach-with-bert]] freezes BERT and reads features off it instead of fine-tuning ([[table-7]]). Appendix C adds [[effect-of-number-of-training-steps]] ([[fig-5]]) and [[masking-procedure-ablation]] ([[table-8]]).\n\n### What the design costs\n\nPinning the recipe has a price. The left-to-right variant, [[ltr-no-nsp-ablation]], is described as directly comparable to [[openai-gpt]], but it is trained on BERT's larger corpus with BERT's [[input-representation]] and BERT's fine-tuning scheme. So it isolates bidirectionality more cleanly than a comparison against published GPT numbers would, while no longer being a measurement of GPT.\n\nThe other price is sample size. A row in these tables is one pre-training run at roughly a million steps, so there is one run per setting and no repeated pre-training seeds anywhere. The error bars that do exist come from fine-tuning restarts only: Tables 6 and 7 average five random restarts, Table 5 does not say.\n\n### How strong the evidence is\n\nThese are [[dev-set-model-selection|Dev set]] numbers on subsets of tasks — four GLUE tasks for the size ladder, MNLI and NER for the masking mixture. They are evidence about relative importance, not results to compare against other systems.\n\nWhat carries weight is direction rather than magnitude. Perplexity falls at every rung of the size ladder and accuracy rises at every rung; the left-to-right model loses on every task in Table 5. The individual gaps are often a point or two on small Dev sets — MRPC has 3,600 training examples — so any single cell is soft. And where the paper explains the size result, it marks the explanation as a hypothesis: see [[few-random-parameters-hypothesis]].",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Ablation Studies",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C",
+      "title": "Additional Ablation Studies",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-bert",
+   "forId": "bert",
+   "kind": "concept",
+   "body": "BERT is a language representation model that is pre-trained once on [[unlabeled-text]], then fine-tuned separately for each task with one new output layer added on top. It is in the paper as an answer to a specific complaint: the pre-training objectives in use at the time read text in one direction only, which the authors argue restricts which architectures can be pre-trained at all, and hurts transfer most on [[token-level-tasks|token-level tasks]] ([[unidirectionality-constraint]]).\n\nThat complaint has a named target. [[openai-gpt]] pre-trains a Transformer language model left to right, then fine-tunes every parameter on the labeled task. BERT is an instance of the same [[fine-tuning-approach|fine-tuning strategy]], not a rival to it.\n\nThe paper says it kept the two as close as it could. [[bert-base-and-bert-large|BERT_BASE]] has 12 layers, [[hidden-size-h|hidden size]] 768 and 12 attention heads, 110M parameters in total, chosen to equal GPT's size. What is left to differ is direction. [[fig-3]] states that as arrows, with [[elmo]] as a third case whose two one-way stacks meet only at the very top.\n\n### What the model actually does\n\nPre-training runs [[bert-model-architecture|a multi-layer Transformer encoder]] in which every token attends to every other token at every layer ([[deep-bidirectionality]]). An ordinary language-model loss cannot be trained that way, because a token that sees context on both sides can reach its own prediction through the stack.\n\nThe substitute is [[masked-language-model|the masked LM]]: hide a random 15% of the token positions and predict the originals from what is left. In a 512-token sequence that is about 77 predictions per example. A second objective, [[next-sentence-prediction]], asks whether the second packed span really followed the first, and the two losses are summed.\n\nBoth objectives run over one input format ([[input-representation]]): a single token sequence holding either one text or two, where each token's vector is the elementwise sum of a token, a segment and a position embedding ([[fig-2]]).\n\n[[fine-tuning-bert|Fine-tuning]] then changes almost nothing. The task's texts are mapped into the A and B slots, one output layer is attached to the relevant hidden vectors, and everything trains end to end ([[fig-4]]).\n\n### What it costs, and what shows it\n\nPredicting only 15% of positions gives fewer gradient signals per step, so pre-training converges more slowly than a left-to-right run ([[mlm-convergence-cost]]). The [MASK] symbol also appears constantly in pre-training and never afterwards — a mismatch the paper patches rather than removes.\n\nThe headline evidence is the [[eleven-task-evaluation|eleven-task sweep]], where [[table-1]] puts BERT_BASE above the size-matched GPT in every GLUE column. The causal claim about bidirectionality rests on narrower ground: [[table-5]] varies the objectives at BASE size only, over four tasks, one run per row.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-bert-framework",
+   "forId": "bert-framework",
+   "kind": "concept",
+   "body": "Section 3 opens by organising BERT around a claim about workflow rather than about architecture: there are two steps, and only two. Pre-training runs on [[unlabeled-text]] and produces one set of weights; fine-tuning starts from those weights and adapts them to a labeled task. The paper puts this first because everything else in the section — the input format, the two objectives, the per-task output layers — is a detail of one step or the other.\n\n### The two stages, in numbers\n\nThe same network runs in both stages: the [[bert-model-architecture|multi-layer bidirectional Transformer encoder]], at 110M parameters for BERT_BASE or 340M for BERT_LARGE (see [[bert-base-and-bert-large]]). It reads the same [[input-representation|single token sequence format]] in both.\n\nPre-training is where nearly all the compute goes. Batches hold 256 sequences of up to 512 tokens, so a step sees about 128,000 tokens. One million steps is therefore roughly $1.28\\times10^{11}$ tokens, or about 40 passes over the 3.3-billion-word corpus. That took four days: 16 TPU chips for BERT_BASE, 64 for BERT_LARGE. The full recipe — corpus, optimizer, the length schedule — is in [[pre-training-procedure]], and the two objectives it trains are [[masked-language-model|masked LM]] and [[next-sentence-prediction|next sentence prediction]].\n\nFine-tuning is the cheap half. Every result in the paper is reproducible in at most an hour on a single Cloud TPU from the released checkpoint. Set against roughly four hundred TPU-hours of pre-training, that is the whole economic argument for the split. [[fine-tuning-bert]] covers what actually changes: task text mapped onto the A and B slots, [[task-specific-output-layer|one new output layer]], and gradients through everything.\n\n### What it buys, and what it pays\n\nThe payoff the paper names is [[unified-architecture-across-tasks|minimal difference between the pre-trained and downstream architectures]]. Paired-text tasks would normally need cross-attention machinery bolted between two encoders; the paper argues that concatenating the pair and running self-attention over it already does that job ([[self-attention-unifies-cross-attention]]).\n\nThe bill comes as [[separate-fine-tuned-models-per-task|one full model per task]]. Nothing is shared at serving time — eleven tasks means eleven copies of 340M weights, since fine-tuning moves every parameter rather than a small adapter.\n\nThe evidence offered for the framing itself is [[fig-1]], and it is worth being exact about what that figure shows. It is a diagram, not a measurement: it asserts that the encoder block is identical on both sides and that only the output head changes. Nothing in it tests whether the two-stage split is the right one. That case rests on the downstream numbers in [[eleven-task-evaluation|the eleven-task sweep]], and on [[table-7]], where fine-tuning is compared against freezing the same encoder.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     8,
+     9,
+     12,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-bert-model-architecture",
+   "forId": "bert-model-architecture",
+   "kind": "concept",
+   "body": "BERT's architecture is a stack of [[transformer-encoder|Transformer encoder]] blocks, taken as it stands from Vaswani et al. (2017) and the tensor2tensor release. It is in the paper because the argument needs a backbone nobody has to argue about: if the network is one people already train, then whatever BERT gains has to come from how it is trained rather than from what it is.\n\nThe paper is open about the omission. It declines to describe the encoder at all, pointing readers to the original paper and to the Annotated Transformer guide, on the grounds that Transformers have become common.\n\n### What is actually specified\n\nWhat the paper does pin down is size. [[model-size-notation|Three numbers]] fix a configuration: $L$ blocks in the stack, [[hidden-size-h|hidden size]] $H$ for the vectors handed from block to block, and $A$ [[self-attention|self-attention]] heads inside each block. A fourth sits in a footnote rather than the text: the inner width of every block's feed-forward network is [[feed-forward-filter-size|four times the hidden size]].\n\nWalk one configuration through. BERT_BASE is $L=12$, $H=768$, $A=12$. Each block splits its 768-dimensional vectors across 12 heads, so one head works in $768/12 = 64$ dimensions. The feed-forward network in that block widens 768 to 3072 and projects back down.\n\nBERT_LARGE is $L=24$, $H=1024$, $A=16$. Head width is again $1024/16 = 64$; what grows is the depth of the stack, the number of heads, and the width between blocks. [[bert-base-and-bert-large|The two configurations]] come to 110M and 340M parameters.\n\n### The one change\n\nThe single architectural point the paper calls out is the attention mask. Every token attends to every other token, left and right, at every layer — [[bidirectional-self-attention|bidirectional self-attention]] — where the [[openai-gpt|GPT]] Transformer uses a [[constrained-self-attention|left-context-only mask]]. Mechanically this is a mask that is not applied, not a different operation.\n\nIt is not free. A stack in which every position already sees the token it would have to predict cannot be trained as an ordinary language model at all, which is what forces the [[masked-language-model|masked LM]] objective and its costs. Sizing carries the other constraint: BERT_BASE was [[gpt-size-match|matched to GPT's size]] on purpose, so the later comparison turns on the mask rather than on capacity.\n\n### How strong the evidence is\n\nTwo figures carry this concept, and both are diagrams. [[fig-1]] shows the same encoder in the pre-training and fine-tuning panels, with the pre-trained weights carried across by dotted arrows. [[fig-3]] draws the BERT/GPT/ELMo contrast as arrow directions.\n\nNeither figure measures anything. They state the claim clearly, but the case that bidirectionality is what pays comes from the ablation in [[table-5]], not from these pictures.",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     8,
+     9,
+     12,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-deep-bidirectionality",
+   "forId": "deep-bidirectionality",
+   "kind": "concept",
+   "body": "Deep bidirectionality is the property [[bert]] is named for: at every layer of the stack, the vector sitting at position $i$ is a function of the whole sequence, the tokens to the left of $i$ and the tokens to the right of it together. It appears in the first sentence of the abstract and again in the conclusion as the paper's stated major contribution, because it is the one thing the [[unidirectionality-constraint|unidirectionality criticism]] is aimed at fixing.\n\n### Where the two directions meet\n\nThe operation itself is plain [[bidirectional-self-attention|self-attention with nothing masked out]]. Each layer scores every ordered pair of positions in the sequence and rebuilds position $i$'s vector as a weighted sum over all positions. [[openai-gpt|OpenAI GPT]] runs exactly this operation with half the score matrix set to $-\\infty$, so $i$ may only draw on positions $j \\le i$; that is [[constrained-self-attention|constrained self-attention]]. BERT removes the mask, and nothing else about the block changes.\n\n\"Deep\" is a claim about *where* the two directions meet, not whether they meet at all. Take [[bert-base-and-bert-large|BERT_BASE]], with $L=12$ layers and $H=768$. After layer 1, token $i$'s 768-dimensional vector already mixes both sides. After layer 2 it mixes vectors that each already mixed both sides, and so on for twelve rounds.\n\n[[elmo|ELMo]] gets two directions a different way. It trains a left-to-right and a [[right-to-left-language-model|right-to-left language model]] separately and joins their per-token outputs at the top only, so inside the left-to-right stack no layer ever saw a token to its right. The paper calls this [[shallow-concatenation|shallow concatenation]] and gives [[ltr-rtl-concatenation-alternative|three reasons against it]]. [[fig-3]] draws the whole disagreement as arrow patterns.\n\n### The cost, and how strong the evidence is\n\nYou cannot train this with a language model objective. With attention open both ways and more than one layer, the target token reaches its own prediction through its neighbours — the [[see-itself-problem|\"see itself\" problem]]. Bidirectionality is therefore only trainable through the [[masked-language-model|masked LM]], which predicts 15% of positions instead of all of them.\n\nThe measurement is [[table-5]]. [[no-nsp-ablation|No NSP]] and [[ltr-no-nsp-ablation|LTR & No NSP]] share data, hyperparameters and fine-tuning; only the direction of context differs. [[squad-v1-1|SQuAD]] F1 falls from 87.9 to 77.8 and [[mrpc|MRPC]] from 86.5 to 77.5, but [[mnli|MNLI]] falls only from 83.9 to 82.1.\n\nSo the ten-point gap is mostly one token-level task where right-side context is obviously needed. [[bilstm-on-top-of-ltr|Bolting a BiLSTM on top]] recovers SQuAD to 84.9, short of 88.5. These are BERT_BASE-scale dev numbers against the authors' own left-to-right stand-in, not against GPT itself.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-effect-of-pre-training-tasks",
+   "forId": "effect-of-pre-training-tasks",
+   "kind": "concept",
+   "body": "Section 5.1 pre-trains two deliberately cut-down models and compares them against [[bert-base-and-bert-large|BERT_BASE]] on five tasks. The point of the exercise is to charge BERT's gains to named parts of the recipe rather than to the package as a whole, and in particular to defend the claim that [[deep-bidirectionality|deep bidirectionality]] is what matters.\n\nThe comparison only works because everything else is pinned. Both variants use the same corpus, the same [[pre-training-procedure|pre-training procedure]], the same fine-tuning scheme and the same hyperparameters as BERT_BASE. The only thing that varies is the pre-training objective, so a gap in a column can be read as the price of one removed piece.\n\n### Three rows, two steps\n\nThe first step deletes the sentence-pair loss. [[no-nsp-ablation|No NSP]] keeps the [[masked-language-model|masked LM]] and drops [[next-sentence-prediction|NSP]], so subtracting it from BERT_BASE gives NSP's contribution.\n\nThe second step changes the direction of context. [[ltr-no-nsp-ablation|LTR & No NSP]] replaces the masked objective with a plain left-to-right LM and keeps NSP off, so comparing it against No NSP leaves bidirectionality as the only difference.\n\nOne detail matters for reading that second step. The left-only constraint is kept at fine-tuning as well as in pre-training. Removing it would let the fine-tuned model attend rightwards after never having done so before, and the paper reports that this [[pretrain-finetune-mismatch|mismatch]] degraded results. So the LTR row measures a left-only system end to end.\n\n### How strong the evidence is\n\nNSP's step is small on most columns of [[table-5]]. [[qnli|QNLI]] falls 88.4 to 84.9, which is the one large move. [[mnli|MNLI]] goes 84.4 to 83.9, and [[squad-v1-1|SQuAD]] F1 goes 88.5 to 87.9. The paper describes this as hurting performance significantly; three of the five columns move by less than a point, so the wording runs ahead of the numbers.\n\nBidirectionality's step is larger, and uneven. SQuAD F1 drops 87.9 to 77.8 and [[mrpc|MRPC]] drops 86.5 to 77.5, while MNLI moves only 83.9 to 82.1. The ten-point SQuAD gap carries most of the argument, and it is the case where a left-only model is expected to suffer, since a token's hidden state has no right-side context with which to place a span end.\n\nThe paper takes that objection seriously enough to attempt a repair, [[bilstm-on-top-of-ltr|a BiLSTM bolted on top]], which recovers part of SQuAD and costs GLUE.\n\nAppendix A.4 then leans on this section, using it to argue that the four uncontrolled BERT/GPT training differences are secondary to the objectives. That is an inference across experiments rather than a measurement, since none of those four differences is ablated here. The other obvious alternative, concatenating separately trained directional models, is set aside by argument and not by a run: see [[ltr-rtl-concatenation-alternative|the three stated reasons]].",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-eleven-task-evaluation",
+   "forId": "eleven-task-evaluation",
+   "kind": "concept",
+   "body": "Section 4 is the paper's argument by accumulation: rather than one decisive experiment, it fine-tunes the same pre-trained encoder eleven separate times and reports a new best score on each. The count is doing rhetorical work, because the claim being tested is that pre-training can stand in for a family of hand-built task architectures.\n\nWhere the eleven come from is worth walking, since the paper never itemises them. [[glue-benchmark|GLUE]] supplies eight scored tasks, [[squad-v1-1|SQuAD v1.1]] and [[squad-v2-0|SQuAD v2.0]] two more, and [[swag-dataset|SWAG]] the eleventh. [[wnli|WNLI]] is dropped and does not count. [[conll-2003-ner|CoNLL-2003 NER]] appears in the paper too, but in Section 5's ablations rather than here.\n\n### Four shapes, one encoder\n\nEvery one of the eleven runs starts from the same checkpoint and differs in two places only: what gets packed into the input sequence, and which final hidden vectors the new layer reads. [[fig-4]] draws exactly these four shapes side by side.\n\nFor a GLUE task the [[c-vector-classification-head|head is one matrix]] $W \\in \\mathbb{R}^{K \\times H}$ applied to [[final-hidden-vector-c|C]], the final vector at [CLS], for $K$ labels. For SQuAD it is the [[span-prediction-head|start and end vectors]] $S, E \\in \\mathbb{R}^{H}$. For SWAG it is [[swag-multiple-choice-head|a single scoring vector]], with the four candidate continuations run as four separate sequences.\n\nPut numbers on that. Fine-tuning $\\text{BERT}_{\\text{LARGE}}$ ($H=1024$) on SQuAD adds $2 \\times 1024 = 2048$ new weights on top of 340M pre-trained ones — roughly six parameters per million.\n\n### What the sweep costs\n\nBreadth is bought with per-task tuning. Each result is its own run, with its learning rate picked on Dev under the [[glue-fine-tuning-protocol|GLUE protocol]] of batch 32 and 3 epochs; on small datasets $\\text{BERT}_{\\text{LARGE}}$ was unstable enough to need [[fine-tuning-random-restarts|random restarts]], keeping the best on Dev. SQuAD 1.1 also gets [[triviaqa-augmentation|TriviaQA fine-tuning]] first.\n\nSo Dev is consulted heavily, while Test is consulted once — the [[glue-evaluation-server|hidden GLUE test labels]] allowed a single submission per model.\n\n### How strong the evidence is\n\nThe margins are uneven, and reading them as one number flattens that. [[table-1]] reports [[absolute-improvement|absolute gains]] of +4.5 and +7.0 average points; [[table-2]] is +1.5 F1 over a leaderboard entry with no published description; [[table-3]] is +5.1 F1; [[table-4]] is +27.1 points on SWAG.\n\nThat +27.1 is the weakest of the four as evidence, since the beaten system is the dataset authors' own baseline rather than a benchmark others had competed on. The +1.3 to +1.5 on SQuAD 1.1 is the narrowest margin and the most contested field.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "4.4",
+      "title": "SWAG",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-elmo",
+   "forId": "elmo",
+   "kind": "concept",
+   "body": "ELMo is the system this paper names whenever it needs a concrete instance of the [[feature-based-approach|feature-based route]] to transfer. It is also the foil the paper's architectural claim is stated against, so getting its mechanism exactly right decides how much of the claim you accept.\n\n### What it computes\n\nTwo language models are trained, separately. One is a [[left-to-right-language-model]] over an [[lstm]] stack: it scores token $k$ from tokens $1 \\dots k{-}1$. The other is a [[right-to-left-language-model]] with its own parameters and its own loss: it scores token $k$ from tokens $k{+}1 \\dots N$.\n\nNeither run ever sees the other's state. The forward stack's vector at position $k$ is computed with nothing to the right of $k$ in it, and the backward stack's vector at $k$ has nothing to the left.\n\nThe token's feature is then formed by laying the two vectors end to end. If each direction carries $h$ dimensions at a position, the joined vector is $2h$ wide. Because the two halves depend on the surrounding sentence, the same word form in two sentences gets two different vectors — these are [[contextual-representations]], as against one fixed vector per word type.\n\nThose vectors are then frozen and fed as extra inputs to a hand-built [[task-specific-architecture]], which is where all the task learning happens. Section 2.1 reports that this advanced the state of the art on [[question-answering]], sentiment analysis and NER.\n\n### The criticism, stated precisely\n\nThe paper does not object that ELMo is one-directional. It objects that the two directions meet once, at the very top — [[shallow-concatenation]]. [[fig-3]] draws exactly this: two one-way stacks joined only at the last step, against [[deep-bidirectionality|BERT's every-layer joint conditioning]].\n\nSection 5.1 gives [[ltr-rtl-concatenation-alternative|three reasons]] for not building BERT that way, one of which is that a right-to-left model cannot condition an answer on a question that precedes it.\n\n### How strong the evidence is\n\nThe head-to-head numbers are lopsided. On GLUE, [[table-1]] puts BiLSTM+ELMo+Attn at 71.0 average against [[openai-gpt|OpenAI GPT]]'s 75.1; on SWAG, [[table-4]] puts ESIM+ELMo at 59.2 against GPT's 78.0 and BERT_LARGE's 86.3.\n\nThese compare whole systems, though, not one variable — different encoders, different corpora, different task heads. The paper does not rest the bidirectionality argument on them; [[table-5]] is the controlled version, run in-house under identical data and fine-tuning.\n\nAnd [[table-7]] suggests freezing is not itself the expensive part: frozen BERT features reach 96.1 Dev F1 on NER against 96.4 for fine-tuning. On the paper's own showing, the gap to ELMo is about what the representation contains, not about handing it over as features.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-fine-tuning-bert",
+   "forId": "fine-tuning-bert",
+   "kind": "concept",
+   "body": "Fine-tuning is the second half of [[bert-framework|BERT's two-stage framework]], the step where one pre-trained checkpoint becomes a model for one labeled task. The paper's claim about it is a claim of simplicity: adapting to a task means changing what goes into the input format and what reads the output, and nothing in between.\n\n### What actually gets swapped\n\nThe input side reuses the pre-training format untouched. [[input-representation|BERT's sequence format]] already carries two spans, A and B, so a task that arrives as a pair drops into those slots — the two sentences of a paraphrase pair, the premise and hypothesis of an entailment example, the question and passage of a QA example. A task with only one text is handled as a [[degenerate-text-pair|degenerate text-∅ pair]], with B left empty.\n\nThat a pair can be shoved into one sequence at all is its own argument. The earlier pattern encoded the two texts separately and then ran [[bidirectional-cross-attention|attention between them in both directions]]; the paper argues that [[self-attention-unifies-cross-attention|self-attention over the concatenation already contains that]].\n\nThe output side is a choice of which vectors to read. [[final-hidden-vector-c|$C$]], the top-layer vector at [CLS], feeds the new layer when the task wants one label for the whole input. The per-token vectors [[final-hidden-vector-ti|$T_i$]] feed it when the task wants an output at each position. [[fig-4]] draws four task families this way: the same encoder four times, differing only in what is packed in and where the arrows leave.\n\nConsider how little that new layer is. For a GLUE classification task with $K$ labels, [[eq-classification-loss|the head]] is a single matrix $W \\in \\mathbb{R}^{K\\times H}$. Three MNLI labels at $H=768$ is 2,304 new weights, against 110M pre-trained ones in BERT_BASE. That ratio is the point of [[task-specific-output-layer|adding exactly one layer]], and [[task-specific-input-output-plugging|the plugging step]] below walks it through.\n\n### Why train all of it\n\nThose 110M pre-trained weights are not frozen. They move on the task's labeled data alongside the new matrix, [[end-to-end-fine-tuning|end to end]]. [[fig-1]] states this as the paper's shared claim: one and the same stack in both stages, with the pre-trained weights copied across as initialization rather than extracted as features.\n\nThe paper prices the alternative once. Section 5.3 runs [[feature-based-approach-with-bert|BERT frozen]] on [[conll-2003-ner|CoNLL-2003 NER]] and gets 96.1 Dev F1 from concatenating the top four layers, against 96.4 for fine-tuning everything — 0.3 F1 apart, in [[table-7]]. The paper reads the small gap as showing both modes work, and grants the frozen route two advantages it keeps: tasks a [[transformer-encoder]] cannot express, and representations computed once and reused across many cheap experiments.\n\nFine-tuning is asserted to cost [[fine-tuning-cost|at most an hour on one Cloud TPU]], which is what makes the [[fine-tuning-hyperparameters|small grid]] runnable in full.\n\nRead that evidence carefully. The two figures are diagrams; they assert the design, they do not test it. The hour has no table behind it. And the frozen-versus-fine-tuned comparison is one task, one dataset, dev numbers only — a thin base for a claim about every task.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-glue-benchmark",
+   "forId": "glue-benchmark",
+   "kind": "concept",
+   "body": "GLUE is a set of nine ready-made classification datasets that all share one shape: read one span of text, or two, and emit a single label. BERT uses it as the sentence-level half of [[eleven-task-evaluation|the eleven-task sweep]], and eight of those datasets supply the paper's headline average.\n\n### One head for nine tasks\n\nEvery GLUE task is fed through the same [[input-representation]]. A sentence pair fills the A and B slots; a single sentence fills A and leaves B empty.\n\nThe task-specific model is then almost nothing. Take the final hidden vector at the [[cls-token|CLS position]], written [[final-hidden-vector-c|$C \\in \\mathbb{R}^H$]] — 768 numbers for BERT_BASE, 1024 for BERT_LARGE. Multiply it by one new matrix $W \\in \\mathbb{R}^{K \\times H}$, where $K$ is that task's label count, and take softmax and cross-entropy: [[eq-classification-loss]].\n\nOnly $K$ changes between tasks — three for [[mnli]]'s entailment labels, two for the binary ones. For MNLI on BERT_LARGE that is $3 \\times 1024$, about three thousand new weights sitting on top of 340 million pre-trained ones. The head is unpacked further in [[c-vector-classification-head]].\n\nThe training recipe is deliberately uniform: batch size 32 and three epochs for every task, with only the learning rate chosen per task from four values ([[glue-fine-tuning-protocol]]). BERT_LARGE was sometimes unstable on the smaller sets, so [[fine-tuning-random-restarts|several restarts]] were run and the best kept.\n\n### Why GLUE, and how far the numbers carry\n\n[[openai-gpt|OpenAI GPT]] held the previous best on many of these tasks, and BERT_BASE was [[gpt-size-match|deliberately sized to match it]]. That is what makes GLUE the paper's cleanest test: same parameter count, different pre-training.\n\n[[table-1]] reports BERT_BASE at 79.6 average and BERT_LARGE at 82.1, against 75.1 for GPT and 74.0 for the best pre-GPT system. Subtracting gives the 4.5 and 7.0 points the abstract quotes. Both BERT rows also lead in every individual column, so the average is not being carried by one easy task.\n\nSome care is owed to what that table is. The reported Average is not the [[glue-score|official GLUE score]]: [[wnli]] is dropped, and on the real leaderboard BERT_LARGE scores 80.5 against GPT's 72.8.\n\nTest labels are hidden behind the [[glue-evaluation-server]], so all tuning happened on Dev — including the per-task learning rate and the choice of which restart to keep. On [[mrpc]] and [[rte]], with a few thousand training examples each, that selection has room to flatter the result.\n\nThe GPT column was read off the leaderboard and a blog post rather than rerun in-house, so the two systems differ in pre-training data as well as in attention masking. And every number here is [[single-task-vs-multi-task-fine-tuning|single-task]]; the paper mentions seeing gains on RTE from multi-task training with MNLI but reports none of them. [[table-6]] separately shows these gains growing with model size, down to datasets as small as MRPC.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "4.4",
+      "title": "SWAG",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-input-representation",
+   "forId": "input-representation",
+   "kind": "concept",
+   "body": "Every input BERT reads is one flat token sequence, whether the task hands it a single text or two. The format exists so that the same pre-trained encoder can be fine-tuned on classification, tagging and [[question-answering]], with only the output layer changing.\n\n### The sequence\n\nText is cut into tokens by [[wordpiece-tokenization]], drawing on a [[wordpiece-vocabulary-30k|fixed 30,000-entry vocabulary]]. The sequence then always opens with [[cls-token]]. Where a task supplies two texts, they are joined end to end by [[sentence-pair-packing]], with a [[sep-token]] between them and another closing the sequence.\n\n\"Sentence\" here means [[sentence-as-arbitrary-span|any contiguous span of text]], not a linguistic sentence. A task with only one text still uses the pair shape, with an empty second half: what Section 3.2 calls a [[degenerate-text-pair|degenerate text-∅ pair]].\n\n### The three-row sum\n\nEach position's input vector $E$ is [[input-embedding-sum|the sum of three lookups]]. One row is the token embedding, from a table of 30,000 rows. One is a [[segment-embeddings|segment embedding]], from a table of exactly two rows, A and B. One is a [[position-embeddings|position embedding]], from a table with one row per slot up to the [[max-sequence-length-512|512-token cap]].\n\nAll three are $H$-dimensional and added elementwise, not concatenated, so the width entering layer one stays [[hidden-size-h|$H$]] — 768 for BERT$_{BASE}$. That is roughly 23M parameters of token table, 393,216 of position table, and 1,536 of segment table.\n\nThe encoder returns one vector per position. Two are named: [[final-hidden-vector-c|$C$]] at the [CLS] slot, and [[final-hidden-vector-ti|$T_i$]] at token $i$. Every downstream head reads one or the other.\n\n### What it buys and what it fixes\n\nThe return is [[unified-architecture-across-tasks|one architecture across every task]]: a task changes what goes in the slots, not the network. Packing the pair into one sequence also means [[self-attention-unifies-cross-attention|self-attention already does the cross-attention]] that paired-text models used to build by hand.\n\nThe cost is that the format hard-codes its own limits. Two segment rows means a three-part input has no slot to sit in. The position table is learned per slot, so there is no vector at all beyond 512, and attention is [[attention-quadratic-cost|quadratic in length]] besides. The [[sequence-length-schedule|128-then-512 schedule]] leaves positions 128 through 511 trained on the final tenth of steps only. And $C$ carries nothing by itself: [[c-not-a-sentence-representation|the paper warns against reading it as a sentence embedding]], since before fine-tuning its only signal comes from [[next-sentence-prediction]].\n\nThe evidence is illustration, not measurement. [[fig-2]] draws the three-row sum, [[fig-1]] shows the same stack in both stages, and [[fig-4]] redraws four task shapes around one encoder. No ablation removes segment embeddings or swaps the packing scheme, so the format's own contribution is never isolated — what supports it is that [[eleven-task-evaluation|eleven tasks were adapted this way]] and worked.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "4.4",
+      "title": "SWAG",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     13,
+     14,
+     15
+    ]
+   }
+  },
+  {
+   "id": "page-language-model-pre-training",
+   "forId": "language-model-pre-training",
+   "kind": "concept",
+   "body": "Language model pre-training is the practice BERT starts from: train one model on a language modeling objective over [[unlabeled-text|plain running text]], then reuse those weights on a labeled task. The paper opens here because BERT is not a new task or a new architecture — it changes one component of this pipeline and inherits the rest.\n\nThe objective is what makes the scale possible. A language modeling target is read off the text itself: the word to predict is already sitting in the corpus, so no annotator has to produce it. That removes the ceiling labeled data imposes. BERT's own corpus is roughly 3.3 billion words of books and Wikipedia ([[pre-training-data]]); SQuAD, among the largest labeled sets it is tested on, holds about 100,000 question-answer pairs. Four orders of magnitude separate the two.\n\nWhat comes out is not one vector per word type, as with [[pre-trained-word-embeddings|pre-trained word embeddings]], but [[contextual-representations|contextual representations]] — the vector for a token depends on the sentence around it. This is the specific form of [[transfer-learning]] the paper works in: the first task is predicting text from text, and the second is whatever [[downstream-task|labeled end task]] you have, whether it wants one label per sequence ([[sentence-level-tasks]]) or one per token ([[token-level-tasks]]).\n\n### The part the paper is about to attack\n\nThe introduction sorts prior work by how the pre-trained model is used downstream — frozen as features, as in [[elmo|ELMo]], or fine-tuned end to end, as in [[openai-gpt|OpenAI GPT]]. That split is set out under [[transfer-strategies]].\n\nThe paper's point is that the split is the less interesting difference. Both families pre-train with the same objective: a [[left-to-right-language-model|unidirectional language model]]. Everything the argument in [[unidirectionality-constraint]] turns on follows from that shared choice.\n\nThe cost is paid once and unevenly. Pre-training is a large fixed expense — a million updates over the corpus — while adapting the result to a task takes under an hour on one Cloud TPU. You buy a general model expensively and specialize it cheaply, many times.\n\n### How firm the evidence is\n\nThin, on this page specifically. The claim that pre-training helps is carried by citation — Dai and Le, ELMo, GPT, ULMFiT — not re-tested here; the paper runs no from-scratch baseline against its own tasks.\n\nIts own contribution to the claim is about scale rather than existence. [[table-6]] shows downstream accuracy still rising with model size, and [[fig-5]] shows MNLI accuracy still climbing at a million pre-training steps. [[table-1]] shows the end result, but it measures BERT, not pre-training in general.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "2.3",
+      "title": "Transfer Learning from Supervised Data",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-masked-language-model",
+   "forId": "masked-language-model",
+   "kind": "concept",
+   "body": "Masked LM is the objective BERT is pre-trained with on [[unlabeled-text]]: pick token positions at random, hide what was there, and train the model to name the original token from everything around it. It is here because the paper's central claim, [[deep-bidirectionality|every layer conditioning on both sides at once]], has no training procedure behind it otherwise.\n\nA standard conditional language model predicts each token from the tokens before it. Let that model see both sides and the target reaches its own prediction through the layers below, which is the [[see-itself-problem]]. In the paper's phrasing, the model could then predict the target trivially. Masking breaks that path by deleting the answer from the input before the encoder ever reads it. The paper adds that this procedure already has an older name, the [[cloze-task]].\n\n### The operation\n\nThe input is WordPiece tokens. The data generator picks [[masking-rate-15-percent|15% of the positions]] at random for prediction; on a 512-token sequence that is roughly 77 positions.\n\nWhat happens to a chosen position is not simply substitution with the [MASK] placeholder ([[mask-token]]), because that symbol appears constantly in pre-training and never at fine-tuning, a [[pretrain-finetune-mismatch]]. The [[masking-recipe-80-10-10|80/10/10 recipe]] spreads the corruption across three cases. Counted over the whole sequence, 12% of tokens become [MASK], 1.5% become a random token, and 1.5% are left untouched.\n\nThe original token is the target in all three cases. Because the encoder is never told which positions are targets or which were swapped, it has to keep a contextual representation of every token, not just the visibly corrupted ones.\n\nAt each chosen position the final hidden vector $T_i \\in \\mathbb{R}^H$ ([[final-hidden-vector-ti]]) is fed to an [[mlm-output-softmax|output softmax]] over the 30,000-token [[wordpiece-vocabulary-30k|vocabulary]] and scored with cross-entropy. Positions that were not chosen contribute nothing to the loss, which is the [[denoising-autoencoder-contrast|difference from a denoising autoencoder]].\n\n### What it costs, and what shows it\n\nOnly 15% of positions produce gradient per step, so each step teaches less than a left-to-right step does; see [[mlm-convergence-cost]].\n\nThe main evidence is [[table-5]]. Holding data, architecture and fine-tuning fixed, swapping MLM for a [[left-to-right-language-model]] drops SQuAD from 88.5 to 77.8 F1, and bolting a BiLSTM on top recovers only part of that while making GLUE slightly worse. [[fig-5]] adds that MLM starts behind on MNLI and passes the left-to-right model well before 100k steps.\n\nBoth are single runs at BASE size, on dev sets, with no variance reported, so read them as one clean comparison rather than a measured effect size. The 15% rate is stated, never varied. Only the mixture is ablated, in [[table-8]], and there the fine-tuned scores barely move; the recipe is defended by one frozen-feature NER column worth 0.9 F1.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-next-sentence-prediction",
+   "forId": "next-sentence-prediction",
+   "kind": "concept",
+   "body": "Next sentence prediction is the second of BERT's two pre-training objectives, running alongside the [[masked-language-model|masked LM]] on the same batches. The paper's stated reason for adding it is that tasks like [[question-answering|question answering]] and [[natural-language-inference|natural language inference]] turn on the relationship between two pieces of text, and a language model, which only ever predicts a token from its context, is never asked to represent that relationship directly.\n\n### The operation\n\nEvery pre-training example is already two spans rather than one, because [[sentence-pair-packing|a span A and a span B are packed into a single sequence]]. NSP asks one yes/no question about that pair: did B actually follow A in the corpus?\n\nThe label costs nothing to obtain. When [[training-sequence-generation|the example is assembled]], half the time B is the text that genuinely came next in the document, and half the time B is a span sampled at random from elsewhere in the corpus. Those are the [[isnext-notnext|IsNext and NotNext labels]], balanced 50/50 by construction.\n\nThe decision is read off one position. Every sequence begins with the [[cls-token|[CLS] token]], and its top-layer output [[final-hidden-vector-c|C]] is a single $H$-dimensional vector — $H=768$ for BERT_BASE. A classification layer projects $C$ down to two logits, and a softmax over them gives IsNext versus NotNext.\n\nThat head is the only new machinery: no labels to collect, no second forward pass, one small matrix. Its cross-entropy is simply added on, since the [[combined-pretraining-loss|training loss is the sum]] of the mean masked-LM likelihood and the mean NSP likelihood.\n\nTwo consequences the paper flags itself. Because $C$ was trained this way, [[c-not-a-sentence-representation|it should not be read as a sentence embedding]] without fine-tuning. And unlike earlier sentence-representation objectives, [[full-parameter-transfer-vs-sentence-embeddings|the whole network transfers downstream]], which is what the dotted arrows in [[fig-1]] carry.\n\n### What the evidence actually shows\n\nSection 3.1 reports the final model at 97-98% accuracy on NSP itself, against a 50% chance baseline. That number says the model learned the task it was trained on. It says nothing about downstream gain, and the paper points to its ablation instead.\n\nThat ablation is [[table-5]]. The [[no-nsp-ablation|No NSP]] run keeps the data, the hyperparameters and the fine-tuning scheme fixed, and deletes only this objective. [[qnli|QNLI]] falls from 88.4 to 84.9, [[mnli|MNLI]] from 84.4 to 83.9, [[squad-v1-1|SQuAD]] F1 from 88.5 to 87.9, SST-2 from 92.7 to 92.6.\n\nThe paper calls this hurting performance significantly. One column moves 3.5 points; three move under a point, from single runs with no variance reported. The direction of the evidence fits the claim, but the size of it supports something more modest than the wording.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.3",
+      "title": "Transfer Learning from Supervised Data",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     12,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-openai-gpt",
+   "forId": "openai-gpt",
+   "kind": "concept",
+   "body": "OpenAI GPT is the prior system this paper sets [[bert|BERT]] up to be measured against. It pre-trains a Transformer as a [[left-to-right-language-model|left-to-right language model]] over [[unlabeled-text]] ([[generative-pretraining|generative pre-training]]), then continues training every one of those weights on a labeled task ([[supervised-fine-tuning]]).\n\nThat makes it the paper's example of the [[fine-tuning-approach|fine-tuning route]]: adapt by adding almost no new parameters and moving all the old ones. [[elmo|ELMo]] is the example of the other route, where the pre-trained weights stay frozen and their outputs are fed to a hand-built task model as features. Because GPT and BERT sit on the same side of that split, a gap between them cannot be blamed on the transfer strategy.\n\n### The one architectural difference\n\nGPT's stack is a [[decoder-only-stack|decoder-only Transformer]], and its self-attention is masked. Concretely: inside each layer, the query-key score matrix has every entry above the diagonal set to $-\\infty$ before the softmax, so position $i$ ends up with exactly zero weight on every position $j > i$. This is [[constrained-self-attention]].\n\nThe mask is not decoration. The pre-training objective is to predict token $i{+}1$ from the prefix, and without the [[mask-token]] $i{+}1$ would already be visible in the vector that predicts it.\n\nBERT drops the mask, and pays for it with a different objective. That trade is the whole argument.\n\n### How clean the comparison is\n\nBERT_BASE was configured $L{=}12$, $H{=}768$, $A{=}12$, 110M parameters, chosen to match GPT's size ([[gpt-size-match]]). Small settings were inherited too, including [[gelu-activation|gelu]] in place of relu. [[table-1]] then reports GPT at 75.1 GLUE average against BERT_BASE's 79.6 and BERT_LARGE's 82.1, with MNLI up 4.6 points; [[table-4]] puts GPT at 78.0 on SWAG against BERT_LARGE's 86.3. [[fig-3]] draws the claimed reason as arrows.\n\nThe paper does not leave the comparison there, and it should not. [[bert-elmo-gpt-comparison|Appendix A.4]] lists what else differs. GPT saw BooksCorpus alone, 800M words; BERT saw that plus 2,500M words of Wikipedia. Both ran 1M steps, but GPT's batch held 32,000 words and BERT's 128,000 — four times the tokens per update, so roughly four times the text in total. GPT also introduced [SEP] and [CLS] only at fine-tuning time, and used a single 5e-5 learning rate everywhere, where BERT tuned one per task on dev.\n\nAny of those could explain part of the gap. So the head-to-head number is the headline, not the proof. The proof the paper offers is [[table-5]], where [[ltr-no-nsp-ablation|a left-to-right model trained in-house]] under BERT's own data, batch and fine-tuning still loses 88.5 to 77.8 F1 on SQuAD.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-pre-training-procedure",
+   "forId": "pre-training-procedure",
+   "kind": "concept",
+   "body": "This is the recipe that turns two objectives into one training run: the corpus the text comes from, how a single training example is built, and how long the run lasts. Section 3.1 gives the ideas and Appendix A.2 gives the numbers, and the numbers are the part a reproduction needs.\n\n### Building one example\n\nNothing here samples a sentence in the linguistic sense. Two spans of contiguous text are drawn from the [[pre-training-data|3.3-billion-word corpus]], and the paper notes they are usually longer than a single sentence. The first span gets the A [[segment-embeddings|segment embedding]] and the second gets B.\n\nHalf the time the second span really is what followed the first; half the time it is a random span from elsewhere. That coin flip is the entire supervision signal for [[next-sentence-prediction]].\n\nThe pair is drawn so the two spans together stay within [[max-sequence-length-512|512 tokens]]. Only then is the text run through [[wordpiece-tokenization|WordPiece]], and only after that is [[masked-language-model|masking]] applied, at a uniform 15% over token positions with no special handling for pieces of a split word. [[training-sequence-generation|The full ordering]] matters, because masking after tokenization means a mask can land on half a word.\n\n### The run\n\nBatches are 256 sequences. At 512 tokens each that is 128,000 tokens per step, and a million steps at that rate is roughly 128 billion tokens, or about [[training-steps-and-epochs|40 passes]] over the corpus. That epoch figure is computed at the full length; the [[sequence-length-schedule|length schedule]] runs 90% of steps at 128 tokens instead, and the paper does not say whether the batch grows to hold tokens-per-step fixed. So 40 epochs is an upper reading of what the model actually saw.\n\nThe [[pretraining-optimizer-settings|optimizer settings]], the [[gelu-activation|gelu activation]] and the [[combined-pretraining-loss|summed loss]] are stated flatly, without justification or a search over alternatives.\n\n### What the fixity buys\n\nEvery number above stays frozen across the paper's own comparisons. [[effect-of-pre-training-tasks|The task ablation]] can charge a score drop to one removed objective only because the cut-down runs share this exact data, schedule and hyperparameters, so the recipe is the control that [[table-5]] rests on.\n\nThe direct evidence for the procedure itself is thin. [[fig-1]] shows what the run is for -- one stack pre-trained, then carried across intact -- but it is a schematic, not a measurement. Four days on [[cloud-tpu|16 Cloud TPUs]] is reported once and never varied, which is affordable precisely because [[fine-tuning-cost|fine-tuning is cheap]] afterwards.\n",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     12,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-squad-v1-1",
+   "forId": "squad-v1-1",
+   "kind": "concept",
+   "body": "SQuAD v1.1 is a collection of around 100,000 crowdsourced questions, each attached to a Wikipedia passage that is guaranteed to contain the answer. It appears in the [[eleven-task-evaluation|eleven-task sweep]] as the paper's token-level case: the GLUE tasks want one label for the whole input, while this one wants two positions inside it.\n\nThat difference is what SQuAD is doing here. It is [[question-answering]] in its extractive form, so the job is to mark the [[answer-span|span]] of passage tokens that answers the question. Because every question in v1.1 is answerable, the model never has to decide whether an answer exists at all. The output is a pair of indices rather than a class, and the [CLS] head used elsewhere cannot produce it.\n\n### The head, in full\n\nQuestion and passage enter as one sequence rather than two encodings, the question carrying the A segment embedding and the passage carrying B ([[packed-question-passage-sequence]]).\n\nFine-tuning then adds exactly two vectors ([[span-prediction-head]]): a start vector $S$ and an end vector $E$, both in $\\mathbb{R}^H$ ([[start-and-end-vectors]]). With $H = 1024$ for BERT_LARGE that is 2,048 fresh weights sitting on top of 340M pre-trained ones.\n\nTake $T_i$, the top-layer vector at passage position $i$ ([[final-hidden-vector-ti]]). Dot it with $S$, do that for every passage token, then softmax across the paragraph; the result is a distribution over where the answer starts ([[eq-span-start-probability]]). $E$ gives the end distribution the same way. Training maximises the summed log-likelihood of the correct start and the correct end.\n\nAt prediction time a candidate running from $i$ to $j$ scores $S \\cdot T_i + E \\cdot T_j$, and the highest-scoring span with $j \\geq i$ wins ([[span-score-and-decoding]]). The whole recipe is 3 epochs, learning rate 5e-5, batch size 32.\n\nNote what is absent. The [[prior-squad-systems|published reading-comprehension systems]] this is measured against build explicit attention between question and passage; here that interaction happens inside the shared encoder, and the task layer is two dot products ([[fig-4]]).\n\n### How strong the result is\n\n[[table-2]] puts a single fine-tuned BERT_LARGE at 91.8 test F1 and a seven-model ensemble at 93.2, against 91.7 for the best ensemble on the board. The single model edging past that ensemble is the sharper of the two claims.\n\nThe comparison comes with conditions the paper states itself ([[squad-leaderboard-public-data-rules]]): the leaderboard entries have no current public descriptions and may train on any public data. BERT matches that by fine-tuning on TriviaQA first ([[triviaqa-augmentation]]). Dropping that step costs only 0.1-0.4 F1, so the margin does not rest on it — but the opponents remain systems whose training data is not known. Both metrics are reported, and F1 gives partial credit ([[exact-match-and-f1]]).\n\nOne more reading. In [[table-5]], swapping the [[masked-language-model|masked LM]] for a left-to-right objective drops SQuAD from 88.5 to 77.8 F1, a far larger fall than on the [[sentence-level-tasks|sentence-level tasks]]. A span's first token is often only identifiable from the words after it, which is where bidirectionality pays.\n\n[[squad-v2-0]] removes the answerability guarantee, and asks this same head for one extra decision.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     12,
+     13,
+     14,
+     15
+    ]
+   }
+  },
+  {
+   "id": "page-transfer-learning",
+   "forId": "transfer-learning",
+   "kind": "concept",
+   "body": "Transfer learning is the frame Section 2 puts around every system the paper reviews, and around BERT itself. Train a model once where data is plentiful, then reuse those same weights on a task where labeled data is not.\n\nThe scarcity is the motivation. [[mrpc|MRPC]], one of the benchmarks in the sweep, has 3,600 labeled training pairs. BERT's [[pre-training-data|pre-training corpus]] is about 3.3 billion words of [[unlabeled-text|unannotated text]]. No deep encoder learns from 3,600 examples what it can learn from 3.3 billion words, so it learns from the second and is then aimed at the first. Tasks in that position are what the paper calls [[low-resource-tasks]].\n\nConcretely, transfer here is weight copying. Pre-training runs 1,000,000 updates on batches of 256 sequences of up to 512 tokens, roughly 128,000 tokens per step and about 40 passes over the corpus, which took four days on 64 TPU chips. What comes out is a set of numbers: 110M parameters for BERT_BASE, 340M for BERT_LARGE.\n\n[[bert-framework|Fine-tuning]] initialises a [[downstream-task|downstream]] model with exactly those numbers, attaches one output layer, and trains the whole thing for two to four epochs. The paper puts that second stage at [[fine-tuning-cost|at most an hour on a single Cloud TPU]].\n\nSo the expensive half is paid once, and each of the eleven tasks pays only the cheap half. That is the trade the whole paper rests on.\n\nSection 2 sorts the sources. Text with no labels is one, and is where [[language-model-pre-training|language model pre-training]] lives; that is the particular instance of transfer this paper works in. The other is [[supervised-transfer-learning|transfer from a large labeled task]], which gets a single paragraph citing inference and translation, plus ImageNet fine-tuning as the vision analogue. None of BERT's own results use it. How the copied weights are then attached to the target task is a separate question, answered by the paper's taxonomy in [[transfer-strategies]].\n\n### What the evidence actually covers\n\nThe paper never trains its architecture from scratch on a downstream task. No ablation carries a randomly initialised baseline, so the claim that transfer helps at all is inherited from the work Section 2 reviews rather than measured here. What is measured is variation inside transfer.\n\n[[table-6]] pre-trains six sizes and finds larger strictly better on four GLUE tasks, MRPC included. That is Dev accuracy averaged over five fine-tuning restarts on four tasks, and the paper offers only a [[few-random-parameters-hypothesis|hypothesis]] for why small tasks benefit. [[table-7]] shows frozen features landing 0.3 F1 behind full fine-tuning, on one dataset. [[table-1]] carries the headline gains. The conclusion's claim, that unsupervised pre-training is now an integral part of language understanding systems, is broader than any single table.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "2.3",
+      "title": "Transfer Learning from Supervised Data",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     8,
+     9,
+     10,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-transfer-strategies",
+   "forId": "transfer-strategies",
+   "kind": "concept",
+   "body": "Before proposing anything, the paper sorts all prior [[language-model-pre-training|language model pre-training]] work into exactly two strategies for getting pre-trained weights onto a labeled [[downstream-task|end task]]. The split is here because BERT is defined by it: the paper places itself in one branch and makes the other branch's flagship its comparison point.\n\n### What the two strategies actually do\n\nBoth begin from the same object — a network whose weights were trained on [[unlabeled-text]]. What differs is what happens to those weights once labeled data arrives.\n\nIn the [[feature-based-approach]], the pre-trained network is run over the input and then left alone. Its hidden vectors are read out and handed to a second model, designed by hand for the task, which is trained from scratch. Gradients stop at the frozen boundary. The pre-trained weights never move. [[elmo]] is the paper's example.\n\nIn the [[fine-tuning-approach]], one small output layer is attached and gradients flow through everything. For a 340M-parameter encoder, all 340M parameters are updated on the task's labeled data, alongside the handful of new ones ([[minimal-task-specific-parameters]]). [[openai-gpt]] is the paper's example.\n\nEach side pays something. Freezing means you compute the expensive representation once and then run many cheap experiments on top, and it lets you attach a [[task-specific-architecture]] for tasks a [[transformer-encoder]] cannot express directly. Fine-tuning gives up both of those — you get a separate full-size model and a full training run per task — and buys the ability to reshape the representation for the task.\n\n### Why the split carries weight\n\nThe paper's argument turns on what the two strategies share rather than what separates them: both pre-trained with a unidirectional language model. So the [[unidirectionality-constraint]] is a property of the objective, not of the transfer method.\n\nThat constraint bites harder in the fine-tuning branch. There the pre-trained architecture *is* the downstream architecture, so a left-to-right attention mask cannot be undone by an output layer. The feature-based branch can paper over it after the fact by concatenating two separately trained directions ([[fig-3]]).\n\n### How strong the evidence is\n\nThe paper later tests the choice on itself. [[feature-based-approach-with-bert|Freezing BERT]] on [[conll-2003-ner|CoNLL-2003 NER]] and [[concat-last-four-layers|concatenating its top four layers]] lands 0.3 F1 behind fine-tuning the whole thing ([[table-7]]).\n\nThat is one task, one dataset, with hyperparameters chosen on Dev and scores averaged over five restarts. It supports the modest claim the paper makes — BERT works either way — and not much more. The separate suggestion that fine-tuning is what lets small tasks benefit from very large encoders is stated as a [[few-random-parameters-hypothesis|hypothesis]], not tested.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-unidirectionality-constraint",
+   "forId": "unidirectionality-constraint",
+   "kind": "concept",
+   "body": "Every method the paper builds on pre-trains a language model, and a standard language model reads in one direction only. The paper's claim is that this is not a small implementation detail: it decides which architectures can be pre-trained at all, and for [[fine-tuning-approach|fine-tuning approaches]] the restricted architecture is also the one that gets used on the end task.\n\n### Where the one direction actually lives\n\nThe constraint comes from the objective before it comes from the network. A [[left-to-right-language-model|left-to-right language model]] scores text as $\\prod_t p(x_t \\mid x_1 \\ldots x_{t-1})$, so the prediction at position $t$ may see positions $1$ through $t-1$ and nothing else.\n\nThat factorisation has to be enforced inside the model, or the objective is meaningless. In a Transformer it is enforced in the attention scores: before the softmax, every score from position $t$ to a position later than $t$ is set to $-\\infty$, so those attention weights come out as zero. The paper calls the result [[constrained-self-attention|constrained self-attention]], and [[openai-gpt|OpenAI GPT]] applies it in every one of its layers.\n\nFollow one token through such a stack. Token 3 of a 20-token sentence enters layer 1 able to attend to 3 positions, and leaves layer 1 as a mixture of those 3. It enters layer 2 able to attend to the layer-1 outputs of the same 3 positions.\n\nTwelve layers later, its vector still depends on nothing to its right. Depth re-mixes what the mask allowed through; it never restores what the mask removed.\n\nThe obvious repair — drop the mask — breaks the training signal instead, which is [[see-itself-problem|the \"see itself\" problem]] that [[masked-language-model|masked LM]] is introduced to get around.\n\n### What the paper says it costs, and how well that is shown\n\nThe paper states two costs, and hedges them differently. For [[sentence-level-tasks|sentence-level tasks]] the restriction is called sub-optimal. For [[token-level-tasks|token-level tasks]] such as [[question-answering|question answering]] it says the restriction *could be* very harmful, because an [[answer-span]] needs context from both sides.\n\nThe [[feature-based-approach|feature-based approach]] softens this, since the frozen vectors are handed to a task architecture free to add two-sided machinery of its own. Fine-tuning has no such escape. That is why the paper aims its criticism there.\n\nOne workaround already existed, [[shallow-concatenation|concatenating two directional models]]; Section 5.1's reasons for rejecting it are in [[ltr-rtl-concatenation-alternative|its own section below]].\n\nFor evidence, [[fig-3]] draws the claim as arrows rather than measuring it. The measurement is [[table-5]]'s [[ltr-no-nsp-ablation|LTR & No NSP]] row, trained on the same data with the same fine-tuning scheme and hyperparameters, which the paper reports as worse on every task with large drops on MRPC and SQuAD. A randomly initialised [[bilstm-on-top-of-ltr|BiLSTM added on top]] of that model, as a good-faith attempt to supply right-side context, recovers part of the SQuAD gap and hurts the GLUE tasks.\n\nThe ablation is one architecture size, an in-house stand-in for GPT rather than GPT itself, and it arrives four sections after the claim it supports.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     12,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-etheme-masking-buys-bidirectionality",
+   "forId": "etheme-masking-buys-bidirectionality",
+   "kind": "edge-theme",
+   "body": "The paper's central claim is that pre-training should produce [[deep-bidirectionality|representations where every layer conditions on both sides at once]], and its argument is that no standard language modelling objective can be trained that way. Masking is the one move that makes such an objective trainable, and everything else on this page is what that move costs.\n\nStart with the obstacle. In a stack of Transformer layers with unrestricted attention, a position's vector at layer $k$ is built from every position's vector at layer $k-1$. So if the token you are trying to predict is still present in the input, its own embedding flows upward through the layers into the very vector you read the prediction off. This is [[see-itself-problem|the \"see itself\" problem]], and the paper says a model in that situation \"could trivially predict the target word.\" Note the form of the claim: it is reasoning about the architecture, not an experiment. No run in the paper measures how badly a naively bidirectional LM degenerates.\n\nThe fix is to delete the token from the input before the model reads it. That is the [[masked-language-model|masked LM objective]], which the paper is careful to say the literature has long called a [[cloze-task|Cloze task]]. The position stays in the sequence, and its final hidden vector feeds an [[mlm-output-softmax|output softmax over the vocabulary]] whose width is fixed by the [[wordpiece-vocabulary-30k|30,000-token WordPiece vocabulary]]. Cross-entropy is taken against the original token. The [[masking-rate-15-percent|15% rate]] is stated once and used in every experiment; the paper reports no search over it.\n\n### The price of the placeholder\n\nThe [[mask-token]] is a symbol invented for pre-training, and it never appears in a downstream input. That asymmetry is the whole of the [[pretrain-finetune-mismatch|pre-train / fine-tune mismatch]] the paper worries about. To soften it, only 80% of chosen positions actually become [MASK]: this is the [[masking-recipe-80-10-10|80/10/10 recipe]], one particular mixture of [[mask-same-rnd-strategies|the three things that can happen to a selected token]]. The original token is the target in all three cases, so the model cannot learn that a prediction is only ever wanted where a placeholder sits.\n\nThen the [[masking-procedure-ablation|masking ablation]] undercuts the motivation. [[table-8]] pre-trains six models that differ only in the mixture. On fine-tuned MNLI the whole spread is 83.6 to 84.4, and using [MASK] 100% of the time scores 84.3 against the recipe's 84.2 — slightly ahead. On this evidence, the recipe is not what makes fine-tuned BERT work.\n\nIt earns its keep only where the model is frozen. That is the point of [[feature-based-amplifies-mask-mismatch|the feature-based column]]: with BERT's weights fixed, and features taken from [[concat-last-four-layers|the top four layers concatenated]], a pre-training habit cannot be adapted away. There, all-[MASK] falls from 94.9 to 94.0 NER F1. That 0.9 points is the clearest effect in the table, and it is still under a point.\n\n### The price per step\n\nA [[left-to-right-language-model|left-to-right model]] gets a target at every position; masking 15% leaves roughly one position in seven producing gradient. [[mlm-convergence-cost|Slower convergence]] follows, and the paper confirms it, adding that MLM's absolute MNLI accuracy overtakes the left-to-right model's \"almost immediately\". [[fig-5]] shows the qualifier matters: at the earliest plotted checkpoint the left-to-right model is ahead. The same figure supports [[training-steps-and-epochs|the full million-step budget]] with about 1.0 point of MNLI between 500k and 1M steps, though the curve moves only a few tenths over the last stretch.\n\nSo the chain holds at its ends and is thinner in the middle. That the objective swap helps downstream is measured. That masking is the only available fix, that 15% is the right rate, and that the mixture matters — those are argued, assumed, or, in the mixture's case, measured and found small.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-etheme-one-added-layer-per-task",
+   "forId": "etheme-one-added-layer-per-task",
+   "kind": "edge-theme",
+   "body": "The paper's argument here is that once the encoder has been pre-trained bidirectionally, adapting it to a task needs almost no new machinery — [[task-specific-output-layer|a single added output layer]], and sometimes just a vector. The evidence offered is four tasks whose heads shrink to that size and still outscore the hand-built architectures they replace.\n\nThe design goal has a name in the paper: [[minimal-task-specific-parameters|as few new weights as possible]]. What follows is the paper walking that goal across four task shapes without ever growing the head.\n\n### Counting what each head adds\n\nFor a GLUE classification task the head is one weight matrix $W \\in \\mathbb{R}^{K \\times H}$ applied to [[final-hidden-vector-c|C]], the top-layer vector at the [[cls-token|[CLS]]] position, then a softmax and a cross-entropy loss. That expression, [[eq-classification-loss|$\\log(\\mathrm{softmax}(CW^T))$]], is the whole [[c-vector-classification-head|task-specific model]].\n\nPut numbers on it. MNLI has three labels and BERT_LARGE has $H = 1024$, so $W$ holds $3 \\times 1024 = 3{,}072$ weights, against 340 million pre-trained ones. That is roughly one new parameter for every hundred thousand carried over.\n\nExtractive [[question-answering]] needs per-token output rather than one pooled vector, so the head reads [[final-hidden-vector-ti|$T_i$]] instead of $C$. The paper adds [[start-and-end-vectors|a start vector $S$ and an end vector $E$]], each of dimension $H$. [[eq-span-start-probability|The start distribution]] is a softmax of $S \\cdot T_i$ over the passage; the end distribution is the same formula with $E$. That is 2,048 new numbers, and [[span-prediction-head|the entire span head]].\n\n[[eq-span-score|A candidate span]] from $i$ to $j$ scores $S \\cdot T_i + E \\cdot T_j$, and [[span-score-and-decoding|the best pair with $j \\geq i$ wins]]. This is where the contrast lands: [[prior-squad-systems|the published systems in Table 2]] built attention machinery between question and passage by hand, and on [[squad-v1-1|SQuAD v1.1]] a single fine-tuned BERT_LARGE reaches 91.8 test F1 against 88.5 for the best published ensemble ([[table-2]]).\n\n[[squad-v2-0|SQuAD v2.0]] drops the guarantee that the passage contains [[answer-span|an answer span]] at all. Rather than add an answerability classifier, the paper scores abstention as [[cls-as-null-span|a span starting and ending at [CLS]]]: [[null-span-score|$s_{null} = S \\cdot C + E \\cdot C$]], reusing $S$ and $E$ unchanged. Zero new parameters, and 83.1 test F1 against 78.0 for the best prior system ([[table-3]]).\n\n[[swag-multiple-choice-head|SWAG]] packs each of four continuations into its own sequence and dots one learned vector with each sequence's $C$ ([[fig-4]]) — 86.3% test accuracy, +27.1 points over the dataset authors' baseline ([[table-4]]).\n\n### What this does not establish\n\nThe paper never runs the ablation the argument would want. No experiment holds the encoder fixed and compares a small head against a large one, so \"the small head suffices\" is inferred from winning, not isolated by measurement. Each comparison changes the head, the encoder and the pre-training together.\n\nTwo smaller caveats. [[tau-threshold|The threshold τ]] in [[eq-null-answer-threshold|the answering rule]] is fitted on dev to maximise F1 — the same metric reported on test — and the paper gives neither its value nor a sensitivity curve. The SQuAD 1.1 numbers also include TriviaQA fine-tuning first, worth 0.1–0.4 F1 by the paper's own account, which is a data change rather than a head change.\n\nSection 5.2 offers a reason the design might help on small datasets: with few randomly initialised parameters, task models can exploit a larger pre-trained representation. The paper states that as a hypothesis and does not test it.\n\nOne property of the decoding rule is worth reading plainly. The span score is additive, so start and end are picked jointly at decoding time but their distributions were trained independently, and nothing in the score checks that the result is a well-formed phrase. Note also that [[exact-match-and-f1|EM and F1]] disagree by several points on every row — 85.1 EM against 91.8 F1 — so which metric is quoted changes how wide the margin looks.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "4.4",
+      "title": "SWAG",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     14,
+     15
+    ]
+   }
+  },
+  {
+   "id": "page-etheme-one-encoder-one-input-format",
+   "forId": "etheme-one-encoder-one-input-format",
+   "kind": "edge-theme",
+   "body": "The argument this page traces is that BERT does not reshape its network for each task — it reshapes each task into one input format, and the network stays put. The claim of a [[unified-architecture-across-tasks|unified architecture]] therefore rests almost entirely on the input representation, not on anything the encoder does.\n\nStart with what the paper declines to invent. [[bert-model-architecture|BERT's architecture]] is a [[transformer-encoder|Transformer encoder]], and the paper says its implementation is almost identical to the original, so it omits the description and points readers at Vaswani et al. and at the \"Annotated Transformer\" guide.\n\nWhat it does give are three dials: [[model-size-notation|L layers, hidden size H, and A attention heads]]. [[bert-base-and-bert-large|BERT_BASE]] sets them to 12, 768 and 12, for 110M parameters; BERT_LARGE to 24, 1024 and 16, for 340M.\n\nOne thing about the encoder is changed. [[self-attention|Self-attention]] normally lets each position mix information from the positions it is permitted to see, and the permission is set by a mask. BERT removes the mask, so every token attends left and right at every layer — [[bidirectional-self-attention|bidirectional self-attention]], against the [[constrained-self-attention|left-only masking]] GPT uses. The paper says this masking is the only architectural difference between BERT_BASE and GPT.\n\n### The format carries the load\n\nThe [[input-representation|input/output representation]] is a single token sequence that can hold either one span of text or two. Text is split by [[wordpiece-tokenization|WordPiece]] into a [[wordpiece-vocabulary-30k|30,000-token vocabulary]], and each token's input vector is the [[input-embedding-sum|elementwise sum of three learned rows]]: what the token is, which span it sits in, and where it sits. [[fig-2]] draws the three rows joined by plus signs rather than concatenated, so the input width stays $H$ no matter how many signals are added.\n\nEvery sequence opens with [CLS], whose top-layer vector [[final-hidden-vector-c|$C \\in \\mathbb{R}^H$]] is read as the aggregate; it is just the [[final-hidden-vector-ti|$T_i$]] at position zero, given its own name.\n\nFrom there each task family is a packing exercise. Two texts become [[sentence-pair-packing|span A and span B]] in one sequence, told apart by [SEP] and by [[segment-embeddings|a learned A/B embedding]] on every token. SQuAD reuses that directly as a [[packed-question-passage-sequence|question tagged A and passage tagged B]]. A single text becomes a [[degenerate-text-pair|pair whose B half is empty]]. Tagging needs one extra rule, because WordPiece may split a labelled word: [[first-sub-token-classification|the first piece's vector carries the tag]].\n\nThe consequence is that adaptation happens in the slots, not the stack. [[fig-1]] draws pre-training and fine-tuning as the same encoder twice, and [[fig-4]] draws four task families as four copies of one diagram. What is left over is [[minimal-task-specific-parameters|a very small set of new weights]] — one matrix $W \\in \\mathbb{R}^{K \\times H}$ for GLUE, two vectors $S$ and $E$ for SQuAD — against the [[task-specific-architecture|hand-built per-task model]] the feature-based route assumes.\n\n### Where the evidence stops\n\nThe measured part is the accuracy: +4.5 and +7.0 GLUE average points for the two sizes, 80.5 against GPT's 72.8 on the leaderboard, +1.3 F1 over the top SQuAD system as a single model. Those show the shared setup wins; they do not isolate the format as the reason.\n\nThe [[self-attention-unifies-cross-attention|claim that self-attention over a concatenated pair already includes]] [[bidirectional-cross-attention|cross attention between the two texts]] is stated, not tested. No ablation encodes the pair separately and compares under otherwise identical conditions. Read strictly, it is an argument about what unmasked attention can express, which is my reading rather than the paper's wording.\n\nFigure 4 is an illustration, so it demonstrates the claim's shape and leaves accuracy to the tables.\n\nTwo honest qualifications are the paper's own. Uniformity is of shape only: eleven tasks still produce [[separate-fine-tuned-models-per-task|eleven fine-tuned models]] from one checkpoint. And Section 5.3 concedes that not all tasks are easily represented by a Transformer encoder, so some still need an architecture added.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     12,
+     13,
+     14,
+     15
+    ]
+   }
+  },
+  {
+   "id": "page-etheme-taking-pieces-away",
+   "forId": "etheme-taking-pieces-away",
+   "kind": "edge-theme",
+   "body": "The headline tables argue by winning; this part of the paper argues by subtraction. Train a model with one piece removed, hold everything else fixed, and charge whatever the score loses to that piece.\n\nThe control makes the arithmetic mean something. [[effect-of-pre-training-tasks|The two cut-down runs]] use the same corpus, the same fine-tuning scheme and the same hyperparameters as BERT_BASE — the whole [[pre-training-procedure|recipe]] except the one deleted part. Without that, a drop could be charged to data or to a learning rate instead.\n\n### Bidirectionality is where the weight falls\n\n[[no-nsp-ablation|No NSP]] keeps masked prediction and deletes the sentence-pair task. [[ltr-no-nsp-ablation|LTR & No NSP]] goes one step further and swaps masked prediction for an ordinary [[left-to-right-language-model|left-to-right language model]]. In the network that means [[constrained-self-attention|masking attention]] so each position may attend only to positions on its left.\n\nComparing those two runs charges the gap to the direction of context alone. In [[table-5]] SQuAD F1 falls from 87.9 to 77.8, and MRPC from 86.5 to 77.5. MNLI moves much less, 83.9 to 82.1.\n\nSo the case for [[deep-bidirectionality]] is carried mainly by the token-level task, where right-side context is plainly needed to decide where an [[answer-span]] ends. The sentence-level evidence for it is real but thin.\n\nOne procedural detail shapes that number. The left-only constraint was applied at fine-tuning too, because lifting it opened a [[pretrain-finetune-mismatch|gap between pre-training and fine-tuning conditions]] that the authors say degraded scores. That is reported, not measured here.\n\nThe authors then try to give the crippled model its missing side back, by [[bilstm-on-top-of-ltr|bolting a randomly initialised BiLSTM on top]]. SQuAD recovers 7.1 points, from 77.8 to 84.9. It still sits 3.6 below the 88.5 of the bidirectionally pre-trained model, and MRPC drops further, to 75.7. The paper reads this as showing that right context supplied late is no substitute for pre-training with it — a reading that rests on one architecture tried once.\n\n[[next-sentence-prediction|NSP]] does worse under the same treatment. QNLI falls 88.4 to 84.9, the largest single move. The rest barely stir: MNLI 84.4 to 83.9, SQuAD 88.5 to 87.9, SST-2 92.7 to 92.6. The paper calls this hurting performance significantly; on three of five columns the change is under a point, so the wording outruns the numbers. That last judgement is my reading, not the paper's.\n\n### Size keeps paying, for a reason that is not tested\n\n[[effect-of-model-size|Six separately pre-trained models]] run from 3 layers to 24. In [[table-6]] held-out [[masked-language-model|masked-LM]] perplexity falls at every step, 5.84 down to 3.23, and fine-tuned accuracy climbs with it: MNLI 77.9 to 86.6, SST-2 88.4 to 93.7, MRPC 79.8 to 87.8. MRPC is the point, because it has only 3,600 training examples and still improves at every size.\n\nThat runs against [[prior-scaling-evidence|earlier feature-based results]], where more layers or a wider [[hidden-size-h|hidden size]] bought little. The paper's [[few-random-parameters-hypothesis|proposed explanation]] is that [[minimal-task-specific-parameters|fine-tuning adds so few randomly initialised weights]] that a small task can still draw on a large representation. It is offered as a hypothesis and should be read as one: no size ladder was run in the frozen setting, so the contrast is measured and the reason for it is not.\n\n### Freezing costs less than you would expect\n\n[[feature-based-approach-with-bert|Frozen BERT]] on [[conll-2003-ner]] reaches 96.1 Dev F1 with [[concat-last-four-layers|the top four layers concatenated]], against 96.4 for [[fine-tuning-bert|full fine-tuning]] in [[table-7]]. The top layer alone scores 94.9, below the second-to-last at 95.6, which suggests it has specialised toward the pre-training objectives. The frozen rows report Dev only, so the 0.3 gap is never checked on test.\n\nThe saving is not free. Freezing puts a [[task-specific-architecture|hand-built model]] back on top — here a [[frozen-feature-bilstm-classifier|two-layer 768-dimensional BiLSTM]] — where fine-tuned NER needed only [[tagging-without-crf|a per-token classifier]]. And a frozen model cannot adjust away from habits formed around [MASK], which is the paper's stated reason for expecting the [[feature-based-amplifies-mask-mismatch|masking mismatch to bite hardest here]].",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-etheme-the-eleven-task-scoreboard",
+   "forId": "etheme-the-eleven-task-scoreboard",
+   "kind": "edge-theme",
+   "body": "The paper's case is made by breadth rather than by any single result: one pre-trained encoder, one small output layer per task, and a better number on every task it was fine-tuned on. What the [[eleven-task-evaluation|eleven-task sweep]] shows depends on how the scoreboard was assembled — which tasks were counted, which split chose the model, what extra training data was allowed — and the paper states most of them openly, so the headline averages read narrower than they first look.\n\n### The protocol that makes the scoreboard affordable\n\nStart with cost. [[fine-tuning-cost|Fine-tuning]] any result in the paper takes at most an hour on one Cloud TPU, starting from the pre-trained checkpoint.\n\nThat price is what permits [[exhaustive-hyperparameter-search|running the whole grid]]. The [[fine-tuning-hyperparameters|grid]] is two batch sizes, three learning rates and three epoch counts, so eighteen runs cover a task.\n\nSelection then has to happen somewhere. GLUE does not hand out test labels; the [[glue-evaluation-server|evaluation server]] scores submitted predictions, and the paper made one submission per model size. So Dev decides everything, which is why the [[glue-fine-tuning-protocol|GLUE protocol]] pins batch size at 32 and epochs at 3 for every task and tunes only the learning rate per task on Dev.\n\nOne more selection sits inside that. [[fine-tuning-random-restarts|BERT_LARGE fine-tuning was sometimes unstable on small datasets]], so several restarts were run from the same checkpoint and the best kept on Dev.\n\n### What the tables report\n\nOn [[glue-benchmark|GLUE]], [[table-1]] puts [[bert-base-and-bert-large|BERT_BASE]] at 79.6 average and BERT_LARGE at 82.1, against 75.1 for [[openai-gpt]]. Subtracting gives 4.5 and 7.0, the two figures the abstract quotes. Both rows also lead in every individual column, so the average is not being carried by one easy task. On [[mnli|MNLI]], the largest task and an instance of [[natural-language-inference|entailment]], the gain is 4.6 points.\n\nThat average covers eight of GLUE's nine tasks. [[wnli|WNLI is dropped]], because every system submitted to GLUE had scored below the 65.1 [[majority-class-baseline|majority-class floor]], and the paper says it excludes the set to be fair to GPT. The caption is explicit that the Average column therefore differs from the official [[glue-score|GLUE score]]. Worth checking which way that cuts: officially BERT_LARGE is 80.5 against GPT's 72.8, a 7.7 point gap, wider than the table's 7.0. The exclusion is not flattering BERT, but two averages are now in circulation.\n\nFor [[squad-v1-1|SQuAD 1.1]], the extractive form of [[question-answering|question answering]], the comparison is against a live leaderboard. The [[squad-leaderboard-public-data-rules|top entries there have no current public descriptions and may train on any public data]], which is the stated reason for [[triviaqa-augmentation|fine-tuning on TriviaQA first]]. [[table-2]] reports a single model at 91.8 test F1, just past the 91.7 of the best ensemble it faces; [[ensembling|seven models]] reach 93.2, so the extra six runs buy 1.4 F1.\n\nOn [[squad-v2-0|SQuAD 2.0]], abstention is folded into the same head by scoring [[cls-as-null-span|a null span anchored at the CLS position]]. [[table-3]] gives 83.1 test F1 against 78.0, the +5.1 the paper quotes, with human performance at 89.5.\n\nOn [[swag-dataset|SWAG]], [[table-4]] reports 86.3% test accuracy: +27.1 over the dataset authors' ESIM+ELMo baseline, and +8.3 over GPT.\n\n### What the scoreboard does not settle\n\nFour gaps are visible in the tables themselves.\n\nTable 1 prints one number per cell and no spread, so on RTE (2.5k examples) and MRPC (3.5k) there is no way to tell how much of the margin is the best-of-restarts selection.\n\nThe TriviaQA-free numbers, which cost only 0.1 to 0.4 F1, are Dev numbers; the test comparison is never run without that augmentation.\n\nThe null-span trick has no ablation against a separate answerability classifier, so 83.1 shows it suffices, not that it is the better design.\n\nAnd +27.1 is measured against a baseline the SWAG authors built as a starting point; the 8.3 point margin over GPT is the more informative half of that comparison. None of these tables says which part of the recipe earned the gain; that is left to the ablations.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "2.3",
+      "title": "Transfer Learning from Supervised Data",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "4.4",
+      "title": "SWAG",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-etheme-the-pre-training-run",
+   "forId": "etheme-the-pre-training-run",
+   "kind": "edge-theme",
+   "body": "The pre-training recipe is not a list of independent settings. Each piece constrains the next, and the chain runs backwards from BERT's second pre-training task all the way to which corpora the model is allowed to read at all.\n\nStart at the task. [[next-sentence-prediction|Next Sentence Prediction]] asks one binary question of each training example: did span B actually follow span A in the source text, or was B sampled at random from somewhere else? The two cases are balanced 50/50.\n\nThat question only exists if two spans sit inside one input and the model can tell which is which. So NSP presupposes [[sentence-pair-packing|the A/B packing]] the input format already provides. The answer is read off [[final-hidden-vector-c|C]], the top-layer vector at the first position.\n\n### The corpus is a consequence, not a convenience\n\nNow look at what generating one example requires. [[training-sequence-generation|Sampling a training sequence]] draws two spans whose combined length is at most 512 tokens, and half the time the second must be the genuine continuation of the first.\n\nBoth halves of that put a demand on the data. A real next span has to exist, and the text has to run long enough to fill 512 tokens. That is what [[document-level-corpus|keeping documents intact]] means here, and the paper calls it critical rather than preferable.\n\nHence the two sources: [[bookscorpus|BooksCorpus]] at 800M words and [[english-wikipedia-corpus|English Wikipedia]] at 2,500M with lists, tables and headers stripped, about 3.3 billion words together. Hence also the named counter-example, [[billion-word-benchmark|the Billion Word Benchmark]], whose sentences are shuffled and so cannot supply either property.\n\n### Length costs more than it looks\n\nThe 512-token ceiling then collides with the encoder. Every attention layer scores every pair of positions, so [[attention-quadratic-cost|cost grows with the square of the length]]. Going from 128 tokens to 512 multiplies the length by four, and therefore the attention work per sequence by roughly sixteen.\n\nTraining entirely at 512 would be slow. But [[position-embeddings|position embeddings]] are learned one vector per slot, so training entirely at 128 would leave slots 128 through 511 without a single gradient.\n\nThe [[sequence-length-schedule|128-then-512 schedule]] splits that difference: 90% of steps at length 128, the final 10% at 512 to learn the longer-range positions.\n\nAll of it lands in one run. The [[pre-training-procedure|full procedure]] is 1,000,000 steps at 256 sequences per batch, roughly 40 passes over the corpus, four days on 16 Cloud TPUs for BERT_LARGE. Against that, [[fine-tuning-cost|every downstream result costs at most an hour]] on a single Cloud TPU from the finished checkpoint. That imbalance is what makes the paper's exhaustive hyperparameter grids and its random restarts affordable at all.\n\n### How much of this is shown\n\nOne link is measured. [[table-5]] holds data, fine-tuning scheme and hyperparameters fixed and drops NSP, and reports significant losses on QNLI, MNLI and SQuAD 1.1.\n\nThe rest are stated. The 97-98% NSP accuracy in the footnote says the finished model solves the task easily; it is not evidence that the task taught anything. No run swaps in a shuffled corpus, so \"critical\" is an argument from what sampling requires rather than a measurement. The length schedule is presented as a speed measure with no ablation against training at 512 throughout, and [[gelu-activation|gelu]] is chosen because [[openai-gpt|OpenAI GPT]] chose it, with no comparison against relu.\n\nThe caution that [[c-not-a-sentence-representation|C is not a sentence representation]] is likewise reasoning about how C was trained, not a probing result. Reading the whole recipe as one forced chain is my framing; the paper states these dependencies locally, one at a time.",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     12,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-etheme-two-routes-one-direction",
+   "forId": "etheme-two-routes-one-direction",
+   "kind": "edge-theme",
+   "body": "The paper opens by sorting every prior way of reusing a pre-trained model into two boxes, and then argues that the boxes are not where the problem lives. Its complaint runs across both of them: whichever route you take, the pre-training objective read text in one direction only.\n\nBoth boxes sit inside [[language-model-pre-training]], which is the particular form of [[transfer-learning]] this paper works in. The [[feature-based-approach]] keeps the pre-trained model frozen and hands its vectors to a separately designed task model as extra inputs. The [[fine-tuning-approach]] adds almost no new weights and trains every pre-trained parameter further on the labeled task.\n\n[[elmo]] is the paper's named example of the first route. [[openai-gpt]] is its example of the second, and [[bert]] places itself in that second box, next to GPT.\n\nThe two routes have a shared pre-history worth naming. [[pre-trained-word-embeddings]] give each word form one fixed vector, and [[contextual-representations]] give the same form different vectors in different sentences; separately, [[sentence-embeddings]] compress a whole span into one vector, whereas BERT's stated difference is [[full-parameter-transfer-vs-sentence-embeddings|carrying every weight across]] rather than a single vector.\n\n### The axis the paper actually cares about\n\nHere the argument turns. GPT's Transformer masks self-attention so a token sees only tokens to its left. ELMo trains a left-to-right and a [[right-to-left-language-model|right-to-left language model]] independently and concatenates their outputs — [[shallow-concatenation]], in the paper's framing.\n\nSo the two routes differ in how weights are reused, but agree on the thing the paper objects to. That lets it propose a different axis: [[deep-bidirectionality]], meaning every layer conditions on both sides at once.\n\n[[fig-3]] makes this case with arrow patterns rather than scores. It establishes what is being claimed; it measures nothing.\n\nThe measurement is meant to come from [[table-1]]. $\\mathrm{BERT_{BASE}}$ scores 79.6 on the GLUE average against GPT's 75.1, a gap of 4.5 points, and [[gpt-size-match]] means $\\mathrm{BERT_{BASE}}$ was built at GPT's parameter count so the gap could not simply be capacity.\n\n### How strong the chain is\n\nThe paper hedges this itself. [[bert-elmo-gpt-comparison]] lists what the matched size does not control: GPT saw BooksCorpus alone while BERT adds Wikipedia, GPT introduces `[SEP]` and `[CLS]` only at fine-tuning, BERT's batch is four times larger, and BERT tunes the fine-tuning learning rate per task. Matched parameters, unmatched runs.\n\nIts answer is [[table-5]], where two objectives are trained on identical data with identical fine-tuning. Left-to-right instead of [[masked-language-model|masked LM]] drops SQuAD F1 from 87.9 to 77.8, a fall of 10.1, and MRPC from 86.5 to 77.5. MNLI moves only 83.9 to 82.1. The bidirectionality claim is carried mainly by the token-level task, where right-side context is plainly needed.\n\nTwo gaps are worth stating plainly. First, [[ltr-rtl-concatenation-alternative]] — the ELMo-style option of training both directions separately and gluing them — is answered with three arguments and no experiment. Table 5 has no such row, and that claim is about expressiveness, not a measured result.\n\nSecond, the ELMo-versus-GPT numbers the paper cites (71.0 against 75.1 on GLUE, 59.2 against 78.0 on SWAG) compare whole systems. They do not separate the transfer route from everything else those systems differ in.\n\nOne consequence lands quietly in Section 5.3. Frozen BERT features finish 0.3 F1 behind fine-tuned BERT on NER. On the paper's own evidence, then, the feature-based/fine-tuning split it opened with turns out not to be the load-bearing distinction — that reading is mine, but the number is theirs.",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "2.3",
+      "title": "Transfer Learning from Supervised Data",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-theme-adapting-to-a-task",
+   "forId": "theme-adapting-to-a-task",
+   "kind": "theme",
+   "body": "Pre-training leaves one set of weights that has never seen a labeled example. This theme answers what has to change to turn those weights into a model for entailment, or tagging, or span extraction — and the paper's answer is: the inputs, one output layer, and nothing else.\n\n### Getting the task's text into the model\n\n[[fine-tuning-bert|Fine-tuning]] is the whole adaptation procedure, and the first half of it is [[task-specific-input-output-plugging|plugging the task's texts into the input format]]. That format already has two slots, A and B, because pre-training packed two spans into every sequence. A task with two texts maps onto the slots directly: premise and hypothesis, question and passage, the two sentences of a paraphrase pair.\n\nA task with only one text has nothing to put in B. The paper handles this by leaving the second slot empty and calling the result a [[degenerate-text-pair|degenerate text-∅ pair]]. Sentiment classification and sequence tagging both go in this way, so no task needs a variant of the input format.\n\nThat leaves a question about the pair case. The usual design for relating two texts encodes each one separately, then computes [[bidirectional-cross-attention|attention between them in both directions]] — every token of one text attending over the other. BERT does not have a separate stage for this. It concatenates the two texts and runs ordinary self-attention over the whole sequence.\n\n[[self-attention-unifies-cross-attention|The paper's claim]] is that the concatenated encoding already includes the cross attention. A token in B attends to every token in A at every layer, and a token in A attends to every token in B, so the pattern the separate mechanism produced is there anyway. This only follows because attention here is [[bidirectional-self-attention|unmasked in both directions]]. It is stated as an argument, not measured: there is no ablation that removes the concatenation and puts cross-attention back.\n\n### Getting an answer out, and what it costs\n\nThe output side is [[task-specific-output-layer|a single additional layer]], so the number of parameters learned from scratch stays small. Where it attaches depends on the task's shape. [[sentence-level-tasks|Sentence-level tasks]] read [[final-hidden-vector-c|C]], the final vector at the [CLS] position; [[token-level-tasks|token-level tasks]] read [[final-hidden-vector-ti|the per-token vectors]]. [[fig-4]] draws four task families as four copies of one diagram, differing only in what is packed in and which arrows come out.\n\nTwo instances make the size concrete. GLUE's [[c-vector-classification-head|classification head]] is one $K \\times H$ matrix, shown in [[eq-classification-loss]]. SQuAD's [[span-prediction-head|span head]] is two $H$-dimensional vectors.\n\nThen [[end-to-end-fine-tuning|every parameter is trained together]] on the labeled data — the pre-trained encoder as well as the new layer. [[fig-1]] makes the point that the encoder is the same network in both stages. The alternative, freezing the encoder and using it as [[feature-based-approach-with-bert|a feature extractor]], is tested separately as an ablation.\n\nTraining everything is affordable because [[fine-tuning-cost|fine-tuning is cheap]]: at most an hour on one Cloud TPU, a few hours on a GPU. That cost sets the protocol. The [[fine-tuning-hyperparameters|grid]] is two batch sizes, three Adam learning rates and three epoch counts — eighteen combinations. Eighteen hour-long runs is a day of one accelerator, so the paper simply [[exhaustive-hyperparameter-search|runs all of them and keeps the best on dev]].\n\nThe authors add one caveat. Datasets around 100k labeled examples and up were [[dataset-size-hyperparameter-sensitivity|far less sensitive to the choice]] than small ones, which is where the search actually earns its keep.\n\nYou can now open any of [[eleven-task-evaluation|the eleven tasks]] and ask only two things of it: what goes in the A and B slots, and which vectors the one new layer reads.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     13,
+     14,
+     15
+    ]
+   }
+  },
+  {
+   "id": "page-theme-one-architecture-two-stages",
+   "forId": "theme-one-architecture-two-stages",
+   "kind": "theme",
+   "body": "If the [[unidirectionality-constraint|one-direction problem]] is what BERT wants to fix, the first question is what gets built. How do you cover sentence-level and [[token-level-tasks|token-level tasks]] alike without designing a new architecture for each one? The paper's answer is to build a single network, train it once on [[unlabeled-text]], then start every task from those weights.\n\n### One network, used twice\n\n[[bert-framework|The framework has two steps]]. Pre-training trains the model on unlabeled data with self-supervised objectives. Fine-tuning initializes the same model with those pre-trained parameters and trains all of them on a labeled task.\n\n[[fig-1]] draws exactly that. The same token-in, vector-out encoder appears in both panels, and the only thing that differs is the thin output layer on top.\n\nTwo facts pull in opposite directions here, and the paper states both. [[unified-architecture-across-tasks|The shape barely changes]] — it calls the minimal difference between the pre-trained architecture and the downstream architecture a distinctive feature. But that uniformity is about shape, not about weights.\n\nThe weights do change, per task. [[separate-fine-tuned-models-per-task|Each task ends up with its own fine-tuned copy]], all branching from one checkpoint. Eleven tasks means eleven models.\n\nThe shape can stay fixed only because a single input format already covers both a single span of text and a pair of spans. That format is [[input-representation]], and it is what the next theme takes up.\n\n### What the network is\n\n[[bert-model-architecture|The architecture]] is a multi-layer bidirectional [[transformer-encoder]]. The paper does not describe the encoder. It says the implementation is almost identical to the original Transformer and refers readers to Vaswani et al. and to the Annotated Transformer guide. So everything BERT contributes sits around a mechanism it borrows.\n\nThe part that does real work here is [[self-attention]]. Each position builds its next representation as a weighted combination of the positions it is allowed to attend to. Which positions those are is set by a mask.\n\n[[bidirectional-self-attention|Drop the mask]] and every token attends to every other, left and right, at every layer. [[constrained-self-attention|Keep a mask over everything to a token's right]] and you have the GPT Transformer, where each token sees only its left context. That mask is what makes standard left-to-right language modeling trainable at all.\n\nRemoving it is the single architectural difference the paper names between BERT_BASE and [[openai-gpt|OpenAI GPT]]. It also costs something: attention scores every pair of positions, so it is [[attention-quadratic-cost|quadratic in sequence length]].\n\nThe paper later rebuilds that mask deliberately, as the [[ltr-no-nsp-ablation|LTR & No NSP ablation]], to measure what bidirectionality buys. And it argues that unmasked attention over a concatenated pair already [[self-attention-unifies-cross-attention|does the job of cross-attention between two texts]].\n\n### The dials, and the two settings\n\n[[model-size-notation|Three numbers describe a configuration]]: $L$ layers, [[hidden-size-h|hidden size $H$]], and $A$ attention heads. A fourth follows from $H$ rather than being chosen: [[feed-forward-filter-size|the feed-forward inner width is $4H$]], so 3072 when $H=768$ and 4096 when $H=1024$.\n\n[[bert-base-and-bert-large|Two settings are reported]]. $L{=}12, H{=}768, A{=}12$ gives 110M parameters; $L{=}24, H{=}1024, A{=}16$ gives 340M.\n\nThe smaller number is not arbitrary. [[gpt-size-match|BERT_BASE was chosen to match GPT's size]], so that when [[table-1]] shows a 4.5-point average GLUE gain, capacity is not the available explanation.\n\nThat reading is only as clean as the rest of the comparison, and the paper handles the remaining differences — corpus, objective, training scale — separately rather than holding them fixed.\n\nYou can now open any member here and know where it sits. The open question is the one this theme creates: with the mask gone, what objective can still train the thing?",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     8,
+     9,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-theme-pre-training-and-how-it-was-reused",
+   "forId": "theme-pre-training-and-how-it-was-reused",
+   "kind": "theme",
+   "body": "Most NLP tasks come with a few thousand labeled examples. Plain text comes in billions of words. This theme is about the practice BERT inherits for spending the second on the first, and about the two ways the field had settled on for doing the spending.\n\n### Training once, reusing many times\n\n[[transfer-learning|Transfer learning]] is the general move: train a model on one large task, then reuse its parameters as the starting point for a different and usually smaller one. That is what makes [[low-resource-tasks|tasks with too little labeled data]] trainable at all.\n\n[[language-model-pre-training|Language model pre-training]] is the particular version this paper works in. The first task is predicting text from [[unlabeled-text|unlabeled text]]. Nobody has to annotate anything, so the corpus can be as large as you can afford to read. The second task is the [[downstream-task|downstream task]]: the labeled end task the representation gets carried over to.\n\nThe paper sorts those end tasks by the shape of their output. [[sentence-level-tasks|Sentence-level tasks]] produce one label for the whole input, as in [[natural-language-inference|natural language inference]]. [[token-level-tasks|Token-level tasks]] must produce something at every position, as in [[named-entity-recognition|named entity recognition]] and extractive [[question-answering|question answering]]. Hold on to that split. The introduction says the restrictions it is about to criticise could be \"very harmful\" for the token-level half specifically.\n\n### What actually gets carried over\n\nThe oldest form is [[pre-trained-word-embeddings|pre-trained word embeddings]]: one vector per word type, learned once and fixed wherever the word appears. The same idea was pushed to coarser units as [[sentence-embeddings|sentence embeddings]].\n\n[[contextual-representations|Contextual representations]] change the unit. The same word form now gets a different vector in each sentence, because the vector is computed from the surrounding text. [[context2vec]] does this by predicting a single word from both its left and right context with LSTMs. The paper files both the type-level and the contextual line under language model pre-training, and treats the move from the first to the second as the line its own work extends.\n\n### Two ways to reuse, and their two representatives\n\n[[transfer-strategies|The paper's taxonomy]] splits this prior work in two, by what happens to the pre-trained weights at task time.\n\nThe [[feature-based-approach|feature-based approach]] freezes them. Their outputs go in as extra input features to a [[task-specific-architecture|task-specific architecture]] designed by hand for that one task. [[elmo|ELMo]] is the worked example: a left-to-right and a [[right-to-left-language-model|right-to-left language model]], trained separately, their per-token outputs concatenated and handed over ([[fig-3]]).\n\nThe [[fine-tuning-approach|fine-tuning approach]] does the opposite. It adds [[minimal-task-specific-parameters|as few new weights as it can]] and trains every pre-trained parameter further on the labeled data. [[openai-gpt|OpenAI GPT]] is the example — a Transformer language model, pre-trained on unlabeled text, then fine-tuned whole.\n\nThe difference is not only bookkeeping. On the first route, a new task means designing a new model. On the second, a new task means one output layer. BERT's contribution list turns that into a claim: pre-trained representations reduce the need for heavily-engineered task-specific architectures.\n\nThe paper also treats the two representatives as rivals, with numbers. On GLUE, BiLSTM+ELMo+Attn averages 71.0 against GPT's 75.1 ([[table-1]]). On SWAG the gap is wider: ESIM+ELMo reaches 59.2 test accuracy against GPT's 78.0 ([[table-4]]).\n\nA third option is noted and set aside: [[supervised-transfer-learning|starting from a model trained on a large labeled task]] instead of on raw text.\n\n[[bert|BERT]] is declared a member of the fine-tuning camp, and [[fig-1]] is the picture of that: one encoder, drawn twice, with only the thin output layer differing. It is later run frozen too, as [[feature-based-approach-with-bert|a feature extractor on NER]], scoring 96.1 Dev F1 against 96.4 for fine-tuning the same model ([[table-7]]).\n\nSo the strategy is not what separates BERT from GPT. Both fine-tune. You should now be able to ask the next question the paper asks: what were both camps doing during pre-training that BERT changes?",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "2.3",
+      "title": "Transfer Learning from Supervised Data",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     13,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-theme-taking-pieces-away",
+   "forId": "theme-taking-pieces-away",
+   "kind": "theme",
+   "body": "BERT is a bundle: bidirectional pre-training, a second sentence-pair objective, a lot of layers, a long training run, an odd masking mixture. Which of those is carrying the result? [[ablation-studies|The ablation programme]] answers by removing or varying one piece at a time and re-running everything else unchanged.\n\n### What each pre-training piece is worth\n\nThe first cut is [[effect-of-pre-training-tasks|two cut-down pre-training objectives]], both trained on the same data with the same fine-tuning scheme and hyperparameters as BERT_BASE. Holding all of that fixed is the whole point: it is what lets a score drop be charged to the removed piece rather than to a lucky configuration. The conditions being held come from the standard [[pre-training-procedure|pre-training recipe]].\n\n[[no-nsp-ablation|No NSP]] keeps the masked LM and drops [[next-sentence-prediction]]. Removing it hurts QNLI, MNLI and SQuAD noticeably.\n\n[[ltr-no-nsp-ablation|LTR & No NSP]] then also swaps the masked LM for an ordinary [[left-to-right-language-model|left-to-right language model]], built by masking attention so each token sees only its left side — [[constrained-self-attention|constrained self-attention]], the same restriction GPT operates under. The left-only constraint is kept at fine-tuning too, because lifting it would introduce a train/test mismatch of its own.\n\nTwo ablations are stacked here, so the comparison that isolates bidirectionality is No NSP against LTR & No NSP. The only difference between those two is whether pre-training saw both sides. The left-to-right model is worse on every task reported in [[table-5]], with MRPC falling from 86.5 to 77.5 and SQuAD F1 from 87.9 to 77.8.\n\nThe paper then tries to repair the left-to-right model on its own terms, adding [[bilstm-on-top-of-ltr|a randomly initialised BiLSTM]] above it to supply right-side context. SQuAD F1 recovers 7.1 points, to 84.9, still well short of the bidirectional models. MRPC and SST-2 get slightly worse. The two sets of numbers point opposite ways, and the paper says so.\n\n### Size, and how long\n\n[[effect-of-model-size|The size ladder]] runs six separately pre-trained models, 3 layers up to 24. In [[table-6]], held-out [[masked-language-model|masked-LM]] perplexity falls at every rung, 5.84 to 3.23, and accuracy rises at every rung on all four GLUE tasks.\n\nThe claim being made is about the small tasks, not the large ones. MRPC has 3,600 training examples, and it still gains. That runs against [[prior-scaling-evidence|earlier mixed results on scaling]], which found bigger pre-trained models buying little downstream. The paper notes those used frozen features, and offers [[few-random-parameters-hypothesis|a hypothesis]]: fine-tuning adds almost no fresh randomly initialised weights, so a tiny task can still exploit a large representation. It is stated as a hypothesis, not tested.\n\n[[effect-of-number-of-training-steps|The step-count ablation]] asks whether the full million updates are needed. [[fig-5]] shows about 1.0% more MNLI accuracy at 1M steps than at 500k, and the curve still rising.\n\n### Freezing BERT, and what that exposes\n\n[[feature-based-approach-with-bert|Freezing BERT]] tests the other axis: [[fine-tuning-bert|updating every weight]] versus extracting fixed activations, the [[feature-based-approach|feature-based]] style. The testbed is [[conll-2003-ner|CoNLL-2003 NER]], tagged with [[tagging-without-crf|a plain per-token classifier and no CRF]] reading [[first-sub-token-classification|the first sub-token's vector]].\n\nFrozen, that thin head is not enough, so [[frozen-feature-bilstm-classifier|a two-layer 768-dimensional BiLSTM]] goes between features and classifier — [[task-specific-architecture|task-specific architecture]] coming back in. [[layer-selection-ablation|Which layers you tap]] matters; [[concat-last-four-layers|concatenating the top four]] reaches 96.1 Dev F1 against 96.4 for fine-tuning, a gap of 0.3 in [[table-7]].\n\nThat frozen setting is what makes the last ablation readable. [[masking-procedure-ablation|Varying the masking mixture]] over [[mask-same-rnd-strategies|MASK, SAME and RND]] barely moves fine-tuned scores. But [[feature-based-amplifies-mask-mismatch|a frozen model cannot adapt to the absence of the mask symbol at test time]], and MASK-only costs 0.9 NER F1 there in [[table-8]]. That single column is the evidence for keeping [[masking-recipe-80-10-10|80/10/10]].\n\nYou can now say which number defends which design choice, and where the paper is reasoning from a single column.",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Ablation Studies",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C",
+      "title": "Additional Ablation Studies",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     12,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-theme-the-eleven-tasks-and-the-scores",
+   "forId": "theme-the-eleven-tasks-and-the-scores",
+   "kind": "theme",
+   "body": "The paper has claimed that one pre-trained encoder, with one small layer added on top, can be adapted to almost any task. This theme is where that claim gets tested against numbers.\n\n[[eleven-task-evaluation|The eleven-task sweep]] fine-tunes the same checkpoint eleven separate times, once per task, and reports each result against the best published system of the day. Three benchmark families cover the eleven. What changes between them is not the encoder but the [[task-specific-output-layer|single output layer]] attached to it, as [[fig-1]] draws.\n\n### GLUE: eight scores, one average\n\n[[glue-benchmark|GLUE]] gathers separate sentence and sentence-pair datasets behind one submission format. Its head is the smallest of the three: the [[c-vector-classification-head|final [CLS] vector]] $C$ is multiplied by one new matrix $W \\in \\mathbb{R}^{K \\times H}$, giving one score per label, trained with ordinary cross-entropy ([[eq-classification-loss]]).\n\nThe [[glue-fine-tuning-protocol|fine-tuning protocol]] is set the way it is because of how GLUE scores. The [[glue-evaluation-server|evaluation server]] holds the test labels, and the authors made one submission per model size. Every other choice therefore has to be settled on Dev, so batch size 32 and 3 epochs are fixed across all tasks and only the learning rate varies. On small datasets BERT_LARGE fine-tuning was sometimes unstable, so [[fine-tuning-random-restarts|several restarts]] from the same checkpoint were run and the best kept on Dev.\n\nThe tasks themselves range from three-way entailment in [[mnli|MNLI]] down to [[rte|RTE]], which asks the same thing with far less training data. Between them sit [[qqp|QQP]], [[qnli|QNLI]], [[sst-2|SST-2]], [[cola|CoLA]], [[sts-b|STS-B]] and [[mrpc|MRPC]].\n\nThat is eight. The ninth, [[wnli|WNLI]], is dropped, because every system submitted to GLUE scores below its 65.1 [[majority-class-baseline|majority-class]] floor. Excluding it makes Table 1's average differ from the [[glue-score|official leaderboard number]]: 82.1 in the table, 80.5 on the leaderboard against GPT's 72.8.\n\n[[table-1]] reports both BERT sizes ahead in every column, by 4.5 and 7.0 points on average. All of these come from [[single-task-vs-multi-task-fine-tuning|one model per task]]; multi-task fine-tuning is raised only as a possibility.\n\n### SQuAD: two vectors, then a threshold\n\n[[squad-v1-1|SQuAD v1.1]] asks for an [[answer-span|answer span]] inside a Wikipedia passage. Question and passage go in as [[packed-question-passage-sequence|one packed sequence]], question tagged A and passage tagged B.\n\nThe [[span-prediction-head|head]] adds nothing but [[start-and-end-vectors|a start vector $S$ and an end vector $E$]]. Each is dotted with every token's final vector and softmaxed ([[eq-span-start-probability]]). A candidate span scores $S \\cdot T_i + E \\cdot T_j$, and [[span-score-and-decoding|the best pair with $j \\geq i$ wins]] ([[eq-span-score]]).\n\nThat is the comparison the paper wants. [[prior-squad-systems|Published SQuAD systems]] were purpose-built readers with attention machinery between question and passage; BERT adds two vectors and scores higher — 91.8 test F1 as a single model in [[table-2]], where [[exact-match-and-f1|EM]] sits several points lower at 85.1.\n\nThe result carries an asterisk the paper states itself. [[squad-leaderboard-public-data-rules|Leaderboard entries may train on any public data]], so BERT is first fine-tuned on [[triviaqa-augmentation|TriviaQA]]; dropping that costs only 0.1–0.4 F1.\n\n[[squad-v2-0|SQuAD 2.0]] adds [[unanswerable-questions|questions with no answer]]. Rather than a new classifier, abstention is [[cls-as-null-span|a span starting and ending at [CLS]]]. Its [[null-span-score|score $s_{null} = S \\cdot C + E \\cdot C$]] uses the same two vectors. A real span is output only if it beats $s_{null}$ by [[tau-threshold|a margin $\\tau$ fitted on Dev]] ([[eq-null-answer-threshold]]) — 83.1 F1 in [[table-3]], still about 6 below the human number.\n\n### SWAG: four sequences, one vector\n\n[[swag-dataset|SWAG]] tests [[grounded-commonsense-inference|which continuation of a situation is plausible]]. Each candidate is packed with the context separately, and [[swag-multiple-choice-head|one learned vector]] scores the four [CLS] vectors. [[table-4]] gives 86.3%, which the paper states as [[absolute-improvement|+27.1 points]] over the dataset baseline — above the 85.0 human figure, though that rests on 100 samples.\n\nYou can now ask what in the recipe earns these numbers, which is what [[ablation-studies|the ablations]] take apart.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "4",
+      "title": "Experiments",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "4.4",
+      "title": "SWAG",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Ablation Studies",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "5.2",
+      "title": "Effect of Model Size",
+      "start": 8,
+      "end": 9
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "B.1",
+      "title": "Detailed Descriptions for the GLUE",
+      "start": 14,
+      "end": 16
+     },
+     {
+      "id": "C",
+      "title": "Additional Ablation Studies",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     7,
+     8,
+     9,
+     14,
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-theme-the-one-direction-problem",
+   "forId": "theme-the-one-direction-problem",
+   "kind": "theme",
+   "body": "If pre-training on [[unlabeled-text]] was already working, why did this paper need a different pre-training objective at all? Its answer is that the objective everyone was using lets each token see only one side of its own sentence.\n\n### One side at a time\n\nA language model scores a text by breaking it into per-token predictions. In the standard arrangement each token is predicted from the tokens before it, which is a [[left-to-right-language-model|left-to-right language model]].\n\nSo the training signal at position $i$ comes only from positions $1$ through $i-1$. The vector the model builds at position $i$ has never been exposed to anything to its right.\n\nFor generating text that is exactly what you want. For a representation you intend to hand to some other task, half the sentence is missing.\n\nThe paper names this the [[unidirectionality-constraint|unidirectionality constraint]], and adds a second cost: it limits which architectures can be pre-trained at all. [[openai-gpt|OpenAI GPT]] has to mask its attention so that each token attends leftward only ([[constrained-self-attention|constrained self-attention]]), because otherwise the objective would be trivial.\n\nThe paper calls this sub-optimal for [[sentence-level-tasks|sentence-level tasks]] and says it could be very harmful for token-level ones. [[question-answering]] is its example: to mark an [[answer-span]] you want the passage on both sides of it, not just the part already read.\n\nThe mirror image, a [[right-to-left-language-model|right-to-left language model]], has the same shortfall pointing the other way.\n\n### Two models is not one bidirectional model\n\nThe obvious repair is to train one of each and stick their outputs together. That is [[shallow-concatenation|shallow concatenation]], and it is what [[elmo|ELMo]] does: each token's feature vector is the left-to-right vector joined to the right-to-left vector.\n\nBoth directions are present, but only at the join. Inside either model, every layer is still reading one way.\n\nSection 5.1 grants that BERT could have gone this route and gives [[ltr-rtl-concatenation-alternative|three reasons it did not]]. It costs twice as much as one bidirectional model. It sits badly with question answering, since the right-to-left half cannot condition the answer on a question that precedes it. And it is, the paper asserts, strictly weaker than conditioning on both sides at every layer.\n\nThat third reason is stated as intuition, not measured — the ablations compare against a left-to-right model, not against a concatenated pair.\n\n### The gap the rest of the paper closes\n\n[[deep-bidirectionality|Deep bidirectional representations]] are the alternative: every layer conditions jointly on left and right, so context from the right is available while features are still being built rather than after. This is the property [[bert|BERT]] is named for, and [[fig-3]] states it purely as arrow directions across the three models.\n\nThere is a reason nobody simply did this. Under bidirectional conditioning, a token reaches its own prediction through the layers below, so the objective collapses. That is why deep bidirectionality depends on a replacement objective, the [[masked-language-model|masked LM]], which the next theme takes up.\n\nWhat the paper offers as evidence is [[table-5]]: holding data, architecture and fine-tuning fixed, [[ltr-no-nsp-ablation|an in-house left-to-right model]] drops SQuAD F1 from 88.5 to 77.8, about ten points, while GLUE gaps are smaller. Bolting a BiLSTM on top recovers some SQuAD and makes GLUE slightly worse.\n\nThat ablation is the paper's own model, not GPT; [[bert-elmo-gpt-comparison|Appendix A.4]] separately lists the non-architectural differences between BERT and GPT so they are not credited to bidirectionality.\n\nYou can now ask of any pre-training scheme: at which layer does information from the right first reach a token?",
+   "sources": {
+    "sections": [
+     {
+      "id": "front",
+      "title": "Title & authors",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "2.2",
+      "title": "Unsupervised Fine-tuning Approaches",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "page-theme-the-two-pre-training-tasks",
+   "forId": "theme-the-two-pre-training-tasks",
+   "kind": "theme",
+   "body": "BERT wants [[deep-bidirectionality|representations where every layer conditions on both directions at once]]. The ordinary language modelling objective cannot train that, so the objective is what has to change. This chapter covers the two tasks that replace it, and the run that trained them.\n\n### Masking, and what it costs\n\nStart with why the ordinary objective fails. If a token may attend in both directions and is also the thing being predicted, it reaches its own prediction through the layers below. The paper calls this indirectly seeing itself, the [[see-itself-problem]]. Prediction becomes trivial, and nothing is learned.\n\nThe [[masked-language-model|masked LM]] answers this by deleting the target from the input before the model reads it. With the token gone, there is no path back to it, and both sides of the sentence can be used freely. The paper adds that this procedure already has a name in the literature: it is a [[cloze-task]], from Taylor (1953).\n\nThe rate is fixed rather than tuned. A [[masking-rate-15-percent|15% masking rate]] applies to WordPiece positions, uniformly, in every experiment. Each chosen position's final vector goes through an [[mlm-output-softmax|output softmax]] over the 30,000-token vocabulary, with cross-entropy against the original token. Only those positions are scored, which is the [[denoising-autoencoder-contrast|difference from a denoising autoencoder]]: the whole input is not reconstructed.\n\nTwo costs follow, and the paper states both.\n\nThe first is the placeholder. The [[mask-token]] is a symbol invented for pre-training, and it never appears in a downstream input. That gap is the [[pretrain-finetune-mismatch]]. The [[masking-recipe-80-10-10|80/10/10 recipe]] is the response: of the chosen positions, 80% become [MASK], 10% become a random token, and 10% are left alone, with the original token as the target in all three cases. The point is that the model cannot learn that a prediction is only ever demanded where a [MASK] sits. But [[table-8]] shows fine-tuning is close to indifferent to the mixture; the only column that moves much is frozen feature-based NER. The motivation is stronger than the evidence for it.\n\nThe second is throughput of signal. A left-to-right model gets a target at every position; masking leaves roughly one position in seven producing gradient. That is [[mlm-convergence-cost]]. [[fig-5]] shows the masked LM behind at the earliest checkpoints, ahead on absolute accuracy well before 100k steps, and still climbing at a million.\n\n### The second task, and the pairs it needs\n\nMasked LM is a claim about tokens. [[question-answering]] and inference turn on the relation between two texts, which token prediction does not directly supply.\n\n[[next-sentence-prediction]] adds that relation as a binary label read off [[final-hidden-vector-c|C]], the final vector at the [CLS] position. Half the time span B genuinely follows A; half the time it is a random span from elsewhere, the [[isnext-notnext]] split. It costs no annotation, and it needs the A/B slots of [[sentence-pair-packing]] to exist at all.\n\nThe paper hedges twice. A footnote says [[c-not-a-sentence-representation|C is not a usable sentence representation]] before fine-tuning. And [[table-5]] charges NSP a real but small drop, unlike the much larger cost of giving up bidirectionality. What separates it from earlier sentence objectives is [[full-parameter-transfer-vs-sentence-embeddings|transferring every parameter]], not just an embedding.\n\n### The run behind both\n\nBoth objectives are trained together: the [[combined-pretraining-loss]] is simply their sum. The [[pre-training-procedure]] fixes the rest, and one constraint shapes it. Because [[training-sequence-generation|each example samples two spans]] up to [[max-sequence-length-512|512 combined tokens]], usually genuine neighbours, the corpus must keep documents intact — a [[document-level-corpus]], which is why [[bookscorpus]] and [[english-wikipedia-corpus]] are chosen and the [[billion-word-benchmark]] is named as what to avoid.\n\nThe rest is arithmetic and schedule: [[training-steps-and-epochs|1M steps at 128,000 tokens per batch]], roughly 40 passes over the corpus; [[pretraining-optimizer-settings|Adam with warmup then decay]]; [[gelu-activation]]; and a [[sequence-length-schedule]] that saves 512-token sequences for the final tenth, because attention is quadratic in length.\n\nYou can now say what each task buys and what it costs. The next question is how much of it survives into [[fine-tuning-bert|fine-tuning]], where [[fig-1]] claims every one of these weights carries across.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.1",
+      "title": "Effect of Pre-training Tasks",
+      "start": 8,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 9,
+      "end": 10
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.3",
+      "title": "Fine-tuning Procedure",
+      "start": 13,
+      "end": 14
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "C.1",
+      "title": "Effect of Number of Training Steps",
+      "start": 16,
+      "end": 16
+     },
+     {
+      "id": "C.2",
+      "title": "Ablation for Different Masking",
+      "start": 16,
+      "end": 16
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     16
+    ]
+   }
+  },
+  {
+   "id": "page-theme-what-bert-reads",
+   "forId": "theme-what-bert-reads",
+   "kind": "theme",
+   "body": "A single text, a pair of texts, and a question with the passage that answers it are three different shapes of input. This part of the paper picks one token format that carries all three, and names the two output vectors that every later section reads.\n\n### One sequence, whatever the task\n\nStart with a vocabulary note, because the paper's usage is not the ordinary one. Here a [[sentence-as-arbitrary-span|\"sentence\"]] means any span of contiguous text, not a grammatical sentence. A \"sequence\" means the token list actually fed to the model, holding either one such span or two. So \"sentence pair\" below never implies two well-formed sentences.\n\nText becomes tokens through [[wordpiece-tokenization|WordPiece]], a subword scheme. Frequent words stay whole; a rare word is cut into smaller pieces that are all in the vocabulary. Nothing is ever out-of-vocabulary, so no input needs an UNK escape hatch.\n\nWordPiece leaves the vocabulary size as a free choice. BERT sets it to [[wordpiece-vocabulary-30k|30,000 tokens]]. That number is not only an input decision: it also fixes the width of the masked-language-model output softmax, one logit per vocabulary entry.\n\nEvery sequence then opens with [[cls-token]], a symbol standing for no word at all. Because self-attention lets it read every position, whatever the top layer deposits there can act as a summary of the whole input.\n\nTwo spans are packed into one sequence rather than encoded separately. The boundary is marked with [[sep-token]], one instance between the spans and one closing the sequence — this is [[sentence-pair-packing|sentence A / sentence B packing]]. A separator symbol on its own is a thin signal, so a second one is added: a [[segment-embeddings|segment embedding]], a learned vector added to every token saying whether it sits in A or in B.\n\nOrder needs its own signal too, since self-attention is permutation-invariant. BERT adds a [[position-embeddings|position embedding]], learned per slot.\n\nThree signals, one vector. A token's input is [[input-embedding-sum|the elementwise sum]] of its token embedding, its segment embedding and its position embedding, all $H$-dimensional, written $E$. [[fig-2]] draws exactly this as three stacked rows adding down to one.\n\n### The two outputs everything reads\n\nThe encoder returns one vector per position: [[final-hidden-vector-ti|$T_i \\in \\mathbb{R}^H$]], the paper's contextual representation of token $i$. [[final-hidden-vector-c|$C$]] is that same vector taken at position zero, where [CLS] sits. It gets its own letter only because so many output heads read it.\n\nThat split is what makes the format pay off. [[next-sentence-prediction|Next sentence prediction]] needs both halves of it: the A/B slots to have something to judge, and $C$ to read the judgement off. [[span-prediction-head|Span prediction]] for [[question-answering]] instead reads per-token $T_i$, scoring each passage token as a start and as an end.\n\nSingle-text tasks lose nothing, because they are handled as a [[degenerate-text-pair|text-∅ pair]] with the B half empty. So one format, and therefore [[unified-architecture-across-tasks|one architecture]], covers the whole task sweep.\n\nWorth being plain about the evidence: the paper asserts this format and illustrates it in [[fig-4]], where four task families appear as four copies of the same diagram. It does not ablate the pieces — there is no experiment isolating what segment embeddings buy, or what a different vocabulary size would cost.\n\nYou should now be able to take any task in the paper and say three things: what goes in slot A, what goes in slot B, and which vector the new output layer attaches to. Keep those positions in mind for [[masked-language-model|the pre-training tasks]], which are defined over exactly them.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2.1",
+      "title": "Unsupervised Feature-based Approaches",
+      "start": 2,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "BERT",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.1",
+      "title": "Pre-training BERT",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "3.2",
+      "title": "Fine-tuning BERT",
+      "start": 5,
+      "end": 5
+     },
+     {
+      "id": "4.1",
+      "title": "GLUE",
+      "start": 5,
+      "end": 6
+     },
+     {
+      "id": "4.2",
+      "title": "SQuAD v1.1",
+      "start": 6,
+      "end": 7
+     },
+     {
+      "id": "4.3",
+      "title": "SQuAD v2.0",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "4.4",
+      "title": "SWAG",
+      "start": 7,
+      "end": 7
+     },
+     {
+      "id": "5.3",
+      "title": "Feature-based Approach with BERT",
+      "start": 9,
+      "end": 9
+     },
+     {
+      "id": "A.1",
+      "title": "Illustration of the Pre-training Tasks",
+      "start": 12,
+      "end": 13
+     },
+     {
+      "id": "A.2",
+      "title": "Pre-training Procedure",
+      "start": 13,
+      "end": 13
+     },
+     {
+      "id": "A.4",
+      "title": "Comparison of BERT, ELMo ,and",
+      "start": 14,
+      "end": 14
+     },
+     {
+      "id": "A.5",
+      "title": "Illustrations of Fine-tuning on Different",
+      "start": 14,
+      "end": 14
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     13,
+     14,
+     15
+    ]
+   }
+  }
+ ]
+}

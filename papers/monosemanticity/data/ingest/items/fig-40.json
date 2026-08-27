@@ -1,0 +1,170 @@
+{
+ "id": "fig-40",
+ "title": "Autointerp Activation Scores",
+ "takeaway": "A language model is asked to write an explanation of a unit from examples where it fires, then to predict that unit's activations on unseen text using nothing but its own explanation. Scored as the rank correlation between predicted and true activations, the autoencoder's features come out at a median of 0.58 and the transformer's MLP neurons at 0.2. The paper reports this as agreement with its separate human scoring: features are easier to explain than neurons.",
+ "walkthrough": "### What you are looking at\n\nTwo overlapping histograms of a single score. That score is computed once per unit, and a \"unit\" here is either one learned feature or one MLP neuron.\n\nThe score comes from [[automated-interpretability]]. Claude 2 is shown examples of where a unit fires and writes a short explanation of it. Then, in a separate interaction, the model is given only that explanation — never any true activations, which the paper enforces deliberately ([[no-activation-leakage]]) — and asked to fill in a predicted activation for every token of 60 unseen nine-token examples.\n\nThat is $60 \\times 9 = 540$ predictions per unit. The score is the [[spearman-correlation]] between those 540 predicted numbers and the 540 true ones ([[activation-prediction-scoring]]). Spearman is used on ranks, so what is being tested is whether the explanation orders tokens correctly, not whether it hits exact magnitudes.\n\n### How to read the axes\n\nThe horizontal axis is that correlation, running from $-0.4$ to $1.0$. The vertical axis is density: each of the two histograms is normalized separately to unit area. Heights therefore compare shapes, not headcounts — there are 3,676 features and only 512 neurons.\n\nCrimson is features, teal is neurons, and navy is where the two overlap. The small triangles on the axis mark the two medians. The dotted line at $0$ is labelled random chance, because a rank correlation of zero means the explanation orders unseen tokens no better than a coin.\n\n### What it shows\n\nThe teal mass sits mostly between $0$ and $0.4$, with its median at $0.2$. The crimson mass is shifted right, median $0.58$, and carries a second bump up near $0.95$ — features whose explanation almost reproduces the true activation ranks.\n\nOne feature of the picture is an artifact, and the paper says so. The tall teal spike sitting exactly on zero is where Claude predicted a constant value, usually all zeros; no correlation is defined there, and the paper assigns a score of $0$ ([[constant-prediction-zero-score]]).\n\nThe examples are drawn from across the whole activation spectrum ([[activation-interval]]), not only from top-activating examples. That choice matters: [[polysemanticity]] tends to hide in a unit's weaker activations.\n\nThe paper reads this as consistent with [[manual-interpretability-scoring]], where a blinded human rated the median feature interval 12 and the median neuron 0. Two caveats belong with it. The re-weighting the paper calls [[importance-scoring]] pushes many feature scores back toward zero, and the units scored were sampled uniformly rather than by importance.",
+ "terms": [
+  {
+   "term": "Automated Interpretability – Activation (plot title)",
+   "definition": "Names the experiment: interpretability scored by machine rather than by a human, and scored on activations rather than on the feature's output logit weights (which the paper scores in a companion figure).",
+   "conceptId": "automated-interpretability"
+  },
+  {
+   "term": "Spearman Correlation (x-axis)",
+   "definition": "The rank correlation between the activations Claude predicted from its own explanation and the true activations, over 540 token predictions per unit. Ranks are used rather than raw values, so a unit scores well if the explanation puts tokens in the right order of activation strength.",
+   "conceptId": "spearman-correlation"
+  },
+  {
+   "term": "Density (y-axis)",
+   "definition": "Probability density, not counts: each histogram is separately normalized so its bars integrate to 1. This lets the 3,676-feature distribution and the 512-neuron distribution be compared by shape despite the very different population sizes.",
+   "conceptId": null
+  },
+  {
+   "term": "Features (crimson legend box)",
+   "definition": "The units learned by the sparse autoencoder on the transformer's MLP activations — directions in activation space rather than individual neurons. These are from the run the paper calls A/1.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Neurons (teal legend box)",
+   "definition": "The 512 actual MLP neurons of the one-layer transformer under study, scored by exactly the same pipeline. They are the baseline the features are meant to beat.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "median (legend row)",
+   "definition": "The middle score of that population: half its units scored above, half below. The paper leads with the median rather than the mean because the distributions are skewed and have a pile-up at zero.",
+   "conceptId": null
+  },
+  {
+   "term": "mean (legend row)",
+   "definition": "The plain arithmetic average score over that population. It is dragged down relative to the median for features by the left tail of poorly-explained features.",
+   "conceptId": null
+  },
+  {
+   "term": "failures (legend row)",
+   "definition": "How many units out of the total produced no usable score at all, written as failures/total. Both are zero here, so every scored unit contributes a bar — including the ones where Claude predicted a constant, which are folded in at zero rather than dropped.",
+   "conceptId": "constant-prediction-zero-score"
+  },
+  {
+   "term": "random chance (dotted vertical line at 0)",
+   "definition": "The reference point for a rank correlation: zero means the explanation predicts the ordering of unseen activations no better than chance. Negative scores mean it predicts them backwards.",
+   "conceptId": null
+  },
+  {
+   "term": "medians (triangle marker legend)",
+   "definition": "The small triangles on the horizontal axis, one per population, sitting at that population's median score. They are the figure's headline comparison, at 0.2 for neurons and 0.58 for features.",
+   "conceptId": null
+  },
+  {
+   "term": "Navy overlap region",
+   "definition": "Not a third population. Where the crimson and teal histograms cover the same bins, the transparent fills combine and darken, so navy simply means both distributions have mass there.",
+   "conceptId": null
+  },
+  {
+   "term": "A/1",
+   "definition": "The paper's name for the specific dictionary learning run it analyses in detail: transformer A, autoencoder size index 1, giving 4,096 learned features from a 512-neuron MLP.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "Claude (the explaining model)",
+   "definition": "The large language model doing both jobs in this pipeline: writing an explanation of a unit from examples, then predicting that unit's activations from the explanation alone. The appendix specifies Claude 2.",
+   "conceptId": null
+  },
+  {
+   "term": "Activation",
+   "definition": "For a neuron, its post-ReLU value on a token; for a feature, the value the sparse autoencoder's hidden unit takes on that token. Before being shown to or predicted by Claude, these are quantized to integers 0 through 9.",
+   "conceptId": "activation-quantization"
+  },
+  {
+   "term": "Held-out / previously unseen tokens",
+   "definition": "The examples used for prediction are kept disjoint from the examples used to generate the explanation. Without that split, the model could score well by recalling activations it had been shown rather than by applying its explanation.",
+   "conceptId": "no-activation-leakage"
+  },
+  {
+   "term": "Activation interval",
+   "definition": "One of the evenly spaced bands into which a unit's activation range is divided, from zero up to its maximum. Examples are drawn across all the bands rather than only the top one, so that a unit which looks clean only at its strongest activations cannot score well.",
+   "conceptId": "activation-interval"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.58",
+   "meaning": "Median Spearman score for features. Half of the 3,676 scored features had explanations that predicted unseen activations at least this well."
+  },
+  {
+   "value": "0.53",
+   "meaning": "Mean Spearman score for features. It falls below the median because a left tail of poorly-explained features, plus the pile-up at exactly zero, pulls the average down."
+  },
+  {
+   "value": "0.2 (median, neurons)",
+   "meaning": "Median Spearman score for the 512 MLP neurons — the baseline. It is roughly a third of the feature median, which is the comparison the figure exists to make."
+  },
+  {
+   "value": "0.2 (mean, neurons)",
+   "meaning": "Mean Spearman score for neurons, printed to one decimal place and equal to their median. The neuron distribution is fairly symmetric about its centre, apart from the spike at zero."
+  },
+  {
+   "value": "0/3676",
+   "meaning": "Failures over total for features: no scoring failures among 3,676 features. The paper does not spell out how 3,676 is arrived at — A/1 has 4,096 features, of which 168 are dead and 292 ultralow-density and normally excluded, which would leave 3,636 — so the exact population here is slightly larger than the usual exclusion arithmetic gives."
+  },
+  {
+   "value": "0/512",
+   "meaning": "Failures over total for neurons: no scoring failures among all 512 MLP neurons of the one-layer transformer. Every neuron in the model is in this histogram."
+  },
+  {
+   "value": "−0.4 to 1.0",
+   "meaning": "The plotted range of the horizontal axis. Spearman correlation can in principle reach −1, but almost no unit scores that badly, so the axis is cropped where the data ends."
+  },
+  {
+   "value": "0",
+   "meaning": "The random-chance line. A rank correlation of zero means the explanation carries no information about the ordering of activations on unseen text."
+  },
+  {
+   "value": "about 4.4",
+   "meaning": "Height of the teal spike sitting exactly on zero — by far the tallest bar in the figure. The paper attributes it to cases where Claude predicted a constant value, most often all zeros; no correlation can be computed, so a score of zero is assigned."
+  },
+  {
+   "value": "about 0.05",
+   "meaning": "Approximate width of each histogram bin, read off the axis. Because the vertical axis is a density, a bar of height 1.0 corresponds to roughly 5% of that population falling in that bin."
+  },
+  {
+   "value": "0 to about 4.5",
+   "meaning": "The plotted range of the density axis. Away from the zero spike, both distributions sit between 0 and about 2."
+  },
+  {
+   "value": "540",
+   "meaning": "Predictions per unit that go into a single Spearman score: 60 examples of nine tokens each. This is the sample size behind every point in both histograms."
+  },
+  {
+   "value": "60",
+   "meaning": "Prediction examples per unit, composed of six from the top activation interval, two from each of the other 12 intervals, ten completely random, and twenty top-activating tokens shown out of context. All are shuffled and stripped of their interval labels before Claude sees them."
+  },
+  {
+   "value": "49",
+   "meaning": "Examples used to generate the explanation in the first place: ten from the top interval, two from each of the other 12 intervals, five completely random, and ten where the top-activating token appears in different contexts. These are kept separate from the 60 prediction examples."
+  },
+  {
+   "value": "8",
+   "meaning": "Held-out demonstration features, with chain-of-thought reasoning, shown to Claude in both the explanation prompt and the prediction prompt so it knows the expected format."
+  },
+  {
+   "value": "0–9",
+   "meaning": "The integer range activations are quantized to before being shown to or predicted by Claude, following the earlier automated-interpretability work this method is taken from."
+  },
+  {
+   "value": "20",
+   "meaning": "The minimum number of usable examples a unit must have to be scored; units with fewer, after duplicate examples are removed, are dropped. The paper says this affects a negligible number of features."
+  },
+  {
+   "value": "12 and 0",
+   "meaning": "Median rubric scores from the separate human evaluation: 12 out of 14 for feature activation intervals, 0 for neurons — a neuron median of 0 meaning the annotator could not form any hypothesis at all. This is the result the figure is said to agree with."
+  },
+  {
+   "value": "412 and 162",
+   "meaning": "Scale of that human evaluation: 412 activation intervals scored across 162 features and neurons. It is far smaller than the 4,188 units scored here, which is why the automated version exists."
+  },
+  {
+   "value": "88% and 54%",
+   "meaning": "From the importance-scoring appendix, not from this figure: averaged over units, 88% of a feature's true activations on randomly drawn examples are zero, against 54% for neurons. This is why re-weighting toward random examples lets a unit score well by predicting zero everywhere, and why the paper reports the re-weighted version separately rather than as the headline."
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+PAGE FOR CONCEPT: ablation-studies
+NAME: BERT's ablation programme
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Experiments that remove or vary one facet of BERT at a time to see how much each contributes.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Section 5 covers three: the pre-training objectives, model size, and fine-tuning versus feature-based use. Appendix C adds two more: how many pre-training steps are needed, and how the masking mixture is chosen. Each holds the pre-training data, fine-tuning scheme and hyperparameters fixed so the changed facet is the only difference. Several run on Dev sets and on a subset of tasks, so they are evidence about relative importance rather than headline results.
+
+THEME IT BELONGS TO: theme-taking-pieces-away | Taking pieces away - The experiments that remove or vary one piece of BERT at a time, to see what each is worth. Two cut-down pre-training runs charge a score drop to next sentence prediction and then to bidirectionality separately. A size ladder from 3 layers up to 24 finds that larger is better on every task tested, including the small ones, which the paper explains only as a hypothesis about how few fresh parameters fine-tuning adds. Two further ablations ask whether the full million steps are needed and whether the 80/10/10 masking mixture matters, the second run both fine-tuned and with BERT frozen on CoNLL-2003 NER.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - effect-of-pre-training-tasks | Effect of pre-training tasks: Two cut-down objectives, No NSP and LTR & No NSP, trained under identical conditions to isolate what next sentence prediction and bidirectionality each buy.
+    - no-nsp-ablation | No NSP: A bidirectional model pre-trained with the masked LM objective but without next sentence prediction.
+    - ltr-no-nsp-ablation | LTR & No NSP: A left-context-only model trained with a standard left-to-right language model and no NSP; the closest in-house stand-in for OpenAI GPT.
+      - bilstm-on-top-of-ltr | BiLSTM on top of the LTR model: A randomly initialised BiLSTM added above the left-to-right model as a good-faith attempt to supply right-side context; it partly repairs SQuAD but not GLUE.
+  - effect-of-model-size | Effect of model size: Models of varying L, H and A are compared; larger is strictly better on all four GLUE tasks tested, including very small ones.
+    - prior-scaling-evidence | Prior mixed evidence on scaling: Two earlier feature-based results that found limited or no downstream benefit from bigger pre-trained models.
+    - few-random-parameters-hypothesis | Why fine-tuning may scale better on small data: The paper hypothesises that because fine-tuning adds very few randomly initialised parameters, task models can exploit large pre-trained representations even when task data is tiny.
+  - feature-based-approach-with-bert | Feature-based approach with BERT: Using BERT as a frozen feature extractor rather than fine-tuning it, tested on CoNLL-2003 NER to see how much is lost.
+    - frozen-feature-bilstm-classifier | Two-layer 768-dimensional BiLSTM over frozen features: In the feature-based setting the extracted embeddings feed a randomly initialised two-layer 768-dimensional BiLSTM before the classification layer.
+    - layer-selection-ablation | Which layers to extract features from: Feature-based results are compared across choices of which hidden layers to tap, from the last layer alone to concatenations of several.
+      - concat-last-four-layers | Concatenating the top four hidden layers: The best-performing feature extraction: join each token's vectors from the top four layers into one longer vector.
+  - effect-of-number-of-training-steps | Effect of number of pre-training steps: MNLI Dev accuracy after fine-tuning from checkpoints pre-trained for k steps, asking whether BERT's full budget is needed.
+  - masking-procedure-ablation | Ablation for different masking procedures: Varying the probabilities of the three masking strategies, to check whether the 80/10/10 mixture matters.
+    - mask-same-rnd-strategies | MASK, SAME and RND: The three things that can happen to a token selected for prediction: replace with [MASK], keep as is, or replace with a random token.
+    - feature-based-amplifies-mask-mismatch | Why the feature-based setting amplifies the mismatch: With BERT frozen, the model cannot adapt to the absence of [MASK] at test time, so a masking mismatch shows up more sharply.
+
+PREREQUISITES:
+  - bert | BERT: A language representation model pre-trained on unlabeled text so that every layer conditions on both left and right context, then fine-tuned with one extra output layer per task.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - table-5 | Pre-training Task Ablation: Holding architecture, data and fine-tuning fixed, the table charges each drop in score to one removed piece of the pre-training recipe. Dropping next sentence prediction costs a little; replacing the masked LM with a left-to-right LM costs much more, above all on SQuAD (88.5 to 77.8 F1), and bolting a BiLSTM onto the left-to-right model repairs only part of that gap while making the GLUE numbers slightly worse.
+  - table-6 | The Model-Size Ladder: Six separately pre-trained BERT models, from 3 layers up to 24, are lined up smallest to largest: held-out masked-LM perplexity falls at every step (5.84 to 3.23) while accuracy on MNLI-m, MRPC and SST-2 rises at every step. The paper reads this as evidence that scaling keeps paying off past sizes already considered large, and — its actual point — that the gains reach a task as small as MRPC, which has only 3,600 training examples.
+  - fig-5 | MLM vs. Left-to-Right Over a Million Steps: Fine-tuning from progressively later pre-training checkpoints shows that MNLI accuracy is still climbing at 1,000,000 steps, so BERT's long pre-training run is not wasted. It also shows that the masked LM objective is behind a left-to-right objective at the very first checkpoints, overtakes it before 100k steps, and finishes roughly two points ahead.
+  - table-8 | The masking mixture ablation: Six BERT pre-training runs that differ only in what happens to a token once it has been selected for prediction. Changing the mixture barely moves the fine-tuned scores, but pre-training with [MASK] alone costs 0.9 F1 on NER when BERT is frozen and used as a feature extractor. That single column is the paper's evidence for keeping the 80/10/10 mixture rather than always inserting [MASK].
+
+PAPER SECTIONS TO READ (in papers/1810.04805/data/ingest/sections/):
+  - 15-5-ablation-studies.txt
+  - 29-C-additional-ablation-studies.txt

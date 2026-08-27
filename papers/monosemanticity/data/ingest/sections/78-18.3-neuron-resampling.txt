@@ -1,0 +1,26 @@
+[18.3] Neuron Resampling
+
+Over the course of training, a subset of autoencoder neurons will have zero activity across a large number of datapoints. We find that “resampling” these dead neurons during training improves the number of likely-interpretable features (i.e., those in the high density cluster, see Feature Density Histograms) and reduces total loss. This resampling may be compatible with the Lottery Ticket Hypothesis [cite: frankle2018lottery] and increase the number of chances the network has to find promising feature directions.
+
+An interesting nuance around dead neurons involves the ultralow density cluster. We find that if we increase the number of training steps then networks will kill off more of these ultralow density neurons. This reinforces the use of the high density cluster as a useful metric because there can exist neurons that are de facto dead but will not appear to be when looking at the number of dead neurons alone.
+
+The number of dead neurons that appear over training appears to depend upon a number of factors including but not limited to: learning rate (too high); batch size (too low); dataset redundancy (too many tokens per context or repeated epochs over the same dataset); number of training steps (too many); optimizer used. Our results here agree with those of Bricken et al. [cite: bricken2023emergence] .
+
+Better resampling strategies is an active research area of ours. The approach used in this work is as follows:
+
+At training steps 25,000, 50,000, 75,000 and 100,000, identify which neurons have not fired in any of the previous 12,500 training steps.
+
+Compute the loss for the current model on a random subset of 819,200 inputs.
+
+Assign each input vector a probability of being picked that is proportional to the square of the autoencoder’s loss on that input.
+
+For each dead neuron sample an input according to these probabilities. Renormalize the input vector to have unit L2 norm and set this to be the dictionary vector for the dead autoencoder neuron.
+
+For the corresponding encoder vector, renormalize the input vector to equal the average norm of the encoder weights for alive neurons × 0.2. Set the corresponding encoder bias element to zero.
+
+Reset the Adam optimizer parameters for every modified weight and bias term.
+
+This resampling procedure is designed to seed new features to fit inputs where the current autoencoder performs worst. Resetting the encoder norm and bias are crucial to ensuring this resampled neuron will only fire weakly for inputs similar to the one used for its reinitialization. We do this to minimize interference with the rest of the network.
+
+This resampling approach outperforms baselines including no resampling and reinitializing the relevant encoder and decoder weights using a default Kaiming Uniform initialization. However, there are likely better resampling methods to be developed – this approach still causes sudden loss spikes, and resampling too frequently causes training to diverge.
+

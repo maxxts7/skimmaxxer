@@ -1,0 +1,165 @@
+{
+ "id": "fig-8",
+ "title": "The Arabic Feature's Activation Spectrum",
+ "takeaway": "The paper's specificity claim for the Arabic feature is not one number but a curve: the higher the feature fires, the more purely Arabic-script the text is. Barely-active tokens are roughly 25% Arabic, which is noisy, while tokens above activation 5 are about 98% Arabic. Since large activations move the model's logits most, the paper argues it is the clean high end that matters.",
+ "walkthrough": "This is the paper's basic specificity picture for [[arabic-script-feature]], which its [[feature-notation]] scheme calls A/1/3450 — feature 3450 in dictionary learning run 1 on transformer A. The chart type is a [[feature-activation-distribution-plot]]: a histogram of how often the feature takes each value, coloured by an independent judgement of whether that text was Arabic script.\n\n### The axes\n\nThe horizontal axis is the [[feature-activation]] level — the scalar a [[sparse-autoencoder]] hidden unit outputs on a token — running from 0 to 9.\n\nHard zeros are pulled out into a separate narrow column at the far left, marked `0` beside `>0`. The sparsity penalty makes exact zeros so common that leaving them in the histogram would put a spike at the origin and flatten everything else.\n\nThe vertical axis is density: how many sampled tokens land in each activation bin, topping out near 5K.\n\n### The colour\n\nEach bin is a stack of coloured bands rather than one bar. The colour comes from the [[computational-proxy]] for Arabic, a [[log-likelihood-ratio-proxy]] $\\log(P(s\\mid\\text{Arabic Script})/P(s))$ — how much more likely the string is under an Arabic hypothesis than under the data at large.\n\nThe legend runs from $-5$ in deep blue, meaning the proxy says clearly not Arabic, through white at $0$, to $+5$ in deep red, meaning clearly Arabic. So red area is Arabic-script text and blue area is everything else.\n\nThe thin strip below the histogram renormalises every column to full height. It drops the counts and shows only the fraction Arabic at each activation level.\n\n### The examples\n\nThe four panels along the top are sampled dataset examples, tied by dotted lines to four points on the axis. Inside a panel, orange shading marks how strongly the feature fired on each token.\n\nTokenisation matters when reading them: Arabic characters are often split, so ث arrives as `\\xd8` then `\\xab`, and this feature typically fires only on the second piece.\n\n### What it shows\n\nNear zero the stack is mostly blue, and the leftmost panel is a jumble — \"SHALL THE COPYRIGHT\", a scrap of LaTeX, some Arabic. That is the 25% figure.\n\nFrom about 5 onward the stack is almost entirely dark red, and the two right-hand panels are solid Arabic. That is the 98% figure.\n\nThe paper hedges on the low end rather than explaining it away, offering three candidate causes: an imperfect proxy, a weak one-layer model that is merely uncertain, or an autoencoder too narrow to have recovered every true feature.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Feature Activation Distribution",
+   "definition": "The chart's title and the paper's name for this plot type: a histogram of one feature's activation values across sampled tokens, with each bar broken into coloured bands by a proxy score. It is the paper's standard first exhibit when arguing a feature is specific.",
+   "conceptId": "feature-activation-distribution-plot"
+  },
+  {
+   "term": "A/1/3450",
+   "definition": "The identifier of the feature being plotted, under the paper's naming scheme: transformer A, dictionary learning run 1, feature index 3450. This is the Arabic script feature, the paper's lead case study.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "Feature Activation Level (x axis)",
+   "definition": "The scalar value the sparse autoencoder's ReLU hidden unit for this feature outputs on a given token. Here it is treated as a strength dial: near zero means the feature is barely on, high values mean it is firing hard.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "Density (y axis)",
+   "definition": "How many sampled tokens fall into each activation bin, in thousands. It is a count, so the tall left end simply reflects that the feature is off or nearly off on most tokens.",
+   "conceptId": null
+  },
+  {
+   "term": "0 vs >0 (hard zeros)",
+   "definition": "Two small markers left of the axis separating tokens where the feature is exactly zero from tokens where it is positive but small. The figure's own note says sparsity puts a dirac delta at zero, so the zeros are shown apart rather than swamping the first bin.",
+   "conceptId": null
+  },
+  {
+   "term": "Log-Likelihood Ratio (colour legend)",
+   "definition": "The colour scale, running blue through white to red, encoding the Arabic proxy score assigned to each example. Blue means the string looks unlike Arabic, red means it looks like Arabic, and the arrow labelled 'Arabic' marks the red direction.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Proxy",
+   "definition": "A cheaply computable score standing in for the human hypothesis about a feature, used as an independent yardstick so the specificity claim is not just eyeballed from examples. Here it is an estimate of $\\log(P(s\\mid\\text{Arabic Script})/P(s))$.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "$P(s\\mid\\text{Arabic Script})$",
+   "definition": "The probability of the string $s$ under the hypothesis that the text is Arabic script. The paper estimates it by Bayes rule from a Unicode-block test on the characters.",
+   "conceptId": null
+  },
+  {
+   "term": "$P(s)$",
+   "definition": "The probability of the string $s$ under the full empirical data distribution. Dividing by it is what makes the proxy a ratio rather than a raw likelihood, so common strings are not scored as Arabic just for being common.",
+   "conceptId": null
+  },
+  {
+   "term": "Conditional distribution (lower strip)",
+   "definition": "The band beneath the histogram, where every activation column is stretched to equal height. It removes the count information so you read the proportion Arabic at each activation level directly; this is the strip the 25% and 98% numbers describe.",
+   "conceptId": null
+  },
+  {
+   "term": "Dataset Examples",
+   "definition": "The four panels along the top, each a set of short text snippets sampled from a particular point on the activation axis, joined to that point by a dotted line. They let you see what kind of text actually produces weak versus strong activations.",
+   "conceptId": null
+  },
+  {
+   "term": "Colour denotes activation (orange shading)",
+   "definition": "Inside the example panels, the orange highlight on a token shows how strongly the feature fired on it, darker meaning stronger. This is a separate colour code from the blue-red proxy scale used in the histogram.",
+   "conceptId": null
+  },
+  {
+   "term": "Character represented by multiple tokens",
+   "definition": "The legend note that one Arabic Unicode character is often split by the tokenizer into two byte-level tokens, such as ث becoming \\xd8 then \\xab. A/1/3450 usually fires only on the final token of the character, which is why shading inside a word looks uneven.",
+   "conceptId": null
+  },
+  {
+   "term": "\\xd8, \\xab, \\xa5 and similar",
+   "definition": "Byte-level token labels shown in the example panels where a Unicode character was split. They are pieces of a character, not characters, and are printed in escape notation because they are not displayable on their own.",
+   "conceptId": null
+  },
+  {
+   "term": "Specificity",
+   "definition": "The claim that when the feature is on, the hypothesized context is present. The paper treats this as the more important half of the case against a feature being polysemantic.",
+   "conceptId": "activation-specificity"
+  },
+  {
+   "term": "Polysemanticity",
+   "definition": "A unit responding to a mixture of unrelated inputs. This figure is aimed at excluding the typical form of it for this feature, at least at high activations.",
+   "conceptId": "polysemanticity"
+  },
+  {
+   "term": "Sparse autoencoder",
+   "definition": "The one-hidden-layer autoencoder, wider than the MLP it reads, trained with reconstruction error plus an L1 penalty on hidden activations. Its hidden units are the features being plotted here.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "Expected value plot",
+   "definition": "The follow-up figure the paper uses to address the noisy low end: the same histogram weighted by activation magnitude, so the picture reflects how much effect the feature has rather than how many tokens it touches.",
+   "conceptId": "expected-value-plot"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "25%",
+   "meaning": "The fraction of examples scored as Arabic script when the feature is barely active, at the low end of the axis. The paper does not claim to know why it is this low, offering three candidates: proxy false negatives on shared characters like whitespace and punctuation, a weak one-layer model that is genuinely uncertain, and an autoencoder too narrow to have recovered every true feature."
+  },
+  {
+   "value": "98%",
+   "meaning": "The fraction of examples scored as Arabic script once activation exceeds 5. The paper reads this as the feature being near-pure in the regime that matters, since it fires this hard only on Arabic text."
+  },
+  {
+   "value": "5",
+   "meaning": "The activation level, roughly the middle of the axis, above which the paper says specificity is clearly high. It is where the stacked bands go almost entirely dark red."
+  },
+  {
+   "value": "81%",
+   "meaning": "The share of all tokens on which the feature is active at all that are Arabic script, aggregating over every activation level. It sits between 25% and 98% because most active tokens are weakly active."
+  },
+  {
+   "value": "0.13%",
+   "meaning": "Arabic's share of the training tokens overall. It is the base rate the 81% is meant to be compared against: the feature concentrates on a slice of data roughly 600 times rarer than its own firing pattern suggests, which is why the paper calls it specific."
+  },
+  {
+   "value": "0 to 9",
+   "meaning": "The range of the horizontal activation axis. Nine is where the histogram has effectively run out of data; the bulk of nonzero mass sits below 8."
+  },
+  {
+   "value": "0K to 5K",
+   "meaning": "The range of the vertical density axis, in thousands of sampled tokens per bin. The maximum near 5K is at the leftmost nonzero bin, because weak activations are far more numerous than strong ones."
+  },
+  {
+   "value": "~4.6K near activation 7",
+   "meaning": "A second, lower hump in the histogram, almost entirely red. It is the mass of genuinely Arabic tokens, distinct from the near-zero noise pile; density collapses toward zero past about 8."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5",
+   "meaning": "The tick marks on the log-likelihood-ratio colour legend. Zero means the Arabic hypothesis and the general distribution explain the string equally well; positive means Arabic is the better explanation, negative means it is worse, in units of log-probability."
+  },
+  {
+   "value": "1e-10",
+   "meaning": "The tiny value the paper assigns to $P(\\text{Arabic}\\mid s)$ when a string contains any non-Arabic character. It is what pushes mixed strings to the deep blue end, and part of why punctuation and whitespace inside Arabic text can be scored as non-Arabic."
+  },
+  {
+   "value": "U+0600–U+06FF, U+0750–U+077F",
+   "meaning": "The Unicode blocks the proxy treats as Arabic script. Membership in these blocks is the whole basis of the colour, which is why the proxy is a heuristic rather than a language detector."
+  },
+  {
+   "value": "U+062B",
+   "meaning": "The code point of ث, the paper's worked example of a character split across two tokens as \\xd8 followed by \\xab. It explains why shading in the example panels lands on the second piece of a character."
+  },
+  {
+   "value": "1 (in A/1/3450)",
+   "meaning": "The dictionary learning run index. Runs A/0 through A/5 share an L1 coefficient and increase in dictionary size, so run 1 is an early, relatively small dictionary."
+  },
+  {
+   "value": "3450",
+   "meaning": "The index of this particular feature within run 1's dictionary. It carries no meaning beyond identity."
+  },
+  {
+   "value": "100 million tokens",
+   "meaning": "The subset of the training data the visualization is drawn from, taking only 10 tokens from each context. The example panels show a window of four tokens on each side of the selected token."
+  },
+  {
+   "value": "0.74",
+   "meaning": "The Pearson correlation between the feature's activity and the thresholded Arabic proxy over 40 million tokens, reported just after this figure. It is a single number combining what this plot shows about specificity with the sensitivity evidence, and it is below 1 partly because other Arabic features cover tokens this one misses."
+  }
+ ]
+}

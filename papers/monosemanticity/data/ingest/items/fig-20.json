@@ -1,0 +1,200 @@
+{
+ "id": "fig-20",
+ "title": "DNA Activations Split by Proxy",
+ "takeaway": "Every token in a sample of the data is sorted by how strongly the DNA feature A/1/2937 fires on it, and colored by whether a hand-built \"is this DNA\" score fires on it too. The strong activations are almost entirely DNA and the weak ones are mixed, and across the whole range the feature and the yes/no score reach a Pearson correlation of 0.8.",
+ "walkthrough": "### What you are looking at\n\nThe large panel is a histogram over tokens. Each token from a sample of the training data is placed on the horizontal axis by how strongly the [[dna-feature]] A/1/2937 fires on it. That number is the [[feature-activation]] — the ReLU output of one hidden unit of the [[sparse-autoencoder]] — and it runs from 0 to about 11.5 here. The vertical axis, \"Density\", is simply how many sampled tokens land in that bin, peaking near 25K just above zero.\n\nEach token is also scored by a second, independent thing: the [[dna-proxy]]. This is a [[log-likelihood-ratio-proxy]], $\\log(P(s|\\text{DNA})/P(s))$. The numerator treats the string as a random draw over A, T, C and G, each with probability $1/4$. The denominator is a plain [[unigram-p-s-estimate]] of the string under the corpus. A positive value means DNA explains the string better than ordinary text does.\n\nTokens like `CAT` are both nucleotide triplets and English words, so the score is always taken over groups of at least two tokens, maximizing over prefixes ([[prefix-maximization]]). Those log-ratios come out strongly bimodal, so the paper throws away the magnitude and keeps only the sign — [[proxy-binarization]]. Red means the binarized proxy says DNA; blue means it does not.\n\n### How to read it\n\nExact zeros are pulled out into the thin sliver left of the axis, marked `0` versus `>0`. The [[l1-sparsity-penalty]] makes most tokens exactly zero, which would otherwise be a spike swamping the plot.\n\nThe narrow band below the histogram restretches every column to full height, so you can read the red fraction even where the raw counts are almost nothing. The four boxes on top are five random dataset examples each, tied by dotted lines to roughly 1.3, 4.5, 6.7 and 11.4.\n\n### What it shows\n\nAt the top of the range the columns are solid red, and the examples are unbroken nucleotide strings. The paper reports that all 10 random examples above activation 6.0 are DNA. Low down there is a lot of blue.\n\nAcross the whole range the two signals correlate at 0.8 ([[feature-proxy-correlation]]). Read that as a ceiling-limited number: one variable is graded and the other has two values, so even perfect ordering could not reach 1.0. The paper also argues most disagreements are the proxy's fault, not the feature's.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Activation Distribution",
+   "definition": "The plot's title, and the paper's standard chart for a single feature: a histogram of that feature's activation values over a token sample, broken down by color into whether the feature's proxy fires. It is the paper's basic evidence for activation specificity.",
+   "conceptId": "feature-activation-distribution-plot"
+  },
+  {
+   "term": "A/1/2937",
+   "definition": "The identifier of the feature being plotted. \"A\" is the transformer (one of two identically trained one-layer models), \"1\" is the dictionary learning run, and \"2937\" is the index of the feature within that run's dictionary.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "DNA feature",
+   "definition": "The name the paper gives A/1/2937 after inspecting it: a feature that fires on long uppercase strings of A, T, C and G used to write nucleotide sequences. The paper says it is the only feature in this dictionary devoted to the DNA context.",
+   "conceptId": "dna-feature"
+  },
+  {
+   "term": "Activation Level (x-axis)",
+   "definition": "How strongly the feature fires on a token — the value of that autoencoder hidden unit after its ReLU. Zero means the feature is off; larger means more strongly on.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "Density (y-axis)",
+   "definition": "The number of sampled tokens whose activation falls in a given bin. It is a raw count of tokens, not a probability density that integrates to one.",
+   "conceptId": null
+  },
+  {
+   "term": "Log-Likelihood Ratio (legend)",
+   "definition": "The scale the coloring is drawn from: the DNA proxy's score $\\log(P(s|\\text{DNA})/P(s))$, running from -5 (blue) to +5 (red). Because the paper binarizes on the sign, the histogram reads as two flat colors rather than a gradient.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "DNA →",
+   "definition": "The legend's arrow, saying which end of the color scale means DNA. Red, the positive end, is where the proxy judges the string more likely under the DNA hypothesis than under the general text distribution.",
+   "conceptId": null
+  },
+  {
+   "term": "Red (proxy fires)",
+   "definition": "Tokens whose binarized DNA proxy is positive — the surrounding string looks like a nucleotide sequence by the ATCG character model.",
+   "conceptId": "dna-proxy"
+  },
+  {
+   "term": "Blue (proxy does not fire)",
+   "definition": "Tokens whose binarized DNA proxy is negative — the string is better explained by ordinary text statistics than by a random ATCG string.",
+   "conceptId": null
+  },
+  {
+   "term": "DNA proxy",
+   "definition": "The cheaply computable \"is this a DNA sequence\" score used as an independent yardstick for the feature. It models DNA as a uniform random string over [ATCG] and is evaluated on groups of at least two tokens.",
+   "conceptId": "dna-proxy"
+  },
+  {
+   "term": "Computational proxy",
+   "definition": "The paper's general device: a hand-built numerical score for a hypothesized context, computed without reference to the model, so that a feature's behavior can be checked against something external.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "Binarized proxy",
+   "definition": "The proxy reduced to a yes/no value by taking its sign. The paper does this here because the DNA log-probabilities come out strongly bimodal, so the magnitudes carry little extra information.",
+   "conceptId": "proxy-binarization"
+  },
+  {
+   "term": "$P(s|\\text{DNA})$",
+   "definition": "The probability of the string under the DNA hypothesis, modeled as an independent draw of each character from {A, T, C, G} with probability 1/4 each.",
+   "conceptId": "character-distribution-proxy"
+  },
+  {
+   "term": "$P(s)$",
+   "definition": "The probability of the string under the general data distribution, estimated as the product of independent per-token unigram probabilities from the corpus.",
+   "conceptId": "unigram-p-s-estimate"
+  },
+  {
+   "term": "Pearson correlation",
+   "definition": "The ordinary linear correlation coefficient, here computed between the feature's continuous activation and the proxy's binary 0/1 value. The paper uses it as one number combining sensitivity and specificity.",
+   "conceptId": "pearson-correlation"
+  },
+  {
+   "term": "Hard zeros / the `0` and `>0` marks",
+   "definition": "The separate sliver at the far left holding tokens where the feature's activation is exactly zero, split off from the tokens with any positive activation. The note explains that sparsity puts a spike (a dirac delta) of probability mass at exactly zero, which would dominate the plot if left in.",
+   "conceptId": null
+  },
+  {
+   "term": "Sparsity (in the note)",
+   "definition": "The property, enforced by the L1 penalty on the autoencoder's hidden layer, that the great majority of features are exactly off on any given token. It is what creates the hard-zero spike.",
+   "conceptId": "l1-sparsity-penalty"
+  },
+  {
+   "term": "Normalized band (strip below the histogram)",
+   "definition": "The same red/blue breakdown with every column stretched to full height, so it shows the proportion of proxy-positive tokens at each activation level rather than the count. It makes the far right readable, where raw counts are near zero.",
+   "conceptId": null
+  },
+  {
+   "term": "Dataset Examples",
+   "definition": "The four boxes along the top, each holding five randomly drawn text snippets from a band of activation values, tied to their place on the x-axis by dotted lines. They let you check by eye what the feature is firing on at that strength.",
+   "conceptId": "top-dataset-examples"
+  },
+  {
+   "term": "Token highlighting in the examples",
+   "definition": "Within each snippet the bold token is the one whose activation places it in that band, and the orange shading marks where the feature is active across the window of context shown.",
+   "conceptId": null
+  },
+  {
+   "term": "ATGCGC, AGTTTCGTTTAC, ACACACGACAAC, GGAGCCCCC",
+   "definition": "Example snippets from the high-activation boxes: uninterrupted uppercase nucleotide strings, which both the feature and the proxy agree on.",
+   "conceptId": null
+  },
+  {
+   "term": "TACOS, LCAT, RGCs, \"of the\"",
+   "definition": "Example snippets from the lowest box, where the feature is weakly on. Some contain A/T/C/G letters inside ordinary English words; these are the false-positive-looking cases the paper attributes partly to an imperfect proxy and partly to an imperfect model or autoencoder.",
+   "conceptId": "weak-activation-hypotheses"
+  },
+  {
+   "term": "AG ACA GAT TGG, '-GTC CGT GAG, AAA TGT AAA G",
+   "definition": "Snippets from the middle boxes: nucleotide triplets broken up by spaces or preceded by a 5'- prefix. The proxy's strict ATCG character model fails on these even though they are DNA, which is the paper's main example of the proxy being wrong rather than the feature.",
+   "conceptId": "proxy-limitations"
+  },
+  {
+   "term": "Activation specificity",
+   "definition": "The claim this chart is built to test: that when the feature is on, the hypothesized context is usually present. It is read off the right-hand side of the histogram.",
+   "conceptId": "activation-specificity"
+  },
+  {
+   "term": "Activation sensitivity",
+   "definition": "The complementary claim: that when the context is present, the feature is usually on. Correlation across the whole plot mixes this with specificity into one number.",
+   "conceptId": "activation-sensitivity"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.8",
+   "meaning": "The Pearson correlation between the binarized DNA proxy and the feature's activations. The paper offers it as a joint summary of sensitivity and specificity that, unlike a hit rate, takes activation magnitude into account. It is not 1.0 partly because the proxy misses DNA written with spaces, punctuation or missing bases, and partly because a two-valued variable cannot fully track a graded one."
+  },
+  {
+   "value": "0 (the binarization threshold)",
+   "meaning": "The proxy's sign is the cut point: positive log-likelihood ratio counts as DNA, negative as not. The paper picks the sign rather than a tuned threshold because the log-probabilities come out bimodal, so the exact cut barely matters."
+  },
+  {
+   "value": "2 (minimum token group)",
+   "meaning": "The proxy is never evaluated on a single token, because vocabulary tokens like CAT are legitimate English words as well as nucleotide triplets. Requiring at least two tokens makes the ATCG hypothesis actually discriminating."
+  },
+  {
+   "value": "1/4",
+   "meaning": "The probability assigned to each of A, T, C and G under the DNA hypothesis $P(s|\\text{DNA})$ — a uniform random nucleotide string. This is what makes a long ATCG run score very high: each character contributes $\\log(0.25/p_{\\text{unigram}})$, and the ratio compounds with length."
+  },
+  {
+   "value": "$10^{-10}$",
+   "meaning": "The tiny probability the paper's parallel character-set proxy (stated for base64) gives to characters outside the allowed set. It is what makes a single stray character collapse the score, and it is why spaces inside TGG AGT push the DNA proxy negative."
+  },
+  {
+   "value": "6.0",
+   "meaning": "The activation level above which the paper reports all 10 randomly sampled dataset examples are DNA. It is the paper's cutoff for calling the feature's upper register clean."
+  },
+  {
+   "value": "10",
+   "meaning": "The number of random dataset examples checked above activation 6.0. It is a small sample, and the paper's claim of specificity in the high register rests on it plus the red fraction of the histogram."
+  },
+  {
+   "value": "0 to ~11.5 (x-axis range)",
+   "meaning": "The span of activation values this feature takes. There is no fixed scale for feature activations; the range is whatever the autoencoder unit happens to output, so the axis is only comparable within this feature."
+  },
+  {
+   "value": "0 to 25K (y-axis range)",
+   "meaning": "Token counts per bin. The peak of roughly 23K sits just above zero, showing that most tokens where the feature is at all on are barely on — the long weak tail is where the blue lives."
+  },
+  {
+   "value": "-5 to 5 (color scale)",
+   "meaning": "The range of the underlying log-likelihood ratio shown in the legend. Because the scores are bimodal and the paper only uses the sign, tokens effectively sit at the two ends and the plot reads as two colors."
+  },
+  {
+   "value": "4 (example boxes)",
+   "meaning": "Four activation bands are sampled for illustration, at roughly 1.3, 4.5, 6.7 and 11.4 on the axis. They are chosen to span the spectrum, including one band where the feature is only weakly on."
+  },
+  {
+   "value": "5 (examples per box)",
+   "meaning": "Each band shows five randomly drawn snippets. Random rather than top-activating sampling is the point: the paper argues that judging a unit by its maximum-activating examples makes anything look monosemantic."
+  },
+  {
+   "value": "4 tokens each side",
+   "meaning": "The context window shown around the highlighted token in each snippet, per the paper's visualization appendix. It is why the DNA strings appear truncated at both edges."
+  },
+  {
+   "value": "100 million tokens / 10 per context",
+   "meaning": "The subset of the training data used to build these visualizations, sampling only ten tokens from any single context. Sampling sparsely across many contexts avoids letting one long DNA document dominate the picture."
+  },
+  {
+   "value": "0.74",
+   "meaning": "The corresponding correlation for the Arabic script feature A/1/3450 against its own proxy, thresholded at 0 over 40 million tokens. It gives a sense of scale for what 0.8 means in this paper: both are called substantial, and neither is close to 1."
+  },
+  {
+   "value": "A/1/2937 (the three parts)",
+   "meaning": "\"A\" names the transformer, \"1\" names the dictionary learning run (runs differ in dictionary size and L1 coefficient), and \"2937\" is the feature's index inside that run's dictionary. The index carries no meaning of its own."
+  }
+ ]
+}

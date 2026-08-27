@@ -1,0 +1,142 @@
+{
+ "id": "fig-11",
+ "title": "Ablating the Arabic Feature",
+ "takeaway": "Deleting this one feature's contribution from the MLP activations lowers the model's predicted probability on Arabic-script tokens, and it does so across the feature's whole activation range rather than only where it fires hardest. The size of the damage tracks the activation: examples at the top of the range show thicker, darker \"feature was helping\" underlines than examples at about half that activation. The paper reads this as evidence the feature is causally used by the model for Arabic-script prediction, not merely correlated with Arabic text.",
+ "walkthrough": "Each row is one short stretch of dataset text, run through the one-layer model twice: once normally, and once with the [[arabic-script-feature]] A/1/3450 switched off. Switching it off is a [[feature-ablation]] — run the context up to the MLP, decode those activations into features, subtract this feature's activation times its own [[feature-direction]] on every token of the context, then finish the forward pass. Only the component along that one direction is removed; every other feature's contribution to the same activation vector is left intact.\n\nEach token then carries two markings. The orange background is how strongly the feature fires on that token, darker meaning higher activation. The underline underneath is the ablation effect on *that* token's prediction: how much the predicted log-likelihood of the token changed when the feature was removed. Purple means ablation made the token less likely, so the feature had been helping predict it. Orange-red means ablation made it more likely, so the feature had been hurting. A thicker, more saturated underline is a bigger change; a flat grey line is essentially no change ([[ablation-effect-visualization]]).\n\nReading the text needs one more convention. Arabic characters are usually encoded as two byte tokens, so the rendered glyphs sit on the lower line while any byte that is only half a character appears above as its escape code, `\\xd8`, `\\xd9` and so on — each byte token with its own background and underline ([[utf8-multi-token-characters]]). The bold, boxed token is the example's selected token, shown with four tokens on either side ([[activation-visualization-sampling]]).\n\nThe two columns are two bands of the feature's activation spectrum ([[activation-interval]]). On the left, subsample interval 0, the feature is near its maximum; on the right, interval 5, the middle token's activation is about half that.\n\nNow the result. In both columns, Arabic-script tokens are underlined purple: removing the feature costs the model probability on Arabic throughout the range, not only at peak activation.\n\nThe paper notes the only tokens the feature made *less* likely are punctuation shared with other scripts, such as the period in the inset example.\n\nAnd the left underlines are visibly heavier than the right ones — the causal effect grows with activation, which is what a roughly linear contribution through the feature's [[logit-weight]] would predict. This is ten hand-displayed examples, though, not a fitted measurement of that scaling.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Feature Ablations",
+   "definition": "The figure's title. It names the intervention on display: the feature's contribution is subtracted from the MLP activations and the forward pass completed, so the underlines show what each token's prediction lost or gained.",
+   "conceptId": "feature-ablation"
+  },
+  {
+   "term": "A/1/3450",
+   "definition": "The feature being ablated, in the paper's naming scheme: model A, dictionary learning run 1, feature number 3450 within that run. It is the paper's Arabic-script feature.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "Subsample interval",
+   "definition": "A band of the feature's activation range that examples were drawn from, so the display samples the whole spectrum rather than only top activations. The paper elsewhere calls these activation intervals or feature intervals.",
+   "conceptId": "activation-interval"
+  },
+  {
+   "term": "Subsample interval 0",
+   "definition": "The left column: examples where the feature is firing at the top of its range.",
+   "conceptId": "activation-interval"
+  },
+  {
+   "term": "Subsample interval 5",
+   "definition": "The right column: examples where the selected token's feature activation is about half that of interval 0.",
+   "conceptId": "activation-interval"
+  },
+  {
+   "term": "Orange token background",
+   "definition": "Shading behind each token showing the feature's activation there; darker orange means the feature fired more strongly on that token.",
+   "conceptId": "ablation-effect-visualization"
+  },
+  {
+   "term": "Underline",
+   "definition": "The bar drawn under a token, encoding the change in that token's predicted log-likelihood caused by ablating the feature. Colour gives the direction of the change, weight and saturation give its size.",
+   "conceptId": "ablation-effect-visualization"
+  },
+  {
+   "term": "Purple underline",
+   "definition": "Ablating the feature decreased the probability of the underlined token, meaning the feature had been helping the model predict it. The body text calls the strongest instances blue.",
+   "conceptId": "ablation-effect-visualization"
+  },
+  {
+   "term": "Orange (red) underline",
+   "definition": "Ablating the feature increased the probability of the underlined token, meaning the feature had been pushing the model away from a token it should have predicted.",
+   "conceptId": "ablation-effect-visualization"
+  },
+  {
+   "term": "Grey underline",
+   "definition": "The flat baseline bar drawn under tokens whose predicted likelihood barely moved when the feature was removed.",
+   "conceptId": "ablation-effect-visualization"
+  },
+  {
+   "term": "Bold, boxed token",
+   "definition": "The token each example was selected around; its activation is what places the example in interval 0 or interval 5. Four tokens of context are shown on either side of it.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "\\xd8, \\xd9",
+   "definition": "Byte tokens shown as escape codes. These two are the usual first byte of the UTF-8 encoding of a character in the basic Arabic Unicode block, so they appear wherever an Arabic character begins.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "\\xa3, \\xa5, \\xaa, \\xae, \\xb0, \\xb7, \\xb8, \\x8c, \\x8e, \\x91, \\x92",
+   "definition": "Second-byte tokens of two-byte Arabic characters, shown as escape codes because on their own they render nothing. Paired with a preceding \\xd8 or \\xd9 they select which Arabic character is written.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Upper line of escape codes vs lower line of glyphs",
+   "definition": "The display convention for multi-byte characters: the assembled Arabic text is drawn on the lower line, while the individual byte tokens composing a character are drawn above with their own backgrounds and underlines.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Inset example (legend panel)",
+   "definition": "The small six-token context beside the legend, where the feature is active on every token. Its Arabic tokens carry purple underlines and its period carries the orange one.",
+   "conceptId": "ablation-effect-visualization"
+  },
+  {
+   "term": "Ablation effect",
+   "definition": "The quantity the underlines encode: the change in predicted log-likelihood of a token when the feature is zeroed on the whole context.",
+   "conceptId": "feature-ablation"
+  },
+  {
+   "term": "Feature activation level",
+   "definition": "The scalar output of the sparse autoencoder's encoder for this feature on a given token, which is what the orange backgrounds show and what defines the two intervals.",
+   "conceptId": "feature-ablation"
+  },
+  {
+   "term": "Period (.)",
+   "definition": "The punctuation token the paper singles out: the feature was hurting its prediction, because periods are shared with other scripts and the feature pushes toward Arabic-specific tokens.",
+   "conceptId": "arabic-script-feature"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "A/1/3450",
+   "meaning": "Feature identifier. 'A' is which transformer the activations came from, '1' is which dictionary learning run (runs vary in dictionary size and L1 coefficient), and 3450 indexes the feature inside that run.",
+   "conceptId": null
+  },
+  {
+   "value": "0",
+   "meaning": "The left column's subsample interval, the band at the top of this feature's activation range. Intervals are evenly spaced bands between zero and the feature's maximum activation, and 0 is the strongest."
+  },
+  {
+   "value": "5",
+   "meaning": "The right column's subsample interval. The paper states the selected token's activation here is about half that of interval 0, which is what makes the two columns a clean roughly factor-of-two comparison."
+  },
+  {
+   "value": "about half / roughly a factor of two",
+   "meaning": "The stated activation ratio between interval 5 and interval 0 examples. It follows from the intervals being evenly spaced fractions of the maximum activation: the middle band sits at about half of the top band."
+  },
+  {
+   "value": "11",
+   "meaning": "The number of evenly spaced activation intervals the paper divides a feature's spectrum into, from zero up to the feature's maximum. Interval 0 and interval 5 shown here are two of those eleven."
+  },
+  {
+   "value": "5 examples per column, 10 in total",
+   "meaning": "How many dataset contexts the figure displays, five per interval. The paper does not claim this is a measurement; it is a display of sampled examples."
+  },
+  {
+   "value": "4 tokens either side (9-token window)",
+   "meaning": "The context shown around each example's selected token, per the paper's activation-visualization convention. It sets the width of every row."
+  },
+  {
+   "value": "100 million tokens, 10 tokens per context",
+   "meaning": "The subset the visualization examples are drawn from, and how many tokens are taken from each context in it. Sampling sparsely across many contexts keeps the displayed examples from all coming from the same document."
+  },
+  {
+   "value": "\\xd8, \\xd9",
+   "meaning": "The two byte values that dominate the escape codes on screen. They are the lead byte of UTF-8 encodings in the basic Arabic Unicode block (U+0600 onward), so almost every Arabic character in these contexts starts with one of them."
+  },
+  {
+   "value": "zero",
+   "meaning": "The value the feature's activation is set to during ablation, on every token of the context at once, rather than only on the token being studied."
+  }
+ ]
+}

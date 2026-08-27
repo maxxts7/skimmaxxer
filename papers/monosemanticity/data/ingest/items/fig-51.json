@@ -1,0 +1,165 @@
+{
+ "id": "fig-51",
+ "title": "Activation Similarity vs Logit Weight Similarity",
+ "takeaway": "The figure sets out the paper's two model-independent ways of asking whether the same feature was found twice, and shows that for the Arabic script feature they disagree: activation correlation between A/1/3450 and B/1/1334 is 0.91, logit weight correlation only 0.23. The gap comes from a large central cloud of small, near-uncorrelated logit weights, which the paper hypothesizes is interference forced by superposition rather than anything either model is trying to compute.",
+ "walkthrough": "### What you are looking at\n\nTwo scatter plots, side by side. Each compares the [[arabic-script-feature]] A/1/3450 against B/1/1334, the feature that a separate [[dictionary-learning-run]] found on a separate transformer trained with a different random seed.\n\nThe plots are reused from the earlier case study. Here they serve to make the [[universality]] question concrete: is this the same feature in both models?\n\n### How to read it\n\nIn the left panel, each dot is one token position sampled from the dataset. Its x-coordinate is what B/1/1334 fired at on that token, its y-coordinate what A/1/3450 fired at. Stack those per-token values into a vector for each feature, take the [[pearson-correlation]] between the two vectors, and you have [[activation-similarity]]. The orange badge prints it: 0.91.\n\nIn the right panel, each dot is one vocabulary token instead. Its two coordinates are the two features' [[logit-weight]]s on that token, the linear estimate of how much that token's logit moves when the feature is on. Correlating those vectors gives [[logit-weight-similarity]], here 0.23.\n\nColours follow the earlier activation figures: red for tokens the paper's Arabic-script proxy scores as Arabic script, blue for everything else. The bars hugging each axis are marginal histograms of that axis alone.\n\n### What it shows\n\nOn the left, a broad red diagonal ridge runs from roughly 2 up to 7–8 in both runs. The two features switch on together, on Arabic script, at comparable strength.\n\nNote the \">0\" tick squeezed against the origin and the annotation \"most probability mass is at zero\". Both features are off on nearly every token, and that pile-up is compressed rather than drawn to scale.\n\nOn the right there are two clouds. A small red cluster sits at the top right, labelled Arabic Token Logits: characters both models push up when their feature fires. A much larger blue blob sits at the centre, roughly circular and roughly uncorrelated.\n\nThat central blob is what drags the correlation down to 0.23. The label carries a question mark, and so does the paper's reading of it: these small weights may be [[weight-interference]], the residue of [[superposition]] packing features into non-orthogonal directions, which the model would prefer to be zero but cannot make zero.\n\nOn that reading, the shared outlier mode is the finding, and the distance from 0.91 to 0.23 overstates the disagreement.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Feature Activations (left panel title)",
+   "definition": "The left scatter plot compares how strongly the two features fire, token by token, over sampled dataset text. Each axis is one feature's activation value.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "Logit Weights (right panel title)",
+   "definition": "The right scatter plot compares the two features' effects on the model's output distribution. Each axis is one feature's logit weight, one point per vocabulary token.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "A/1/3450",
+   "definition": "The paper's naming scheme: transformer A, dictionary learning run 1, feature number 3450. This is the Arabic script feature that the paper studies in depth, and it supplies the y-axis in both panels.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "B/1/1334",
+   "definition": "Feature 1334 from run 1 of the dictionary learned on transformer B, a second one-layer transformer trained on the same data with a different random seed. It is the feature in B whose activations correlate most with A/1/3450, and it supplies the x-axis in both panels.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "Run A / Run B",
+   "definition": "Shorthand for the two independent pipelines being compared: a transformer plus the sparse autoencoder trained on its MLP activations. A is the main model studied in the paper, B exists mainly to test whether features recur.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Feature Activations (Run A) — y-axis, left panel",
+   "definition": "The activation of A/1/3450 at a given token, in the units the autoencoder learned. Zero means the feature is off there. (The figure's axis label carries the typo 'Activaitons'.)",
+   "conceptId": null
+  },
+  {
+   "term": "Feature Activations (Run B) — x-axis, left panel",
+   "definition": "The activation of B/1/1334 at that same token. Points far from the diagonal are tokens where the two runs' features disagree about how strongly to fire.",
+   "conceptId": null
+  },
+  {
+   "term": "Logit Weight (Run A) — y-axis, right panel",
+   "definition": "How much A/1/3450, when active, raises or lowers the logit of a particular vocabulary token, computed by multiplying the feature direction through the MLP output weights, a linearized layer norm, and the unembedding.",
+   "conceptId": "path-expansion-logit-attribution"
+  },
+  {
+   "term": "Logit Weight (Run B) — x-axis, right panel",
+   "definition": "The same quantity for B/1/1334 on that same vocabulary token. The two are on comparable scales because each feature's logit weights are shifted so the median weight is zero.",
+   "conceptId": "logit-weight-median-centering"
+  },
+  {
+   "term": "Correlation = badge (orange box)",
+   "definition": "The Pearson correlation between the two coordinate vectors plotted in that panel. It is the single number the panel exists to produce.",
+   "conceptId": "pearson-correlation"
+  },
+  {
+   "term": "Activation similarity",
+   "definition": "The paper's first model-independent measure: represent each feature as a vector of its activations over a fixed set of tokens, then correlate the two vectors. Two features are similar if they respond to the same data in the same amounts.",
+   "conceptId": "activation-similarity"
+  },
+  {
+   "term": "Logit weight similarity",
+   "definition": "The paper's second measure: represent each feature as a vector indexed by vocabulary tokens holding its logit weights, then correlate. Two features are similar if activating them changes the model's predictions in the same way.",
+   "conceptId": "logit-weight-similarity"
+  },
+  {
+   "term": "Arabic Token Logits (eg. 'ي', 'ع') — pink annotation, right panel",
+   "definition": "The small cluster at the top right: vocabulary tokens in Arabic script, plus byte tokens like \\xd8 and \\xd9 that form the first half of Arabic UTF-8 characters. Both features push these up strongly, so they land high on both axes.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Interference Weights? — blue annotation, right panel",
+   "definition": "The large, roughly circular central cloud of small logit weights. The paper's hedged guess is that these are not weights either model wants, but leftovers from packing many features into few dimensions.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "'Most probability mass is at zero' — annotation, bottom left",
+   "definition": "A note that the overwhelming majority of tokens sit at exactly zero activation for both features, so the visible scatter is a small minority of the data.",
+   "conceptId": null
+  },
+  {
+   "term": "'>0' tick",
+   "definition": "A separate compressed band just above 0 on both activation axes, holding tokens with small but nonzero activation. It exists so the zero spike does not swamp the plot; distances near the origin are not to scale.",
+   "conceptId": null
+  },
+  {
+   "term": "Marginal histograms (bars along each axis)",
+   "definition": "The one-dimensional distribution of each axis on its own, ignoring the other. In the left panel they show most mass at zero with a red tail; in the right panel they show the bimodal logit weight distribution the paper described earlier.",
+   "conceptId": "feature-neuron-scatter-plots"
+  },
+  {
+   "term": "Red / pink points",
+   "definition": "Tokens the paper's Arabic script proxy scores as Arabic, using the estimated log likelihood ratio log(P(s | Arabic script) / P(s)). In the right panel, red marks Arabic-script vocabulary tokens.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "Blue / purple points",
+   "definition": "Everything the proxy does not call Arabic script: other-language and Latin-script tokens. These dominate by count in both panels.",
+   "conceptId": null
+  },
+  {
+   "term": "Shaded ellipse / circle outlines",
+   "definition": "Hand-drawn guides marking the two modes in the right panel — the Arabic outlier cluster and the central interference cloud. They are annotation, not fitted contours.",
+   "conceptId": null
+  },
+  {
+   "term": "Universality",
+   "definition": "The claim the figure serves: that the same features arise across models trained with different seeds, which would suggest dictionary learning finds something about how these transformers represent the data rather than an artifact of one run.",
+   "conceptId": "universality"
+  },
+  {
+   "term": "Superposition",
+   "definition": "The hypothesis that a model represents more features than it has dimensions, storing them as non-orthogonal directions. It is what the paper appeals to when explaining why the central logit weight cloud exists at all.",
+   "conceptId": "superposition"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.91",
+   "meaning": "Pearson correlation between the activation vectors of A/1/3450 and B/1/1334. B/1/1334 was selected as the feature in run B/1 with the highest such correlation, so this is a maximum over that run, not a random pairing."
+  },
+  {
+   "value": "0.23",
+   "meaning": "Pearson correlation between the two features' logit weight vectors over vocabulary tokens. The paper says it is 'more modest' than 0.91 because the distribution is dominated by the near-uncorrelated central mode, not because the Arabic tokens disagree."
+  },
+  {
+   "value": "0 to 9.0 (left panel axis range, ticks every 1.0)",
+   "meaning": "The span of feature activation values. The paper elsewhere treats activations above about 5 as the high-confidence region, where the feature is 98% specific to Arabic script; the dense diagonal ridge sits between roughly 2 and 8."
+  },
+  {
+   "value": "-0.6 to 0.6 (right panel axis range, ticks every 0.1)",
+   "meaning": "The span of logit weights plotted. The scale has no absolute meaning because softmax is shift-invariant; the paper fixes it by shifting each feature's weights so the median is zero, which is why the interference cloud sits centered on the origin."
+  },
+  {
+   "value": "40,960,000",
+   "meaning": "The number of tokens over which activation correlations are computed in the paper's definition of 'activation correlation'. It is the sample the left panel's points are drawn from."
+  },
+  {
+   "value": "0.72",
+   "meaning": "The median activation correlation, across all A/1 features, with each one's closest counterpart in B/1. It is the context for reading 0.91 as high: the Arabic feature is well above the typical feature's match."
+  },
+  {
+   "value": "0.46",
+   "meaning": "The same median computed for neurons rather than features, matching each A neuron to its closest B neuron. Features match across models better than neurons do, which is the point of the comparison."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of learned features in the A/1 dictionary, and the size of the pool B/1's counterpart search runs over. Of these, 168 are dead and 292 ultralow-density and are excluded from global analyses."
+  },
+  {
+   "value": "0.13%",
+   "meaning": "The fraction of training tokens that are Arabic script by the proxy. This is why red is a small minority of tokens overall, even though red dominates the region where the feature is strongly active."
+  },
+  {
+   "value": "81%",
+   "meaning": "The fraction of tokens on which A/1/3450 is active at all that are Arabic script, rising to 98% when activation exceeds 5 and falling to 25% at the weakest activations. It explains why red concentrates at the top-right of the left panel and blue near the origin."
+  },
+  {
+   "value": "0.98 (mentioned in the same section, for contrast)",
+   "meaning": "The activation correlation of the most extreme disagreeing pair, A/1/3949 and B/1/3321, which nevertheless have a negative logit weight correlation. The Arabic feature's 0.91 / 0.23 gap is a mild version of the same effect."
+  }
+ ]
+}

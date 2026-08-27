@@ -1,0 +1,177 @@
+{
+ "id": "fig-58",
+ "title": "The Four-Node HTML Automaton",
+ "takeaway": "Four features in the smallest dictionary hand off to each other through the token stream — open bracket, tag name, closing bracket, newline-and-indent, back to open bracket — so that together they behave like a small state machine that emits well-formed HTML such as `<div>\\n\\t\\t<span>`. The paper stresses that nothing tied these four together during training: each learned its own job, and the loop exists because HTML in the training data has that shape.",
+ "walkthrough": "Four boxes, one per feature, with labelled arrows running between them.\n\nEach box is a feature from the A/0 [[dictionary-learning-run]]. Under the paper's [[feature-notation]], the \"A\" names the transformer, the \"0\" names the autoencoder run, and the last number is the feature's index inside that run.\n\nInside a box sit rows of text sampled from the dataset, four tokens on each side of the selected token ([[activation-visualization-sampling]]). Orange shading marks how hard the feature fires on a token — darker is stronger, pale tan is weak.\n\nThe arrows are not weights between features. Each arrow is labelled with the tokens the source feature pushes hardest in the next-token distribution, its top [[logit-weight]] entries, and points at the feature that those tokens then switch on one step later. The handoff travels through the emitted text, not through the network. That is all [[finite-state-automata-features]] means here.\n\nNow the loop. A/0/20 fires on the bracket that opens a tag — `<`, `</`, `><`, `></`. Section 5.1 calls it the \"`<` in HTML\" feature, one of the paper's [[token-in-context-features]]. It predicts tag names: div, td, span, li, tr, thead, tbody, section, table.\n\nThose tag-name tokens are what A/0/0 fires on, most strongly on ul, also li, div, nav, entry. It predicts closes: `>`, `></`, `/>`, `><`, and `>` glued to punctuation.\n\nA/0/30 fires on that closing `>` or `/>`, and predicts whitespace — the three quoted strings over the third arrow are a newline glyph followed by different amounts of indentation.\n\nA/0/494 fires on exactly that newline-plus-indent token and predicts ` <`, ` </`, ` <!--`, `</`. The long arrow along the bottom carries it back to A/0/20 and closes the cycle. Run the loop once and you get `<div>\\n\\t\\t<span>`.\n\nThe diagram adds two things beyond that four-step story. First, shortcuts: A/0/0 and A/0/30 also predict `></` and ` </`, skipping the whitespace node. Second, an exit — the dashed arrow dropping out of A/0/0, labelled ` xmlns`, ` href`, ` class`. If the model emits an attribute name, these four features say nothing about what follows. The paper names that gap itself.\n\nOne caveat carries the weight. A/0 has 512 features, the same width as the MLP, so the dictionary is not overcomplete. The simplicity here is a property of that resolution: in a wider run each node undergoes [[feature-splitting]] into a family, and the paper says the system becomes much more complex.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "A/0/20",
+   "definition": "The open-tag node. It fires on the bracket tokens that begin an HTML tag — `<`, `</`, `><`, `></` — as the orange highlights in the leftmost panel show, and its top predicted tokens are tag names. Section 5.1 describes it as the 'angle bracket in HTML' feature.",
+   "conceptId": "html-feature-automaton"
+  },
+  {
+   "term": "A/0/0",
+   "definition": "The tag-name node. It fires on tag-name tokens (ul most strongly, then li, div, nav, entry) and predicts the tokens that close a tag. It is also the node from which the automaton leaks: it predicts attribute names too.",
+   "conceptId": null
+  },
+  {
+   "term": "A/0/30",
+   "definition": "The tag-close node. It fires on the closing `>` and on the self-closing `/>`, wherever they end a tag, and predicts a newline followed by indentation.",
+   "conceptId": null
+  },
+  {
+   "term": "A/0/494",
+   "definition": "The whitespace node. It fires on a newline-plus-indentation token that follows a closed tag, and predicts the bracket tokens that open the next tag — which returns control to A/0/20.",
+   "conceptId": null
+  },
+  {
+   "term": "A/0",
+   "definition": "The dictionary learning run these four features come from: the smallest autoencoder in the A series, with 512 learned features. The paper picks it here because at this size the HTML system is only four nodes.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "A (first component of the feature name)",
+   "definition": "The transformer the features were extracted from — the one-layer model with a 512-neuron ReLU MLP that the paper studies throughout. A second model, B, is used only for universality checks.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "Feature",
+   "definition": "A direction in MLP activation space recovered by the sparse autoencoder, standing in for a neuron as the unit of analysis. Each box in this diagram is one such direction, shown by the tokens it responds to.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Orange highlight",
+   "definition": "Marks a token where the feature is active, with darker orange meaning a larger activation value. This is the paper's standard way of showing when a feature fires.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "Pale tan highlight",
+   "definition": "The same activation scale at its low end: a token where the feature fires weakly. In the A/0/494 panel, for example, `class=` and `PyTorch` get tan while the newline token gets full orange.",
+   "conceptId": null
+  },
+  {
+   "term": "Solid labelled arrow",
+   "definition": "A handoff. The label lists tokens the source feature raises in the next-token distribution; the arrowhead points at the feature those tokens activate on the following step. It is a claim about the token stream, not a learned connection between features.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Dashed arrow (out of A/0/0)",
+   "definition": "The one arrow that leaves the system. A/0/0 also predicts attribute-name tokens, and no node in this four-feature picture covers what happens after one is emitted, so the arrow points off the diagram.",
+   "conceptId": null
+  },
+  {
+   "term": "Logit weight",
+   "definition": "The vector, one entry per vocabulary token, giving how much a feature's firing raises or lowers that token's next-token logit. The token lists on the arrows are the top positive entries.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "↵ (return glyph)",
+   "definition": "The visualization's printed stand-in for a newline character inside a token, so that whitespace tokens are visible. It appears both inside the panels and in the whitespace strings labelling the A/0/30 to A/0/494 arrow.",
+   "conceptId": null
+  },
+  {
+   "term": "div, td, span, li, tr, thead, tbody, section, table",
+   "definition": "The tag names A/0/20 predicts once an opening bracket has been emitted. They are ordinary HTML element names, listed in the label above the first arrow.",
+   "conceptId": null
+  },
+  {
+   "term": "`>`, `></`, `/>`, `><`, `>,`, `>.`, `>&`, `>)`, `>;`, `>/`",
+   "definition": "The tokens A/0/0 predicts after a tag name — all of them close the tag, some with the following character already merged into the same token by the tokenizer.",
+   "conceptId": null
+  },
+  {
+   "term": "\"↵    \", \"↵        \", \"↵  \"",
+   "definition": "The three whitespace tokens A/0/30 predicts: a newline followed by differing amounts of indentation. The differing widths in the label are differing indent depths, not different characters.",
+   "conceptId": null
+  },
+  {
+   "term": "\" </\", \" <\", \" <!--\", \"</\"",
+   "definition": "The tokens A/0/494 predicts after whitespace: an open bracket for a new element, a closing-tag bracket, or the start of an HTML comment. These are what re-activate A/0/20.",
+   "conceptId": null
+  },
+  {
+   "term": "\" </\", \" />\" (A/0/30 to A/0/20 arrow)",
+   "definition": "A shortcut edge. A/0/30 also predicts a closing bracket directly, so the model can move from a tag close straight back to an open-bracket state without emitting whitespace in between.",
+   "conceptId": null
+  },
+  {
+   "term": "`></`, `><` (A/0/0 to A/0/20 arrow)",
+   "definition": "A second shortcut edge. These tokens both close the current tag and open the next one, so emitting one sends the system from the tag-name node back to the open-tag node in a single step.",
+   "conceptId": null
+  },
+  {
+   "term": "\" xmlns\", \" href\", \" class\"",
+   "definition": "Attribute-name tokens that A/0/0 also predicts. Emitting one leads to attribute syntax, which is the state the paper says these four features fail to describe.",
+   "conceptId": null
+  },
+  {
+   "term": "`<div>\\n\\t\\t<span>`",
+   "definition": "The prototypical sample the paper says this loop generates: open bracket, tag name, close, newline and two tabs, then a new open bracket and tag name. Reading it left to right walks the four nodes in order.",
+   "conceptId": null
+  },
+  {
+   "term": "Finite state automaton (as used here)",
+   "definition": "The paper's loose label for an assembly of features that hand off through generated tokens rather than through weights. It flags explicitly that these are not circuits, and that the model was never trained to make the pieces cooperate.",
+   "conceptId": "finite-state-automata-features"
+  },
+  {
+   "term": "Action feature",
+   "definition": "The reading of a feature by what it predicts rather than what it responds to. This diagram depends on that reading: each node is named by both its firing condition and its output tokens.",
+   "conceptId": "action-features"
+  },
+  {
+   "term": "Feature splitting",
+   "definition": "The observation that widening the autoencoder divides one feature into a family of more specific ones. The paper invokes it to say this four-node picture is a property of A/0's coarseness and would fragment in a larger run.",
+   "conceptId": "feature-splitting"
+  },
+  {
+   "term": "Overcomplete",
+   "definition": "Having more dictionary directions than the dimension of the space they live in. A/0 is not overcomplete — 512 features for a 512-dimensional activation space — which the paper notes when introducing these examples.",
+   "conceptId": "overcompleteness"
+  },
+  {
+   "term": "Token-in-context feature",
+   "definition": "A feature that fires on one specific token but only in a particular kind of surrounding text. A/0/20 is the paper's own example: the `<` character, in HTML.",
+   "conceptId": "token-in-context-features"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "20, 0, 30, 494",
+   "meaning": "The feature indices of the four nodes within run A/0. They are positions in the autoencoder's hidden layer and carry no meaning of their own — the ordering is whatever training produced. They are quoted so a reader can look each one up in the published feature interface."
+  },
+  {
+   "value": "0 (the middle component of A/0/…)",
+   "meaning": "The index of the dictionary learning run. A/0 through A/5 form a sequence at fixed L1 coefficient with increasing dictionary size, so 0 is the smallest and coarsest of them."
+  },
+  {
+   "value": "512",
+   "meaning": "The number of features in A/0, and also the width of the transformer's MLP. Because these are equal, the dictionary is exactly 1x expansion and not overcomplete; the paper cites this as the reason the HTML system here is only four nodes."
+  },
+  {
+   "value": "4",
+   "meaning": "The number of nodes in this system. The paper contrasts it with the one-node base64 loop and the two-node snake-case and Unicode systems shown just before, presenting this as the more complex end of what A/0 offers."
+  },
+  {
+   "value": "4 (tokens of context each side)",
+   "meaning": "The visualization convention: each row shows the selected token with four tokens before and four after. This is why the snippets in the panels are short and cut off mid-word."
+  },
+  {
+   "value": "100 million tokens; 10 tokens per context",
+   "meaning": "The sampling behind every panel in the paper. Activating examples are drawn from a 100-million-token subset of the training data, taking only 10 tokens from any one context so the displayed rows are not all from the same document."
+  },
+  {
+   "value": "9, 10, 3, 4, 2, 2, 3 (lengths of the seven arrow labels)",
+   "meaning": "How many predicted tokens each arrow lists. These are top entries of the source feature's logit weight vector, truncated for display, not the complete set of tokens the feature promotes."
+  },
+  {
+   "value": "2 (tabs in <div>\\n\\t\\t<span>)",
+   "meaning": "The indentation in the prototypical sample. The exact depth is incidental — A/0/494 fires on newline-plus-indent tokens of several different widths, as the three strings on the third arrow show."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The size of A/1, the next run up and the one the paper analyses in detail. The text points at it as where this system would stop being simple, since each node would split into a family of narrower features."
+  }
+ ]
+}

@@ -1,0 +1,108 @@
+{
+ "id": "eq-bayes-script-proxy",
+ "title": "Inverting the Script Probability",
+ "takeaway": "To score how Arabic-like a string is, the paper needs $P(s|\\text{Arabic})$, which would otherwise require a generative model of Arabic text. Bayes' rule replaces it with three quantities that are cheap to compute: a character-level script check, a unigram probability, and the corpus rate of Arabic script. The same construction is reused for Hebrew and any other script with its own Unicode blocks.",
+ "walkthrough": "This is one unnumbered line of algebra in the appendix, printed without a caption. It supplies one ingredient of the paper's [[computational-proxy]] for Arabic script.\n\n### Why this quantity is needed\n\nEvery proxy in the paper has the same shape, a [[log-likelihood-ratio-proxy]]: $\\log(P(s|\\text{Arabic Script}) / P(s))$. It asks how much more likely a string $s$ is under the hypothesis \"this is Arabic script\" than under the corpus in general.\n\nThe denominator is easy. $P(s)$ is the [[unigram-p-s-estimate]] — multiply the frequency of each token in $s$.\n\nThe numerator is the awkward one. Writing $P(s|\\text{Arabic})$ directly would mean building a generative model of Arabic text.\n\n### How to read the line\n\nRead it right to left. $P(\\text{Arabic}|s)$ runs the conditioning the other way: given the string, is it Arabic script? That is a classification question, and characters answer it.\n\nEach of the three right-hand terms is cheap. $P(\\text{Arabic}|s)$ is set by checking whether every character of $s$ sits in an Arabic Unicode block, such as U+0600–U+06FF or U+0750–U+077F. All Arabic gives $1$; any character outside those blocks gives $10^{-10}$, a tiny value rather than a hard zero.\n\n$P(s)$ is the unigram estimate again. $P(\\text{Arabic})$ is measured by running the same character heuristic over a random sample of the dataset.\n\n### What it buys\n\nSubstitute the line into the proxy and the unigram term cancels: $\\log(P(\\text{Arabic}|s)/P(\\text{Arabic}))$. The score becomes a script check divided by the base rate of that script, and since Arabic is around $0.13\\%$ of training tokens, a confidently-Arabic string scores high.\n\nTwo wrinkles. A token that is not a complete Unicode character — common, because [[utf8-multi-token-characters]] split across byte tokens — gets its script share estimated by sampling random occurrences instead. And the proxy is evaluated over several prefixes ending at the token in question, taking the maximum, which is [[prefix-maximization]].\n\nThe construction is generic. The paper applies it to Hebrew as well, where the [[hebrew-script-proxy]] correlates $0.55$ with the Hebrew feature.\n\nOne acknowledged cost: shared characters like punctuation and whitespace count as non-Arabic, so the proxy misses tokens the feature fires on. The paper lists this first among [[proxy-limitations]].",
+ "latex": "P(s|\\text{Arabic}) = P(\\text{Arabic}|s) \\cdot P(s) / P(\\text{Arabic})",
+ "terms": [
+  {
+   "term": "$P(s|\\text{Arabic})$",
+   "definition": "The probability of observing the string $s$ given that the text is in Arabic script. This is the numerator of the Arabic proxy and the quantity the equation is solving for.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "$P(\\text{Arabic}|s)$",
+   "definition": "The probability that text is Arabic script given the string $s$. Here it is not learned but assigned by a rule: 1 if every character of $s$ lies in an Arabic Unicode block, $10^{-10}$ otherwise.",
+   "conceptId": "script-proxy-via-bayes"
+  },
+  {
+   "term": "$P(s)$",
+   "definition": "The probability of the string under the corpus as a whole, computed as the product of independent per-token unigram probabilities, $P(s) = \\prod_{t \\in s} p(t)$.",
+   "conceptId": "unigram-p-s-estimate"
+  },
+  {
+   "term": "$P(\\text{Arabic})$",
+   "definition": "The prior rate of Arabic script in the data, estimated by applying the same Unicode-block character heuristic to a random sample of the dataset.",
+   "conceptId": null
+  },
+  {
+   "term": "$s$",
+   "definition": "A string of tokens ending at the token being scored. The proxy is computed over several such prefixes and the maximum is taken.",
+   "conceptId": "prefix-maximization"
+  },
+  {
+   "term": "Bayes rule",
+   "definition": "The identity $P(A|B) = P(B|A)P(A)/P(B)$, used here to swap a hard conditional for an easy one in the opposite direction.",
+   "conceptId": "script-proxy-via-bayes"
+  },
+  {
+   "term": "Proxy",
+   "definition": "A cheaply computable score standing in for \"is this string of the hypothesized kind\", used as an independent yardstick to compare against a feature's activations.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "Log-likelihood ratio",
+   "definition": "The form every proxy in the paper takes, $\\log(P(s|\\text{hypothesis})/P(s))$. The paper's stated reason is that features interact linearly with the logits and so should track log-likelihoods.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Unicode block",
+   "definition": "A contiguous range of Unicode codepoints assigned to a writing system. Arabic script occupies several, including U+0600–U+06FF and U+0750–U+077F.",
+   "conceptId": null
+  },
+  {
+   "term": "Arabic script",
+   "definition": "The writing system used by Arabic, Farsi, Urdu and other languages. The proxy detects the script, not any one language.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "Unigram distribution",
+   "definition": "The empirical frequency of each token in the training corpus, treated as independent across positions when forming $P(s)$.",
+   "conceptId": "unigram-p-s-estimate"
+  },
+  {
+   "term": "Incomplete Unicode character (single token)",
+   "definition": "A token that is only part of a multi-byte UTF-8 character, so its script cannot be read off directly. Its script probability is estimated by sampling random occurrences and measuring how often it appears in that script.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Other scripts features",
+   "definition": "The section title flags that Arabic is only the worked example; the same Bayes construction produces proxies for Hebrew and any script with distinctive Unicode blocks.",
+   "conceptId": "hebrew-script-proxy"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "1",
+   "meaning": "The value assigned to $P(\\text{Arabic}|s)$ when the string consists entirely of characters from Arabic Unicode blocks. It is a certainty by construction, not an estimate: the rule treats an all-Arabic string as definitely Arabic script."
+  },
+  {
+   "value": "1e-10 ($10^{-10}$)",
+   "meaning": "The value assigned to $P(\\text{Arabic}|s)$ when the string contains any character outside the Arabic blocks. It is a tiny probability rather than zero, so the log-likelihood ratio stays finite; the paper notes the proxy is maximized over multiple prefixes, so a heavily penalized prefix simply loses to a cleaner one."
+  },
+  {
+   "value": "U+0600–U+06FF",
+   "meaning": "The main Arabic Unicode block, one of the ranges used to decide whether a character counts as Arabic script."
+  },
+  {
+   "value": "U+0750–U+077F",
+   "meaning": "The Arabic Supplement block, a second range included in the same character test. The paper writes \"including e.g.\", so the list it prints is not exhaustive."
+  },
+  {
+   "value": "0.13%",
+   "meaning": "The share of training tokens that are Arabic text, reported in the Arabic feature section. It is the scale of $P(\\text{Arabic})$: because the base rate is this low, dividing by it makes a confident Arabic classification produce a large proxy score."
+  },
+  {
+   "value": "0.74",
+   "meaning": "The Pearson correlation between the Arabic feature A/1/3450 and this proxy thresholded at 0, measured over 40 million tokens. It is the paper's headline evidence that the proxy and the feature track the same thing."
+  },
+  {
+   "value": "40 million",
+   "meaning": "The number of tokens over which that correlation was computed."
+  },
+  {
+   "value": "0.55",
+   "meaning": "The Pearson correlation of the Hebrew script proxy — built by the same Bayes construction — with the Hebrew feature A/1/416. Lower than the Arabic figure; the paper attributes part of the gap to a complementary feature that fires on the leading byte token of Hebrew characters."
+  }
+ ]
+}

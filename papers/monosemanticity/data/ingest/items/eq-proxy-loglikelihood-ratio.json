@@ -1,0 +1,181 @@
+{
+ "id": "eq-proxy-loglikelihood-ratio",
+ "title": "The Log-Likelihood-Ratio Proxy",
+ "takeaway": "The paper scores every string with a hand-built number: how much more likely that string is under a guessed context (base64, Arabic script, DNA) than under the data as a whole. Because the score is computed from Unicode blocks and character counts, and never from the autoencoder, it gives an outside yardstick for checking whether a feature's proposed interpretation holds.",
+ "walkthrough": "This is an unnumbered display, written inline in Section 3 and unpacked in Appendix 12. It defines the [[computational-proxy]] — the score the paper puts next to a feature's activations to test an interpretation.\n\nRead the ratio first. The numerator $P(s|\\text{context})$ is the probability of the string $s$ if $s$ really came from the hypothesised context. The denominator $P(s)$ is its probability under the data distribution generally. A ratio above one means the hypothesis explains the string better than the general distribution does; the [[log-likelihood-ratio-proxy]] takes the log, so \"better explained\" becomes a positive number.\n\nNow the two pieces, each estimated crudely and on purpose.\n\nThe denominator is [[unigram-p-s-estimate]]: $P(s)=\\prod_{t\\in s}p(t)$, the product of independent per-token unigram probabilities. No context, no ordering — just how common each token is.\n\nThe numerator depends on the hypothesis. For the [[base64-proxy]], every base64 character gets probability $1/64$ and everything else $10^{-10}$, multiplied across characters. The [[dna-proxy]] does the same with A, T, C and G at $1/4$ each. The [[arabic-script-proxy]] instead goes through Bayes' rule, using the fact that Arabic script occupies known Unicode blocks: a string of only Arabic characters gets $P(\\text{Arabic}|s)=1$, one with any other character gets $10^{-10}$.\n\nTwo adjustments matter. A feature may fire more strongly deep into a long string, so the paper maximises the ratio over prefixes ending at the final token. And the paper says it chose log-likelihoods on the intuition that features interact linearly with the logits, so they are pushed to track log-likelihoods — an intuition, not a result.\n\nWhat this buys: a number computed without touching the [[sparse-autoencoder]]. Feature and proxy can then be correlated — 0.74 for Arabic, 0.8 for DNA once binarised, 0.38 for base64 — and a feature that fires only where a rare, specific proxy fires is hard to call [[polysemanticity|polysemantic]].\n\nThe limits are the paper's own. It admits these contexts were cherry-picked because they are easy to model, and where feature and proxy disagree it usually concludes the proxy, not the feature, is wrong.",
+ "latex": "\\begin{gathered}\n\\log\\!\\left(P(s|\\text{base64}) \\,/\\, P(s)\\right) \\qquad \\log\\!\\left(P(s|\\text{Arabic Script}) \\,/\\, P(s)\\right) \\\\[6pt]\nP(s) = \\prod_{t\\in s} p(t) \\\\[6pt]\nP(s|\\text{base64}) = \\prod_{c\\in s} P(c), \\qquad\nP(c) = \\begin{cases} 1/64 & c \\text{ is a base64 character} \\\\ 10^{-10} & \\text{otherwise} \\end{cases} \\\\[6pt]\nP(s|\\text{Arabic}) = P(\\text{Arabic}|s) \\cdot P(s) \\,/\\, P(\\text{Arabic})\n\\end{gathered}",
+ "terms": [
+  {
+   "term": "$s$",
+   "definition": "The string being scored — in practice a token, or a run of tokens ending at the token whose feature activation is under examination. Everything in the proxy is a probability assigned to this string.",
+   "conceptId": null
+  },
+  {
+   "term": "$P(s|\\text{context})$",
+   "definition": "The probability of the string under the hypothesised context, i.e. if the text really were base64, Arabic script, DNA or Hebrew. This is the numerator, and it is estimated with a deliberately simple hand-written model of that context.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "$P(s)$",
+   "definition": "The context-free probability of the string under the full empirical data distribution. Estimated as a product of independent per-token unigram probabilities, so it carries no information about word order or context.",
+   "conceptId": "unigram-p-s-estimate"
+  },
+  {
+   "term": "$\\log(P(s|\\text{context})/P(s))$",
+   "definition": "The proxy itself: the log of how much more likely the string is under the hypothesis than under the general distribution. Positive means the hypothesis explains the string better; the paper picks the log form on the intuition that features, interacting linearly with logits, are pushed to track log-likelihoods.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "$t$ and $p(t)$",
+   "definition": "A token in the string, and its marginal frequency in the training data. The denominator multiplies $p(t)$ over every token of $s$.",
+   "conceptId": "unigram-p-s-estimate"
+  },
+  {
+   "term": "$c$ and $P(c)$",
+   "definition": "A character in the string, and the probability that character gets under the context model. Used for the base64 and DNA numerators, which are products over characters rather than tokens.",
+   "conceptId": "base64-proxy"
+  },
+  {
+   "term": "context (hypothesis)",
+   "definition": "The proposed interpretation of a feature, stated as a kind of text the feature is claimed to respond to. The paper builds proxies only for contexts that are easy to model from Unicode blocks or a small character alphabet.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "base64",
+   "definition": "The encoding whose alphabet is [a-zA-Z0-9+/]. The paper models a base64 string as a uniform random draw from those 64 characters.",
+   "conceptId": "base64-proxy"
+  },
+  {
+   "term": "DNA",
+   "definition": "Sequences of the uppercase letters A, T, C and G, modelled as uniform random strings over that four-letter alphabet. Because single tokens like CAT occur in ordinary text, the DNA proxy is only evaluated on groups of at least two tokens.",
+   "conceptId": "dna-proxy"
+  },
+  {
+   "term": "Arabic Script",
+   "definition": "Text in the Arabic writing system, detected by whether characters fall in the Arabic Unicode blocks. The numerator is obtained through Bayes' rule rather than a character model.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "$P(\\text{Arabic}|s)$",
+   "definition": "The probability that a string is Arabic given the string itself, assigned by a rule rather than learned: 1 if every character is in an Arabic Unicode block, and a tiny value otherwise. Shared punctuation and whitespace count as non-Arabic, which makes the proxy miss some genuine Arabic text.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "$P(\\text{Arabic})$",
+   "definition": "The base rate of Arabic script in the data, estimated by applying the same Unicode-block rule to a random sample of the dataset. It appears as the normaliser in the Bayes-rule form of the numerator.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "unigram distribution",
+   "definition": "The distribution of tokens taken independently, ignoring all context. The paper uses it for the denominator of every proxy.",
+   "conceptId": "unigram-p-s-estimate"
+  },
+  {
+   "term": "prefix maximisation",
+   "definition": "Because a feature may fire more strongly late in a long stretch of the context, the paper computes the ratio for several prefixes ending at the final token and keeps the largest. This also softens the harsh penalty a single stray character imposes on the Unicode-block rule.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "binarisation",
+   "definition": "Reducing the continuous proxy to a yes/no value based on its sign, done for the DNA feature because the log-probabilities turned out strongly bimodal.",
+   "conceptId": "proxy-binarization"
+  },
+  {
+   "term": "Pearson correlation (with feature activity)",
+   "definition": "The single number the paper reports when comparing a proxy against a feature's activations, combining specificity and sensitivity while taking activation magnitude into account.",
+   "conceptId": "feature-proxy-correlation"
+  },
+  {
+   "term": "specificity",
+   "definition": "The claim that when the feature is on, the hypothesised context is usually present. The proxy is what makes this checkable at scale.",
+   "conceptId": "activation-specificity"
+  },
+  {
+   "term": "sensitivity",
+   "definition": "The claim that when the context is present, the feature is usually on. The paper finds this is often imperfect, with gaps covered by other features.",
+   "conceptId": "activation-sensitivity"
+  },
+  {
+   "term": "polysemanticity",
+   "definition": "A unit responding to several unrelated things at once. A feature that fires only where a rare and specific proxy fires cannot be polysemantic in that usual sense.",
+   "conceptId": "polysemanticity"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "$1/64$",
+   "meaning": "The probability the base64 model gives to each character in the base64 alphabet [a-zA-Z0-9+/], which has 64 members. Uniform, because the paper models base64 as a random string over that alphabet.",
+   "conceptId": null
+  },
+  {
+   "value": "$10^{-10}$",
+   "meaning": "The tiny probability assigned to a character outside the base64 alphabet, and likewise to $P(\\text{Arabic}|s)$ when a string contains any non-Arabic character. It is a stand-in for zero, chosen so the product stays finite and the log stays defined while still crushing the score.",
+   "conceptId": null
+  },
+  {
+   "value": "$1/4$",
+   "meaning": "The probability given to each of A, T, C and G in the DNA model, four letters treated as equally likely.",
+   "conceptId": null
+  },
+  {
+   "value": "$1$",
+   "meaning": "The value of $P(\\text{Arabic}|s)$ when the string consists entirely of Arabic characters — full certainty, by rule rather than by estimate.",
+   "conceptId": null
+  },
+  {
+   "value": "U+0600–U+06FF, U+0750–U+077F",
+   "meaning": "Two of the Unicode blocks the paper checks membership in to decide whether a character is Arabic script. They are given as examples, not as the complete list.",
+   "conceptId": null
+  },
+  {
+   "value": "2",
+   "meaning": "The minimum number of tokens the DNA proxy is evaluated over, because single tokens such as CAT occur both in DNA and in ordinary English.",
+   "conceptId": null
+  },
+  {
+   "value": "0.74",
+   "meaning": "The Pearson correlation between the Arabic script proxy (thresholded at 0) and the activity of feature A/1/3450, over 40 million tokens. The paper calls this substantial while noting the feature misses some Arabic tokens that other features cover.",
+   "conceptId": null
+  },
+  {
+   "value": "0.8",
+   "meaning": "The Pearson correlation between the binarised DNA proxy and the DNA feature A/1/2937 — the highest of the four, helped by the proxy's clean bimodal split.",
+   "conceptId": null
+  },
+  {
+   "value": "0.55",
+   "meaning": "The Pearson correlation between the Hebrew script proxy and A/1/416. The paper attributes part of the shortfall to a companion feature, A/1/1016, that covers the \\xd7 byte.",
+   "conceptId": null
+  },
+  {
+   "value": "0.38",
+   "meaning": "The Pearson correlation between the base64 proxy and A/1/2357 — the weakest of the four. The paper reads this as the proxy being too broad, since hexadecimal strings also score highly under it while having a feature of their own.",
+   "conceptId": null
+  },
+  {
+   "value": "40 million",
+   "meaning": "The number of tokens over which the Arabic feature-proxy correlation was computed.",
+   "conceptId": null
+  },
+  {
+   "value": "0.13%",
+   "meaning": "The share of training tokens that are Arabic script, according to the proxy. Its rarity is what makes a high-specificity result meaningful.",
+   "conceptId": null
+  },
+  {
+   "value": "81%",
+   "meaning": "The share of tokens on which A/1/3450 is active that the proxy calls Arabic — against a 0.13% base rate.",
+   "conceptId": null
+  },
+  {
+   "value": "25% to 98%",
+   "meaning": "How that 81% varies with activation level: 25% where the feature is barely on, rising to 98% above activation 5. The paper uses this spread to argue that specificity holds where it matters, since larger activations have larger effects on predictions.",
+   "conceptId": null
+  },
+  {
+   "value": "5",
+   "meaning": "The activation level for A/1/3450 above which the proxy agrees 98% of the time; the paper treats this as the boundary of the feature's clean upper spectrum.",
+   "conceptId": null
+  }
+ ]
+}

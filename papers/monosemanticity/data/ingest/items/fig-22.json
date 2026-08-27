@@ -1,0 +1,201 @@
+{
+ "id": "fig-22",
+ "title": "The DNA Feature's Logit Weights",
+ "takeaway": "Plotting how much the DNA feature A/1/2937 pushes each vocabulary token's next-token logit up or down, the paper finds the usual shape: a tall mode of near-zero weights, plus a tiny bump far out in the right tail. Every token in that bump is a short uppercase string of A, T, C and G — 'ATCC', 'GCC', 'AGT', 'TTTT' and so on. What the feature does to the model's predictions therefore matches what makes it fire, and logit weights are never shown to the dictionary learning, so this is independent of how the feature was found.",
+ "walkthrough": "### What you are looking at\n\nA [[logit-weight|logit weight]] is one number per vocabulary token: how much that token's next-token logit moves when a feature fires.\n\nThe paper reads it off a single linear route from the [[feature-direction|feature direction]] through the [[mlp-output-weights|MLP output weights]], a [[layer-norm-linearization|linearised layer norm]], and the [[unembedding-matrix|unembedding matrix]] — the [[path-expansion-logit-attribution|path expansion]] $d_i W_{down} \\pi L W_{unembed}$.\n\nHere the whole vector for the [[dna-feature|DNA feature]] A/1/2937 is drawn as a smoothed histogram: one point per vocabulary token, with [[anomalous-token-exclusion|never-used tokens dropped]].\n\n### How to read it\n\nThe horizontal axis is the logit weight, from $-0.6$ to $0.6$. The vertical axis, Density, is tokens per unit of logit weight, so an area under the curve is a token count. The curve peaks near $0.37$M, so a slice $0.01$ wide there covers roughly $3{,}700$ tokens.\n\nThe zero point is arbitrary. Softmax is shift-invariant, so the paper [[logit-weight-median-centering|slides each feature's weights until the median is zero]].\n\nColour carries separate evidence. Each token is tinted by the [[dna-proxy|DNA proxy]] — the [[log-likelihood-ratio-proxy|log-likelihood ratio]] $\\log(P(s|\\text{DNA})/P(s))$ — blue at $-5$ for non-DNA, red at $+5$ for DNA.\n\nThe inset magnifies roughly $0.2$ to $0.6$. The strip under the axis shows, at each position, the blue/red split of the tokens sitting there.\n\n### What it shows\n\nA single tall mode sits at $0.0$: almost every token barely moves. The label \"Interference Weights?\" is the paper's suggestion, question mark included, that this bulk is [[weight-interference|unwanted cross-talk]] forced by [[superposition]] rather than intended behaviour.\n\nFar out in the tail is a [[logit-weight-second-mode|second, tiny mode]] near $0.46$, too small to see at the main scale.\n\nThe inset names who sits where. At about $0.26$ the tokens are ordinary text — ' TT', 'ARIES', 'clonal', 'ICAL', 'AGS', 'IAL', ' shooter', 'AX', `'↵\\n '`, 'AK'. At about $0.35$ they are mixed: 'CU', 'TAC', ')~', ' GAG', \"'-\", ' ADVISED'.\n\nAt the bump every token is nucleotides: 'ATCC', 'GGC', 'AGCC', 'GAT', 'GCT', 'TTTT', 'GTT', 'ATC', 'ATT', 'AG', 'AAT', 'CCT', 'GAG', 'GTC', 'CTC', 'ATCT', 'GT', 'ACCT', 'ACC', 'CCCC', 'GG', 'GCC'. Above about $0.48$ a brace collects 'CACT', 'AGC', 'GAC', 'AGG', 'AGT', 'CTT'.\n\nThe strip says the same without reading tokens: all blue below $0.30$, mixed between $0.31$ and $0.41$, solid red from about $0.42$ on.\n\nThe output side matches the input side. The paper's wording — \"all the top tokens\" are nucleotide combinations — holds at the top; at the $0.35$ shoulder the listed tokens are not all DNA.\n\nNothing about logits enters the [[dictionary-learning]] objective, which sees only MLP activations. That is what makes this a [[feature-downstream-effects|downstream check]] rather than a restatement.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Logit Weights Distribution",
+   "definition": "The chart's title. It is a smoothed histogram over vocabulary tokens of the single feature's logit weight vector, not a distribution over features or over data.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "A/1/2937",
+   "definition": "The feature being plotted, in the paper's naming scheme: transformer A, dictionary learning run 1, feature index 2937. It fires on long uppercase runs of A, T, C and G, and the paper says it is the only feature devoted to the DNA context.",
+   "conceptId": "dna-feature"
+  },
+  {
+   "term": "\"Distribution of weights from feature to logit for each vocab element.\"",
+   "definition": "The subtitle, which fixes what a single data point is: one vocabulary token, and the weight running from this one feature to that token's logit.",
+   "conceptId": null
+  },
+  {
+   "term": "Logit Weight (horizontal axis)",
+   "definition": "How much this feature firing adds to (positive) or subtracts from (negative) that token's next-token logit, before softmax. It is a weight, not a probability change, and its effect scales with the feature's activation.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Density (vertical axis)",
+   "definition": "Vocabulary tokens per unit of logit weight, smoothed into a curve rather than binned into bars. Area under the curve over an x-interval is approximately the number of tokens whose logit weight falls in that interval.",
+   "conceptId": null
+  },
+  {
+   "term": "vocab element",
+   "definition": "One entry of the model's token vocabulary — the unit indexed by the logit weight vector. Extremely rare or never-used entries are excluded from the plot.",
+   "conceptId": "anomalous-token-exclusion"
+  },
+  {
+   "term": "\"Interference Weights?\"",
+   "definition": "An annotation pointing at the tall central mode. It marks the paper's hypothesis, stated with a question mark, that these near-zero weights are noise the model is forced to carry because features share directions, not behaviour it wants.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "\"Note the bump in the right tail, which corresponds to DNA tokens.\"",
+   "definition": "The instruction printed above the inset. It tells you the point of the figure is the small far-right mass, not the central peak.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "Log-Likelihood Ratio (colour legend)",
+   "definition": "The colour scale, running blue through white to red. It encodes the DNA proxy's score for a token, and it is independent of the logit weights: the x-position comes from the model's weights, the colour comes from an outside string statistic.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "DNA →",
+   "definition": "The arrow label on the colour legend, saying which direction is DNA-like. Red (high ratio) means the token looks like it came from a nucleotide string; blue (low ratio) means it does not.",
+   "conceptId": "dna-proxy"
+  },
+  {
+   "term": "$s$",
+   "definition": "The string being scored by the proxy $\\log(P(s|\\text{DNA})/P(s))$. The numerator models DNA as a uniform draw over A, T, C and G; the denominator is a unigram estimate of how likely the string is in general text.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "Inset panel",
+   "definition": "The magnified copy of the right tail, shown because the second mode is far too short to see against a peak of 0.37M. Its vertical scale is stretched enormously relative to the main plot.",
+   "conceptId": null
+  },
+  {
+   "term": "Composition strip",
+   "definition": "The thin horizontal band beneath the main plot. At each logit weight it shows the blue/red proportions of the tokens sitting there, rescaled to full height, so it reports composition rather than count.",
+   "conceptId": null
+  },
+  {
+   "term": "Central mode",
+   "definition": "The tall blue peak centred on zero, holding essentially the whole vocabulary. Its tokens are neither pushed up nor down by any appreciable amount when the feature fires.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "Right-tail bump",
+   "definition": "The small red mass out near 0.46. It is the recurring second mode the paper finds for interpretable features: the tokens whose likelihood the feature most increases.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "'ATCC', 'GGC', 'AGCC', 'GAT', 'GCT', 'TTTT', 'GTT', 'ATC', 'ATT', 'AG', 'AAT', 'CCT', 'GAG', 'GTC', 'CTC', 'ATCT', 'GT', 'ACCT', 'ACC', 'CCCC', 'GG', 'GCC'",
+   "definition": "The tokens at the bump, all two- to four-character uppercase strings over the alphabet A, T, C, G. These are the fragments a byte-pair tokenizer produces when it chews through a nucleotide sequence.",
+   "conceptId": null
+  },
+  {
+   "term": "'CACT', 'AGC', 'GAC', 'AGG', 'AGT', 'CTT'",
+   "definition": "The tokens collected by the curly brace at the extreme right, above roughly 0.48 — the very highest logit weights of all. They are again pure A/T/C/G strings, which is the paper's claim that the top tokens are nucleotide combinations.",
+   "conceptId": null
+  },
+  {
+   "term": "'CU', 'TAC', ')~', ' GAG', \"'-\", ' ADVISED'",
+   "definition": "The tokens labelled at the shoulder around 0.35, where the composition strip is still mixed. Some are DNA-compatible ('TAC', ' GAG') and some are not ('CU' contains U, a base of RNA rather than DNA; ' ADVISED' is ordinary English).",
+   "conceptId": null
+  },
+  {
+   "term": "' TT', 'ARIES', 'clonal', 'ICAL', 'AGS', 'IAL', ' shooter', 'AX', '↵\\n ', 'AK'",
+   "definition": "The tokens labelled at about 0.26, still inside the blue slope. They are ordinary uppercase-ish text fragments, not DNA, showing where the tail stops being generic and starts being nucleotides.",
+   "conceptId": null
+  },
+  {
+   "term": "'AGT' and 'GCC'",
+   "definition": "The two example tokens the paper names in its sentence introducing the figure. Both are three-base codon-length strings, and both sit at the far right of the tail.",
+   "conceptId": null
+  },
+  {
+   "term": "'TAC'",
+   "definition": "A token that is spellable in the ATCG alphabet but also occurs in ordinary text. The paper flags exactly this ambiguity elsewhere (its example is 'CAT'), and handles it by scoring the proxy on groups of at least two tokens rather than single tokens.",
+   "conceptId": "dna-proxy"
+  },
+  {
+   "term": "'TTTT' and 'CCCC'",
+   "definition": "Four-character single-base runs. Homopolymer stretches are common enough in nucleotide text that the tokenizer gave them their own tokens.",
+   "conceptId": null
+  },
+  {
+   "term": "'GG', 'GT', 'AG'",
+   "definition": "Two-character nucleotide tokens in the bump. Their presence shows the feature upweights DNA fragments at several token lengths, not just triplets.",
+   "conceptId": null
+  },
+  {
+   "term": "Leading-space tokens (' TT', ' GAG', ' shooter', ' ADVISED')",
+   "definition": "Tokens whose printed form begins with a space, a byte-pair encoding convention marking word-initial position. They are distinct vocabulary entries from their unspaced counterparts and get their own logit weights.",
+   "conceptId": null
+  },
+  {
+   "term": "'↵\\n '",
+   "definition": "The newline token, drawn with a return glyph so it is visible. It appears among the non-DNA tokens partway up the tail.",
+   "conceptId": null
+  },
+  {
+   "term": "Feature",
+   "definition": "A direction in the MLP's activation space recovered by the sparse autoencoder, which the paper treats as the interpretable unit in place of a neuron. Its logit weight vector is what this figure plots.",
+   "conceptId": "feature"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "A / 1 / 2937",
+   "meaning": "The three parts of the feature's name. 'A' is the transformer (the paper trains two identical one-layer models differing only in seed, A and B). '1' is the dictionary learning run, which fixes the dictionary size and L1 coefficient. '2937' is the index of this particular feature within that run."
+  },
+  {
+   "value": "-0.6 to 0.6",
+   "meaning": "The horizontal range of the plot, with ticks every 0.1. Logit weights are small in absolute terms because the softmax only cares about differences between logits; the whole story is in the sub-unit spread, not in large values."
+  },
+  {
+   "value": "0, 50K, 0.1M, 0.15M, 0.20M, 0.25M, 0.30M, 0.35M, 0.40M",
+   "meaning": "The vertical ticks, in tokens per unit of logit weight, evenly spaced every 50,000. The axis has to reach hundreds of thousands because the whole vocabulary is squeezed into a peak only about a tenth of a logit-weight unit wide."
+  },
+  {
+   "value": "about 0.37M, at x approximately 0.0",
+   "meaning": "The height and position of the central peak. Reading it as a density: a window 0.01 wide at the peak holds roughly 0.37M times 0.01, about 3,700 tokens. Integrating the whole curve gives a few tens of thousands, which is the vocabulary size after excluded tokens are dropped; the paper does not state that size."
+  },
+  {
+   "value": "0.2 to 0.6",
+   "meaning": "The slice of the horizontal axis the inset magnifies. It starts where the central mode has essentially died out, so the inset contains only tail."
+  },
+  {
+   "value": "about 0.26",
+   "meaning": "Where the pointer for ' TT', 'ARIES', 'clonal', 'ICAL', 'AGS', 'IAL', ' shooter', 'AX', the newline token and 'AK' lands. This is still on the descending blue slope, and the tokens there are not DNA."
+  },
+  {
+   "value": "about 0.35",
+   "meaning": "Where the pointer for 'CU', 'TAC', ')~', ' GAG', \"'-\" and ' ADVISED' lands. It sits on the shoulder where the composition strip first turns substantially red, which is why the list is a mixture."
+  },
+  {
+   "value": "about 0.46",
+   "meaning": "The centre of the second mode, the small red bump, and where the large nucleotide token list points. It is the densest point of the DNA tail."
+  },
+  {
+   "value": "about 0.48 to 0.6",
+   "meaning": "The span the curly brace covers, holding 'CACT', 'AGC', 'GAC', 'AGG', 'AGT', 'CTT'. These are the highest logit weights this feature assigns to anything, roughly 0.5 above the median."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5",
+   "meaning": "Ticks on the colour legend, the value of the DNA log-likelihood ratio. Zero means the string is equally likely under 'this is DNA' and under general text; positive favours DNA. The paper does not say whether these are nats or bits, and the sign alone is what it uses when it binarises this proxy elsewhere."
+  },
+  {
+   "value": "1/4",
+   "meaning": "Not printed here, but the number the colour depends on: the proxy models DNA as a random string in which each of A, T, C and G has probability 1/4. The denominator P(s) is a product of per-token unigram probabilities."
+  },
+  {
+   "value": "below 0.30 / 0.31 to 0.41 / from about 0.42",
+   "meaning": "The three regimes of the composition strip. Below 0.30 essentially every token there is blue, so upweighted tokens are ordinary text. Between 0.31 and 0.41 the red fraction climbs unevenly. From about 0.42 to the right edge the strip is entirely red, meaning every token the feature upweights that strongly scores as DNA."
+  },
+  {
+   "value": "22 and 6",
+   "meaning": "The sizes of the two nucleotide token lists — 22 tokens named at the bump and 6 at the extreme tail. Together they are the concrete content behind the caption's claim that all the top tokens are nucleotide combinations."
+  },
+  {
+   "value": "2 to 4",
+   "meaning": "The character length of the nucleotide tokens shown, from 'AG' and 'GG' up to 'ATCC' and 'ACCT'. The tokenizer was not built for DNA, so a nucleotide sequence gets cut into short, irregular pieces rather than clean codons."
+  },
+  {
+   "value": "0.8",
+   "meaning": "Not in this figure, but the number it is being read against: the Pearson correlation between the binarised DNA proxy and this feature's activations, reported one subsection earlier. That number is about when the feature fires; this figure is about what it then does."
+  }
+ ]
+}

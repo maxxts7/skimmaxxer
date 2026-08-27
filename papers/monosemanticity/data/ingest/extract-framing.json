@@ -1,0 +1,2372 @@
+{
+ "key": "framing",
+ "concepts": [
+  {
+   "id": "mechanistic-interpretability",
+   "name": "Mechanistic interpretability",
+   "tier": "major",
+   "parent": null,
+   "summary": "The program of understanding a neural network by breaking it into components that are easier to understand than the whole, then reasoning about how those components interact.",
+   "explanation": "The paper opens by stating this agenda: identify the right components, understand what each does, understand how they combine, and from that reason about the network's behavior. The first step is picking the components, and the paper's argument is that the obvious choice — the neuron — is the wrong one. Decomposition is treated as a means, not the end: once you have components you still have to trace circuits and build a larger-scale picture. The paper is explicit that decomposing a model is 'just the beginning of the work'.",
+   "prerequisites": [],
+   "sectionIds": [
+    "front",
+    "2.2",
+    "5",
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "circuit",
+   "name": "Circuit",
+   "tier": "minor",
+   "parent": "mechanistic-interpretability",
+   "summary": "A subgraph of a network's computation — a set of components connected by weights — that implements some identifiable behavior.",
+   "explanation": "In this line of work a circuit is a group of features or neurons wired together through the model's weights so that one component's output feeds another's input, jointly implementing a behavior. The paper's stated goal for feature decomposition is to enable 'basic circuit analysis'. It matters later that the 'finite state automata' assemblies it finds are explicitly *not* circuits in this sense: those features connect through the sampled token stream rather than through weights within a forward pass.",
+   "prerequisites": [
+    "mechanistic-interpretability"
+   ],
+   "sectionIds": [
+    "front",
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "curse-of-dimensionality-in-interpretability",
+   "name": "Curse of dimensionality in interpretability",
+   "tier": "minor",
+   "parent": "mechanistic-interpretability",
+   "summary": "As models grow, the volume of internal-state space that has to be interpreted grows exponentially, so the space cannot be searched or enumerated unless it decomposes into independent pieces.",
+   "explanation": "The paper gives this as the key obstacle to reverse-engineering larger models. Its point is not that there are more numbers to look at but that the latent space's volume grows exponentially in its dimension, so no exhaustive inspection is possible. The only route the authors see is decomposition into independent components each of which can be understood on its own — which is what motivates looking for features.",
+   "prerequisites": [
+    "mechanistic-interpretability"
+   ],
+   "sectionIds": [
+    "2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "mlp-activations-as-decomposition-target",
+   "name": "Why the MLP layer is the target",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A one-layer attention-only transformer can be analyzed by rewriting it without reference to hidden states; adding a ReLU MLP makes that impossible, so the MLP activations are the state you cannot avoid decomposing.",
+   "explanation": "In A Mathematical Framework for Transformer Circuits the authors analyzed a one-layer attention-only network by rewriting it in terms of weight products, sidestepping hidden activations entirely. That trick fails as soon as a ReLU MLP is present, because the nonlinearity cannot be folded away. The paper therefore calls a one-layer transformer with an MLP 'the simplest language model we profoundly don't understand' and takes its 512-dimensional MLP activations as the thing to decompose into features.",
+   "prerequisites": [
+    "mechanistic-interpretability",
+    "one-layer-transformer"
+   ],
+   "sectionIds": [
+    "2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "nelhage2021mathematical",
+    "refText": "Elhage, Nelson et al. (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+    "whyNeeded": "The claim that an attention-only one-layer model can be understood without decomposing hidden states rests entirely on the rewriting done in that paper."
+   }
+  },
+  {
+   "id": "one-layer-transformer",
+   "name": "The one-layer transformer studied",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The subject model: one attention block and one ReLU MLP block with 512 neurons, trained autoregressively on 100 billion tokens of the Pile.",
+   "explanation": "Everything in the paper is a decomposition of this model's MLP activations. Because there is only one MLP and it is the last one before the unembedding, each feature's output can be read directly as an effect on next-token logits. A second transformer with identical architecture and data but different random seeds is trained as a comparison model for the universality analysis.",
+   "prerequisites": [],
+   "sectionIds": [
+    "2",
+    "5.1",
+    "5.3.1"
+   ],
+   "floor": true,
+   "citedFrom": null
+  },
+  {
+   "id": "the-pile",
+   "name": "The Pile",
+   "tier": "minor",
+   "parent": null,
+   "summary": "An 800GB public dataset of diverse text used to train the transformers in this paper.",
+   "explanation": "The transformers are trained on 100 billion tokens from the Pile. Its composition shows up in the features: the paper notes a heavy presence of scientific citations (at least 1 in 10,000 tokens is a PLoS journal abbreviation), of IRC transcripts about Linux, and of open source license headers. Inspecting features turns out to reveal properties of the training corpus.",
+   "prerequisites": [],
+   "sectionIds": [
+    "2",
+    "5.3.1",
+    "5.4"
+   ],
+   "floor": true,
+   "citedFrom": {
+    "citationKey": "gao2020pile",
+    "refText": "Leo Gao et al. (2020). The Pile: An 800GB Dataset of Diverse Text for Language Modeling.",
+    "whyNeeded": "The dataset's composition is what the features are features *of*; reproducing the results requires the same corpus."
+   }
+  },
+  {
+   "id": "polysemanticity",
+   "name": "Polysemanticity",
+   "tier": "major",
+   "parent": null,
+   "summary": "A single neuron responding to a mixture of seemingly unrelated inputs, which makes it a poor unit for human understanding of the network.",
+   "explanation": "The paper's opening problem: the most natural computational unit, the neuron, is often not a natural unit of meaning. It cites a neuron in Inception v1 that fires on both cat faces and car fronts, and reports a neuron in its own small language model that fires on a mixture of academic citations, English dialogue, HTTP requests, and Korean text. If neurons respond to unrelated things, statements about network behavior phrased in terms of individual neuron activity do not compose into an explanation. Superposition is one hypothesized cause, but the paper later argues it is not the only one.",
+   "prerequisites": [],
+   "sectionIds": [
+    "front",
+    "2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "monosemanticity",
+   "name": "Monosemanticity",
+   "tier": "major",
+   "parent": "polysemanticity",
+   "summary": "The property of a unit responding to one coherent thing, so that a single interpretation covers when it fires and what it does.",
+   "explanation": "The paper's title names this as a direction rather than an achieved state — 'towards' monosemanticity. A monosemantic unit has an activation condition you can state and a downstream effect consistent with that condition. The claim made is comparative and hedged: the learned features are 'relatively monosemantic' and offer 'a more monosemantic unit of analysis than the model's neurons themselves'. The authors do not claim their interpretations capture every aspect of a feature's behavior.",
+   "prerequisites": [
+    "polysemanticity"
+   ],
+   "sectionIds": [
+    "front",
+    "1",
+    "2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "polysemanticity-and-capacity",
+   "name": "Polysemanticity and capacity",
+   "tier": "minor",
+   "parent": "polysemanticity",
+   "summary": "A mathematical framework, from prior work, for when a network prefers monosemantic versus polysemantic representations.",
+   "explanation": "Cited in Related Work as one of the developments since Toy Models. Its relevance here is the result the paper borrows in Section 2.3: under mean squared error loss and certain feature importance curves, models may actively prefer the monosemantic solution. That is the contrast case against which the paper argues that cross-entropy-trained language models will not.",
+   "prerequisites": [
+    "polysemanticity"
+   ],
+   "sectionIds": [
+    "2.3",
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "scherlis2022polysemanticity",
+    "refText": "Scherlis, Adam and Sachan, Kshitij and Jermyn, Adam S and Benton, Joe and Shlegeris, Buck. Polysemanticity and capacity in neural networks. arXiv:2210.01892",
+    "whyNeeded": "The claim that some loss functions prefer monosemantic solutions is imported wholesale; the conditions under which it holds live in that paper."
+   }
+  },
+  {
+   "id": "superposition",
+   "name": "Superposition",
+   "tier": "major",
+   "parent": null,
+   "summary": "A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.",
+   "explanation": "If each feature is a vector over the neurons, then under superposition the set of feature vectors forms an overcomplete basis for the activation space: more directions than dimensions. The directions cannot all be orthogonal, so features interfere with each other, and the scheme only works when few features are active at once. The paper treats superposition as the likely cause of the polysemanticity it observes, and as the reason to look for more features than neurons. It also stresses that superposition buys the model something: more features means more useful nonlinear work from the same 512 neurons.",
+   "prerequisites": [
+    "polysemanticity",
+    "feature"
+   ],
+   "sectionIds": [
+    "front",
+    "2",
+    "2.1.1",
+    "6.1",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "superposition-hypothesis",
+   "name": "Superposition hypothesis",
+   "tier": "major",
+   "parent": "superposition",
+   "summary": "The claim that neural networks 'want to represent more features than they have neurons', and do so by approximately simulating a larger, sparser network.",
+   "explanation": "Stated formally, the hypothesis has two parts that the paper leans on. First, the feature directions form an overcomplete basis — more directions $\\mathbf{d}_i$ than neurons. Second, the feature activations are sparse, because sparsity is what makes the noisy simulation work. Together these make recovering the features mathematically identical to the classic problem of dictionary learning, which is the paper's whole method. By the end the authors say the experiments left them more confident that some version of the hypothesis is true, while also convinced that the specific form they inherited from Toy Models is incomplete.",
+   "prerequisites": [
+    "superposition",
+    "feature-sparsity",
+    "overcomplete-basis"
+   ],
+   "sectionIds": [
+    "2.1.1",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "noisy-simulation",
+   "name": "Noisy simulation of a larger network",
+   "tier": "minor",
+   "parent": "superposition-hypothesis",
+   "summary": "The mechanism proposed for superposition: a small network exploits feature sparsity and the geometry of high-dimensional spaces to approximately simulate a much larger, much sparser network.",
+   "explanation": "The simulated network has one neuron per feature and is almost never more than a few neurons active. The small network packs those features into fewer dimensions along non-orthogonal directions; the resulting cross-talk is the 'noise' in noisy simulation. High-dimensional geometry helps because many directions can be nearly orthogonal at once, and sparsity helps because few features are simultaneously active to interfere. The paper draws the analogy to compressed sensing: sparsity is what lets you disambiguate which combination of features produced a given activation vector.",
+   "prerequisites": [
+    "superposition-hypothesis",
+    "feature-sparsity"
+   ],
+   "sectionIds": [
+    "front",
+    "2.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-sparsity",
+   "name": "Feature sparsity",
+   "tier": "minor",
+   "parent": "superposition",
+   "summary": "The property that only a small number of the model's features are active on any given datapoint.",
+   "explanation": "Sparsity is the precondition for superposition: if many features were active at once their interference would swamp the signal. In Toy Models the authors showed that superposition arises naturally during training when the useful features are sparse in the training data. Sparsity is also what the sparse autoencoder's L1 penalty is trying to reimpose on the learned decomposition. The paper is careful about the direction of the argument — sparsity in the data is what permits the representation, and sparsity in the objective is what lets you recover it.",
+   "prerequisites": [
+    "superposition"
+   ],
+   "sectionIds": [
+    "front",
+    "2.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "interference",
+   "name": "Interference",
+   "tier": "minor",
+   "parent": "superposition",
+   "summary": "The cross-talk that arises because feature directions in superposition cannot all be orthogonal: activating one feature slightly activates others.",
+   "explanation": "With more directions than dimensions, any two feature directions have nonzero dot product, so reading off one feature picks up a contribution from every other active feature. In Toy Models this pressure makes features 'repel' from each other, producing roughly evenly spaced directions. In this paper interference shows up empirically as 'interference weights': the broad, near-isotropic cloud of small logit effects a feature has on tokens it has nothing to do with. The authors count the existence of that cloud as evidence for superposition.",
+   "prerequisites": [
+    "superposition"
+   ],
+   "sectionIds": [
+    "7.1",
+    "5.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "overcomplete-basis",
+   "name": "Overcomplete basis",
+   "tier": "minor",
+   "parent": "superposition",
+   "summary": "A set of directions spanning an activation space that contains more directions than the space has dimensions.",
+   "explanation": "Superposition predicts the feature decomposition should be overcomplete: more feature directions $\\mathbf{d}_i$ than neurons. The paper's dictionaries range from 1× (512 features, not overcomplete) up to 256× (131,072 features). Overcompleteness means the decomposition is not unique in general — which is why sparsity has to be imposed to pick out a particular one. The 1× run A/0 is deliberately not overcomplete and is used for the simplest 'finite state automata' examples.",
+   "prerequisites": [
+    "superposition"
+   ],
+   "sectionIds": [
+    "front",
+    "2",
+    "2.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "undercomplete-basis",
+   "name": "Undercomplete basis",
+   "tier": "minor",
+   "parent": "overcomplete-basis",
+   "summary": "A feature set smaller than the dimension of the space being decomposed — what earlier dictionary learning work on transformers recovered.",
+   "explanation": "Yun et al. applied dictionary learning to the residual stream of a 12-layer transformer and found an undercomplete basis of features. The paper flags this as the contrast with its own approach: if superposition is real, the interesting features are precisely the ones an undercomplete dictionary cannot hold, so expanding past the layer width is the point.",
+   "prerequisites": [
+    "overcomplete-basis",
+    "dictionary-learning"
+   ],
+   "sectionIds": [
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "yun2021transformer",
+    "refText": "Yun, Zeyu and Chen, Yubei and Olshausen, Bruno A and LeCun, Yann. Transformer visualization via dictionary learning: contextualized embedding as a linear superposition of transformer factors. arXiv:2103.15949",
+    "whyNeeded": "The prior state of the art for dictionary learning on transformer activations, and the setting this paper's expansion factors are defined against."
+   }
+  },
+  {
+   "id": "three-approaches-to-superposition",
+   "name": "Three approaches to superposition",
+   "tier": "minor",
+   "parent": "superposition",
+   "summary": "The strategies laid out in Toy Models: build models without superposition, use dictionary learning on models that have it, or combine the two.",
+   "explanation": "The authors report having tried all three since publishing Toy Models. They came to believe the architectural route (approach 1) is insufficient to prevent polysemanticity, for reasons given in Section 2.3, and that standard dictionary learning methods (approach 2) had significant trouble with overfitting. The sparse autoencoder is presented as a deliberately weak form of approach 2 chosen to avoid that overfitting.",
+   "prerequisites": [
+    "superposition",
+    "dictionary-learning"
+   ],
+   "sectionIds": [
+    "front",
+    "2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "toy-models-of-superposition",
+   "name": "Toy Models of Superposition",
+   "tier": "major",
+   "parent": "superposition",
+   "summary": "The authors' earlier paper, which showed superposition arising in small synthetic models and supplied the theoretical picture this paper works from and revises.",
+   "explanation": "Toy Models established that superposition arises naturally in training when features are sparse, catalogued geometric arrangements of feature directions, and proposed the three approaches to resolving superposition. This paper inherits its vocabulary and its predictions, then reports two places where it fell short: it treated features as discrete one-dimensional objects spread evenly apart, and although it studied features correlated in *whether* they fire, it had nothing analogous to features that share downstream actions. The authors conclude the toy picture is 'missing an important dimension of the problem'.",
+   "prerequisites": [
+    "superposition"
+   ],
+   "sectionIds": [
+    "front",
+    "2.3",
+    "5.2",
+    "6",
+    "6.1",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "elhage2022superposition",
+    "refText": "Elhage, Nelson et al. (2022). Toy Models of Superposition. Transformer Circuits Thread",
+    "whyNeeded": "The superposition hypothesis, the noisy-simulation picture, the isotropic geometry, and the three approaches are all defined there and assumed here without re-derivation."
+   }
+  },
+  {
+   "id": "memorization-in-superposition",
+   "name": "Memorization in superposition",
+   "tier": "minor",
+   "parent": "superposition",
+   "summary": "A prior finding that when a toy model is trained on repeated small datasets it memorizes datapoints in superposition rather than learning generalizing features.",
+   "explanation": "The paper invokes this to explain features that appear to memorize specific phrases, such as the sequence of features covering 'MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE' — legal boilerplate that appears in open source license headers and so was seen many times in training. On that theory these features should be relatively binary and fire only in a very specific situation, which is what the authors report seeing. They add the caveat that mechanisms buried this deep in superposition are likely very noisy.",
+   "prerequisites": [
+    "superposition"
+   ],
+   "sectionIds": [
+    "5.4",
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "henighan2023superposition",
+    "refText": "Henighan, Tom et al. (2023). Superposition, Memorization, and Double Descent. Transformer Circuits Thread",
+    "whyNeeded": "The mechanistic theory of memorization being applied to the observed phrase features is developed there, including the memorization/generalization boundary."
+   }
+  },
+  {
+   "id": "attentional-superposition",
+   "name": "Attentional superposition",
+   "tier": "minor",
+   "parent": "superposition",
+   "summary": "The open question of whether attention layers also use superposition, and whether similar methods would extract features from them.",
+   "explanation": "Listed as future work. The authors note that many of the motivations for expecting superposition in MLP layers apply to self-attention layers too, so similar methods might extract useful structure there — but they say no clear example has yet been established. If attention layers do use superposition and resist these methods, that becomes a bottleneck for the wider agenda.",
+   "prerequisites": [
+    "superposition"
+   ],
+   "sectionIds": [
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature",
+   "name": "Feature",
+   "tier": "major",
+   "parent": null,
+   "summary": "A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.",
+   "explanation": "The paper's working definition is deliberately operational: if linear directions in activation space are interpretable, there should be some 'basic set' of meaningful directions from which more complex ones are built, and those are features. Sometimes individual neurons happen to be such units; often they are not. The paper takes an agnostic stance on whether models are 'in some fundamental sense composed of features' or whether features are a convenient post-hoc description, though it says its universality results suggest features have some existence beyond individual models. Every feature in this paper has both an activation condition (when it fires) and a downstream action (what it makes the model predict).",
+   "prerequisites": [],
+   "sectionIds": [
+    "front",
+    "2.1",
+    "2.1.1",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "linear-representation-hypothesis",
+   "name": "Linear representation hypothesis",
+   "tier": "major",
+   "parent": "feature",
+   "summary": "The claim that networks represent meaningful properties as directions in activation space, so that interpretable concepts are linear functions of activations.",
+   "explanation": "The paper assembles the empirical case rather than proving it: vector arithmetic in word embeddings, interpretable individual neurons in RNNs, CNNs and GANs (which are just basis directions), and interpretable directions in other latent spaces. It notes the contrary literature too. If the hypothesis holds, decomposing a layer means finding the right set of directions, which is what makes linear matrix factorization the right tool. The authors say their results left them more confident that some version of this hypothesis, alongside superposition, is true.",
+   "prerequisites": [
+    "feature"
+   ],
+   "sectionIds": [
+    "2.1",
+    "6.1",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "word-vector-arithmetic",
+   "name": "Vector arithmetic in word embeddings",
+   "tier": "minor",
+   "parent": "linear-representation-hypothesis",
+   "summary": "The classic observation that relationships between words correspond to consistent offsets between their embedding vectors.",
+   "explanation": "Cited as early evidence that latent spaces have interpretable linear directions. The paper cites it with an explicit caveat — 'but see' a later paper questioning the interpretation — which is characteristic of how it treats this evidence base: suggestive rather than settled.",
+   "prerequisites": [
+    "linear-representation-hypothesis"
+   ],
+   "sectionIds": [
+    "2.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "mikolov2013linguistic",
+    "refText": "Mikolov, Tomáš and Yih, Wen-tau and Zweig, Geoffrey (2013). Linguistic regularities in continuous space word representations. NAACL-HLT",
+    "whyNeeded": "The original demonstration of linear structure in embeddings, one of the pillars of the linear representation hypothesis."
+   }
+  },
+  {
+   "id": "othello-linear-representation-debate",
+   "name": "The linear-representation exchange",
+   "tier": "minor",
+   "parent": "linear-representation-hypothesis",
+   "summary": "An exchange in which one paper found an apparent counterexample to features-as-directions and a second resolved it by finding an alternative, linear interpretation.",
+   "explanation": "Li et al. reported a sequence model whose learned world representation did not appear to be encoded in linear directions, which the paper describes as putting the hypothesis in jeopardy. Nanda et al. then found an alternative framing of the same representation under which the features *were* directions. The authors highlight the exchange as an update on whether the general picture of features as directions is correct, and treat it as strengthening rather than weakening the hypothesis.",
+   "prerequisites": [
+    "linear-representation-hypothesis"
+   ],
+   "sectionIds": [
+    "2.1",
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "nanda2023emergent",
+    "refText": "Nanda, Neel and Lee, Andrew and Wattenberg, Martin. Emergent Linear Representations in World Models of Self-Supervised Sequence Models. arXiv:2309.00941",
+    "whyNeeded": "The resolution of the apparent counterexample is what the paper's confidence in features-as-directions partly rests on; the re-interpretation's details matter."
+   }
+  },
+  {
+   "id": "linear-feature-decomposition",
+   "name": "Features as a linear decomposition",
+   "tier": "major",
+   "parent": "feature",
+   "summary": "Writing each activation vector as a bias plus a sparse weighted sum of unit-vector feature directions — an ordinary linear matrix factorization of the kind used in dictionary learning.",
+   "explanation": "For datapoint $j$, the MLP activation $\\mathbf{x}^j$ of length $d_{\\rm MLP}$ is written as $\\mathbf{b} + \\sum_i f_i(\\mathbf{x}^j)\\,\\mathbf{d}_i$, where $f_i$ is the activation of feature $i$ and each $\\mathbf{d}_i$ is a unit vector called the direction of feature $i$. The paper stresses this decomposition is not new — it is a linear matrix factorization. What is specific here is that the number of $\\mathbf{d}_i$ exceeds $d_{\\rm MLP}$ and the $f_i$ are required to be sparse. The authors note the same decomposition could be applied to other latent state, such as the residual stream or attention keys, queries and outputs.",
+   "prerequisites": [
+    "feature",
+    "linear-representation-hypothesis"
+   ],
+   "sectionIds": [
+    "2.1",
+    "2.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-direction",
+   "name": "Feature direction",
+   "tier": "minor",
+   "parent": "linear-feature-decomposition",
+   "summary": "The unit vector $\\mathbf{d}_i$ in activation space along which feature $i$ writes when it fires; in the autoencoder these are the columns of the decoder weight matrix.",
+   "explanation": "The direction says how the feature is written into the layer's activations, as opposed to the activation $f_i$ which says how strongly. Because directions are unit vectors, all magnitude information lives in $f_i$. Geometric relationships between directions carry meaning in this paper: conceptually similar features turn out to have small angles between their dictionary vectors, which is the basis of the UMAP clustering and of the feature splitting story.",
+   "prerequisites": [
+    "linear-feature-decomposition"
+   ],
+   "sectionIds": [
+    "2.1",
+    "5.2",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-activation",
+   "name": "Feature activation",
+   "tier": "minor",
+   "parent": "linear-feature-decomposition",
+   "summary": "The scalar $f_i(\\mathbf{x})$ giving how strongly feature $i$ fires on a datapoint; in the autoencoder it is the ReLU hidden-layer value.",
+   "explanation": "Feature activations are non-negative because of the encoder's ReLU, and are meant to be sparse — most are zero on any given token. The paper reads activation magnitude as something like intensity or confidence, and says this correspondence is one of the observations it counts as evidence for superposition. Activations are also the raw material for several of the paper's comparison measures: the vector of a feature's activations across a fixed set of datapoints serves as a model-independent handle on the feature.",
+   "prerequisites": [
+    "linear-feature-decomposition"
+   ],
+   "sectionIds": [
+    "2.1",
+    "5.3.1",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "privileged-basis",
+   "name": "Privileged basis",
+   "tier": "major",
+   "parent": "feature",
+   "summary": "A basis that the architecture singles out — here the neuron basis, made special by the elementwise activation function — so that features have some tendency to align with it even though they need not.",
+   "explanation": "An elementwise nonlinearity like ReLU acts coordinate by coordinate, which breaks rotational symmetry and gives the neuron directions a status that arbitrary directions in the residual stream lack. This is why some neurons are interpretable at all, and why aligning features to the neuron basis (as SoLU tries to do) is even conceivable. In the external replication reported in Section 8, decoder weights turn out to be highly distributed over neurons — only about 4% well explained by a single neuron and 92% dense — yet kurtosis still shows the neuron basis is privileged. So the basis is special without the features living in it.",
+   "prerequisites": [
+    "feature"
+   ],
+   "sectionIds": [
+    "8",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "kurtosis-privileged-basis-test",
+   "name": "Kurtosis as a privileged-basis test",
+   "tier": "minor",
+   "parent": "privileged-basis",
+   "summary": "Using the heavy-tailedness of weights in the neuron basis as evidence that the basis is singled out, even when individual features spread across many neurons.",
+   "explanation": "Reported in the external replication. If feature directions were oriented at random, their coordinates in the neuron basis would look Gaussian; excess kurtosis indicates the coordinates concentrate more than chance on particular neurons. The replicator found decoder weights highly distributed — most features not explained by any small set of neurons — and still found kurtosis indicating a privileged basis, which he describes as surprising.",
+   "prerequisites": [
+    "privileged-basis"
+   ],
+   "sectionIds": [
+    "8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "features-invisible-in-the-neuron-basis",
+   "name": "Features invisible in the neuron basis",
+   "tier": "minor",
+   "parent": "feature",
+   "summary": "Learned features with no counterpart among the neurons — not showing up in the top dataset examples of any neuron.",
+   "explanation": "One of the paper's headline results. It gives a feature firing on Hebrew script that is not active in any of the top dataset examples for any of the 512 neurons. This is stronger than saying the neurons are polysemantic: the concept is not visible at all through neuron-level inspection, so no amount of studying neurons would surface it. It is the clearest argument that the feature basis is doing work the neuron basis cannot.",
+   "prerequisites": [
+    "feature",
+    "top-dataset-examples"
+   ],
+   "sectionIds": [
+    "1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dictionary-learning",
+   "name": "Dictionary learning",
+   "tier": "major",
+   "parent": null,
+   "summary": "The classic problem of finding a set of basis vectors (a dictionary) such that each datapoint is a sparse weighted combination of them.",
+   "explanation": "Section 2.1.1 makes the connection exact: given the superposition hypothesis, recovering features is mathematically identical to dictionary learning, with the feature directions as dictionary elements and the feature activations as sparse coefficients. The dictionary is allowed to be overcomplete, which is what makes sparsity necessary to pin down a solution. The paper reports that standard dictionary learning methods had significant problems with overfitting, which is why it uses a deliberately weak method instead.",
+   "prerequisites": [
+    "superposition-hypothesis",
+    "linear-feature-decomposition"
+   ],
+   "sectionIds": [
+    "front",
+    "2.1",
+    "2.1.1",
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "sparse-coding",
+   "name": "Sparse coding",
+   "tier": "minor",
+   "parent": "dictionary-learning",
+   "summary": "The family of methods that represent data as sparse combinations of dictionary elements — the tradition this work sits in.",
+   "explanation": "Related Work traces a line from sparse coding applied to word embeddings through to transformer activations. Faruqui et al. and Arora et al. found linear structure in word embeddings using sparse coding; later work used sparse autoencoders, dictionary learning proper, and Latent Dirichlet Allocation for similar ends. The paper positions itself as continuing this tradition rather than inventing it.",
+   "prerequisites": [
+    "dictionary-learning"
+   ],
+   "sectionIds": [
+    "6",
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "weak-dictionary-learning",
+   "name": "A deliberately weak dictionary learning algorithm",
+   "tier": "minor",
+   "parent": "dictionary-learning",
+   "summary": "The design choice to use a simple, underpowered method — a single-hidden-layer sparse autoencoder — rather than a stronger dictionary learning algorithm.",
+   "explanation": "The paper describes the sparse autoencoder as 'a weak dictionary learning algorithm' and says this is on purpose: the authors found that standard dictionary learning methods had significant issues with overfitting. A weaker method has less capacity to invent structure that is not in the activations. The tradeoff is that a weak method presumably recovers less of whatever structure is there, which is one reading of the ongoing feature splitting observed as dictionary size grows.",
+   "prerequisites": [
+    "dictionary-learning",
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "front"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "sparse-autoencoder",
+   "name": "Sparse autoencoder",
+   "tier": "major",
+   "parent": "dictionary-learning",
+   "summary": "The model used to do dictionary learning here: one ReLU layer up to a wide hidden layer of feature activations, one linear layer back down, trained on L2 reconstruction plus an L1 penalty on the hidden activations.",
+   "explanation": "It is trained not on text but on the transformer's MLP activations — 8 billion sampled activation vectors. The hidden layer is wider than the input, ranging from 512 (1×) to 131,072 (256×) units for a 512-dimensional input, so the learned dictionary is overcomplete. The hidden units are the features: their values are the $f_i$ and the decoder columns are the directions $\\mathbf{d}_i$. Because the autoencoder is trained with MSE reconstruction rather than cross-entropy, the sparsity penalty can actually inhibit superposition inside the dictionary itself.",
+   "prerequisites": [
+    "dictionary-learning",
+    "linear-feature-decomposition"
+   ],
+   "sectionIds": [
+    "front",
+    "2",
+    "2.1",
+    "2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "sae-encoder",
+   "name": "Encoder and pre-encoder bias",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The map from activations to feature activations: $f_i(x) = \\mathrm{ReLU}(W_e(\\mathbf{x} - \\mathbf{b}_d) + \\mathbf{b}_e)_i$.",
+   "explanation": "Two biases appear. The pre-encoder bias $\\mathbf{b}_d$ is subtracted from the input before the encoder weights are applied — it is the same bias that is added back on the decoder side, so it plays the role of $\\mathbf{b}$ in the decomposition. The encoder bias $\\mathbf{b}_e$ shifts the pre-ReLU values and so sets each feature's firing threshold. The ReLU is what makes activations non-negative and lets most of them be exactly zero.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "2.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "sae-decoder",
+   "name": "Decoder as the dictionary",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The linear down-projection whose weight matrix columns are the feature directions.",
+   "explanation": "Reconstruction is $\\mathbf{b}_d + W_d f(\\mathbf{x})$, so column $i$ of $W_d$ is exactly the direction feature $i$ writes along. This is what makes the decoder, not the encoder, the object to inspect geometrically — the UMAP maps and the cosine-similarity clustering are computed on decoder columns. The external replication in Section 8 argues encoder and decoder should not be tied, because they are solving different problems.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "feature-direction"
+   ],
+   "sectionIds": [
+    "2.1",
+    "5.2",
+    "8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "l1-sparsity-penalty",
+   "name": "L1 penalty on feature activations",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "The training term that pushes most feature activations to zero, turning a plain autoencoder into a dictionary learner.",
+   "explanation": "The loss is L2 reconstruction error plus an L1 penalty on the hidden layer activations. Without the penalty, an overcomplete autoencoder could reconstruct perfectly using dense, meaningless codes; the penalty is what selects a sparse decomposition, matching the sparsity that superposition predicts. Because the reconstruction objective is MSE rather than cross-entropy, this sparsity pressure can genuinely inhibit superposition forming inside the dictionary — otherwise one would have superposition 'all the way down'. In Discussion the authors raise the opposite worry: an L1 penalty may push too far toward sparsity and so favor local codes over compositional ones.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "feature-sparsity"
+   ],
+   "sectionIds": [
+    "2",
+    "2.3",
+    "7.2",
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "expansion-factor",
+   "name": "Expansion factor",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The ratio of learned features to input dimensions — 1× is 512 features, 256× is 131,072.",
+   "explanation": "The paper trains autoencoders across this whole range on a 512-neuron MLP, and focuses detailed analysis on an 8× run with 4,096 features. Expansion factor is the knob that produces feature splitting: as it grows, coarse features refine into families of more specific ones. It is also the parameter whose scaling behavior is most uncertain for larger models — the authors ask whether the ideal expansion factor stays constant as the subject model grows, and note that a 100× autoencoder on a width-10,000 MLP would have about 20 billion parameters.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "overcomplete-basis"
+   ],
+   "sectionIds": [
+    "front",
+    "2",
+    "5.2",
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dictionary-run-labels",
+   "name": "Run and feature naming (A/1/2357)",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The paper's notation: a letter for the transformer, a number for the dictionary size, and a third number for the feature index.",
+   "explanation": "A and B are two transformers with identical architecture and data but different random seeds. The second component indexes dictionary size, with A/0 the 1× run (512 features), A/1 the 8× run (4,096 features), A/2 16,384, and A/3 and A/4 larger still. A third number identifies a feature, so A/1/2357 is feature 2357 of the 8× dictionary on model A. Most detailed analysis is on A/1; the simplest 'finite state automata' examples come from A/0 precisely because it has not yet split.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "front",
+    "5.2",
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "prior-dictionary-learning-on-embeddings",
+   "name": "Earlier dictionary learning on embeddings",
+   "tier": "minor",
+   "parent": "dictionary-learning",
+   "summary": "A body of pre-transformer work applying sparse coding, sparse autoencoders, dictionary learning and topic-model methods to word embeddings.",
+   "explanation": "Related Work lists Faruqui et al. and Arora et al. finding linear structure in word embeddings via sparse coding, Subramanian et al. finding linear factors with a sparse autoencoder, Zhang et al. using dictionary learning methods, and Panigrahi et al. approaching the same problem with Latent Dirichlet Allocation. The paper cites these to place its own method in a tradition rather than to import specific results.",
+   "prerequisites": [
+    "dictionary-learning"
+   ],
+   "sectionIds": [
+    "front",
+    "6.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "cunningham-et-al-parallel-work",
+   "name": "Parallel sparse autoencoder investigation",
+   "tier": "minor",
+   "parent": "dictionary-learning",
+   "summary": "An independent line of interim reports and a manuscript investigating the same sparse autoencoder approach, prompted by Toy Models.",
+   "explanation": "The paper credits Sharkey et al. for focusing on dictionary learning and specifically the sparse autoencoder while the authors were exploring it as only one of several approaches. That work was partly replicated by Cunningham & Smith and by Huben; Smith then found features in one MLP layer of a six-layer model and later in its residual stream; Cunningham applied automated interpretability to those features and found them substantially more interpretable than neurons. The line culminates in the Cunningham et al. manuscript, which the authors cite as evidence the approach can work on somewhat larger models.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "front",
+    "6.3",
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "cunningham2023sparse",
+    "refText": "Cunningham, Hoagy and Ewart, Aidan and Smith, Logan and Huben, Robert and Sharkey, Lee. Sparse Autoencoders Find Highly Interpretable Model Directions. arXiv:2309.08600",
+    "whyNeeded": "The main external evidence cited for the approach scaling beyond one-layer models; the models, metrics and scale used there matter to that claim."
+   }
+  },
+  {
+   "id": "mean-max-cosine-similarity",
+   "name": "Mean max cosine similarity (MMCS)",
+   "tier": "minor",
+   "parent": "dictionary-learning",
+   "summary": "A measure from prior work for comparing two learned dictionaries by how well each element of one is matched by some element of the other.",
+   "explanation": "For each dictionary vector in one run, take the largest cosine similarity with any vector in the other run, then average. High values mean the two runs found essentially the same directions. The paper mentions MMCS only in Future Work, listing it alongside activation similarity and attribution similarity as the metrics currently available for assessing consistency and universality across feature sets — and asking for better ones.",
+   "prerequisites": [
+    "dictionary-learning",
+    "universality"
+   ],
+   "sectionIds": [
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "sharkey2022interim",
+    "refText": "Lee Sharkey and Dan Braun and Beren Millidge (2022). [Interim research report] Taking features out of superposition with sparse autoencoders.",
+    "whyNeeded": "MMCS is defined and used there; this paper names it without giving the definition."
+   }
+  },
+  {
+   "id": "scaling-sparse-autoencoders",
+   "name": "Scaling sparse autoencoders",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "The open engineering problem of applying this method to frontier models, which the authors call one of the most important questions going forward.",
+   "explanation": "Two costs dominate. Parameters: a 100× autoencoder on a single MLP layer of width 10,000 would have roughly 20 billion parameters. Data: many features are rare, so the autoencoder may need to be trained on a substantial fraction of the subject model's training corpus — potentially making the autoencoder more expensive than the model it explains. The authors are hopeful, pointing to Cunningham et al. and unreported preliminary results of their own, and note the silver lining that a large part of the interpretability agenda then becomes an engineering and scaling problem that frontier labs are equipped for.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "expansion-factor"
+   ],
+   "sectionIds": [
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "scaling-laws-for-dictionary-learning",
+   "name": "Scaling laws for dictionary learning",
+   "tier": "minor",
+   "parent": "scaling-sparse-autoencoders",
+   "summary": "The wanted-but-missing relationships between subject model size and the autoencoder width and data needed to decompose it.",
+   "explanation": "The authors state enormous uncertainty here and pose the questions directly: as the subject model gets bigger, does the ideal expansion factor stay constant? How does the amount of data required change? They say the answers determine whether the approach can reach frontier models at all, and that they would ideally have scaling laws of the kind established for language model training.",
+   "prerequisites": [
+    "scaling-sparse-autoencoders"
+   ],
+   "sectionIds": [
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "kaplan2020scaling",
+    "refText": "Kaplan, Jared et al. Scaling laws for neural language models. arXiv:2001.08361",
+    "whyNeeded": "The template for the kind of empirical law being asked for; what such laws look like and what they predict is assumed known."
+   }
+  },
+  {
+   "id": "algorithmic-improvements-for-sparse-autoencoders",
+   "name": "Algorithmic alternatives to the plain L1 autoencoder",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "Candidate refinements listed as future work: variational autoencoders, sparsity priors beyond L1, and noise injection.",
+   "explanation": "The authors suggest sparse-coding variational autoencoders, and regularization schemes that promote sparsity in ways an L1 penalty on activations cannot — for example encouraging sparsity in the interactions between features in different layers rather than in the activations themselves. They also note prior findings that injecting noise increases neuron interpretability by a route separate from an L1 penalty. None of these is tried in the paper.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "l1-sparsity-penalty"
+   ],
+   "sectionIds": [
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "noise-injection-for-interpretability",
+   "name": "Noise injection",
+   "tier": "minor",
+   "parent": "algorithmic-improvements-for-sparse-autoencoders",
+   "summary": "Adding noise during training as a separate route to sparse, interpretable representations.",
+   "explanation": "Cited as earlier evidence that noise injection can increase neuron interpretability independently of an explicit sparsity penalty. The paper raises it as an untried alternative or complement to the L1 term.",
+   "prerequisites": [
+    "algorithmic-improvements-for-sparse-autoencoders"
+   ],
+   "sectionIds": [
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "bricken2023emergence",
+    "refText": "Bricken, Trenton and Schaeffer, Rylan and Olshausen, Bruno and Kreiman, Gabriel. Emergence of Sparse Representations from Noise.",
+    "whyNeeded": "The mechanism by which noise produces sparse representations is not described here at all."
+   }
+  },
+  {
+   "id": "tied-encoder-decoder-weights",
+   "name": "Tying encoder and decoder weights",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The design question of whether the encoder should be the transpose of the decoder; the replication in Section 8 argues no.",
+   "explanation": "The replicator reports that per-feature encoder and decoder weights are only moderately aligned, with median cosine similarity around 0.5 — empirical evidence they are doing different things. The conceptual argument given alongside it: the decoder tries to represent the feature, approximating the true direction regardless of interference, while the encoder tries to *detect* it, choosing the projection that best separates it from other similar features. Those are different optimization problems, so the weights should be allowed to differ.",
+   "prerequisites": [
+    "sae-encoder",
+    "sae-decoder",
+    "interference"
+   ],
+   "sectionIds": [
+    "8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "ultralow-density-features",
+   "name": "Ultra-low density features",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "A cluster of learned features that fire on fewer than about one in ten thousand tokens and appear not to be meaningful features of the model.",
+   "explanation": "The paper omits these from the masked cosine similarity analysis of feature splitting. The external replication in Section 8 characterizes them further: more than half of that replicator's features fell into this cluster; they are almost all the same feature in terms of encoder weights though not decoder weights; on one input 95% of them fired at once. The same direction reappears across random seeds, which suggests it reflects something about the model rather than an autoencoder artifact, but the replicator says he failed to interpret what it is, and that training an autoencoder orthogonal to the direction just produced a new ultra-low frequency cluster in a new direction.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "5.2.1",
+    "8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dead-features",
+   "name": "Dead features",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "Learned features that never fire on any input, wasting dictionary capacity.",
+   "explanation": "A known failure mode of training wide sparse autoencoders. The external replication in Section 8 reports finding none, in contrast to the large ultra-low frequency cluster it did find — the distinction matters because a dead feature contributes nothing while an ultra-rare one contributes something the replicator could not interpret.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "external-replication",
+   "name": "External replication and commentary",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "Invited outside researchers commented on the work before publication; one trained his own sparse autoencoder on a different open source one-layer model and reports the core results replicate.",
+   "explanation": "The practice follows the original Circuits Thread and Distill's discussion-article experiment. The replication used the MLP layer of an open source one-layer GELU language model, and found a significant fraction of latent features interpretable, with case studies including a title case feature and an 'and I' feature. Two trained autoencoders, a tutorial, and a rough training codebase were open sourced alongside. The commentary also contributes the findings on decoder density, kurtosis, ultra-low frequency clusters, and weight tying.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "good-decomposition-desiderata",
+   "name": "What makes a good decomposition",
+   "tier": "major",
+   "parent": null,
+   "summary": "Three criteria a feature decomposition must meet to be useful: interpretable activation conditions, interpretable and consistent downstream effects, and explaining a significant portion of the layer's function.",
+   "explanation": "The paper sets these out before presenting any results, so that the later evaluations have something to be evaluations of. All three must hold together: a feature whose firing pattern makes sense but whose downstream effect contradicts that interpretation has not been understood, and a set of features that are individually clean but collectively explain little of the layer has not decomposed it. Meeting all three would license a list of concrete uses — attributing behavior on specific examples, monitoring for a feature, steering the model by changing feature values, and designing inputs to elicit particular outputs.",
+   "prerequisites": [
+    "feature",
+    "linear-feature-decomposition"
+   ],
+   "sectionIds": [
+    "2.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "interpretable-activation-conditions",
+   "name": "Interpretable activation conditions",
+   "tier": "minor",
+   "parent": "good-decomposition-desiderata",
+   "summary": "The first criterion: you can describe which datapoints make a feature fire, and that description holds up on diverse data including off-distribution or synthetic tests.",
+   "explanation": "The requirement is stated as having a description of the $j$ for which $f_i(\\mathbf{x}^j)$ is large that makes sense on a diverse dataset. The clause about synthetic and off-distribution examples matters: an interpretation fitted to the top activating examples is weak evidence, while one that predicts behavior on deliberately constructed tests is stronger. The paper points to the Causality, Generality and Purity desiderata from earlier circuits work as one way of making this concrete.",
+   "prerequisites": [
+    "good-decomposition-desiderata"
+   ],
+   "sectionIds": [
+    "2.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "causality-generality-purity",
+   "name": "Causality, generality, purity",
+   "tier": "minor",
+   "parent": "interpretable-activation-conditions",
+   "summary": "An earlier trio of desiderata for claiming a component detects something, cited as a worked example of how to make interpretable activation conditions concrete.",
+   "explanation": "Introduced in the curve detectors work on vision models. The paper does not restate the definitions, citing them as an instance of how the abstract requirement can be operationalized for a specific claim. The connection matters because the paper's own detailed feature investigations follow a similar shape: propose an interpretation, then test it causally and on data the interpretation was not fitted to.",
+   "prerequisites": [
+    "interpretable-activation-conditions"
+   ],
+   "sectionIds": [
+    "2.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "cammarata2020curve",
+    "refText": "Cammarata, Nick and Goh, Gabriel and Carter, Shan and Schubert, Ludwig and Petrov, Michael and Olah, Chris (2020). Curve Detectors. Distill",
+    "whyNeeded": "The three desiderata are named but not defined here; their content is needed to know what standard the paper is gesturing at."
+   }
+  },
+  {
+   "id": "interpretable-downstream-effects",
+   "name": "Interpretable downstream effects",
+   "tier": "minor",
+   "parent": "good-decomposition-desiderata",
+   "summary": "The second criterion: you can interpret what changing a feature's value does to subsequent layers, and that effect is consistent with the interpretation of when it fires.",
+   "explanation": "Consistency between the two halves is the load-bearing part. In this one-layer model the downstream effect is directly readable as an effect on output logits, which is why logit weights appear so often in the paper's analyses. The universality section then finds that the two halves can come apart: two features from different models can agree closely on when they fire while their logit weight vectors correlate poorly or even negatively.",
+   "prerequisites": [
+    "good-decomposition-desiderata",
+    "logit-weights"
+   ],
+   "sectionIds": [
+    "2.2",
+    "5.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "explaining-the-mlp-layer",
+   "name": "Explaining a large fraction of the layer",
+   "tier": "minor",
+   "parent": "good-decomposition-desiderata",
+   "summary": "The third criterion: the features must account for a significant portion of the MLP layer's functionality, measured by loss rather than by reconstruction alone.",
+   "explanation": "This is the criterion that rules out cherry-picking. A handful of clean features is not a decomposition of the layer if the rest of what the layer does is unaccounted for. The paper specifies the measure as loss — how much of the model's predictive performance survives when the layer is replaced by its feature reconstruction — rather than mere reconstruction error, and defers the actual measurement to the Global Analysis section.",
+   "prerequisites": [
+    "good-decomposition-desiderata"
+   ],
+   "sectionIds": [
+    "2.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "uses-of-a-feature-decomposition",
+   "name": "What a good decomposition would let you do",
+   "tier": "minor",
+   "parent": "good-decomposition-desiderata",
+   "summary": "The concrete affordances the paper claims follow from meeting the three criteria: attribution, monitoring, steering, and input design.",
+   "explanation": "The list given is: determine a feature's contribution to the layer output and the next layer's activations on a specific example; monitor the network for a specific feature firing, which the paper connects to speculation about safety-relevant features; change behavior predictably by changing feature values, which in multilayer models would mean influencing a later layer from an earlier one; demonstrate that the network has learned a property of the data; demonstrate that it is using that property on a specific example; and design inputs meant to activate a feature and elicit a certain output.",
+   "prerequisites": [
+    "good-decomposition-desiderata"
+   ],
+   "sectionIds": [
+    "2.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "recognizing-good-features",
+   "name": "How can we recognize good features?",
+   "tier": "minor",
+   "parent": "good-decomposition-desiderata",
+   "summary": "The authors' admission that they have no systematic way to tell whether a dictionary learning run has extracted high-quality features.",
+   "explanation": "They describe themselves as 'wandering in the dark' on this. Automated interpretability is named as the strongest current contender for a systematic answer. A purely abstract, information-theoretic definition of feature quality is floated as an alternative, but the authors say they have not seen compelling signs of life for it on real data. They also ask for better metrics than MMCS, activation similarity and attribution similarity for comparing feature sets across runs.",
+   "prerequisites": [
+    "good-decomposition-desiderata"
+   ],
+   "sectionIds": [
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "automated-interpretability",
+   "name": "Automated interpretability",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Using a language model to propose and score explanations of what a unit responds to, applied here at scale to features and to neurons alike.",
+   "explanation": "Two of the paper's four lines of evidence for monosemanticity are automated: an interpretability analysis of activations for all features, and one of logit weights for all features. Running the same procedure on neurons and on features is what makes the comparison quantitative rather than anecdotal. The authors also name it as a candidate solution to two open problems — recognizing good features, and scaling analysis — while noting that delegating the understanding of AI to AI may not be fully satisfying.",
+   "prerequisites": [
+    "monosemanticity"
+   ],
+   "sectionIds": [
+    "1",
+    "6.3",
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "bills2023language",
+    "refText": "Bills, Steven et al. (2023). Language models can explain neurons in language models.",
+    "whyNeeded": "The explanation-generation and scoring procedure, and what its scores mean, are defined there and used as a headline metric here."
+   }
+  },
+  {
+   "id": "top-dataset-examples",
+   "name": "Top activating dataset examples",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The standard inspection method: collect the datapoints on which a unit fires most strongly and read off what they have in common.",
+   "explanation": "Used throughout, and published for all features of 90 learned dictionaries in the accompanying visualizations. The method carries a known weakness the paper works around: an interpretation fitted to the strongest examples may not describe the feature's typical or weak behavior, which is why the paper also uses interval sampling, causal tests, and off-distribution probes elsewhere. It is also how the paper establishes that some features are invisible in the neuron basis — the Hebrew feature has no counterpart in any neuron's top examples. In Section 5.2.2 it is the tool that reveals A/1/1544 fires on base64 that decodes to ASCII.",
+   "prerequisites": [
+    "feature-activation"
+   ],
+   "sectionIds": [
+    "front",
+    "1",
+    "5.2.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-ablation",
+   "name": "Feature ablation",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Zeroing a feature and measuring the change in the model's predictions, as a direct measure of what it does.",
+   "explanation": "The paper describes ablation effects as the thing one would ideally measure to compare features across models: a vector of ablation effects for every feature on every datapoint, where two features whose ablations hurt predictions on the same tokens must have been doing the same job. It rejects this route as computationally too expensive and substitutes the cheaper attribution vector instead. Large-scale ablation tooling is credited in the contributions statement, so ablation is used elsewhere in the paper.",
+   "prerequisites": [
+    "feature-activation"
+   ],
+   "sectionIds": [
+    "5.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "pinned-feature-sampling",
+   "name": "Pinned feature sampling",
+   "tier": "minor",
+   "parent": null,
+   "summary": "Clamping a feature's activation to a chosen value during generation, so the model produces text in the mode that feature represents.",
+   "explanation": "Presented in the summary as evidence that features are causal rather than merely correlational: activating the base64 feature makes the model generate base64 text, and activating the Arabic script feature makes it produce Arabic. This is the steering affordance the desiderata anticipated. The mechanics are given in the Global Analysis section rather than here.",
+   "prerequisites": [
+    "feature-activation"
+   ],
+   "sectionIds": [
+    "1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "logit-weights",
+   "name": "Logit weights",
+   "tier": "major",
+   "parent": null,
+   "summary": "The vector, one entry per vocabulary token, giving how much a feature's firing pushes up or down each next-token logit.",
+   "explanation": "Because the model has a single MLP and it is the last layer before the unembedding, a feature's direction can be pushed straight through to the output, giving a fixed effect on every token's logit scaled by the feature's activation. This makes the downstream effect of a feature readable without running anything. The paper uses logit weights to interpret features as actions, to compare features across models, and to distinguish split features — the base64 digit feature and letter feature predict nearly the same tokens except that the digit feature downweights digits. Most entries in a logit weight vector are small and appear to be interference rather than signal.",
+   "prerequisites": [
+    "feature-direction"
+   ],
+   "sectionIds": [
+    "5.1",
+    "5.2.1",
+    "5.2.2",
+    "5.3.1",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "interference-weights",
+   "name": "Interference weights",
+   "tier": "minor",
+   "parent": "logit-weights",
+   "summary": "The broad cloud of small, apparently meaningless logit effects a feature has on tokens unrelated to it.",
+   "explanation": "When the paper plots a feature's logit weights, a few tokens stand out and the rest form a near-isotropic spread around zero. It reads that spread as the residue of superposition — the price of packing features into non-orthogonal directions. Two consequences follow. First, the existence of interference weights is itself counted as evidence for superposition. Second, the model may simply not care about these effects, since the tokens involved were already implausible for other reasons — suppressed by the direct path, the attention layer, or other MLP features. That is why logit weight correlations between models can be low even when the features are doing the same job.",
+   "prerequisites": [
+    "logit-weights",
+    "interference"
+   ],
+   "sectionIds": [
+    "5.3.1",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "direct-path",
+   "name": "Direct path",
+   "tier": "minor",
+   "parent": "logit-weights",
+   "summary": "The route from token embedding straight to the unembedding, bypassing attention and the MLP.",
+   "explanation": "Named in Section 5.3.1 as one of the things that may already have suppressed a token's logit before the MLP features contribute anything. It matters for reading logit weights: a feature's large negative weight on an already-impossible token has no effect on behavior, so logit weights overstate the practical significance of parts of the vocabulary. This is the reasoning that motivates the attribution vector.",
+   "prerequisites": [
+    "logit-weights"
+   ],
+   "sectionIds": [
+    "5.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "architectural-approaches-to-superposition",
+   "name": "Architectural approaches, and why they were abandoned",
+   "tier": "major",
+   "parent": null,
+   "summary": "The attempt to build models that simply do not have superposition, which the authors conclude is not merely costly but fundamentally non-viable for language models.",
+   "explanation": "This was the approach the authors initially found cleanest: even if monosemantic models came with a large loss penalty, they would be useful research objects. After substantial investigation they concluded otherwise. Their experiments inducing activation sparsity during training — up to and including 1-hot activations — did eliminate superposition, but did not produce cleanly interpretable neurons. The reason is that polysemanticity can be preferred by a cross-entropy-trained model even with no superposition available, which is a separate failure from the one superposition causes.",
+   "prerequisites": [
+    "superposition",
+    "polysemanticity"
+   ],
+   "sectionIds": [
+    "2.3",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-sparsity-training",
+   "name": "Inducing activation sparsity during training",
+   "tier": "minor",
+   "parent": "architectural-approaches-to-superposition",
+   "summary": "Training the subject model itself to have few active neurons, in the hope that each neuron would then carry one feature.",
+   "explanation": "The authors pushed this to the limit, including models with 1-hot activations where exactly one neuron fires at a time. This does eliminate superposition by construction — with one active neuron there is no linear combination to hide features in. But interpretable neurons did not follow. The argument they give generalizes: even in the 1-hot limit you can consider the single firing neuron and the cases where it fires, and it can still be advantageous for that neuron to be polysemantic.",
+   "prerequisites": [
+    "architectural-approaches-to-superposition"
+   ],
+   "sectionIds": [
+    "2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "polysemanticity-without-superposition",
+   "name": "Polysemanticity without superposition",
+   "tier": "major",
+   "parent": "architectural-approaches-to-superposition",
+   "summary": "The finding that individual neurons can be polysemantic even when superposition has been ruled out, because ambiguous representations can achieve lower loss than unambiguous ones.",
+   "explanation": "This is the result that closes off the architectural route. In many cases a model achieves lower loss by representing several features ambiguously in one neuron than by representing a single feature cleanly and ignoring the rest. Ignoring features is costly; representing them badly is cheaper than not representing them at all. The authors conclude that models trained on cross-entropy loss will generally prefer to represent more features polysemantically than fewer 'true features' monosemantically, even where sparsity constraints make superposition impossible.",
+   "prerequisites": [
+    "architectural-approaches-to-superposition",
+    "polysemanticity"
+   ],
+   "sectionIds": [
+    "2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "cross-entropy-favors-polysemanticity",
+   "name": "The four-feature loss calculation",
+   "tier": "minor",
+   "parent": "polysemanticity-without-superposition",
+   "summary": "A toy calculation showing a single binary neuron gets lower cross-entropy loss by firing on two features ambiguously than on one feature cleanly.",
+   "explanation": "Setup: one neuron, four mutually exclusive features A/B/C/D, each predicting its own next token, and the neuron either fires or does not. If it fires only on A and predicts A correctly, it must predict uniformly over B/C/D the rest of the time, giving loss $\\frac{3}{4}\\ln 3 \\approx 0.8$. If instead it fires on both A and B and predicts uniformly over A and B, while predicting uniformly over C and D when silent, the loss is $\\ln 2 \\approx 0.7$. The polysemantic option wins. The authors note this looks like a story about one neuron but argue it is the general situation at the sparsity limit.",
+   "prerequisites": [
+    "polysemanticity-without-superposition"
+   ],
+   "sectionIds": [
+    "2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "mse-loss-and-monosemanticity",
+   "name": "Why MSE models differ from language models",
+   "tier": "minor",
+   "parent": "architectural-approaches-to-superposition",
+   "summary": "Under mean squared error, polysemantic and monosemantic representations can reach the same loss, and for some feature importance curves the monosemantic solution is preferred — but language models are not trained with MSE.",
+   "explanation": "This is the scope limit on the paper's negative result. Prior work on toy models found equal-loss minima under MSE, some strongly polysemantic and some strongly monosemantic, suggesting training interventions could steer toward the monosemantic ones; other work found MSE models can actively prefer monosemanticity for certain feature importance curves. The paper accepts these results and points out they do not transfer, because language models are trained on cross-entropy. The corollary is favorable: the sparse autoencoder *is* trained with MSE, so its own sparsity penalty can inhibit superposition inside the dictionary.",
+   "prerequisites": [
+    "architectural-approaches-to-superposition"
+   ],
+   "sectionIds": [
+    "2.3",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "engineering-monosemanticity",
+   "name": "Engineering monosemanticity in toy models",
+   "tier": "minor",
+   "parent": "architectural-approaches-to-superposition",
+   "summary": "Prior work finding multiple equal-loss minima in MLPs trained on a compressed sensing task, some polysemantic and some monosemantic.",
+   "explanation": "Cited twice. It suggested that training interventions could steer models toward the more monosemantic minimum, which was one reason to hope for the architectural approach. The paper reports that subsequent investigation on more realistic tasks suggested the equal-loss property was specific to the chosen task, which is part of why the hope did not survive.",
+   "prerequisites": [
+    "architectural-approaches-to-superposition"
+   ],
+   "sectionIds": [
+    "2.3",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "jermyn2022engineering",
+    "refText": "Jermyn, Adam S and Schiefer, Nicholas and Hubinger, Evan. Engineering monosemanticity in toy models. arXiv:2211.09169",
+    "whyNeeded": "The equal-loss-minima result and the task it depends on are the substance of the argument being cited and rebutted."
+   }
+  },
+  {
+   "id": "superposition-all-the-way-down",
+   "name": "Superposition all the way down",
+   "tier": "minor",
+   "parent": "architectural-approaches-to-superposition",
+   "summary": "The worry that the learned dictionary might itself use superposition, which the paper argues its MSE-plus-sparsity objective avoids.",
+   "explanation": "If the decomposition tool suffered the same problem as the thing being decomposed, the features would be no better a unit of analysis than the neurons. The paper's argument that this does not happen rests on the loss function: dictionary learning is trained with MSE reconstruction rather than cross-entropy, and under MSE the sparsity pressure can inhibit superposition forming rather than encouraging it. This is stated as a reason for confidence, not demonstrated.",
+   "prerequisites": [
+    "architectural-approaches-to-superposition",
+    "l1-sparsity-penalty"
+   ],
+   "sectionIds": [
+    "2.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "solu",
+   "name": "SoLU activation",
+   "tier": "minor",
+   "parent": "architectural-approaches-to-superposition",
+   "summary": "An activation function proposed in earlier work to make more transformer neurons interpretable by encouraging features to align with the neuron basis.",
+   "explanation": "SoLU is the authors' own earlier architectural attempt, and Section 6.2 gives its verdict: it appears to make some neurons more interpretable at the cost of making others even less interpretable than before. That pattern — a disentangling intervention causing the remaining features to entangle more strongly — is presented as characteristic of the difference between disentanglement and superposition. SoLU also matters positively in Section 5.3.2: base64, hexadecimal, and all-caps neurons found in SoLU models reappear as features here, which is the paper's strongest evidence for universality across architectures.",
+   "prerequisites": [
+    "architectural-approaches-to-superposition",
+    "privileged-basis"
+   ],
+   "sectionIds": [
+    "5.1",
+    "5.3.2",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "elhage2022solu",
+    "refText": "Elhage, Nelson et al. (2022). Softmax Linear Units. Transformer Circuits Thread",
+    "whyNeeded": "The activation function, the interpretability gains and losses it produces, and the specific neurons (base64, hex, all-caps, context and token-in-context neurons) that this paper matches its features against are all defined there."
+   }
+  },
+  {
+   "id": "disentanglement",
+   "name": "Disentanglement",
+   "tier": "major",
+   "parent": null,
+   "summary": "A related literature seeking representations whose dimensions separate conceptually distinct factors influencing the data — typically as many factors as dimensions, not more.",
+   "explanation": "The contrast with superposition is dimensional. Disentanglement seeks a number of factors equal to the dimensionality of the representation; superposition holds that models want more features than dimensions and will pay to have them. Disentanglement work is usually posed as an architecture or training-time problem: encouraging independence across the dimensions of a variational autoencoder, maximizing mutual information between a subset of latent factors and the data in a GAN, or using a TopK activation to force sparsity. The paper places its own architectural attempts, including SoLU, inside this framing.",
+   "prerequisites": [
+    "superposition"
+   ],
+   "sectionIds": [
+    "front",
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "factors-of-variation",
+   "name": "Factors of variation",
+   "tier": "minor",
+   "parent": "disentanglement",
+   "summary": "The conceptually distinct influences on the data that a disentangled representation is supposed to separate into independent dimensions.",
+   "explanation": "The target object of disentanglement, analogous to features here but constrained in number to the dimensionality of the latent space. The difference in framing is what the paper's Section 6.2 argument turns on: if the model genuinely wants more factors than dimensions, insisting that dimensions be independent forces it to throw features away.",
+   "prerequisites": [
+    "disentanglement"
+   ],
+   "sectionIds": [
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "topk-activation",
+   "name": "TopK activation",
+   "tier": "minor",
+   "parent": "disentanglement",
+   "summary": "Keeping only the k largest hidden activations and zeroing the rest, as a hard way to enforce sparsity.",
+   "explanation": "Cited as an early disentanglement-by-sparsity method — a k-sparse autoencoder. It is the direct alternative to the L1 penalty this paper uses: TopK fixes the number of active units exactly, while an L1 penalty makes sparsity a soft, tunable pressure whose level varies per datapoint.",
+   "prerequisites": [
+    "disentanglement",
+    "l1-sparsity-penalty"
+   ],
+   "sectionIds": [
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "frey2014topk",
+    "refText": "Alireza Makhzani and Brendan J. Frey (2013). k-Sparse Autoencoders. CoRR",
+    "whyNeeded": "The mechanism and training details of a k-sparse autoencoder are the natural comparison point for this paper's L1 approach and are not described here."
+   }
+  },
+  {
+   "id": "disentanglement-vs-superposition",
+   "name": "Why disentangling can make things worse",
+   "tier": "minor",
+   "parent": "disentanglement",
+   "summary": "The paper's claim that pushing a model to disentangle its dimensions typically hurts performance, and that models respond by entangling some features more strongly.",
+   "explanation": "The reasoning: success at disentanglement would require the model to throw away many features, since it has more features than dimensions. So the pressure gets absorbed elsewhere. The paper cites two cases where this was observed in different contexts — concept bottleneck models, and its own SoLU work where some neurons became more interpretable while others became less. This is offered as the key distinction between the two problems, not just a difference of emphasis.",
+   "prerequisites": [
+    "disentanglement",
+    "superposition"
+   ],
+   "sectionIds": [
+    "6.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "phenomenology",
+   "name": "Phenomenology",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The paper's name for using the feature decomposition to reason about properties of the model, by analogy to phenomenology in physics.",
+   "explanation": "The framing marks a shift in the paper: having argued the features are real and interpretable, it turns to what they teach about neural networks. The authors say the features vary enormously and no concise summary captures their breadth, so instead of cataloguing them they focus on abstract properties and recurring patterns. They are explicit about the limits — these properties can inform but not answer questions like 'are these the real features?' and 'what is actually going on in a one-layer model?'",
+   "prerequisites": [
+    "feature"
+   ],
+   "sectionIds": [
+    "5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-motifs",
+   "name": "Feature motifs",
+   "tier": "major",
+   "parent": null,
+   "summary": "The recurring kinds of features the paper finds: context features, token-in-context features, trigram features, sequence-memorizing features, and features readable as actions.",
+   "explanation": "Rather than catalogue individual features, the paper names the categories that keep appearing. It offers a theoretical reason for the prevalence of the first two: attention heads can largely implement three-point functions with two inputs and an output, while MLP layers are well positioned to implement conjunctions over many tokens — of which context and token-in-context features are the extreme cases. The volume of token-in-context features in particular is described as striking and as not what the authors expected to find in a one-layer model.",
+   "prerequisites": [
+    "feature",
+    "phenomenology"
+   ],
+   "sectionIds": [
+    "5.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "context-features",
+   "name": "Context features",
+   "tier": "major",
+   "parent": "feature-motifs",
+   "summary": "Features that fire across a whole region of text of a certain kind — DNA sequences, base64 strings, a particular language — rather than on one token type.",
+   "explanation": "These respond to what kind of text the model is in, and act by raising the probability of continuations of that kind. Examples used throughout the paper include base64, Arabic script, hexadecimal, and all-caps. Similar units have been reported before as neurons in SoLU models and via sparse probing. In dictionaries with few features, context features appear pure; as the dictionary grows they tend to split into token-in-context features.",
+   "prerequisites": [
+    "feature-motifs"
+   ],
+   "sectionIds": [
+    "5.1",
+    "5.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "token-in-context-features",
+   "name": "Token-in-context features",
+   "tier": "major",
+   "parent": "feature-motifs",
+   "summary": "Features that fire on one specific token but only in a particular kind of context — 'the' in mathematics, '<' in HTML.",
+   "explanation": "The paper reports these in volume: in the A/4 dictionary there are over a hundred features responding primarily to the token 'the' in different contexts, and the same happens for 'a', 'of', and for punctuation. Some cases are intuitive — 'die' as a German definite article is genuinely a different thing from English 'die' — but hundreds of features for 'the' were not expected. The authors suggest such features might be understandable as a two-dimensional family parameterized by a token and a context, which would simplify analysis. Whether they are real features of the model or an artifact of the dictionary learning is taken up separately in Discussion.",
+   "prerequisites": [
+    "feature-motifs",
+    "context-features"
+   ],
+   "sectionIds": [
+    "5.1",
+    "5.2",
+    "7.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "reif2019visualizing",
+    "refText": "Coenen, Andy and Reif, Emily and Yuan, Ann and Kim, Been and Pearce, Adam and Viégas, Fernanda and Wattenberg, Martin. Visualizing and measuring the geometry of BERT. NeurIPS",
+    "whyNeeded": "Cited as a precedent for token-sense-in-context structure in representations and as the source of the German/English 'die' example the paper borrows."
+   }
+  },
+  {
+   "id": "trigram-features",
+   "name": "Trigram features",
+   "tier": "minor",
+   "parent": "feature-motifs",
+   "summary": "Features that implement short fixed continuations, such as predicting '19' after 'COVID-'.",
+   "explanation": "The paper notes these could in principle be implemented by attention alone, since they involve only a couple of tokens, but in practice the model uses the MLP layer for them as well. Related to these are features responding to specific longer sequences of tokens, which the paper treats as an entry point to memorization-like behavior.",
+   "prerequisites": [
+    "feature-motifs"
+   ],
+   "sectionIds": [
+    "5.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "memorization-features",
+   "name": "Sequence-memorizing features",
+   "tier": "minor",
+   "parent": "feature-motifs",
+   "summary": "Features that respond to a specific long phrase and appear to reproduce it, visible only in large dictionaries.",
+   "explanation": "The clearest case is a chain of features covering the legal boilerplate 'MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE', which appears in open source license headers and so was seen many times in training. Such features appear relatively binary and fire only in a very narrow situation. The authors find it surprising that something this specific fits in a model with 512 neurons, and read it as an illustration of how much superposition can pack in — with the caveat that mechanisms buried this deep are likely very noisy.",
+   "prerequisites": [
+    "feature-motifs",
+    "memorization-in-superposition"
+   ],
+   "sectionIds": [
+    "5.1",
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "action-features",
+   "name": "Features as actions",
+   "tier": "major",
+   "parent": "feature-motifs",
+   "summary": "The dual reading of every feature in a one-layer model: it both responds to something and acts to raise the probability of something.",
+   "explanation": "A base64 feature can be understood as activating in response to base64 strings and equally as acting to make base64 strings more likely. The action view resolves puzzles in the input view. The feature A/0/341, described as 'the in mathematical text', actually predicts noun phrases in mathematical writing — upweighting nouns like 'denominator' and adjectives like 'latter' — which explains why it also fires on words like 'special' and 'this' that are likewise followed by noun phrases. The paper notes one-layer models are particularly suited to this reading because their only MLP is the last one, so its output feeds the unembedding directly.",
+   "prerequisites": [
+    "feature-motifs",
+    "logit-weights"
+   ],
+   "sectionIds": [
+    "5.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-splitting",
+   "name": "Feature splitting",
+   "tier": "major",
+   "parent": null,
+   "summary": "The observation that as the autoencoder is made wider, single features divide into families of more specific features covering roughly the same territory.",
+   "explanation": "Going from 512 features in A/0 to 4,096 in A/1 to 16,384 in A/2, the number of features specific to base64 goes from one to three to many more. A 2-D UMAP of the combined feature directions from all three runs shows tight clusters, confirming that the qualitative families correspond to small angles between dictionary vectors. The paper's proposed explanation is that there is some idealized set of 'true features' held in very tight superposition, and a size-limited dictionary returns features that cover approximately the same territory at the cost of being less specific. If that picture is right, choosing the 'correct number of features' matters less than it seems: different sizes give different resolutions on the same object.",
+   "prerequisites": [
+    "feature",
+    "expansion-factor",
+    "feature-direction"
+   ],
+   "sectionIds": [
+    "1",
+    "5",
+    "5.2",
+    "5.2.1",
+    "5.2.2",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "true-features",
+   "name": "True features",
+   "tier": "major",
+   "parent": "feature-splitting",
+   "summary": "The conjectured idealized set of features dictionary learning would return given unlimited dictionary size.",
+   "explanation": "The paper is explicit that this is a conjecture. On this picture, true features are often clustered into sets of similar features which the model puts in very tight superposition, and a finite dictionary is forced to approximate a cluster with fewer, blunter features. The conjecture does real work: it explains why more features are always found, why coarse dictionaries produce odd-looking features, and why similar features have similar directions. In Discussion the authors qualify it — under some expanded theories of superposition, such as feature manifolds, a true number of features may not be well defined at all.",
+   "prerequisites": [
+    "feature-splitting",
+    "superposition"
+   ],
+   "sectionIds": [
+    "5.2",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dictionary-resolution",
+   "name": "Dictionaries as resolutions",
+   "tier": "minor",
+   "parent": "feature-splitting",
+   "summary": "The idea that different autoencoder sizes are different zoom levels on the same underlying structure, with small dictionaries giving useful summaries.",
+   "explanation": "The paper draws two practical consequences. Dictionary learning with fewer features provides a summary of a model's features, which could matter a lot when studying large models where the full feature set is unmanageable. And the workflow it recommends is to use coarse features to find categories of behavior and finer ones to investigate the subtleties within a category — the pattern it followed for base64. The failure mode is graceful: getting the number wrong yields a coarser or finer view rather than a wrong one.",
+   "prerequisites": [
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "1",
+    "5.2",
+    "5.2.2",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "masked-cosine-similarity",
+   "name": "Masked cosine similarity",
+   "tier": "major",
+   "parent": "feature-splitting",
+   "summary": "A measure the paper defines for linking a feature in one dictionary to its relatives in another, computed only over tokens where at least one of the two fires.",
+   "explanation": "For a pair of features, compute the cosine similarity between their activation vectors restricted to the tokens on which the first one fires; repeat restricted to the tokens on which the second fires; take the larger of the two. Masking matters because both features are zero on almost every token, and including all those shared zeros would make every pair look similar. The paper draws an edge in its splitting graphs when the measure exceeds about 0.4, a threshold chosen to keep the graph small enough to visualize while still showing the structure. Ultra-low density features are omitted from the analysis.",
+   "prerequisites": [
+    "feature-splitting",
+    "feature-activation"
+   ],
+   "sectionIds": [
+    "5.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "splitting-is-not-a-tree",
+   "name": "Splitting is not a tree",
+   "tier": "minor",
+   "parent": "feature-splitting",
+   "summary": "Features at one dictionary size can both split and merge to form the features at the next, so the refinement structure is a general graph rather than a hierarchy.",
+   "explanation": "Shown with three coarse features covering tokens in different technical settings in the 512-feature run. In finer runs they resolve into more specific concepts in technical writing, and separately distinguish the articles 'the' and 'a', which are followed by slightly different sets of noun phrases. The general trend holds — larger dictionaries give more specific features — but the correspondence between levels is many-to-many. Splitting also changes predictions, not just activations: the generic 'the in mathematical prose' feature predicts 'the denominator' and 'the theorem', while its machine-learning descendant predicts 'the dataset' and 'the classifier', and an abstract-algebra descendant predicts 'the quotient' and 'the subgroup'.",
+   "prerequisites": [
+    "feature-splitting",
+    "masked-cosine-similarity"
+   ],
+   "sectionIds": [
+    "5.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "single-token-features",
+   "name": "Single-token features",
+   "tier": "minor",
+   "parent": "feature-splitting",
+   "summary": "Features in small dictionaries that fire on every instance of one token, which look like a bug because bigram statistics could do the same job without MLP capacity.",
+   "explanation": "The paper's example is a high-magnitude feature firing on the token ' P' wherever it starts a word. These are puzzling because the model could get the same effect from different bigram statistics and so has no reason to spend MLP capacity on them; similar features were also reported in prior work on the residual stream. Feature splitting is offered as the explanation: the model has not learned one 'P' feature but many features firing on P in different contexts, with different effects on neurons and logits, and a coarse dictionary cannot tell them apart. Allowing more features resolves them into what the paper calls a zoo of different P features. In this case the refined features were found by manual inspection rather than by cosine similarity.",
+   "prerequisites": [
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "5.2.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "multiple-features-for-one-context",
+   "name": "Multiple features for one context",
+   "tier": "minor",
+   "parent": "feature-splitting",
+   "summary": "The converse apparent bug: several features covering what looks like the same concept, which turn out to make finer distinctions when examined.",
+   "explanation": "In A/1 three features fire on subsets of base64 strings and predict plausible base64 tokens, where A/0 had only one. The paper takes the puzzle seriously — why three, and why does the one analyzed in detail not fire on all base64? — and resolves it by finding that the three carve up base64 in ways a person would not have thought to look for. The authors present this as a strength of the bottom-up method: many interpretability approaches are top-down and look for what is expected, whereas here the features surprised them.",
+   "prerequisites": [
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "5.2.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "base64-feature-family",
+   "name": "The three base64 features",
+   "tier": "minor",
+   "parent": "multiple-features-for-one-context",
+   "summary": "A/1/2357 fires preferentially on letters in base64, A/1/2364 on digits, and A/1/1544 on base64 that decodes to ASCII text — jointly covering the single base64 feature of A/0.",
+   "explanation": "The first two predict largely the same tokens with one difference: the digit feature has much lower logit weights for predicting digits. The third was harder to pin down; the clue was that it responds strongly to the token 'ICAgICAg', which decodes to six spaces. Checking top dataset examples confirmed that A/1/1544's examples contain substrings decoding to ASCII while the other two features' examples do not. Deciding whether a span decodes to ASCII is itself subtle, since base64 decodes in groups of four characters to triples of ASCII, so the authors select substrings that yield the maximal number of printable ASCII characters under a standard decoder.",
+   "prerequisites": [
+    "multiple-features-for-one-context",
+    "logit-weights",
+    "top-dataset-examples"
+   ],
+   "sectionIds": [
+    "5.2.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "tokenization-artifacts-in-features",
+   "name": "Tokenization artifacts in features",
+   "tier": "minor",
+   "parent": "base64-feature-family",
+   "summary": "Some feature behavior reflects the tokenizer rather than the content — the digit base64 feature suppresses digits because consecutive digits would have been merged into one token.",
+   "explanation": "If a single-digit token were followed by another digit, the tokenizer would have merged them: [Bq][8][9][mp] never occurs because it would be tokenized [Bq][89][mp]. So in a random base64 string, seeing a lone digit token is real evidence the next token is not a digit, and the feature correctly encodes that. The same effect drives the two-node automata for Unicode scripts, where characters are split into prefix and suffix tokens. The lesson the paper draws is that a feature can look strange until you account for the tokenizer.",
+   "prerequisites": [
+    "base64-feature-family"
+   ],
+   "sectionIds": [
+    "5.2.2",
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-geometry-clusters",
+   "name": "Geometric clustering of feature directions",
+   "tier": "minor",
+   "parent": "feature-splitting",
+   "summary": "Conceptually similar features have small angles between their dictionary vectors, so qualitative families show up as tight clusters in a 2-D projection.",
+   "explanation": "A UMAP over the combined feature directions from A/0, A/1 and A/2 shows clusters for base64, for Arabic script, for many other specific contexts, and a variety of other geometric structures. The paper's explanation runs through actions rather than inputs: features likely to produce similar behaviors should produce similar neuron activations, so their directions end up close. Its worked case is periods — several features firing on periods in different contexts would all predict tokens beginning with a space followed by a capital letter, and those shared predictions pull their directions together.",
+   "prerequisites": [
+    "feature-splitting",
+    "feature-direction"
+   ],
+   "sectionIds": [
+    "5.2",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "umap-feature-map",
+   "name": "UMAP feature map",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A 2-D projection of feature directions, used to make the geometry of a dictionary browsable and to show that qualitative families are geometric clusters.",
+   "explanation": "The paper coembeds all 4,096 features from A/1 and all 512 from A/0 into the plane as an interactive exploration interface, and separately runs a 2-D UMAP on the combined directions from A/0, A/1 and A/2 to study splitting. As with any nonlinear projection, closeness in the plane is suggestive rather than exact; the paper backs the visual clusters with the direct claim that similar features have small angles between their dictionary vectors.",
+   "prerequisites": [
+    "feature-direction"
+   ],
+   "sectionIds": [
+    "front",
+    "5.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "universality",
+   "name": "Universality",
+   "tier": "major",
+   "parent": null,
+   "summary": "The question of whether the same features form across different models, and the paper's finding that they largely do.",
+   "explanation": "Universality matters generally because it decides whether lessons from one model transfer, and specifically here because it bears on whether the extracted features are real. The paper's argument for the latter is careful: at minimum, universality shows the features are not arbitrary artifacts of the dictionary learning process, or that if they come from that process it is in a consistent way. It also means features can be treated as replicable, recurring units of analysis. And it is the kind of observation one would expect if models really do represent a finite discrete set of features in superposition. The paper tests two strengths of the claim: across two identically-trained models, and against features reported in the literature.",
+   "prerequisites": [
+    "feature"
+   ],
+   "sectionIds": [
+    "1",
+    "5",
+    "5.3",
+    "5.3.1",
+    "5.3.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "model-b",
+   "name": "The comparison transformer",
+   "tier": "minor",
+   "parent": "universality",
+   "summary": "A second one-layer transformer with the same architecture, data and hyperparameters as the first, differing only in random seed, with its own dictionary learning run B/1.",
+   "explanation": "This is the setup for the quantitative universality test: same everything except seeds, so any shared features cannot be explained by differing data or architecture. The paper is candid that this is 'the most minimal version of universality one could hope for', which is why Section 5.3.2 goes on to compare against models in the literature that differ more substantially.",
+   "prerequisites": [
+    "universality",
+    "one-layer-transformer"
+   ],
+   "sectionIds": [
+    "5.3.1",
+    "5.3.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-similarity",
+   "name": "Activation similarity",
+   "tier": "major",
+   "parent": "universality",
+   "summary": "A model-independent way to compare features: represent each as the vector of its activations over a fixed set of datapoints, and correlate.",
+   "explanation": "The idea is to treat a feature as a function assigning values to datapoints; two features are similar if they take similar values over diverse data. This gives a representation that does not depend on either model's internal coordinates, so features from different models can be compared directly. For each feature in A/1 the paper finds the closest feature in B/1 by this measure and reports a median correlation of 0.72. Features with low correlation may reflect different splittings in the two dictionaries, or genuinely different true features in the two base models.",
+   "prerequisites": [
+    "universality",
+    "feature-activation"
+   ],
+   "sectionIds": [
+    "5.3.1",
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-vs-neuron-universality",
+   "name": "Features are more universal than neurons",
+   "tier": "minor",
+   "parent": "activation-similarity",
+   "summary": "Matching features across the two models gives a median activation correlation of 0.72; matching neurons across the same two transformers gives 0.46.",
+   "explanation": "The neuron comparison is the control that makes the feature number mean something. Running the same closest-match procedure on the transformers' 512 neurons yields substantially less similarity. The paper states the conclusion in the summary as: sparse autoencoders applied to different models produce features more similar to one another than they are to their own model's neurons.",
+   "prerequisites": [
+    "activation-similarity"
+   ],
+   "sectionIds": [
+    "1",
+    "5.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "logit-weight-similarity",
+   "name": "Logit weight similarity",
+   "tier": "major",
+   "parent": "universality",
+   "summary": "Comparing features by what they do rather than when they fire: correlate their logit weight vectors, indexed by vocabulary token.",
+   "explanation": "This is the downstream-effects counterpart to activation similarity, and in a one-layer model logit weights are a cheap approximation to a feature's effect on predictions. The paper finds the two measures often disagree. For the Arabic feature, the activation correlation between models is 0.91 while the logit weight correlation is only 0.23: both models upweight the Arabic-script tokens, but the large cloud of small effects on other tokens looks like isotropic noise and drags the correlation down. The paper reports this disagreement is widespread.",
+   "prerequisites": [
+    "universality",
+    "logit-weights"
+   ],
+   "sectionIds": [
+    "5.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "logit-weight-disagreement",
+   "name": "When logit weights disagree but features match",
+   "tier": "minor",
+   "parent": "logit-weight-similarity",
+   "summary": "The extreme case: two features with activation correlation 0.98 and a negative logit weight correlation that are nonetheless doing the same job.",
+   "explanation": "A/1/3949 and B/1/3321 both fire on 'pone' — and occasionally 'pgen' and 'pcbi' — as abbreviations for PLoS journal names in citations like @pone.0082392, and both predict the '.' that follows. Zooming in on the logit weight scatterplot shows only the '.' token has high weight in both models; everything else sits in the interference portion of the distribution. The paper's reading is that the model may simply not care what a feature does to tokens that were already implausible, having been suppressed by the direct path, the attention layer, or other MLP features. It notes in passing that the feature firing on 0.02% of tokens implies at least 1 in 10,000 Pile tokens is a PLoS abbreviation — a fact about the dataset surfaced by a feature.",
+   "prerequisites": [
+    "logit-weight-similarity",
+    "interference-weights"
+   ],
+   "sectionIds": [
+    "5.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "attribution-similarity",
+   "name": "Attribution similarity",
+   "tier": "major",
+   "parent": "universality",
+   "summary": "A third comparison measure that weights a feature's logit effects by whether the feature was actually active and the token actually came next.",
+   "explanation": "It is introduced to get at 'the actual effect a feature has on token probabilities' without the cost of full ablations. The paper finds attribution similarity correlates quite highly with activation similarity, meaning features that were coactive across models were useful for predicting the same tokens. That result is what licenses using the cheaper activation correlation as the paper's default universality measure — it stands in for both notions of similarity in this one-layer setting.",
+   "prerequisites": [
+    "universality",
+    "logit-weights",
+    "activation-similarity"
+   ],
+   "sectionIds": [
+    "5.3.1",
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "attribution-vector",
+   "name": "Attribution vector",
+   "tier": "minor",
+   "parent": "attribution-similarity",
+   "summary": "For each sampled datapoint, the product of a feature's activation there and its logit weight on the token that actually came next.",
+   "explanation": "If feature $i$ has logit weights $v_{ik}$ over the vocabulary, then at token $t_j$ the attribution score is $f_i(t_j)\\,v_{i t_{j+1}}$, and the attribution vector stacks these scores over a random sample of datapoints. This approximates the classic gradient-times-activation attribution, differing in that it ignores the denominators of the softmax and the layer norm. It is the cheap substitute for computing a full vector of ablation effects for every feature on every datapoint, which the authors say would be computationally expensive.",
+   "prerequisites": [
+    "attribution-similarity",
+    "feature-ablation"
+   ],
+   "sectionIds": [
+    "5.3.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "universality-with-the-literature",
+   "name": "Matching features to the literature",
+   "tier": "minor",
+   "parent": "universality",
+   "summary": "A stronger universality test: checking whether features found here resemble units reported in other models by other researchers.",
+   "explanation": "The paper finds base64, hexadecimal and all-caps features matching neurons it previously found in one-layer SoLU models, which use a different activation function. It finds a German detector and title case detectors matching features another group found by applying dictionary learning to a residual stream, along with the same preponderance of single-token features. It finds a 'prime factors' feature and a French feature matching results from sparse probing. Matches to multimodal vision-language models are looser — region features for Australia, Canada, Africa and Israel-Palestine loosely mirror reported region neurons, person detectors appear only in very narrow contexts, and no clear analogue of emotion neurons is found.",
+   "prerequisites": [
+    "universality"
+   ],
+   "sectionIds": [
+    "5.3.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "multimodal-neurons",
+   "name": "Multimodal neurons",
+   "tier": "minor",
+   "parent": "universality-with-the-literature",
+   "summary": "Units in vision-language models reported to respond to a concept across images and text, including region, person and emotion neurons.",
+   "explanation": "The paper uses these as the most distant comparison point for universality. Region neurons find loose analogues among its features. Person detector neurons — themselves compared to famous single-neuron results in neuroscience — do not: the paper finds features that detect people only in very narrow contexts, such as responding to a name and predicting appropriate next words. No clear analogue of emotion neurons is found. This is one of the places where the paper reports a negative result plainly.",
+   "prerequisites": [
+    "universality-with-the-literature"
+   ],
+   "sectionIds": [
+    "5.3.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "goh2021multimodal",
+    "refText": "Goh, Gabriel et al. (2021). Multimodal Neurons in Artificial Neural Networks. Distill",
+    "whyNeeded": "The specific neuron families being matched against — region, person, emotion neurons — and what evidence established them are defined there."
+   }
+  },
+  {
+   "id": "sparse-probing",
+   "name": "Sparse probing",
+   "tier": "minor",
+   "parent": "universality-with-the-literature",
+   "summary": "Training sparse linear probes on activations to find whether a property is represented, and by how few neurons.",
+   "explanation": "Cited twice: as independent evidence that features may be in superposition, and as a source of features this paper matches — a prime factors feature and a French feature. Sparse probing is a top-down method: you must know what property to probe for. That contrast is part of why the paper values the bottom-up dictionary learning approach, which surfaced distinctions like the three kinds of base64 that nobody would have thought to probe for.",
+   "prerequisites": [
+    "universality-with-the-literature"
+   ],
+   "sectionIds": [
+    "5.3.2",
+    "6.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "gurnee2023finding",
+    "refText": "Gurnee, Wes and Nanda, Neel and Pauly, Matthew and Harvey, Katherine and Troitskii, Dmitrii and Bertsimas, Dimitris. Finding Neurons in a Haystack: Case Studies with Sparse Probing. arXiv:2305.01610",
+    "whyNeeded": "The probing method and the specific features found there are what the universality comparison is being made against."
+   }
+  },
+  {
+   "id": "finite-state-automata-features",
+   "name": "Finite state automata",
+   "tier": "major",
+   "parent": null,
+   "summary": "Assemblies of features where one feature raises the probability of tokens that in turn cause another feature to fire on the next step, forming a state machine over generated text.",
+   "explanation": "These are not circuits in the conventional sense. The features do not connect through weights inside a forward pass; they connect through the token stream, because a feature's output tokens are the next step's input. The paper adds a second difference: the model did not learn these assemblies to work together. In learning to model text autoregressively it learned features that happen to interact via the token stream because of patterns in the real data. The authors speculate that a model trained with reinforcement learning might have genuine circuits of this shape, whose components co-evolved to work together.",
+   "prerequisites": [
+    "feature",
+    "action-features",
+    "logit-weights"
+   ],
+   "sectionIds": [
+    "1",
+    "5",
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "self-exciting-feature-loop",
+   "name": "Single-node loop",
+   "tier": "minor",
+   "parent": "finite-state-automata-features",
+   "summary": "The simplest case: a feature that increases the probability of tokens which would themselves activate it again.",
+   "explanation": "The base64 feature raises the probability of tokens like 'Qg' and 'zA' — plausible continuations that would keep it firing. That is enough to sustain base64 output once started. The paper stresses these examples come from A/0, the 1× run whose dictionary is not overcomplete; in larger runs the central feature undergoes splitting and the single node becomes a more complex system.",
+   "prerequisites": [
+    "finite-state-automata-features",
+    "dictionary-run-labels"
+   ],
+   "sectionIds": [
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "unicode-token-state-machines",
+   "name": "Two-node systems from split Unicode characters",
+   "tier": "minor",
+   "parent": "finite-state-automata-features",
+   "summary": "Where a script's characters are tokenized as a prefix byte plus a suffix byte, the model alternates between a prefix feature and a suffix feature.",
+   "explanation": "Tamil characters in block U+0B80–U+0BFF are typically two tokens: 'ண' is '\\xe0\\xae' followed by '\\xa3', where the first part roughly specifies the Unicode block and the second the character within it. So one feature fires on the prefix and predicts suffixes, and another fires on the suffix and predicts prefixes. Chinese is more involved, because many common characters get dedicated tokens while others are split, and the blocks cut across byte boundaries. The key observation the paper offers is that a complete character behaves like a suffix — both can be followed by a new complete character or a new prefix — so one feature covers complete characters and suffixes while the other covers prefixes only. The same two-node shape appears for all-caps snake case, with one feature on the capitalized text tokens and one on underscores.",
+   "prerequisites": [
+    "finite-state-automata-features",
+    "tokenization-artifacts-in-features"
+   ],
+   "sectionIds": [
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "html-feature-automaton",
+   "name": "The four-node HTML system",
+   "tier": "minor",
+   "parent": "finite-state-automata-features",
+   "summary": "Four A/0 features that hand off to each other to generate valid HTML: open tag, tag name, tag close, whitespace, and back to open tag.",
+   "explanation": "A/0/20 fires on open tags and predicts tag names; A/0/0 fires on tag names and predicts tag closes; A/0/30 fires on tag closes and predicts whitespace; A/0/494 fires on whitespace and predicts new tag opens. A prototypical sample is something like '<div>\\n\\t\\t<span>'. The paper names the system's obvious shortcoming: it does not describe what happens when A/0/0 emits a token like 'href', which leads to a state the four features do not cover, and looking at A/1 would give something much more complex. A structurally different system exists for IRC transcripts, generating things like '<nickonia_> lol ubuntu ;)', which shows these assemblies are strongly context-specific.",
+   "prerequisites": [
+    "finite-state-automata-features"
+   ],
+   "sectionIds": [
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "mechanistic-anomaly-detection",
+   "name": "Mechanistic anomaly detection",
+   "tier": "minor",
+   "parent": "finite-state-automata-features",
+   "summary": "The idea of noticing when a model's internal mechanism behaves differently in a specific narrow case.",
+   "explanation": "Raised in connection with the phrase-memorizing features: a feature that is near-binary and fires only on one specific legal phrase is exactly a mechanism that activates in a narrow case, which is what such detection would look for. The paper offers this as a framing rather than an implementation — it does not build a detector.",
+   "prerequisites": [
+    "finite-state-automata-features",
+    "memorization-features"
+   ],
+   "sectionIds": [
+    "5.4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "christiano2022anomaly",
+    "refText": "Christiano, Paul (2022). Mechanistic anomaly detection and ELK.",
+    "whyNeeded": "The proposal and what it would require are defined there; the paper only names it as an analogy."
+   }
+  },
+  {
+   "id": "theories-of-superposition",
+   "name": "Theories of superposition, revised",
+   "tier": "major",
+   "parent": null,
+   "summary": "The paper's reassessment of the picture it inherited: features clump into dense related groups and may not be one-dimensional, which the earlier toy picture did not anticipate.",
+   "explanation": "Discussion opens by naming the inherited view — the isotropic model — and saying this work persuaded the authors it was missing something. At minimum, features clump into higher-density groups of related features. Two explanations are offered, correlated activations and shared downstream actions, with the second suspected to be more central. Beyond clumping, the authors question whether features are one-dimensional at all, raising higher-dimensional feature manifolds. They note the hypotheses are not mutually exclusive: the convex hull of several correlated features could be read as a manifold, though some manifolds would not admit any finite description in terms of one-dimensional features.",
+   "prerequisites": [
+    "superposition",
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "isotropic-superposition-model",
+   "name": "Isotropic superposition model",
+   "tier": "major",
+   "parent": "theories-of-superposition",
+   "summary": "The inherited picture from Toy Models: features are discrete, one-dimensional, and repel each other through interference into a roughly evenly spaced arrangement of directions.",
+   "explanation": "Each of its three commitments is questioned by this work. Discrete and one-dimensional is challenged by feature manifolds and by feature splitting that never seems to stop. Evenly spaced is challenged directly by the observed clusters of features with small angles between directions. The paper does not discard the model — it says the experiments left it more confident that some version of superposition is true — but concludes the toy models work is missing an important dimension of the problem by not studying highly correlated, action-sharing features.",
+   "prerequisites": [
+    "theories-of-superposition",
+    "toy-models-of-superposition",
+    "interference"
+   ],
+   "sectionIds": [
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "action-sharing-features",
+   "name": "Action-sharing features",
+   "tier": "minor",
+   "parent": "theories-of-superposition",
+   "summary": "Features that produce similar downstream effects and therefore end up with similar directions — the paper's suspected main cause of feature clustering.",
+   "explanation": "The worked case: the feature firing on single digits in base64 predicts approximately the same set of tokens as the feature firing on other base64 characters, except for other digits. Similar downstream effects manifest as geometrically close feature directions, because producing similar output actions requires producing similar neuron activations. Combined with the features also being highly correlated in when they fire, this gives real models both denser and more structured superposition than the toy models predicted. Toy Models did study correlated features, but only correlation in whether they are active, with no analogue of shared output actions.",
+   "prerequisites": [
+    "theories-of-superposition",
+    "feature-geometry-clusters"
+   ],
+   "sectionIds": [
+    "5.2",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "correlated-features",
+   "name": "Correlated features",
+   "tier": "minor",
+   "parent": "theories-of-superposition",
+   "summary": "Features that tend to fire together, offered as one explanation for why feature directions clump.",
+   "explanation": "This is the explanation the authors consider less central than shared actions, though they note the two are not exclusive. Toy Models had examined correlated features, including how correlation organizes feature directions and how strongly correlated features can collapse into a single broader feature. The paper flags that collapsing-versus-tight-superposition distinction as the useful intuition to carry over: two similar features held separately in tight superposition is a different situation from one broader feature.",
+   "prerequisites": [
+    "theories-of-superposition"
+   ],
+   "sectionIds": [
+    "5.2",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-manifolds",
+   "name": "Feature manifolds",
+   "tier": "major",
+   "parent": "theories-of-superposition",
+   "summary": "The possibility that some features are not one-dimensional intensity scales but higher-dimensional continuous families of related directions.",
+   "explanation": "The inherited picture has each feature encoding only an intensity along a fixed direction. The paper raises the alternative that a set of related features forms a continuous surface in activation space. The convex hull of several correlated features could be understood this way, but the authors note the reverse does not hold: some manifolds would not admit a unique description in terms of any finite number of one-dimensional features. They suggest this might account for the continued feature splitting they observe — if the underlying object is continuous, no finite dictionary ever finishes resolving it.",
+   "prerequisites": [
+    "theories-of-superposition",
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "correct-number-of-features",
+   "name": "Is there a correct number of features?",
+   "tier": "minor",
+   "parent": "theories-of-superposition",
+   "summary": "Under some expanded theories the question is not well posed; under others there is a true number but getting it exactly right is not essential.",
+   "explanation": "The paper separates two cases. If features form continuous manifolds, asking for the correct count may have no answer. If there is a true finite set, the consequence of getting the count wrong is mild — the process 'fails gracefully', showing the true features at different granularities as the dictionary grows. Either way the practical upshot is the same: dictionary size is a resolution knob rather than a parameter that must be tuned correctly.",
+   "prerequisites": [
+    "theories-of-superposition",
+    "true-features",
+    "dictionary-resolution"
+   ],
+   "sectionIds": [
+    "5.2",
+    "7.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "local-vs-compositional-codes",
+   "name": "Local versus compositional codes",
+   "tier": "major",
+   "parent": null,
+   "summary": "Two ways to represent a combination of properties: one unit per combination (local), or separate units that combine (compositional).",
+   "explanation": "Representing 'the in Physics' with its own feature is technically a local code. The more intuitive scheme would be a compositional code, with 'the' as one feature and 'Physics' as another, and the combination read off from both firing. Local codes are sparser than compositional ones — a single unit carries the whole conjunction — which matters because the autoencoder is trained with a sparsity penalty. The paper borrows this vocabulary explicitly to make its question about token-in-context features precise.",
+   "prerequisites": [
+    "feature"
+   ],
+   "sectionIds": [
+    "7.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "olah2023distributed",
+    "refText": "Olah, Christopher (2023). Distributed Representations: Composition & Superposition.",
+    "whyNeeded": "The local/compositional vocabulary and examples are taken from there and used without full definition."
+   }
+  },
+  {
+   "id": "local-code",
+   "name": "Local code",
+   "tier": "minor",
+   "parent": "local-vs-compositional-codes",
+   "summary": "A representation with one dedicated unit per thing represented, including per combination of properties.",
+   "explanation": "Sparse by construction — one unit active per represented item — which makes it the code an L1 penalty tends to favor. The paper's token-in-context features are local codes over token-context pairs. Its argument that this may be genuine rests on prediction sharpness: a dedicated unit for a pair can output whatever distribution it likes for that pair.",
+   "prerequisites": [
+    "local-vs-compositional-codes"
+   ],
+   "sectionIds": [
+    "7.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "compositional-code",
+   "name": "Compositional code",
+   "tier": "minor",
+   "parent": "local-vs-compositional-codes",
+   "summary": "A representation where independent units combine to represent a conjunction — 'the' and 'Physics' active together.",
+   "explanation": "More economical in units, and the arrangement one would intuitively expect. Its constraint is that downstream effects add: if token and context are independent features, the resulting logits must be the sum of their separate contributions. That additivity is exactly what the paper argues the model may not want.",
+   "prerequisites": [
+    "local-vs-compositional-codes"
+   ],
+   "sectionIds": [
+    "7.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "are-token-in-context-features-real",
+   "name": "Are token-in-context features real?",
+   "tier": "major",
+   "parent": "local-vs-compositional-codes",
+   "summary": "Whether the hundreds of 'the'-in-a-context features reflect the transformer's own local code, or an artifact of dictionary learning imposing one.",
+   "explanation": "The paper states two hypotheses cleanly. Either the transformer uses a compositional code and a quirk of the dictionary learning scheme renders it as a local one — in which case a better scheme could recover the compositional features, and the L1 penalty may be pushing too far toward sparsity. Or the transformer genuinely uses a local code at least in part, and dictionary learning is representing it correctly. The authors say they believe the second holds to some extent, while conceding the first is a live possibility. This is one of the paper's more explicit uncertainties about its own method.",
+   "prerequisites": [
+    "local-vs-compositional-codes",
+    "token-in-context-features",
+    "l1-sparsity-penalty"
+   ],
+   "sectionIds": [
+    "7.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "sharper-predictions-argument",
+   "name": "The sharper-predictions argument",
+   "tier": "minor",
+   "parent": "are-token-in-context-features-real",
+   "summary": "The reason to think local codes are real: a compositional code forces the logits for 'the in Physics' to be a sum of two generic contributions, while a dedicated feature can be more specific.",
+   "explanation": "If 'the' and Physics context were represented independently, the model's output would have to be 'upweight tokens which come after the' plus 'upweight tokens which occur in Physics'. A dedicated 'the in Physics' feature can instead predict exactly the noun phrases that follow 'the' in physics writing. The paper argues the model might want predictions sharper than the sum allows, and that only a local code makes that possible. The feature splitting results support this: split features have visibly more specific top logits than their parents.",
+   "prerequisites": [
+    "are-token-in-context-features-real",
+    "logit-weights"
+   ],
+   "sectionIds": [
+    "7.2",
+    "5.2.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "scalability-of-analysis",
+   "name": "Scalability of analysis",
+   "tier": "minor",
+   "parent": "mechanistic-interpretability",
+   "summary": "The barrier that would remain even if sparse autoencoders fully solved superposition: turning microscopic feature-level insight into a macroscopic understanding of a model.",
+   "explanation": "The authors ask directly whether solving superposition would be a home run and answer no — at least one other fundamental barrier remains. Automated interpretability is one candidate route, though they say delegating the understanding of AI to AI may not be fully satisfying for various reasons. The alternative they gesture at is discovering larger-scale structure among features, so that analysis can operate on groups rather than individual features.",
+   "prerequisites": [
+    "mechanistic-interpretability",
+    "automated-interpretability"
+   ],
+   "sectionIds": [
+    "7.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  }
+ ],
+ "citationFlags": [
+  {
+   "citationKey": "elhage2022superposition",
+   "refText": "Elhage, Nelson et al. (2022). Toy Models of Superposition. Transformer Circuits Thread",
+   "concept": "superposition-hypothesis",
+   "whyNeeded": "The superposition hypothesis, the noisy-simulation mechanism, the role of feature sparsity, the isotropic geometry of feature directions, and the three strategies for resolving superposition are all defined there and assumed throughout this paper without re-derivation. Section 7.1 revises that model specifically, so its content is needed to see what is being revised."
+  },
+  {
+   "citationKey": "elhage2022solu",
+   "refText": "Elhage, Nelson et al. (2022). Softmax Linear Units. Transformer Circuits Thread",
+   "concept": "solu",
+   "whyNeeded": "Supplies both the SoLU activation function (an architectural attempt at monosemanticity the paper judges to have failed) and the base64, hexadecimal, all-caps, context and token-in-context neurons that Section 5.3.2 matches its features against — the paper's strongest cross-architecture universality evidence."
+  },
+  {
+   "citationKey": "cammarata2020curve",
+   "refText": "Cammarata, Nick et al. (2020). Curve Detectors. Distill",
+   "concept": "causality-generality-purity",
+   "whyNeeded": "The Causality, Generality and Purity desiderata are named as the worked example of how to make 'interpretable activation conditions' concrete, but their definitions and the evidence standard they set are never given here."
+  },
+  {
+   "citationKey": "cunningham2023sparse",
+   "refText": "Cunningham, Hoagy et al. Sparse Autoencoders Find Highly Interpretable Model Directions. arXiv:2309.08600",
+   "concept": "cunningham-et-al-parallel-work",
+   "whyNeeded": "The main external evidence cited for sparse autoencoders working on larger models than the one-layer transformer here; the model sizes, autoencoder settings and interpretability metrics used there matter to that claim and to the scaling discussion in 7.3."
+  },
+  {
+   "citationKey": "sharkey2022interim",
+   "refText": "Lee Sharkey, Dan Braun and Beren Millidge (2022). [Interim research report] Taking features out of superposition with sparse autoencoders.",
+   "concept": "mean-max-cosine-similarity",
+   "whyNeeded": "MMCS is named in Future Work as one of the three available metrics for comparing feature sets but never defined; this report also originates the sparse autoencoder approach the paper credits and the noise-injection finding cited in 7.3."
+  },
+  {
+   "citationKey": "smith2023strong",
+   "refText": "Smith, Logan (2023). Really Strong Features Found in Residual Stream.",
+   "concept": "single-token-features",
+   "whyNeeded": "Independently observed the single-token features that Section 5.2.2 explains, and supplies the German detector and title case detectors used as universality matches; the setting (residual stream of a six-layer model) differs from this paper's and matters to how strong the match is."
+  },
+  {
+   "citationKey": "gurnee2023finding",
+   "refText": "Gurnee, Wes et al. Finding Neurons in a Haystack: Case Studies with Sparse Probing. arXiv:2305.01610",
+   "concept": "sparse-probing",
+   "whyNeeded": "Cited both as independent evidence that features are in superposition and as the source of the prime-factors and French features matched in 5.3.2; the probing method determines how much weight either use can bear."
+  },
+  {
+   "citationKey": "goh2021multimodal",
+   "refText": "Goh, Gabriel et al. (2021). Multimodal Neurons in Artificial Neural Networks. Distill",
+   "concept": "multimodal-neurons",
+   "whyNeeded": "The region, person and emotion neuron families are the yardstick for the paper's strongest universality claim and for its reported negative results; what those neurons are and how they were established is not restated here."
+  },
+  {
+   "citationKey": "bills2023language",
+   "refText": "Bills, Steven et al. (2023). Language models can explain neurons in language models.",
+   "concept": "automated-interpretability",
+   "whyNeeded": "Two of the paper's four lines of evidence for monosemanticity are automated interpretability scores; the explanation-generation and scoring procedure and the meaning of its scores are defined only in that work."
+  },
+  {
+   "citationKey": "henighan2023superposition",
+   "refText": "Henighan, Tom et al. (2023). Superposition, Memorization, and Double Descent. Transformer Circuits Thread",
+   "concept": "memorization-in-superposition",
+   "whyNeeded": "The mechanistic theory of memorization applied to the phrase-memorizing features in 5.4, including the memorization/generalization boundary and what memorized-in-superposition features should look like, comes entirely from there."
+  },
+  {
+   "citationKey": "scherlis2022polysemanticity",
+   "refText": "Scherlis, Adam et al. Polysemanticity and capacity in neural networks. arXiv:2210.01892",
+   "concept": "mse-loss-and-monosemanticity",
+   "whyNeeded": "Section 2.3's scope limit — that MSE models may actively prefer monosemantic solutions for some feature importance curves — is imported without argument; the conditions under which it holds decide how narrow the paper's negative result really is."
+  },
+  {
+   "citationKey": "jermyn2022engineering",
+   "refText": "Jermyn, Adam S, Schiefer, Nicholas and Hubinger, Evan. Engineering monosemanticity in toy models. arXiv:2211.09169",
+   "concept": "engineering-monosemanticity",
+   "whyNeeded": "The equal-loss-minima result on a compressed sensing task is the concrete hope for architectural monosemanticity that this paper reports failing to generalize; the task and the result's dependence on it are the substance."
+  },
+  {
+   "citationKey": "olah2023distributed",
+   "refText": "Olah, Christopher (2023). Distributed Representations: Composition & Superposition.",
+   "concept": "local-vs-compositional-codes",
+   "whyNeeded": "Section 7.2's central question is posed entirely in this essay's vocabulary of local versus compositional codes; the definitions, examples and the sparsity comparison between the two are not given in this paper."
+  },
+  {
+   "citationKey": "thorpe1989coding",
+   "refText": "Thorpe, Simon J. Local vs. Distributed Coding. Intellectica",
+   "concept": "local-code",
+   "whyNeeded": "The original source for the local/distributed coding distinction the paper's argument about token-in-context features depends on."
+  },
+  {
+   "citationKey": "christiano2022anomaly",
+   "refText": "Christiano, Paul (2022). Mechanistic anomaly detection and ELK.",
+   "concept": "mechanistic-anomaly-detection",
+   "whyNeeded": "Named as a framing for the narrow phrase-memorizing features but not explained; what such detection would consist of determines whether the analogy holds."
+  },
+  {
+   "citationKey": "frey2014topk",
+   "refText": "Alireza Makhzani and Brendan J. Frey (2013). k-Sparse Autoencoders. CoRR",
+   "concept": "topk-activation",
+   "whyNeeded": "TopK is the direct alternative to this paper's L1 sparsity penalty; the training mechanics and behavior of a k-sparse autoencoder matter for judging the design choice."
+  },
+  {
+   "citationKey": "kim2018disentangling",
+   "refText": "Kim, Hyunjik and Mnih, Andriy (2018). Disentangling by factorising. ICML",
+   "concept": "disentanglement",
+   "whyNeeded": "One of the two concrete disentanglement methods Section 6.2 uses to characterize the field; how independence is encouraged across latent dimensions is the mechanism being contrasted with superposition."
+  },
+  {
+   "citationKey": "chen2016infogan",
+   "refText": "Chen, Xi et al. Infogan: Interpretable representation learning by information maximizing generative adversarial nets. NeurIPS",
+   "concept": "disentanglement",
+   "whyNeeded": "The second concrete disentanglement method cited; the mutual-information objective over a subset of latent factors is the mechanism being described."
+  },
+  {
+   "citationKey": "yun2021transformer",
+   "refText": "Yun, Zeyu et al. Transformer visualization via dictionary learning. arXiv:2103.15949",
+   "concept": "undercomplete-basis",
+   "whyNeeded": "The prior state of the art for dictionary learning on transformer activations, and the undercomplete result this paper's overcomplete expansion is defined against."
+  },
+  {
+   "citationKey": "gao2020pile",
+   "refText": "Leo Gao et al. (2020). The Pile: An 800GB Dataset of Diverse Text for Language Modeling.",
+   "concept": "the-pile",
+   "whyNeeded": "The training corpus for both transformers; its composition directly determines which features exist (IRC, PLoS citations, license headers) and is required to reproduce the results."
+  },
+  {
+   "citationKey": "nanda2023emergent",
+   "refText": "Nanda, Neel, Lee, Andrew and Wattenberg, Martin. Emergent Linear Representations in World Models of Self-Supervised Sequence Models. arXiv:2309.00941",
+   "concept": "othello-linear-representation-debate",
+   "whyNeeded": "The resolution of the apparent counterexample to features-as-directions; the alternative interpretation is what restores the linear representation hypothesis the paper's whole method assumes."
+  },
+  {
+   "citationKey": "li2022emergent",
+   "refText": "Li, Kenneth et al. Emergent world representations: Exploring a sequence model trained on a synthetic task. arXiv:2210.13382",
+   "concept": "othello-linear-representation-debate",
+   "whyNeeded": "The apparent counterexample itself; knowing what was found and why it looked non-linear is needed to judge the exchange the paper treats as an update on the hypothesis."
+  },
+  {
+   "citationKey": "nelhage2021mathematical",
+   "refText": "Elhage, Nelson et al. (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+   "concept": "mlp-activations-as-decomposition-target",
+   "whyNeeded": "The claim that a one-layer attention-only model can be analyzed without touching hidden states — and that a ReLU MLP blocks this — rests on the rewriting technique developed there."
+  },
+  {
+   "citationKey": "kaplan2020scaling",
+   "refText": "Kaplan, Jared et al. Scaling laws for neural language models. arXiv:2001.08361",
+   "concept": "scaling-laws-for-dictionary-learning",
+   "whyNeeded": "The template for the kind of empirical law the authors say they want for dictionary learning; what such laws predict and how they are fitted is assumed known."
+  },
+  {
+   "citationKey": "reif2019visualizing",
+   "refText": "Coenen, Andy et al. Visualizing and measuring the geometry of BERT. NeurIPS",
+   "concept": "token-in-context-features",
+   "whyNeeded": "Cited as the precedent for token-sense-in-context structure and the source of the German/English 'die' example used to argue some token-in-context features are intuitive."
+  },
+  {
+   "citationKey": "olah2020zoom",
+   "refText": "Olah, Chris et al. (2020). Zoom In: An Introduction to Circuits. Distill",
+   "concept": "universality",
+   "whyNeeded": "One of the two sources for the universality claim as a research question, and for the circuits framing of features and their connections that the paper's goals are stated in."
+  },
+  {
+   "citationKey": "bricken2023emergence",
+   "refText": "Bricken, Trenton et al. Emergence of Sparse Representations from Noise.",
+   "concept": "noise-injection-for-interpretability",
+   "whyNeeded": "The claim that noise injection increases interpretability by a route separate from an L1 penalty is a concrete suggested improvement to the method; the mechanism is not described here."
+  }
+ ]
+}

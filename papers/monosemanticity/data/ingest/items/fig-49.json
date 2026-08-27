@@ -1,0 +1,173 @@
+{
+ "id": "fig-49",
+ "title": "The Digit Feature That Won't Predict Digits",
+ "takeaway": "Two base64 features from the same dictionary push almost the same tokens up, except that the feature firing on single digits gives the ten digit tokens far less of a boost than its letter-firing sibling does. The paper reads this not as a broken feature but as the tokenizer showing through: byte-pair encoding merges adjacent digits, so a lone digit token is evidence the next token is not a lone digit.",
+ "walkthrough": "### What you are looking at\n\nA scatter plot with one dot per vocabulary token. The two axes are two [[logit-weight]] vectors, one per learned [[feature]]. A feature's logit weight for a token says how much that feature, when it fires, pushes that token's next-token logit up or down. The paper computes it by multiplying the feature's direction through the MLP output weights, a linearized layer norm, and the [[unembedding-matrix]].\n\nThe x-axis feature is A/1/2357, the [[base64-feature]], which fires preferentially on letter-run tokens inside base64 strings, such as `dN`. The y-axis feature is A/1/2364, the [[base64-digit-feature]], which fires on single-digit tokens such as `7`. Both come from the same dictionary learning run, A/1 — see [[feature-notation]]. They exist as a pair because one coarser base64 feature in a smaller run divided into three, an instance of [[feature-splitting]].\n\n### How to read it\n\nZero on each axis carries no absolute meaning. Softmax is shift-invariant, so the paper slides each feature's weights until its median lands at zero ([[logit-weight-median-centering]]). The dashed grey lines mark that median.\n\nWhat matters is position relative to the diagonal. A token on the diagonal is boosted equally by both features; a token below it is boosted less by the digit feature.\n\nThree groups are drawn. The blue cloud is the bulk of the vocabulary, clustered near zero, which the paper reads as [[weight-interference]] rather than deliberate behavior. The red cloud, up and to the right, is base64 tokens both features promote. The small pink island is the ten single-digit tokens.\n\n### What it shows\n\nThe digit island sits far right but low. Read it off the axes: the letter feature gives digits roughly $+0.25$ to $+0.45$, while the digit feature gives those same tokens roughly $0.0$ to $+0.15$. A feature that fires only on digits declines to predict digits.\n\nThat looks like a bug, or a mislabeled feature. The paper's explanation is the tokenizer. Under [[byte-pair-encoding]], two adjacent digits merge: `[Bq][8][9][mp]` never occurs, because it is tokenized as `[Bq][89][mp]`.\n\nSo a lone digit token is itself evidence that the next token is not a lone digit, even in a random base64 string. The feature has picked up that statistic. The paper hedges — \"likely an artifact of tokenization\" — and this display is a linear approximation to a feature's effect rather than a measured one, but it stands as an example of [[tokenization-artifacts-in-features]].",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Logit Weights of Two Different base64 Features (title)",
+   "definition": "The plot's title. It announces that both axes are logit weight vectors, and that the two features being compared both live in base64 contexts.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Logit weight",
+   "definition": "For one feature and one vocabulary token, how much that token's output logit moves when the feature is active. The paper obtains it by tracing a linear path: feature direction, then the MLP output weights, then an approximation of layer norm, then the unembedding matrix.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Logit Weight (A/1/2357 - base64 letters) — x-axis",
+   "definition": "The horizontal position of a token is A/1/2357's logit weight for it. Far right means this feature strongly raises that token's probability when it fires.",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "Logit Weight (A/1/2364 - base64 digits) — y-axis",
+   "definition": "The vertical position of a token is A/1/2364's logit weight for it. Low height means this feature does little to raise that token's probability.",
+   "conceptId": "base64-digit-feature"
+  },
+  {
+   "term": "A/1/2357",
+   "definition": "The feature on the x-axis. It fires preferentially on letter-containing base64 tokens, and is the base64 feature studied in detail earlier in the paper.",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "A/1/2364",
+   "definition": "The feature on the y-axis. It fires preferentially on single-digit tokens inside base64 strings.",
+   "conceptId": "base64-digit-feature"
+  },
+  {
+   "term": "A/1",
+   "definition": "The dictionary learning run both features come from. In the paper's naming scheme, 'A' is which transformer, '1' is which autoencoder run, and the last number picks the feature within that run.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "A/0/45",
+   "definition": "Not plotted here, but the reason this pair exists: the single base64 feature in the smaller A/0 run, whose territory the three A/1 base64 features jointly cover.",
+   "conceptId": "feature-splitting"
+  },
+  {
+   "term": "A/1/1544",
+   "definition": "The third base64 feature in A/1, also not plotted. It responds to base64 strings that decode to readable ASCII text.",
+   "conceptId": "base64-feature-family"
+  },
+  {
+   "term": "base64",
+   "definition": "An encoding that writes binary data using 64 printable characters, [a-zA-Z0-9+/]. The paper models base64 strings as random sequences over that alphabet.",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "'dN' (example in the annotation)",
+   "definition": "A sample of the kind of token A/1/2357 fires on: a short run of base64 letters with no digit in it.",
+   "conceptId": null
+  },
+  {
+   "term": "'7' (example in the annotation)",
+   "definition": "A sample of the kind of token A/1/2364 fires on: a single digit standing alone as its own token.",
+   "conceptId": null
+  },
+  {
+   "term": "Other base64 tokens (red label and ellipse)",
+   "definition": "The upper-right group of dots: base64-specific tokens that both features push up. These are the tokens on which the two features agree.",
+   "conceptId": null
+  },
+  {
+   "term": "'0', '1', ... '9' (pink label and ellipse)",
+   "definition": "The ten single-digit tokens, drawn as their own group. They sit far right on the x-axis but near zero on the y-axis, which is the whole point of the plot.",
+   "conceptId": "tokenization-artifacts-in-features"
+  },
+  {
+   "term": "The large blue cloud (unlabeled)",
+   "definition": "The bulk of the vocabulary, spread along the diagonal around zero. The paper treats this central mass as interference forced by superposition rather than as intended behavior by either feature.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "Dashed grey lines at 0.0",
+   "definition": "The zero reference on each axis. Zero is not absolute: because softmax is shift-invariant, the paper shifts each feature's weights so its median weight is zero.",
+   "conceptId": "logit-weight-median-centering"
+  },
+  {
+   "term": "The diagonal trend of the point cloud",
+   "definition": "The two features' logit weights are positively correlated across the vocabulary, which is the visual form of the claim that they predict largely the same tokens.",
+   "conceptId": "logit-weight-similarity"
+  },
+  {
+   "term": "Ellipses around each group",
+   "definition": "Hand-drawn boundaries marking the three groups. They are annotation, not fitted confidence regions with a stated coverage level.",
+   "conceptId": null
+  },
+  {
+   "term": "Tokenizer / double digit (annotation text)",
+   "definition": "The byte-pair-encoding tokenizer merges two adjacent digits into one token, so a pair of separate single-digit tokens never appears in the training data.",
+   "conceptId": "byte-pair-encoding"
+  },
+  {
+   "term": "Feature splitting",
+   "definition": "As the dictionary is made wider, one broad feature is replaced by several narrower ones covering roughly the same ground. This pair of features is a product of that process.",
+   "conceptId": "feature-splitting"
+  },
+  {
+   "term": "Feature",
+   "definition": "A direction in the MLP activation space that the sparse autoencoder learns, together with the scalar activation saying how strongly it is present on a given token.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Unembedding matrix",
+   "definition": "The final linear map from the residual stream to one logit per vocabulary token; the last factor in the logit weight computation.",
+   "conceptId": "unembedding-matrix"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "-0.6 to 0.6",
+   "meaning": "The range of both axes, in logit weight units. The same range on both makes the diagonal a fair comparison line."
+  },
+  {
+   "value": "0.1",
+   "meaning": "The tick spacing on both axes. Ticks run at -0.6, -0.5, ... 0.5, 0.6."
+  },
+  {
+   "value": "0.0",
+   "meaning": "The dashed reference line on each axis. It is the median logit weight for that feature, set to zero by the paper because softmax is shift-invariant and logit weights have no absolute scale."
+  },
+  {
+   "value": "about +0.25 to +0.45",
+   "meaning": "The horizontal extent of the digit island: how much A/1/2357, the letter feature, raises the digit tokens. Digits are ordinary base64 characters, so the letter feature promotes them along with the rest of the alphabet."
+  },
+  {
+   "value": "about 0.0 to +0.15",
+   "meaning": "The vertical extent of the digit island: how much A/1/2364, the digit feature, raises those same digit tokens. Close to its own median, meaning close to no boost at all — the gap of roughly 0.25 below the diagonal is the figure's finding."
+  },
+  {
+   "value": "about 0.15 to 0.4 (both axes)",
+   "meaning": "Where the red 'other base64 tokens' group sits. Both features raise these tokens by a similar amount, which is why the group lies on the diagonal."
+  },
+  {
+   "value": "about -0.1, -0.1",
+   "meaning": "Roughly where the blue bulk is centered — slightly below zero on both axes. The paper reads this mass as interference, not as either feature deliberately suppressing those tokens."
+  },
+  {
+   "value": "10",
+   "meaning": "The number of tokens in the pink group: the single-digit tokens '0' through '9'."
+  },
+  {
+   "value": "64",
+   "meaning": "The size of the base64 alphabet, [a-zA-Z0-9+/]: 26 lowercase, 26 uppercase, 10 digits, plus '+' and '/'. Digits are 10 of those 64, so under the paper's random-string model a digit would be the next character about 16% of the time were it not for tokenization."
+  },
+  {
+   "value": "3",
+   "meaning": "The number of features in A/1 that fire on subsets of base64 text: A/1/2357, A/1/2364, and A/1/1544. Two of the three are plotted here."
+  },
+  {
+   "value": "2357, 2364, 1544, 45",
+   "meaning": "Feature indices within their dictionary learning runs. The numbers are arbitrary identifiers assigned during training and carry no ordering."
+  },
+  {
+   "value": "512, 4,096, 16,384",
+   "meaning": "The dictionary sizes of runs A/0, A/1 and A/2. Base64-specific features go from 1 to 3 to many across that sequence, which is why the coarse A/0 feature has two of its refinements plotted here."
+  },
+  {
+   "value": "[Bq][8][9][mp] vs [Bq][89][mp]",
+   "meaning": "The paper's tokenization example. The first bracketing never occurs in the data because byte-pair encoding merges the 8 and 9 into a single token 89, which is why a lone digit token predicts a non-digit successor."
+  }
+ ]
+}

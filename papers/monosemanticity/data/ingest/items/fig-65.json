@@ -1,0 +1,158 @@
+{
+ "id": "fig-65",
+ "title": "Overlapping Density Clusters in Run A/5",
+ "takeaway": "The paper's quick diagnostic — read two separated humps off a log-scale histogram of how often each feature fires — stops working at the largest autoencoder sizes. In run A/5, with 131,072 hidden units, the ultralow-density features run continuously into the rest of the distribution instead of sitting apart, so density alone no longer tells the uninterpretable leftovers from the real features. The paper reports this as a pattern it has seen, not as a measured effect.",
+ "walkthrough": "You are looking at a single histogram, for the single [[dictionary-learning-run]] named in the title bar: A/5. A run is one trained [[sparse-autoencoder]]; runs differ in how many hidden units it has and in how hard the sparsity penalty pushes ([[feature-notation]] spells out the naming). A/5 is the widest run in the paper's A/0…A/5 sequence, with 131,072 hidden units fitted to a 512-neuron MLP.\n\nEach hidden unit is one candidate feature. For each, the paper computes its [[feature-density]]: the fraction of tokens on which that unit has a nonzero activation. Densities are tiny, so the x axis is $\\log_{10}$ of density — $-6$ means the feature fires on about one token in a million. The y axis, Counts, is how many features land in each bin.\n\nSo the bars should add up to A/5's 131,072 features, minus one group: units that never fire have density exactly $0$, which has no place on a log axis and simply cannot be drawn.\n\n### What the paper wants to see here\n\nA [[feature-density-histogram]] is read for its shape. Two separated humps is the good case: a left hump near $10^{-7}$, the [[ultralow-density-cluster]], whose features are almost never interpretable and which the paper treats as a training artifact; and a right hump, the [[high-density-cluster]], whose features anecdotally almost all are interpretable. Where the two split, you can count the run's usable features by cutting at the valley.\n\n### What this one shows\n\nThere is no valley. Left of about $-6.2$ sit a few short isolated bars, a few hundred to about 1,500 features each. From there the counts climb without a break into one tall mass peaking around $10^{-5.7}$ at roughly 9,650 features, then fall away in a long tail that fades out near $10^{-2.6}$. (The sawtooth around the peak is most likely binning against whole-token counts at these densities; the paper does not comment on it.)\n\nNothing here marks where the ultralow features stop. The paper's stated pattern is that the clusters separate cleanly in small preliminary runs and overlap when the autoencoder is wide and the [[l1-coefficient]] is large — an anecdotal report, with no threshold or criterion given. Its fallback is [[density-cluster-separation]]: add each feature's bias and its encoder-decoder dot product, and the high-density cluster pulls apart again in three dimensions.",
+ "terms": [
+  {
+   "term": "Feature density A/5 (plot title)",
+   "definition": "Names what is plotted and for which run: the distribution of feature densities for the dictionary learning run A/5. Nothing else in the image identifies the run's settings.",
+   "conceptId": null
+  },
+  {
+   "term": "A/5",
+   "definition": "One trained sparse autoencoder, in the paper's run notation: seed/model A, run index 5. Reported elsewhere in the paper as 131,072 hidden units with an L1 coefficient of 0.004.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "log_10(Feature density) (x axis)",
+   "definition": "The base-10 logarithm of a feature's density, so each unit step is a factor of ten. A log axis is used because all the densities are small and they span several orders of magnitude.",
+   "conceptId": null
+  },
+  {
+   "term": "Counts (y axis)",
+   "definition": "The number of features whose density falls inside a given bin. Summed over all bins it is the number of features that fire at least once.",
+   "conceptId": null
+  },
+  {
+   "term": "Feature density",
+   "definition": "The fraction of tokens in the training set on which a feature has a nonzero activation. The paper uses it as a cheap proxy for how well an autoencoder run is doing, because measuring interpretability directly is slow.",
+   "conceptId": "feature-density"
+  },
+  {
+   "term": "Feature",
+   "definition": "Here, one hidden unit of the autoencoder together with its decoder column — a candidate interpretable direction in the MLP's activation space. The histogram gives one count to each such unit.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Ultralow density cluster",
+   "definition": "The left mode of a density histogram, features firing on the order of one token in ten million or rarer. Almost none of them are interpretable, and the paper reads them as an artifact of autoencoder training rather than something in the transformer.",
+   "conceptId": "ultralow-density-cluster"
+  },
+  {
+   "term": "High density cluster",
+   "definition": "The right mode of the histogram — still very rare in absolute terms, but dense compared to the left mode. The paper reports that almost all of these features are interpretable, which is why the split matters.",
+   "conceptId": "high-density-cluster"
+  },
+  {
+   "term": "Bimodal",
+   "definition": "Having two humps. The paper's expected histogram shape, and the thing that fails in this figure.",
+   "conceptId": null
+  },
+  {
+   "term": "Number of autoencoder neurons (\"N learned sparse\")",
+   "definition": "The width of the autoencoder's hidden layer, i.e. the size of the learned dictionary. It is one of the two hyperparameters the paper varies across runs, and one of the two conditions it names for the clusters overlapping.",
+   "conceptId": "expansion-factor"
+  },
+  {
+   "term": "L1 coefficient",
+   "definition": "The scalar weight on the sparsity penalty in the autoencoder's loss, trading reconstruction error against how many features fire. The other hyperparameter varied across runs, and the other named condition for overlap.",
+   "conceptId": "l1-coefficient"
+  },
+  {
+   "term": "Dictionary learning run",
+   "definition": "One trained autoencoder with a fixed dictionary size and L1 coefficient. The paper trained ninety of them and identifies features by run.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Sparse autoencoder",
+   "definition": "The model producing these features: a wide ReLU hidden layer trained with MSE reconstruction loss plus an L1 penalty, fitted to the transformer's MLP activations.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "Dead neurons",
+   "definition": "Autoencoder hidden units with zero activation across a large number of datapoints. Their density is exactly zero, so they cannot appear anywhere on this log axis; the paper resamples them during training.",
+   "conceptId": "dead-neurons"
+  },
+  {
+   "term": "Feature density diagnostics",
+   "definition": "The three numbers the paper reads off histograms like this one: how many live features sit outside the ultralow cluster, the lowest density at which real features still appear, and how many features exceed 1% density. Overlap makes the first two hard to read.",
+   "conceptId": "feature-density-diagnostics"
+  },
+  {
+   "term": "Separating the clusters by bias and encoder-decoder dot product",
+   "definition": "The paper's fallback when density alone fails: plot each feature's bias and the dot product between its encoder and decoder vectors alongside its density. It reports the high density cluster is clearly separable in those three dimensions.",
+   "conceptId": "density-cluster-separation"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "131,072",
+   "meaning": "The number of hidden units in A/5, and so the number of features whose densities are binned here. It is the largest dictionary the paper trained, 256 times the 512 MLP neurons being decomposed."
+  },
+  {
+   "value": "512",
+   "meaning": "The number of ReLU neurons in the one-layer transformer's MLP, i.e. the dimension of the activations the autoencoder reconstructs. It is also the size of the smallest dictionary, A/0, at 1x expansion."
+  },
+  {
+   "value": "0.004",
+   "meaning": "The L1 coefficient the paper reports for A/5. In the appendix's grid of all Seed A runs, this is one of five values swept, from 0.001 to 0.01."
+  },
+  {
+   "value": "-7 to about -2.5",
+   "meaning": "The span of the x axis, so densities from roughly one token in 10 million up to a few tokens in a thousand. Every feature in the run that fires at all falls in this range."
+  },
+  {
+   "value": "10^-7",
+   "meaning": "Where the ultralow density cluster sits in the well-behaved case. In the companion histogram for run A/16 it is a tall isolated spike there, separated by a visible gap from the rest; here the far-left bars are short and no gap follows them."
+  },
+  {
+   "value": "10^-5",
+   "meaning": "Roughly where the high density cluster's mode sits in the A/16 example the paper gives as its picture of a clean split. The paper notes that mode may itself be two modes, one near 10^-5 and one near 10^-3, and says it is still investigating that."
+  },
+  {
+   "value": "about -6.2",
+   "meaning": "Read off the plot: the point left of which the bars are short and isolated, and right of which the counts climb continuously. It is the closest thing to a boundary here, and it is not a clean one."
+  },
+  {
+   "value": "roughly 350 to 1,500",
+   "meaning": "Approximate heights of the scattered bars at the far left, between about 10^-7 and 10^-6.2. These are the surviving ultralow-density features; there are few enough of them, spread widely enough, that they do not form a distinct hump."
+  },
+  {
+   "value": "about 9,650",
+   "meaning": "The tallest bar, near 10^-5.7 — approximate, read off the axis. Around 7% of the run's features land in that single bin."
+  },
+  {
+   "value": "10,000",
+   "meaning": "The top of the Counts axis, set just above the tallest bar. Note this is a linear axis while the density axis is logarithmic."
+  },
+  {
+   "value": "about 10^-2.6",
+   "meaning": "Where the right tail reaches zero. No feature in A/5 fires on more than roughly a quarter of a percent of tokens."
+  },
+  {
+   "value": "1%",
+   "meaning": "The density above which the paper treats a large number of features as a warning sign that the L1 coefficient is too low. Nothing in this histogram comes close, so by that particular check A/5's penalty is not too weak."
+  },
+  {
+   "value": "A/0 = 512, A/1 = 4,096, A/2 = 16,384, A/5 = 131,072",
+   "meaning": "The dictionary sizes along the paper's main sequence of runs, at fixed L1 coefficient. A/1 is the run the paper's detailed analysis focuses on; A/5 is the extreme end where this histogram's overlap appears."
+  },
+  {
+   "value": "0.001, 0.004, 0.006, 0.008, 0.01",
+   "meaning": "The five L1 coefficients grouping the appendix's full grid of Seed A histograms, one panel each. Within a panel the curves are dictionary sizes from 512 up to 131,072, so the grid varies exactly the two knobs named as causing overlap."
+  },
+  {
+   "value": "94.5% versus 79%",
+   "meaning": "The fraction of the MLP's log-likelihood loss contribution recovered when the autoencoder's reconstruction is spliced in, for A/5 and for A/1 respectively. A/5 reconstructs the model better, which is the reason to train dictionaries this wide even though their density histograms are harder to read."
+  },
+  {
+   "value": "8 billion",
+   "meaning": "The number of MLP activation vectors used to train each autoencoder. Densities are fractions of tokens; the paper does not state the size of the token sample used to estimate them for these plots."
+  },
+  {
+   "value": "less than 10 or 20",
+   "meaning": "The average number of features active per token (the L0 norm) that the paper generally targets. It is a separate sparsity check from the density histogram, and the two are read together."
+  }
+ ]
+}

@@ -1,0 +1,1630 @@
+{
+ "key": "method",
+ "concepts": [
+  {
+   "id": "sparse-dictionary-learning",
+   "name": "Sparse Dictionary Learning",
+   "tier": "major",
+   "parent": null,
+   "summary": "The problem of writing each activation vector as a sparse combination of directions drawn from a fixed, larger-than-necessary set. The paper frames the search for a model's features as exactly this problem.",
+   "explanation": "Given activation vectors $\\mathbf{x}$, dictionary learning looks for a set of directions $\\mathbf{d}_i$ and per-datapoint coefficients $f_i(\\mathbf{x})$ such that $\\mathbf{x} \\approx \\sum_i f_i(\\mathbf{x})\\mathbf{d}_i$, with only a few coefficients nonzero on any given datapoint. The paper adopts this framing because it believes the features it is after are sparse and more numerous than the dimensions available to hold them. It asks only for a sparse decomposition of the activations themselves and uses nothing about what those activations go on to do in the rest of the model. The paper points out that this restraint is useful: because downstream effects were never fitted, they are left free to act as an independent check on whether the recovered directions mean anything.",
+   "prerequisites": [
+    "features-as-directions",
+    "superposition",
+    "feature-activations"
+   ],
+   "sectionIds": [
+    "2.4",
+    "2.5",
+    "18"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "elad2010sparse",
+    "refText": "Elad, Michael (2010). Sparse and redundant representations: from theory to applications in signal and image processing.",
+    "whyNeeded": "The paper names sparse dictionary learning as a pre-existing problem and cites this book plus Olshausen & Field for the definition rather than restating it."
+   }
+  },
+  {
+   "id": "sparsity-of-natural-latent-variables",
+   "name": "Sparsity of Natural Latent Variables",
+   "tier": "minor",
+   "parent": "sparse-dictionary-learning",
+   "summary": "The long-standing hypothesis that the underlying variables generating natural data are mostly inactive at any moment. The paper uses it to justify asking for a sparse decomposition.",
+   "explanation": "The paper invokes a hypothesis going back to sparse coding work in vision: most latent variables describing the world are off most of the time, so any given input reflects only a handful of them. It concedes that our understanding of what features actually exist in language models is limited, but says the examples available so far are suggestive of highly sparse variables. This is a motivating prior, not a measurement — the paper offers it as the reason to prefer sparse decompositions rather than as evidence that they are correct.",
+   "prerequisites": [
+    "features-as-a-decomposition"
+   ],
+   "sectionIds": [
+    "2.4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "olshausen1997sparse",
+    "refText": "Olshausen, Bruno A and Field, David J (1997). Sparse coding with an overcomplete basis set: A strategy employed by V1?. Vision research",
+    "whyNeeded": "The argument for why sparseness is the right prior lives in that paper's \"Why Sparseness?\" section, which this paper points at directly."
+   }
+  },
+  {
+   "id": "overcompleteness",
+   "name": "Overcompleteness",
+   "tier": "major",
+   "parent": "sparse-dictionary-learning",
+   "summary": "Having more dictionary directions than the dimension of the space they live in. The paper insists this is what separates its setting from ordinary disentanglement work.",
+   "explanation": "An overcomplete dictionary has $m \\geq n$ elements in an $n$-dimensional space, so the directions cannot be linearly independent and the decomposition is not unique on its face. The paper argues this apparently small change is what makes the setting hard and interesting: with an ordinary basis you could just solve for the coefficients, whereas here you are trying to pin down a high-dimensional coefficient vector from a low-dimensional observation. It is also the whole point, since the premise is that the MLP layer packs more features into its activations than it has neurons. The paper says it is 'kind of miraculous' that recovery works at all.",
+   "prerequisites": [
+    "superposition",
+    "sparse-dictionary-learning"
+   ],
+   "sectionIds": [
+    "2.4",
+    "18"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "expansion-factor",
+   "name": "Expansion Factor",
+   "tier": "minor",
+   "parent": "overcompleteness",
+   "summary": "The ratio of autoencoder hidden dimension to input dimension — how many times more features than neurons the dictionary has.",
+   "explanation": "With input and output dimension $n$ and hidden dimension $m$, the expansion factor is $m/n$. Because the transformer's MLP has 512 neurons, a 1x dictionary has 512 features and larger factors scale from there; the paper trains dictionaries at many sizes and compares them. Expansion factor is one of the two axes along which the paper's dictionary learning runs vary, the other being the L1 coefficient. It matters because larger dictionaries do not simply find the same features more accurately — they split existing features into finer ones.",
+   "prerequisites": [
+    "overcompleteness",
+    "dictionary-learning-run"
+   ],
+   "sectionIds": [
+    "2.6",
+    "2.7",
+    "18",
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "compressed-sensing",
+   "name": "Compressed Sensing",
+   "tier": "major",
+   "parent": "sparse-dictionary-learning",
+   "summary": "The problem of recovering a sparse high-dimensional vector from a low-dimensional linear measurement of it. The paper names this as the hard inner problem inside dictionary learning.",
+   "explanation": "Even if you were handed the true feature directions $\\mathbf{d}_i$, you would still have to compute the activations $f_i(\\mathbf{x})$ for each datapoint — that is, invert a very rectangular matrix and get a high-dimensional vector out of a low-dimensional projection. On its face this is impossible; the only thing that makes it possible is that the answer is known to be sparse. The paper calls this the famous and well-studied problem of compressed sensing. Its point is that sparse structure can be stored in a lower-dimensional space, but getting it back out is genuinely hard work, not bookkeeping.",
+   "prerequisites": [
+    "overcompleteness",
+    "feature-activations"
+   ],
+   "sectionIds": [
+    "2.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "np-hardness-of-exact-sparse-recovery",
+   "name": "NP-Hardness of Exact Recovery",
+   "tier": "minor",
+   "parent": "compressed-sensing",
+   "summary": "Compressed sensing in its exact form is NP-hard, which the paper turns into an argument about what method to use.",
+   "explanation": "Finding the exactly sparsest coefficient vector consistent with an observation is NP-hard, so all practical dictionary learning methods solve a relaxed version or search greedily. The paper draws an unusual conclusion from this: since the transformer itself certainly is not solving an NP-hard problem, a recovery method that is too strong might extract structure the model cannot itself use. That reasoning is what pushes it toward a method with roughly the same computational shape as the model's own MLP.",
+   "prerequisites": [
+    "compressed-sensing"
+   ],
+   "sectionIds": [
+    "2.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "classical-dictionary-learning-algorithms",
+   "name": "Classical Dictionary Learning Algorithms",
+   "tier": "minor",
+   "parent": "sparse-dictionary-learning",
+   "summary": "Established iterative methods such as Method of Optimal Directions and K-SVD. The paper tried several and set them aside.",
+   "explanation": "There is a mature literature of dictionary learning algorithms that alternate between solving for sparse codes and updating the dictionary, typically via a relaxed optimization or a greedy search. The paper says it tried several of these classic methods before settling on a sparse autoencoder instead. It gives two reasons: the autoencoder scales to very large datasets, and the iterative methods risk being 'too strong'. The paper does not report comparative results for the classical methods it tried.",
+   "prerequisites": [
+    "sparse-dictionary-learning"
+   ],
+   "sectionIds": [
+    "2.4"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "aharon2006k",
+    "refText": "Aharon, Michal and Elad, Michael and Bruckstein, Alfred (2006). K-SVD: An algorithm for designing overcomplete dictionaries for sparse representation. IEEE Transactions on signal processing",
+    "whyNeeded": "K-SVD and Method of Optimal Directions are named as the alternatives that were tried and rejected; how they work is only in the cited papers."
+   }
+  },
+  {
+   "id": "too-strong-method-concern",
+   "name": "The \"Too Strong\" Method Concern",
+   "tier": "minor",
+   "parent": "sparse-dictionary-learning",
+   "summary": "The worry that a sufficiently sophisticated decomposition method could recover structure from the activations that the model itself has no way to read out.",
+   "explanation": "If the goal is to describe how the model works, a method that extracts features the model cannot access would be finding structure in the data rather than in the computation. The paper argues that a sparse autoencoder is a reasonable guard against this, because its architecture — a linear map followed by ReLU — is very close to the MLP layers of the language model, and so should be about as powerful at reading features out of superposition. This is an argument from architectural similarity, not a proof, and the paper presents it as intuition.",
+   "prerequisites": [
+    "np-hardness-of-exact-sparse-recovery",
+    "superposition"
+   ],
+   "sectionIds": [
+    "2.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activations-only-decomposition",
+   "name": "Fitting Activations Only",
+   "tier": "minor",
+   "parent": "sparse-dictionary-learning",
+   "summary": "The decomposition is fit to the MLP activations alone, ignoring what those activations do to the model's output — which leaves downstream effects available as a check.",
+   "explanation": "Nothing in the training objective mentions logits, loss, or any downstream consequence of a feature direction $\\mathbf{d}_i$. The paper flags this as deliberate: because downstream effects were never optimized for, later analyses that show a feature has a coherent effect on the output are evidence the feature is real and not an artifact of the fitting procedure. The same logic underlies feature ablations, which measure the output-side consequences of directions found purely on the input side.",
+   "prerequisites": [
+    "sparse-dictionary-learning",
+    "mlp-activations-as-target"
+   ],
+   "sectionIds": [
+    "2.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "sparse-autoencoder",
+   "name": "Sparse Autoencoder",
+   "tier": "major",
+   "parent": null,
+   "summary": "A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.",
+   "explanation": "The paper's dictionary learning approximation is a small MLP trained as an autoencoder: input weights act as the encoder, output weights as the decoder, and the hidden layer is much wider than the input. Formally, with $W_e \\in \\mathbb{R}^{m \\times n}$, $W_d \\in \\mathbb{R}^{n \\times m}$ and biases $\\mathbf{b}_e, \\mathbf{b}_d$, the forward pass is $\\bar{\\mathbf{x}} = \\mathbf{x} - \\mathbf{b}_d$, $\\mathbf{f} = \\text{ReLU}(W_e\\bar{\\mathbf{x}} + \\mathbf{b}_e)$, $\\hat{\\mathbf{x}} = W_d\\mathbf{f} + \\mathbf{b}_d$. The hidden activations $\\mathbf{f}$ are the learned feature activations and the columns of $W_d$ are the dictionary vectors. The paper picks this over classical dictionary learning because it scales to billions of datapoints and because its architecture resembles the MLP layers it is decomposing.",
+   "prerequisites": [
+    "sparse-dictionary-learning",
+    "mlp-activations-as-target"
+   ],
+   "sectionIds": [
+    "2.4",
+    "2.5",
+    "18"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "sharkey2022interim",
+    "refText": "Lee Sharkey and Dan Braun and Beren Millidge (2022). [Interim research report] Taking features out of superposition with sparse autoencoders.",
+    "whyNeeded": "The paper describes its autoencoder as 'similar to Sharkey, et al.' — the prior version of this method and how it differs is in that report."
+   }
+  },
+  {
+   "id": "autoencoder-encoder",
+   "name": "Encoder",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The linear map plus bias plus ReLU that turns an activation vector into feature activations: $\\mathbf{f} = \\text{ReLU}(W_e\\bar{\\mathbf{x}} + \\mathbf{b}_e)$.",
+   "explanation": "The encoder is the part that solves the hard inner problem — inferring which features are on and how strongly, from a vector that is a superposition of many of them. Because it is a single linear layer followed by ReLU, it can only do this approximately, in one shot, for every input. The ReLU is what makes the feature activations non-negative and what allows most of them to be exactly zero on any given datapoint, which is what sparsity means here.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "compressed-sensing"
+   ],
+   "sectionIds": [
+    "18"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "learned-feature-activations",
+   "name": "Feature Activations $\\mathbf{f}$",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The autoencoder's hidden layer values on a given input. These are what the paper means by a feature firing, and how strongly.",
+   "explanation": "For each MLP activation vector $\\mathbf{x}$, the encoder produces an $m$-dimensional non-negative vector $\\mathbf{f}$, and the paper treats each entry as one feature's activation on that token. Most entries are zero on any given token, and the average count of nonzero entries is the L0 norm the paper reports. Feature activations are what get displayed in the visualization interface, what get maximized over dataset examples, and what get multiplied by dictionary vectors and subtracted during ablations.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "autoencoder-encoder"
+   ],
+   "sectionIds": [
+    "18",
+    "2.7",
+    "13"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dictionary-decoder",
+   "name": "Decoder as Dictionary",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "The output weight matrix $W_d$, whose columns are the feature directions. The paper uses \"decoder\" and \"dictionary\" interchangeably.",
+   "explanation": "Reconstruction is $\\hat{\\mathbf{x}} = W_d\\mathbf{f} + \\mathbf{b}_d$, so each column of $W_d$ is the direction in MLP activation space that a given feature writes along, scaled by that feature's activation. This makes the columns the $\\mathbf{d}_i$ of the dictionary learning formulation, and the paper refers to them as dictionary vectors throughout. When the paper needs a vector representation of a feature — for comparing features across runs or across transformers, or for the UMAP embeddings — it uses the feature's decoder column.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "features-as-directions"
+   ],
+   "sectionIds": [
+    "18",
+    "21",
+    "13"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "unit-norm-dictionary-columns",
+   "name": "Unit-Norm Dictionary Columns",
+   "tier": "minor",
+   "parent": "dictionary-decoder",
+   "summary": "The columns of $W_d$ are constrained to have L2 norm 1, so that the L1 penalty cannot be gamed by shrinking directions.",
+   "explanation": "Without a norm constraint, the model could drive the L1 penalty down by making feature activations tiny and dictionary vectors correspondingly long, leaving the reconstruction unchanged while the penalty vanishes. Fixing each column to unit norm removes that degree of freedom and makes activation magnitudes comparable across features. The constraint has a cost: it interacts badly with a naive optimizer implementation, which the paper addresses separately.",
+   "prerequisites": [
+    "dictionary-decoder",
+    "l1-sparsity-penalty"
+   ],
+   "sectionIds": [
+    "18",
+    "18.5"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "sparse-autoencoder-loss",
+   "name": "Reconstruction Plus Sparsity Loss",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "The training objective: mean squared reconstruction error plus an L1 penalty on the hidden activations, $\\mathcal{L} = \\frac{1}{|X|}\\sum_\\mathbf{x} \\|\\mathbf{x}-\\hat{\\mathbf{x}}\\|_2^2 + \\lambda\\|\\mathbf{f}\\|_1$.",
+   "explanation": "Two terms pull against each other: the MSE term wants the reconstruction to be faithful, which is easiest with many features active, and the L1 term wants few features active, which costs reconstruction accuracy. Everything the method produces sits somewhere on that tradeoff, set by $\\lambda$. The paper notes a convention that matters if you are reimplementing it: the MSE is a mean over vector elements while the L1 is a sum over feature activations. It also notes that using MSE rather than an architectural sparsity mechanism sidesteps the problems with architectural approaches it discussed earlier.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "learned-feature-activations"
+   ],
+   "sectionIds": [
+    "2.5",
+    "18"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "l1-sparsity-penalty",
+   "name": "L1 Sparsity Penalty",
+   "tier": "major",
+   "parent": "sparse-autoencoder-loss",
+   "summary": "A penalty on the sum of feature activations, which pushes most of them to exactly zero. This is what buys sparsity in the decomposition.",
+   "explanation": "The term $\\lambda\\|\\mathbf{f}\\|_1$ charges the model for every unit of feature activation it uses, and combined with the ReLU this drives most entries of $\\mathbf{f}$ to exactly zero rather than merely small. The L1 norm is a convex stand-in for the count of nonzero entries, which is the quantity you actually want to limit but cannot optimize directly. What the penalty buys is the property that makes the whole decomposition legible: on any given token only a handful of features are on, so a token's activation can be described by a short list rather than 512 numbers. It also costs reconstruction accuracy, and the paper reports that tradeoff explicitly.",
+   "prerequisites": [
+    "sparse-autoencoder-loss",
+    "l0-norm"
+   ],
+   "sectionIds": [
+    "2.5",
+    "18",
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "l1-coefficient",
+   "name": "L1 Coefficient $\\lambda$",
+   "tier": "minor",
+   "parent": "l1-sparsity-penalty",
+   "summary": "The scalar weighting the sparsity penalty against reconstruction error. It is one of the two hyperparameters the paper varies across dictionary learning runs.",
+   "explanation": "Raising $\\lambda$ buys sparsity at the cost of reconstruction; lowering it does the reverse. The paper selects $\\lambda$ by looking at where a run lands on the L0-versus-reconstructed-NLL tradeoff, along with feature density diagnostics — it reports that a significant number of features with density above 1% signals a coefficient that is too low. Training loss cannot be used to compare runs with different $\\lambda$, since $\\lambda$ changes the loss function itself. The paper's run series A/0 through A/5 holds $\\lambda$ fixed while increasing dictionary size.",
+   "prerequisites": [
+    "l1-sparsity-penalty",
+    "l0-nll-tradeoff"
+   ],
+   "sectionIds": [
+    "2.7",
+    "18",
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "mse-reconstruction-term",
+   "name": "MSE Reconstruction Term",
+   "tier": "minor",
+   "parent": "sparse-autoencoder-loss",
+   "summary": "The squared error between the original MLP activation and the autoencoder's reconstruction, averaged over vector elements.",
+   "explanation": "This term is what ties the learned features to the actual computation: if the reconstruction is poor, the features are not a description of what the MLP layer was doing. The paper uses it directly as one of its guiding metrics, on the grounds that the goal is to explain the MLP layer's function so the reconstruction error should be low. Note the asymmetry in normalization — mean over elements for MSE, sum for L1 — which fixes what a given $\\lambda$ means numerically.",
+   "prerequisites": [
+    "sparse-autoencoder-loss"
+   ],
+   "sectionIds": [
+    "2.5",
+    "2.5.1",
+    "18"
+   ],
+   "floor": true,
+   "citedFrom": null
+  },
+  {
+   "id": "pre-encoder-bias",
+   "name": "Pre-Encoder Bias",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "A bias subtracted from the input before the encoder, constrained to be the negative of the decoder's output bias. The paper lists it as its most important modification to a standard autoencoder.",
+   "explanation": "The forward pass begins with $\\bar{\\mathbf{x}} = \\mathbf{x} - \\mathbf{b}_d$, so the same learned vector is removed at the input and added back at the output. The effect is equivalent to subtracting a fixed offset from all activations and then running an autoencoder whose only bias sits before the encoder nonlinearity. The paper reports that on toy problems with a bias, the autoencoder failed to reproduce the expected diagnostic plots unless bias terms were added at both ends. It ranks this first in its rough ordering of modifications by importance, on the basis of toy-model performance rather than an ablation on the real model.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "2.5",
+    "18",
+    "18.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "hobbhahn2023more",
+    "refText": "Hobbhahn, Marius (2023). More findings on Memorization and double descent.",
+    "whyNeeded": "The paper says these investigations were motivated by Hobbhahn's observations; the observation itself is not restated here."
+   }
+  },
+  {
+   "id": "tied-input-output-bias",
+   "name": "Tying the Pre-Encoder and Post-Decoder Bias",
+   "tier": "minor",
+   "parent": "pre-encoder-bias",
+   "summary": "The bias subtracted at the input is constrained to equal the negative of the bias added at the output, rather than being learned independently.",
+   "explanation": "There is one learned vector $\\mathbf{b}_d$, removed before encoding and restored after decoding. The paper frames this as making the whole thing equivalent to centering the data at a learned point and then running a plain autoencoder with a single bias before the ReLU. Tying keeps the decomposition interpretable: the reconstruction is a fixed offset plus a sparse sum of scaled dictionary vectors, with the offset shared by every datapoint.",
+   "prerequisites": [
+    "pre-encoder-bias"
+   ],
+   "sectionIds": [
+    "2.5",
+    "18",
+    "18.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "geometric-median-initialization",
+   "name": "Geometric Median Initialization",
+   "tier": "minor",
+   "parent": "pre-encoder-bias",
+   "summary": "The tied bias is initialized to the geometric median of the activation dataset — the point minimizing summed Euclidean distance to all datapoints.",
+   "explanation": "Rather than starting the bias at zero, the paper starts it at the geometric median of the activations, so the autoencoder begins already centered on the bulk of the data. The geometric median is the point minimizing the sum of L2 distances to the dataset, which makes it less sensitive to outlying activations than the mean would be. The paper states the choice without ablating it separately.",
+   "prerequisites": [
+    "pre-encoder-bias",
+    "autoencoder-training-dataset"
+   ],
+   "sectionIds": [
+    "18.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "bounce-plots",
+   "name": "Bounce Plots",
+   "tier": "minor",
+   "parent": "pre-encoder-bias",
+   "summary": "A toy-model diagnostic the paper uses to check whether the autoencoder is behaving correctly. Failure to produce them is what motivated adding biases.",
+   "explanation": "The paper refers back to plots it calls 'bounce plots' from its toy-model investigations, and reports that on toy problems with a bias the autoencoder would not produce them unless a learned bias was added at both the decoder output and the encoder input. The reproduced text does not restate what the plots show, so the term is used here only as the symptom that the modification fixed. It is worth reading as evidence of the kind the paper offers throughout this appendix — anecdotal and toy-model-based rather than a controlled ablation on the real autoencoder.",
+   "prerequisites": [
+    "toy-models"
+   ],
+   "sectionIds": [
+    "18.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "untied-decoder-weights",
+   "name": "Untied Decoder Weights",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "The encoder weights are learned independently of the decoder weights rather than being constrained to their transpose. The paper reports the two end up meaningfully different.",
+   "explanation": "It is common in single-hidden-layer autoencoders to set $W_e = W_d^\\top$, halving the parameters. The paper does not do this, and reports that in its trained models the learned encoder weights are not the transpose of the decoder weights but are offset in a way that increases representational capacity. It ranks untying second among its modifications. The claim is empirical and is illustrated with one case — the three base64 features — rather than measured systematically.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "dictionary-decoder",
+    "autoencoder-encoder"
+   ],
+   "sectionIds": [
+    "18",
+    "18.2"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "cunningham2023sparse",
+    "refText": "Cunningham, Hoagy and Ewart, Aidan and Smith, Logan and Huben, Robert and Sharkey, Lee. Sparse Autoencoders Find Highly Interpretable Model Directions. arXiv:2309.08600",
+    "whyNeeded": "The tied-weight convention this paper departs from is established in these prior sparse autoencoder works; the comparison only makes sense against them."
+   }
+  },
+  {
+   "id": "encoder-decoder-offset-crosstalk",
+   "name": "Encoder Tilt Against Crosstalk",
+   "tier": "minor",
+   "parent": "untied-decoder-weights",
+   "summary": "The paper's account of why untying helps: features with similar dictionary vectors get encoder vectors tilted away from each other, so they can be told apart.",
+   "explanation": "When two features write along nearly the same direction, a tied encoder would read them nearly identically and confuse them. The paper reports that in its trained autoencoders the encoder vectors for such features, while still similar, are tilted further apart than the dictionary vectors, which it reads as preventing crosstalk between noisy feature inputs. The worked case is the three base64 features described elsewhere in the paper, which share similar dictionary vectors but have more separated encoder vectors. This is offered as intuition backed by an example, not a quantitative result.",
+   "prerequisites": [
+    "untied-decoder-weights",
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "18.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "amortized-sparse-coding-approximation",
+   "name": "Encoder as Amortized Sparse Coding",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "The framing that the encoder is a single-shot linear stand-in for a multi-step, non-linear sparse coding algorithm.",
+   "explanation": "Classical sparse coding solves an optimization problem separately for each datapoint to find its coefficients. The autoencoder instead learns one linear map, applied identically to every input, that approximates the answer that optimization would give — an amortized approximation, paid for once at training time rather than per datapoint. The paper uses this framing twice: to explain why the encoder should be allowed weights independent of the decoder (an amortized approximator has no reason to be the decoder's transpose), and to argue that the autoencoder is not 'too strong' relative to what the model itself can compute. It also explains the asymmetry in the architecture — the decoder is the dictionary, the encoder is the inference procedure.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "compressed-sensing",
+    "too-strong-method-concern"
+   ],
+   "sectionIds": [
+    "18",
+    "18.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "neuron-resampling",
+   "name": "Neuron Resampling",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "Periodically reinitializing autoencoder neurons that have stopped firing, aiming them at datapoints the autoencoder currently reconstructs worst.",
+   "explanation": "Over training, some hidden units go silent across large numbers of datapoints and stop contributing anything. The paper periodically detects these and reseeds them, which it reports improves the number of likely-interpretable features — those in the high density cluster — and reduces total loss. Its stated intuition is that resampling gives the network more chances to find promising feature directions, and it suggests this may be compatible with the Lottery Ticket Hypothesis. The paper is candid that its procedure is imperfect: it still causes sudden loss spikes, and resampling too frequently makes training diverge.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "dead-neurons",
+    "high-density-cluster"
+   ],
+   "sectionIds": [
+    "2.5",
+    "18",
+    "18.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dead-neurons",
+   "name": "Dead Neurons",
+   "tier": "major",
+   "parent": "neuron-resampling",
+   "summary": "Autoencoder hidden units with zero activation across a large number of datapoints. They waste dictionary capacity, so the paper resamples them.",
+   "explanation": "A hidden unit whose pre-ReLU input is negative on essentially every datapoint contributes nothing to reconstruction and receives no gradient, so it stays dead. Every dead neuron is a dictionary slot not representing a feature, which is why the paper says resampling lets the model represent more features for a given hidden layer dimension. The paper reports that the number of dead neurons depends on learning rate (too high), batch size (too low), dataset redundancy such as too many tokens per context or repeated epochs, the number of training steps (too many), and the optimizer used, and says this agrees with prior work on the emergence of sparse representations.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "learned-feature-activations"
+   ],
+   "sectionIds": [
+    "2.5",
+    "18.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "bricken2023emergence",
+    "refText": "Bricken, Trenton and Schaeffer, Rylan and Olshausen, Bruno and Kreiman, Gabriel. Emergence of Sparse Representations from Noise.",
+    "whyNeeded": "The paper says its findings on what causes dead neurons agree with this work but does not reproduce the underlying analysis."
+   }
+  },
+  {
+   "id": "de-facto-dead-neurons",
+   "name": "De Facto Dead Neurons",
+   "tier": "minor",
+   "parent": "dead-neurons",
+   "summary": "Ultralow density neurons that fire so rarely they are effectively dead, but do not register as dead by a zero-activity check.",
+   "explanation": "The paper notes a nuance: with more training steps, networks kill off more ultralow-density neurons, meaning that at fewer steps such neurons exist in a state where they fire occasionally but contribute nothing useful. Counting only strictly dead neurons therefore understates the waste. The paper uses this to argue for tracking the size of the high density cluster rather than the dead neuron count, since the former is not fooled by neurons that are dead in practice.",
+   "prerequisites": [
+    "dead-neurons",
+    "ultralow-density-cluster",
+    "feature-density-histogram"
+   ],
+   "sectionIds": [
+    "18.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "resampling-procedure",
+   "name": "The Resampling Procedure",
+   "tier": "minor",
+   "parent": "neuron-resampling",
+   "summary": "The concrete recipe: at four checkpoints during training, find neurons idle for 12,500 steps and reseed them from poorly-reconstructed inputs.",
+   "explanation": "At training steps 25,000, 50,000, 75,000 and 100,000, the paper identifies neurons that have not fired in any of the previous 12,500 steps. It computes the autoencoder's loss on a random subset of 819,200 inputs and assigns each input a selection probability proportional to the square of that loss. For each dead neuron it samples an input, renormalizes it to unit L2 norm, and installs it as that neuron's dictionary vector; the encoder vector is set to the same direction scaled to 0.2 times the average encoder norm of live neurons, with the encoder bias element zeroed. Finally the Adam state for every modified parameter is reset. The paper says this beats both no resampling and a plain Kaiming Uniform reinitialization, and that better strategies are an active research area.",
+   "prerequisites": [
+    "neuron-resampling",
+    "dead-neurons"
+   ],
+   "sectionIds": [
+    "18.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "loss-proportional-input-sampling",
+   "name": "Sampling by Squared Loss",
+   "tier": "minor",
+   "parent": "resampling-procedure",
+   "summary": "Resampled neurons are seeded from inputs chosen with probability proportional to the square of the autoencoder's current loss on them.",
+   "explanation": "The point of resampling is to spend the freed capacity where the autoencoder is currently failing, so the seed input is drawn from a distribution weighted toward badly reconstructed datapoints. Squaring the loss sharpens that preference. The paper describes the design intent as seeding new features to fit the inputs where the current autoencoder performs worst.",
+   "prerequisites": [
+    "resampling-procedure"
+   ],
+   "sectionIds": [
+    "18.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "resampled-encoder-scaling",
+   "name": "Weak Initialization of the Resampled Encoder",
+   "tier": "minor",
+   "parent": "resampling-procedure",
+   "summary": "A revived neuron's encoder vector is scaled to 0.2 times the average live-neuron encoder norm and its bias set to zero, so it fires only weakly at first.",
+   "explanation": "If a resampled neuron came back at full strength it would immediately start firing across many inputs and disturb features the autoencoder had already learned. Scaling its encoder down and zeroing its bias means it fires weakly and only for inputs similar to the one it was seeded from. The paper calls resetting the encoder norm and bias crucial, specifically to minimize interference with the rest of the network.",
+   "prerequisites": [
+    "resampling-procedure"
+   ],
+   "sectionIds": [
+    "18.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "adam-state-reset-on-resampling",
+   "name": "Resetting Optimizer State on Resampling",
+   "tier": "minor",
+   "parent": "resampling-procedure",
+   "summary": "Adam's moment estimates are reset for every weight and bias changed by resampling.",
+   "explanation": "Adam carries running estimates of gradient mean and variance per parameter, accumulated over the whole run. A resampled neuron's parameters have just been replaced with something unrelated, so the inherited moment estimates describe a parameter that no longer exists and would distort the first updates after the swap. The paper resets them for every modified weight and bias term.",
+   "prerequisites": [
+    "resampling-procedure"
+   ],
+   "sectionIds": [
+    "18.3"
+   ],
+   "floor": true,
+   "citedFrom": null
+  },
+  {
+   "id": "lottery-ticket-hypothesis",
+   "name": "Lottery Ticket Hypothesis",
+   "tier": "minor",
+   "parent": "neuron-resampling",
+   "summary": "The idea that a trained network's performance comes from a subnetwork whose initialization happened to be favorable. The paper offers it as a possible reason resampling helps.",
+   "explanation": "The paper suggests resampling 'may be compatible with' the Lottery Ticket Hypothesis, on the reading that each resampled neuron is an extra draw at a favorable initialization, increasing the number of chances the network has to find promising feature directions. This is offered as a speculation about mechanism, not a tested claim — the paper provides no experiment separating this account from any other. The hypothesis itself comes from the cited work on finding sparse trainable subnetworks.",
+   "prerequisites": [
+    "neuron-resampling"
+   ],
+   "sectionIds": [
+    "18.3"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "frankle2018lottery",
+    "refText": "Frankle, Jonathan and Carbin, Michael. The lottery ticket hypothesis: Finding sparse, trainable neural networks. arXiv:1803.03635",
+    "whyNeeded": "The hypothesis is invoked by name as a possible explanation for why resampling works; its content is entirely in the cited paper."
+   }
+  },
+  {
+   "id": "adam-decoder-normalization-interaction",
+   "name": "Adam and Decoder Normalization",
+   "tier": "major",
+   "parent": "sparse-autoencoder",
+   "summary": "A fix for the mismatch created by renormalizing dictionary vectors after each step: project the gradient onto the sphere before the update rather than snapping back afterwards.",
+   "explanation": "The naive way to enforce unit-norm dictionary vectors is to rescale them to length 1 after every gradient step. That silently discards whatever part of the update pointed along the vector, so the gradient Adam thinks it applied differs from the one that actually took effect — and because Adam's moment estimates are built from those gradients, the error compounds through the optimizer state. The paper instead removes the component of the gradient parallel to each dictionary vector before the step, so the update Adam sees is the update that happens. It reports a small but real reduction in total loss, and lists this last in its rough ordering of modifications by importance.",
+   "prerequisites": [
+    "unit-norm-dictionary-columns",
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "18",
+    "18.5"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "kingma2014adam",
+    "refText": "Kingma, Diederik P and Ba, Jimmy. Adam: A method for stochastic optimization. arXiv:1412.6980",
+    "whyNeeded": "The fix and the resampling state-reset both turn on how Adam's per-parameter moment estimates accumulate; the mechanism is in the Adam paper."
+   }
+  },
+  {
+   "id": "learning-rate-sweep",
+   "name": "Learning Rate Sweep",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "Trying multiple learning rates alongside varying training lengths. The paper reports lower learning rates, given enough steps, give lower loss and more real features.",
+   "explanation": "The paper ran several training runs across learning rates while also varying the number of training steps, and found that lower learning rates with sufficient steps produced lower total loss and more 'real' features, judged by the feature density histograms. It also tried annealing the learning rate over training and reports this gave no further improvement. Learning rate that is too high is separately listed as one of the factors that produces dead neurons.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "feature-density-histogram",
+    "dead-neurons"
+   ],
+   "sectionIds": [
+    "18",
+    "18.4"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "extended-training-steps",
+   "name": "Training Past the Loss Plateau",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The paper keeps training well beyond the point where training loss appears flat, listing 'many training steps' among its important modifications.",
+   "explanation": "The paper trains for 1 million update steps and says explicitly that this goes beyond when the training loss looks to have plateaued. It reports that continued training kills off more ultralow-density neurons, which it treats as cleanup rather than loss. The claim is that a flat loss curve is not a reliable signal that the dictionary has stopped improving in the ways that matter for interpretability — which is consistent with the paper's broader difficulty in finding any single metric that tracks what it cares about.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "ultralow-density-cluster"
+   ],
+   "sectionIds": [
+    "18",
+    "18.3",
+    "17"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "kaiming-uniform-initialization",
+   "name": "Kaiming Uniform Initialization",
+   "tier": "minor",
+   "parent": "sparse-autoencoder",
+   "summary": "The default PyTorch weight initialization used for the autoencoder.",
+   "explanation": "The autoencoder's weights start from PyTorch's default Kaiming Uniform scheme, which draws weights from a uniform range scaled by fan-in so that activation variance is preserved through a ReLU layer. The paper states this only for reproducibility. It also appears as a baseline in the resampling comparison: reinitializing dead neurons with plain Kaiming Uniform performed worse than the paper's data-seeded resampling.",
+   "prerequisites": [
+    "sparse-autoencoder"
+   ],
+   "sectionIds": [
+    "18",
+    "18.3"
+   ],
+   "floor": true,
+   "citedFrom": {
+    "citationKey": "he2015delving",
+    "refText": "He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian. Delving deep into rectifiers: Surpassing human-level performance on imagenet classification. ICCV",
+    "whyNeeded": "The exact initialization distribution is a reproduction detail defined in the cited paper."
+   }
+  },
+  {
+   "id": "autoencoder-training-dataset",
+   "name": "Autoencoder Training Dataset",
+   "tier": "major",
+   "parent": null,
+   "summary": "Roughly 10 billion MLP activation vectors harvested from the transformer over 40 million Pile contexts, of which just over 8 billion are used.",
+   "explanation": "To build the dataset, the paper runs the trained transformers over 40 million contexts from the Pile and collects the MLP activation vector after the ReLU for every token. It then samples activations from 250 tokens in each context and shuffles them together so that samples within a batch come from diverse contexts. Training uses a batch size of 8192 and 1 million update steps, consuming just over 8 billion of the 10 billion collected vectors. The paper reports that dataset scale mattered: training on more data made features subjectively 'sharper' and more interpretable.",
+   "prerequisites": [
+    "mlp-activations-as-target",
+    "one-layer-transformer-testbed",
+    "pile-dataset"
+   ],
+   "sectionIds": [
+    "2.5",
+    "17"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-shuffling",
+   "name": "Cross-Context Shuffling",
+   "tier": "minor",
+   "parent": "autoencoder-training-dataset",
+   "summary": "Activations are subsampled at 250 tokens per context and shuffled so that a training batch draws from many different contexts.",
+   "explanation": "Tokens within a single context are highly correlated, so a batch made of consecutive tokens would be redundant and would present the autoencoder with a narrow slice of the activation distribution. Taking only 250 tokens from each of 40 million contexts and shuffling across contexts breaks that correlation. The paper separately lists dataset redundancy — too many tokens per context, or repeated epochs — as a cause of dead neurons, which is the failure this subsampling guards against.",
+   "prerequisites": [
+    "autoencoder-training-dataset",
+    "dead-neurons"
+   ],
+   "sectionIds": [
+    "17"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "sampling-without-replacement",
+   "name": "Sampling Without Replacement",
+   "tier": "minor",
+   "parent": "autoencoder-training-dataset",
+   "summary": "Each activation vector is seen at most once during autoencoder training. The paper says not repeating data is important for optimal results.",
+   "explanation": "Because the collected dataset is larger than the number of vectors consumed — just over 8 billion used out of 10 billion — training can proceed for its full 1 million steps without ever revisiting a datapoint. The paper states plainly that sampling without replacement matters, and elsewhere lists repeated epochs over the same dataset among the causes of dead neurons. It reports the finding without an accompanying ablation.",
+   "prerequisites": [
+    "autoencoder-training-dataset"
+   ],
+   "sectionIds": [
+    "17"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "evaluating-dictionary-learning",
+   "name": "Telling Whether the Autoencoder Is Working",
+   "tier": "major",
+   "parent": null,
+   "summary": "The paper has no single metric that tracks what it cares about, and instead triangulates from several imperfect signals.",
+   "explanation": "In most of machine learning a held-out loss settles whether a method works. Here it does not, because the goal is interpretable features and reconstruction error alone can be driven down by an uninterpretable dense solution. The paper reports spending considerable time looking for a satisfactory metric and not finding one; it fell back on a combination of manual inspection, feature density statistics, reconstruction loss, and toy models with known ground truth. It is explicit that some of these signals are hard to read — features that looked senseless sometimes made sense on deeper inspection — and says it would be very helpful if better metrics for dictionary learning solutions existed.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "monosemanticity"
+   ],
+   "sectionIds": [
+    "2.5.1",
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "information-based-metric",
+   "name": "The Information-Based Metric That Failed",
+   "tier": "minor",
+   "parent": "evaluating-dictionary-learning",
+   "summary": "An attempt to score factorizations by the total information of autoencoder plus data. It did not correlate with what the paper cared about.",
+   "explanation": "The idea was to call the best factorization the one minimizing the combined description length of the autoencoder and the data given it. The paper reports this total information did not generally track either subjective feature interpretability or activation sparsity: runs whose feature activations had average L0 norms in the hundreds but low reconstruction error could score better than runs with far sparser codes and worse reconstruction. This is reported as a negative result and the approach was dropped.",
+   "prerequisites": [
+    "evaluating-dictionary-learning",
+    "l0-norm"
+   ],
+   "sectionIds": [
+    "2.5.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "manual-inspection",
+   "name": "Manual Inspection",
+   "tier": "minor",
+   "parent": "evaluating-dictionary-learning",
+   "summary": "Looking at features and asking whether they seem interpretable. Slow and subjective, but the paper treats it as the ground truth the proxies stand in for.",
+   "explanation": "The paper's stated goal is interpretable features, and it says quantitatively measuring interpretability is currently difficult and slow — which is why it uses proxy metrics when testing changes or optimizing hyperparameters. Manual inspection is what those proxies are proxies for. The paper also warns about reading it too confidently: at various points features that at first made no sense became understandable with deeper inspection.",
+   "prerequisites": [
+    "evaluating-dictionary-learning",
+    "feature-exploration-interface"
+   ],
+   "sectionIds": [
+    "2.5.1",
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "toy-model-ground-truth",
+   "name": "Toy Models as Ground Truth",
+   "tier": "minor",
+   "parent": "evaluating-dictionary-learning",
+   "summary": "Small synthetic setups where the true features are known by construction, used to check that the autoencoder recovers what it should.",
+   "explanation": "Because there is no way to verify recovered features against ground truth in a real transformer, the paper leaned on toy models where the underlying features were put there by hand. It says having these was crucial to its early progress, and several architectural choices — the pre-encoder bias in particular — were decided on toy problems rather than on the real autoencoder. The limitation is the obvious one: what works on a constructed toy distribution need not transfer.",
+   "prerequisites": [
+    "evaluating-dictionary-learning",
+    "toy-models"
+   ],
+   "sectionIds": [
+    "2.5.1",
+    "18.1"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "elhage2022superposition",
+    "refText": "Elhage, Nelson et al. (2022). Toy Models of Superposition. Transformer Circuits Thread",
+    "whyNeeded": "The toy models used as ground truth, and the bounce plots and superposition results they produce, are defined in that prior work."
+   }
+  },
+  {
+   "id": "training-loss-metric",
+   "name": "Training Loss as a Proxy",
+   "tier": "minor",
+   "parent": "evaluating-dictionary-learning",
+   "summary": "The simplest signal, useful for comparing optimizers and learning rates but meaningless across runs with different L1 coefficients.",
+   "explanation": "The paper uses training loss when testing changes that leave the objective intact — optimizer choices, learning rates, the decoder normalization fix. It notes the obvious limit: comparing training loss across hyperparameters that change the loss function itself, such as the L1 coefficient, is not meaningful, since a run with a smaller $\\lambda$ is being scored on an easier objective.",
+   "prerequisites": [
+    "evaluating-dictionary-learning",
+    "l1-coefficient"
+   ],
+   "sectionIds": [
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-density-diagnostics",
+   "name": "Feature Density Diagnostics",
+   "tier": "minor",
+   "parent": "evaluating-dictionary-learning",
+   "summary": "Three specific numbers read off the feature density histograms and used to judge a run: live features outside the ultralow cluster, where the non-ultralow features start, and how many features fire on over 1% of tokens.",
+   "explanation": "The paper reports the number of live features and the fraction of tokens they fire on as an extremely useful guide. From the density histograms it pulls three quantities: the count of alive features outside the ultralow density cluster, the minimum density at which a significant number of non-ultralow-density features appear, and the number of features with density above 1%. It reads a significant number of features above 1% as a sign the L1 coefficient is too low. It also admits it has identified only some desiderata for the density distribution and that much remains not understood, which is what stops this from being a clear signal of progress.",
+   "prerequisites": [
+    "evaluating-dictionary-learning",
+    "feature-density-histogram",
+    "ultralow-density-cluster",
+    "l1-coefficient"
+   ],
+   "sectionIds": [
+    "2.5.1",
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "l0-norm",
+   "name": "$L^0$ Norm",
+   "tier": "major",
+   "parent": "evaluating-dictionary-learning",
+   "summary": "The average number of features active on a token. This is the paper's direct measure of how sparse the decomposition actually is.",
+   "explanation": "The L1 penalty is a stand-in for the thing you actually want to control: how many features are nonzero at once, which is the $L^0$ norm of $\\mathbf{f}$. The paper reports it as an average over datapoints and says it generally targets values under 10 or 20, while admitting it knows no principled way to pick a target level of sparsity. It especially distrusts solutions where the $L^0$ norm is a significant fraction of the transformer's activation dimensionality — at that point the decomposition has stopped being sparse relative to the 512 neurons it is meant to be unpacking.",
+   "prerequisites": [
+    "learned-feature-activations",
+    "l1-sparsity-penalty"
+   ],
+   "sectionIds": [
+    "2.5.1",
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "reconstructed-transformer-nll",
+   "name": "Reconstructed Transformer NLL",
+   "tier": "major",
+   "parent": "evaluating-dictionary-learning",
+   "summary": "Splice the autoencoder's reconstruction back into the transformer in place of the real MLP activations, and measure how much worse the language modeling loss gets.",
+   "explanation": "Reconstruction MSE says how close $\\hat{\\mathbf{x}}$ is to $\\mathbf{x}$ in activation space, but not whether the difference matters to the model. This metric answers that directly: run the transformer, pass the MLP activations through the autoencoder, substitute the reconstructions, and compute the loss on the training dataset, then take the difference from the unmodified transformer's loss. The paper wants the discovered features to explain almost all of the underlying transformer's behavior, and this is its measure of how close it gets.",
+   "prerequisites": [
+    "evaluating-dictionary-learning",
+    "sparse-autoencoder",
+    "mlp-activations-as-target"
+   ],
+   "sectionIds": [
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "mlp-ablation-normalization",
+   "name": "Normalizing by MLP Ablation",
+   "tier": "minor",
+   "parent": "reconstructed-transformer-nll",
+   "summary": "The loss increase from substitution is divided by the loss increase from removing the MLP layer entirely, giving a percentage of the MLP's contribution explained.",
+   "explanation": "To turn a raw loss difference into a fraction, the paper divides by the gap between the baseline transformer and the same transformer with its MLP layer ablated. That puts the result on a scale where 100% means the autoencoder's reconstruction preserves everything the MLP was contributing.",
+   "prerequisites": [
+    "reconstructed-transformer-nll"
+   ],
+   "sectionIds": [
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "reconstructed-nll-overestimate-caveat",
+   "name": "Why the Percentage Is an Overestimate",
+   "tier": "minor",
+   "parent": "reconstructed-transformer-nll",
+   "summary": "The paper says the ablated-MLP baseline may be an especially bad one, so the fraction explained is likely inflated.",
+   "explanation": "A transformer with its MLP removed is a badly damaged model, so the denominator in the normalization may be much larger than the amount of interesting work the MLP does. The paper flags the percentage as an overestimate for this reason, and reports ad hoc experiments — data not shown — in which similarly high percentages were reached simply by training a transformer from scratch with a small MLP. This is the paper hedging its own headline number rather than defending it.",
+   "prerequisites": [
+    "mlp-ablation-normalization"
+   ],
+   "sectionIds": [
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "l0-nll-tradeoff",
+   "name": "Sparsity vs. Explained Behavior Tradeoff",
+   "tier": "major",
+   "parent": "evaluating-dictionary-learning",
+   "summary": "Plotting $L^0$ norm against reconstructed transformer NLL across runs gives a frontier the paper uses to choose the L1 coefficient.",
+   "explanation": "Neither sparsity nor faithfulness is meaningful on its own — you can have either by giving up the other. Taken together they lay out a human-interpretable tradeoff: each line on the paper's plot is one L1 coefficient with autoencoder size varying along it, so the family of lines shows what you get by moving $\\lambda$ versus by making the dictionary bigger. The lowest L1 coefficient is excluded from the plot to keep the scale reasonable. The paper uses this frontier to pick hyperparameters rather than any single scalar score.",
+   "prerequisites": [
+    "l0-norm",
+    "reconstructed-transformer-nll",
+    "l1-coefficient",
+    "expansion-factor"
+   ],
+   "sectionIds": [
+    "19"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "one-layer-transformer-testbed",
+   "name": "The One-Layer Transformer Testbed",
+   "tier": "major",
+   "parent": null,
+   "summary": "The model under study: a one-layer transformer with a 128-dimensional residual stream and a 512-neuron ReLU MLP, overtrained on 100 billion Pile tokens.",
+   "explanation": "The paper treats this model as a testbed for dictionary learning rather than an object of interest in itself, and gives three reasons for the choice. Being small, it likely has fewer 'true features' than a larger model, so modest dictionaries might cover all of them, and small dictionaries are cheap enough to allow fast hyperparameter search. It can be heavily overtrained cheaply. And because there is only one layer, the effect of features on the output logits is approximately linear and therefore easy to analyze. The tradeoff, which the paper names, is that these same properties may make its results less likely to generalize to multilayer models.",
+   "prerequisites": [
+    "mlp-activations-as-target"
+   ],
+   "sectionIds": [
+    "2.6",
+    "16"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "transformer-architecture-and-training",
+   "name": "Transformer Architecture and Training",
+   "tier": "minor",
+   "parent": "one-layer-transformer-testbed",
+   "summary": "Residual stream dimension 128, inner MLP dimension 512 with a ReLU, trained on 100 billion Pile tokens with Adam.",
+   "explanation": "These are the settings that fix everything downstream: the 512 MLP neurons are the $n$ of the autoencoder's input and output dimension, and the 1x-to-larger expansion factors are measured against that number. Training runs for 100 billion tokens with the Adam optimizer. The paper trained two such transformers with identical hyperparameters and datasets, differing only in the random seed used for initialization.",
+   "prerequisites": [
+    "one-layer-transformer-testbed"
+   ],
+   "sectionIds": [
+    "2.6",
+    "16"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "pile-dataset",
+   "name": "The Pile",
+   "tier": "minor",
+   "parent": "one-layer-transformer-testbed",
+   "summary": "The public 800GB text corpus the transformers are trained on, chosen over Anthropic's internal dataset for reproducibility.",
+   "explanation": "The paper says it trained on the Pile specifically so that its experiments would be more reproducible by others. It also flags a consequence for interpreting the results: while it thinks many features are universal, others are very likely idiosyncratic to the dataset — so a feature found here is not automatically a feature of language models in general. The Pile is also the source of the 40 million contexts used to build the autoencoder's activation dataset.",
+   "prerequisites": [
+    "one-layer-transformer-testbed"
+   ],
+   "sectionIds": [
+    "16",
+    "17"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "gao2020pile",
+    "refText": "Leo Gao et al. (2020). The Pile: An 800GB Dataset of Diverse Text for Language Modeling.",
+    "whyNeeded": "What is actually in the Pile determines which features exist at all — the paper's base64, DNA and Arabic script features depend on the corpus composition described in the cited work."
+   }
+  },
+  {
+   "id": "mlp-activations-as-target",
+   "name": "MLP Activations as the Decomposition Target",
+   "tier": "minor",
+   "parent": "one-layer-transformer-testbed",
+   "summary": "The vectors being decomposed are the 512-dimensional MLP activations after the ReLU, taken at each token.",
+   "explanation": "Everything in the method operates on this one object: the autoencoder reconstructs it, the loss is measured against it, ablations subtract from it, and the reconstructed-NLL metric substitutes for it. The paper collects these vectors after the ReLU, at each token of each context. Choosing the MLP activations rather than the residual stream is what makes the neuron basis the relevant comparison point — the features are being contrasted against 512 specific neurons.",
+   "prerequisites": [
+    "one-layer-transformer-testbed",
+    "privileged-basis"
+   ],
+   "sectionIds": [
+    "2.5",
+    "16",
+    "17"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "overtraining",
+   "name": "Overtraining the Transformer",
+   "tier": "minor",
+   "parent": "one-layer-transformer-testbed",
+   "summary": "Training the small model on far more tokens than compute-optimal, on the hypothesis that this yields cleaner representations in superposition.",
+   "explanation": "The paper trains a one-layer model on 100 billion tokens, which it can afford precisely because the model is small. Its stated hypothesis is that a very high number of training tokens may allow the model to learn cleaner representations in superposition. This is offered as a reason for the design choice, not as something the paper tests — there is no comparison against a less-trained transformer.",
+   "prerequisites": [
+    "one-layer-transformer-testbed",
+    "superposition"
+   ],
+   "sectionIds": [
+    "2.6",
+    "16"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "true-features",
+   "name": "\"True Features\"",
+   "tier": "minor",
+   "parent": "one-layer-transformer-testbed",
+   "summary": "The features a model actually uses, as opposed to the ones a given dictionary happens to learn. The paper argues a small model has fewer of them.",
+   "explanation": "The paper reasons that because one-layer models are small they likely have fewer true features than larger models, so features learned by relatively small dictionaries might cover all of them. This is the assumption that makes the testbed useful: if the dictionary can in principle exhaust the model's features, then failures to find something are informative. The paper keeps the term in scare quotes, and the notion is complicated elsewhere by feature splitting, where the same underlying structure appears as one feature or several depending on dictionary size.",
+   "prerequisites": [
+    "one-layer-transformer-testbed",
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "2.6"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "linear-logit-effects",
+   "name": "Approximately Linear Logit Effects",
+   "tier": "major",
+   "parent": "one-layer-transformer-testbed",
+   "summary": "In a one-layer model, the effect of a feature on the output logits is close to linear in its activation, which makes downstream analysis tractable.",
+   "explanation": "With a single layer, an MLP activation feeds the logits through what is nearly a linear path, so a feature's contribution to the output can be read approximately as its activation times a fixed vector of logit effects. The paper uses this to check that features reflect the model's function and not just structure in the data. It also names the double edge in a footnote: this linear structure makes the linear representation hypothesis more likely to hold here, and correspondingly makes the results less likely to generalize to multilayer models. Its counterweight is that others have found interpretable linear features with sparse autoencoders on multilayer transformers.",
+   "prerequisites": [
+    "one-layer-transformer-testbed",
+    "linear-representation-hypothesis",
+    "features-as-directions"
+   ],
+   "sectionIds": [
+    "2.6"
+   ],
+   "floor": false,
+   "citedFrom": {
+    "citationKey": "cunningham2023autointerpretation",
+    "refText": "Cunningham, Hoagy (2023). AutoInterpretation Finds Sparse Coding Beats Alternatives; also Smith, Logan (2023), Found 600+ Monosemantic Features in a Small LM Using Sparse Autoencoders and Really Strong Features Found in Residual Stream.",
+    "whyNeeded": "These are the multilayer sparse autoencoder results the paper leans on to argue its one-layer findings generalize; the evidence is entirely in them."
+   }
+  },
+  {
+   "id": "transformer-a-and-b",
+   "name": "The A and B Transformers",
+   "tier": "minor",
+   "parent": "one-layer-transformer-testbed",
+   "summary": "Two one-layer transformers identical except for the initialization seed. A is the model studied throughout; B exists to test whether features recur.",
+   "explanation": "The paper trained two transformers with the same hyperparameters and datasets, differing only in random seed, then learned dictionaries of many sizes on both — matched pairs of dictionaries used the same hyperparameters but were trained on activations from different tokens for each transformer. The 'A' transformer is the one analyzed in detail. 'B' is used primarily to study universality: if a feature found in A has a close counterpart in B, that is evidence the feature is a property of the training setup rather than of one particular initialization.",
+   "prerequisites": [
+    "one-layer-transformer-testbed",
+    "universality"
+   ],
+   "sectionIds": [
+    "2.6",
+    "2.7"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-notation",
+   "name": "Feature Notation",
+   "tier": "major",
+   "parent": null,
+   "summary": "Strings like \"A/1/3450\" name a specific feature: transformer, then dictionary learning run, then feature index within that run.",
+   "explanation": "The first portion, A or B, says which transformer the feature came from. The second says which dictionary learning run — runs differ in the number of learned factors and the L1 coefficient, and the paper keeps a table of all of them. The last portion picks out the individual feature within that run. This three-part address is necessary because 'the same' feature can appear differently across runs and across transformers, and the paper's arguments about splitting and universality are precisely about relating features with different addresses.",
+   "prerequisites": [
+    "dictionary-learning-run"
+   ],
+   "sectionIds": [
+    "2.7"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "dictionary-learning-run",
+   "name": "Dictionary Learning Run",
+   "tier": "minor",
+   "parent": "feature-notation",
+   "summary": "One trained autoencoder, identified by its number in the feature notation. Runs vary in dictionary size and L1 coefficient.",
+   "explanation": "Each run is a separate autoencoder trained on the same transformer's activations with a different combination of the number of learned factors and the L1 coefficient. The paper singles out A/0 through A/5 as a sequence holding the L1 coefficient fixed while increasing dictionary size — the series that makes feature splitting visible, since it isolates dictionary size as the only variable. A/1 is the run the paper analyzes most.",
+   "prerequisites": [
+    "sparse-autoencoder",
+    "expansion-factor",
+    "l1-coefficient"
+   ],
+   "sectionIds": [
+    "2.7",
+    "2.8",
+    "21"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "neuron-notation",
+   "name": "Neuron Notation",
+   "tier": "minor",
+   "parent": "feature-notation",
+   "summary": "\"A/neurons/32\" names a transformer MLP neuron rather than a learned feature, so the two can be compared without ambiguity.",
+   "explanation": "Because much of the paper's argument turns on features not being neurons, it needs a way to refer to both in the same sentence. Substituting the literal word 'neurons' for the run identifier does this: A/1/2357 is a learned feature from run 1, while A/neurons/32 is the 32nd MLP neuron of transformer A. The two live in the same 512-dimensional space, which is what makes direct comparison meaningful.",
+   "prerequisites": [
+    "feature-notation",
+    "polysemantic-neurons"
+   ],
+   "sectionIds": [
+    "2.7"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-exploration-interface",
+   "name": "Feature Exploration Interface",
+   "tier": "major",
+   "parent": null,
+   "summary": "A published visualization covering every feature in every dictionary learning run, showing when a feature fires, what it does to the logits, and what happens when it is ablated.",
+   "explanation": "The paper ships an interface rather than only reporting summary statistics, and suggests starting with the one for A/1. For each feature it shows examples of when the feature activates, the effect on the logits when it does, examples of how ablating the feature changes token probabilities, and more. It also supports searching across features. This interface is the substrate for the manual inspection that the paper's proxy metrics stand in for, and for the human interpretability rubric scoring.",
+   "prerequisites": [
+    "learned-feature-activations",
+    "feature-notation"
+   ],
+   "sectionIds": [
+    "2.8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "data-oriented-interface",
+   "name": "Data-Oriented Interface",
+   "tier": "minor",
+   "parent": "feature-exploration-interface",
+   "summary": "A second view that inverts the first: pick a text, see every feature active on it.",
+   "explanation": "Where the main interface starts from a feature and shows the dataset examples it fires on, this one starts from a dataset example and shows all the features active across it. The paper provides it for a set of example texts. The inversion matters for a different question — not 'what does this feature mean' but 'what is the model doing on this piece of text', which is the shape of a circuit analysis rather than a feature analysis.",
+   "prerequisites": [
+    "feature-exploration-interface"
+   ],
+   "sectionIds": [
+    "2.8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "activation-visualization-sampling",
+   "name": "Activation Visualization Sampling",
+   "tier": "minor",
+   "parent": "feature-exploration-interface",
+   "summary": "The dataset examples shown in the interface come from a 100-million-token subset with only 10 tokens taken per context, displayed with four tokens of context on each side.",
+   "explanation": "Visualizations are produced over a 100 million token subset of the autoencoder's training dataset, sampled at only 10 tokens from every context. Each displayed example is a window of four tokens on either side of the selected token. These numbers set what the interface can and cannot show: a feature that fires very rarely may have few or no examples in this subset, and any behavior depending on context beyond the four-token window is invisible in the display even though the model saw it.",
+   "prerequisites": [
+    "feature-exploration-interface",
+    "autoencoder-training-dataset"
+   ],
+   "sectionIds": [
+    "20"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-proxies",
+   "name": "Feature Proxies",
+   "tier": "major",
+   "parent": null,
+   "summary": "Cheaply computable stand-ins for what a feature is hypothesized to detect, used to test a feature's activation against a quantitative prediction.",
+   "explanation": "To analyze a feature, the paper constructs a proxy: a function of a string that should be high when the feature's hypothesized concept is present and low otherwise. Its proxies are log-likelihood ratios comparing a string's probability under the feature hypothesis against its probability under the full empirical distribution — for instance $\\log(P(s|\\text{base64})/P(s))$ or $\\log(P(s|\\text{Arabic Script})/P(s))$. Having a proxy turns a subjective impression that a feature 'is the Arabic feature' into something that can be plotted against the feature's actual activations. Each part of the ratio has to be estimated, and the paper gives a separate recipe for each.",
+   "prerequisites": [
+    "learned-feature-activations",
+    "activation-specificity"
+   ],
+   "sectionIds": [
+    "12",
+    "12.1",
+    "12.2",
+    "12.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "log-likelihood-ratio-proxy",
+   "name": "Log-Likelihood Ratio Form",
+   "tier": "major",
+   "parent": "feature-proxies",
+   "summary": "Proxies take the form $\\log(P(s|\\text{hypothesis})/P(s))$ — how much more likely the string is under the feature's hypothesis than under the general distribution.",
+   "explanation": "Using a ratio rather than the raw conditional probability controls for strings being intrinsically common or rare: a string that is likely under the hypothesis but also likely everywhere is not evidence for the feature. The paper's stated reason for the log form is that features interact linearly with the logits, so they should be incentivized to track log-likelihoods — meaning the proxy is on the same scale as whatever the feature is plausibly computing. This is an intuition about what a feature ought to represent, offered as justification for the choice of proxy rather than derived.",
+   "prerequisites": [
+    "feature-proxies",
+    "linear-logit-effects"
+   ],
+   "sectionIds": [
+    "12"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "prefix-maximization",
+   "name": "Maximizing Over Prefixes",
+   "tier": "minor",
+   "parent": "feature-proxies",
+   "summary": "The proxy is evaluated over multiple prefixes ending at the token in question, and the maximum is taken.",
+   "explanation": "A feature's activation at a token can depend on what came before — the paper's example is that an Arabic feature could fire more strongly toward the end of a long Arabic string. A proxy computed on the single token alone would miss this, and one computed on a fixed-length window would be arbitrary. The paper instead computes the log-likelihood ratio over different prefixes leading up to and including the final token and takes the maximum. This choice also does work in the script proxies, where a prefix containing any non-script character is assigned a near-zero conditional probability — maximizing over prefixes lets a shorter, purely-Arabic suffix still score high.",
+   "prerequisites": [
+    "feature-proxies",
+    "log-likelihood-ratio-proxy"
+   ],
+   "sectionIds": [
+    "12",
+    "12.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "unigram-p-s-estimate",
+   "name": "Estimating $P(s)$ with a Unigram Model",
+   "tier": "minor",
+   "parent": "feature-proxies",
+   "summary": "The denominator of every proxy is computed as the product of independent per-token unigram probabilities.",
+   "explanation": "The paper estimates a string's probability under the full empirical distribution as $P(s) = \\prod_{t \\in s} p(t)$, using the unigram distribution over tokens. This ignores all dependency between tokens, so it will systematically overestimate the surprise of ordinary fluent text. The paper does not correct for this; it is the simplest available baseline for 'how likely is this string in general'.",
+   "prerequisites": [
+    "feature-proxies",
+    "log-likelihood-ratio-proxy"
+   ],
+   "sectionIds": [
+    "12.1"
+   ],
+   "floor": true,
+   "citedFrom": null
+  },
+  {
+   "id": "character-distribution-proxy",
+   "name": "Character-Distribution Proxies",
+   "tier": "minor",
+   "parent": "feature-proxies",
+   "summary": "For features about character sets like base64 or DNA, the conditional probability is modeled as a uniform draw over the allowed characters.",
+   "explanation": "For base64 the paper assumes a random base64 string, assigning each of the 64 base64 characters probability $1/64$ and everything else $10^{-10}$, then takes the product over characters. DNA is modeled the same way as a random string over [ATCG] with probability 1/4 each. The tiny probability for disallowed characters is what makes the proxy sharply penalize any string that breaks the pattern. The paper notes it found this approach helpful for hexadecimal, binary and similar features too, though those are not used in the draft.",
+   "prerequisites": [
+    "feature-proxies",
+    "log-likelihood-ratio-proxy"
+   ],
+   "sectionIds": [
+    "12.2"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "script-proxy-via-bayes",
+   "name": "Script Proxies via Bayes' Rule",
+   "tier": "minor",
+   "parent": "feature-proxies",
+   "summary": "For features about writing systems, $P(s|\\text{script})$ is obtained by inverting an easy-to-compute $P(\\text{script}|s)$.",
+   "explanation": "Directly modeling the distribution of Arabic text is hard, but detecting whether a string is Arabic is easy, so the paper uses $P(s|\\text{Arabic}) = P(\\text{Arabic}|s) \\cdot P(s) / P(\\text{Arabic})$. $P(s)$ comes from the unigram model. $P(\\text{Arabic}|s)$ is 1 if the string consists entirely of Arabic characters and $10^{-10}$ otherwise. $P(\\text{Arabic})$ is estimated by applying the same character heuristic to a random sample of the dataset. The same construction is used for other scripts with distinctive Unicode blocks.",
+   "prerequisites": [
+    "feature-proxies",
+    "unigram-p-s-estimate"
+   ],
+   "sectionIds": [
+    "12.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "unicode-block-detection",
+   "name": "Unicode Block Detection",
+   "tier": "minor",
+   "parent": "script-proxy-via-bayes",
+   "summary": "Whether a character belongs to a script is decided by checking its Unicode block — for Arabic, ranges including U+0600–U+06FF and U+0750–U+077F.",
+   "explanation": "The heuristic is a lookup: a character counts as Arabic if it falls in one of the Unicode blocks associated with Arabic script. The paper is explicit about the consequence: characters shared across languages, such as punctuation, count as non-Arabic, so a string of Arabic words containing a comma is scored as not entirely Arabic. Since $P(\\text{Arabic}|s)$ collapses to $10^{-10}$ in that case, this interacts directly with the maximization over prefixes, which can find a punctuation-free suffix.",
+   "prerequisites": [
+    "script-proxy-via-bayes",
+    "prefix-maximization"
+   ],
+   "sectionIds": [
+    "12.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "subtoken-script-sampling",
+   "name": "Handling Partial-Character Tokens",
+   "tier": "minor",
+   "parent": "script-proxy-via-bayes",
+   "summary": "When a token is not a complete Unicode character, its script is estimated empirically by sampling occurrences of it in the corpus.",
+   "explanation": "Byte-level tokenization can produce tokens that are fragments of a multi-byte character, for which the Unicode block test is undefined. The paper handles these by sampling random occurrences of the token in the dataset and recording the fraction of the time it appears in a given script. This is the only part of the script proxy that is measured rather than assumed.",
+   "prerequisites": [
+    "script-proxy-via-bayes",
+    "unicode-block-detection"
+   ],
+   "sectionIds": [
+    "12.3"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-ablation",
+   "name": "Feature Ablation",
+   "tier": "major",
+   "parent": null,
+   "summary": "Subtracting a feature's contribution from the MLP activations and finishing the forward pass, to see which token predictions depended on it.",
+   "explanation": "The paper runs the model over a full context up through the MLP layer, runs the autoencoder to get feature activations, then at every token replaces $\\mathbf{x}^j$ with $\\mathbf{x}^j - f_i(\\mathbf{x}^j)\\mathbf{d}_i$ — removing exactly the amount that feature $i$ contributed along its dictionary direction — and completes the forward pass. It records the resulting change in the predicted log-likelihood of every token in the context. Because the autoencoder was fit without ever seeing downstream effects, a coherent ablation result is evidence the feature corresponds to something the model actually uses.",
+   "prerequisites": [
+    "learned-feature-activations",
+    "dictionary-decoder",
+    "activations-only-decomposition"
+   ],
+   "sectionIds": [
+    "13",
+    "2.8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "directional-ablation",
+   "name": "Directional Rather Than Wholesale Removal",
+   "tier": "minor",
+   "parent": "feature-ablation",
+   "summary": "Only the component along the feature's dictionary vector is removed, leaving every other feature's contribution to that activation intact.",
+   "explanation": "Zeroing a neuron would destroy everything else that neuron carried, which under superposition is many features at once. Subtracting $f_i(\\mathbf{x}^j)\\mathbf{d}_i$ instead removes precisely one feature's written contribution and leaves the rest of the activation vector alone. This is only well defined because features are directions with scalar activations, and it is why the intervention can be attributed to a single feature. It is also approximate: the remaining features' directions are not orthogonal to $\\mathbf{d}_i$, so the subtraction perturbs their reconstruction slightly.",
+   "prerequisites": [
+    "feature-ablation",
+    "features-as-directions",
+    "superposition"
+   ],
+   "sectionIds": [
+    "13"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "ablation-effect-visualization",
+   "name": "Reading the Ablation Display",
+   "tier": "minor",
+   "parent": "feature-ablation",
+   "summary": "Orange background marks where a feature fires; a blue underline marks tokens whose prediction got worse when it was ablated.",
+   "explanation": "The interface encodes two different things on the same text. Background color shows the feature's activation at each token. Underline color shows the change in predicted log-likelihood of that token when the feature was ablated. In the paper's worked example, a feature active on token [B] in the sequence [A][B][C] whose ablation reduces the odds placed on [C] produces an orange background on [B] and a blue underline on [C] — meaning ablation increased the model's loss on [C], so the feature was helping predict it. Keeping activation and effect on separate visual channels is what lets a reader see the offset between where a feature fires and where it pays off.",
+   "prerequisites": [
+    "feature-ablation",
+    "feature-exploration-interface"
+   ],
+   "sectionIds": [
+    "13",
+    "2.8"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-interpretability-rubric",
+   "name": "Feature Interpretability Rubric",
+   "tier": "major",
+   "parent": null,
+   "summary": "A scored checklist a human follows to rate how interpretable a feature is, summing to a maximum of 14 points.",
+   "explanation": "The rater first forms an interpretation of the feature from its positive logits and its activations across all intervals, then scores five things: confidence in that interpretation (0–3), how consistent the high-activation bolded tokens are with it (0–5), how consistent the positive logit effects are with it (0–3), whether inconsistent logit effects were at least separated in effect size from the consistent ones (0 or 1), and how specific the interpretation is (0–3). The total is the sum. The maximum is 14 rather than 15 because a perfect score on the logit-consistency item makes the separation item inapplicable.",
+   "prerequisites": [
+    "manual-inspection",
+    "monosemanticity",
+    "activation-interval"
+   ],
+   "sectionIds": [
+    "14",
+    "4.1.1"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "rubric-interpretation-first",
+   "name": "Interpretation Before Scoring",
+   "tier": "minor",
+   "parent": "feature-interpretability-rubric",
+   "summary": "The rater commits to an interpretation first, then scores the evidence against it — rather than scoring interpretability in the abstract.",
+   "explanation": "Every item after the first is phrased relative to 'your interpretation from (1)', so the rubric measures whether a specific hypothesis holds up rather than asking for a global impression. This makes the score sensitive to how the rater chose to describe the feature: a vague interpretation is easy to make consistent but scores low on specificity, while a sharp one risks inconsistency. The specificity item is what stops the rubric from rewarding interpretations broad enough to fit anything.",
+   "prerequisites": [
+    "feature-interpretability-rubric"
+   ],
+   "sectionIds": [
+    "14"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "rubric-effect-size-separation",
+   "name": "Effect-Size Separation Item",
+   "tier": "minor",
+   "parent": "feature-interpretability-rubric",
+   "summary": "A one-point item awarded when inconsistent positive logit effects are at least clearly smaller than the consistent ones.",
+   "explanation": "A feature whose logit effects mostly match the interpretation but include some that do not is in a different position depending on whether the mismatched effects are large or negligible. This item gives one point when there was a separation in effect size between the consistent and inconsistent effects, and zero otherwise or when not applicable. It is the item that becomes inapplicable — and so caps the total at 14 rather than 15 — when the logit consistency score is already perfect.",
+   "prerequisites": [
+    "feature-interpretability-rubric",
+    "linear-logit-effects"
+   ],
+   "sectionIds": [
+    "14"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "feature-umap",
+   "name": "Feature UMAPs",
+   "tier": "major",
+   "parent": null,
+   "summary": "Two-dimensional embeddings of the learned features, built from their decoder columns, used to look at how features are arranged relative to each other.",
+   "explanation": "The paper represents each feature as the 512-dimensional column it occupies in the decoder matrix $W_d$ and embeds those vectors into two dimensions. The first embedding covers features from runs A/0 and A/1 jointly with n_neighbors=15, metric=\"cosine\", min_dist=0.05. The second uses the same settings with min_dist=0.01 and also includes A/2. Embedding features from different-sized dictionaries into one map is what makes it possible to see where a coarse feature sits relative to the finer features it splits into.",
+   "prerequisites": [
+    "dictionary-decoder",
+    "dictionary-learning-run",
+    "feature-splitting"
+   ],
+   "sectionIds": [
+    "21"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "umap",
+   "name": "UMAP",
+   "tier": "minor",
+   "parent": "feature-umap",
+   "summary": "A dimensionality reduction method that places high-dimensional points in two dimensions while trying to preserve local neighborhood structure.",
+   "explanation": "UMAP builds a graph connecting each point to its nearest neighbors under some metric and then finds a low-dimensional layout that keeps those neighborhoods intact. Two settings matter for reading the paper's plots: n_neighbors=15 fixes how much local structure is preserved versus global, and min_dist controls how tightly points may be packed together in the output — the paper uses 0.05 and 0.01, both quite tight. The metric is cosine, so features are compared by direction rather than by magnitude, which is what you want given that dictionary columns are unit norm. Distances in a UMAP plot should be read as suggestive of neighborhood, not as faithful measurements.",
+   "prerequisites": [
+    "feature-umap"
+   ],
+   "sectionIds": [
+    "21"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "hdbscan-feature-clustering",
+   "name": "HDBSCAN Clustering of Features",
+   "tier": "minor",
+   "parent": "feature-umap",
+   "summary": "Clusters shown on the first UMAP come from running HDBSCAN on a separate 10-dimensional UMAP embedding of the same features.",
+   "explanation": "Rather than clustering the 2D plot, which would inherit its distortions, the paper fits a separate 10-dimensional UMAP of the same features with n_neighbors=15, metric=\"cosine\", min_dist=0.1 and runs HDBSCAN on that with min_cluster_size=3. HDBSCAN is a density-based clustering method that finds clusters of varying density and leaves points in sparse regions unassigned, so it does not force every feature into a group. The minimum cluster size of 3 means even very small feature families can be picked out.",
+   "prerequisites": [
+    "feature-umap",
+    "umap"
+   ],
+   "sectionIds": [
+    "21"
+   ],
+   "floor": false,
+   "citedFrom": null
+  },
+  {
+   "id": "one-dimensional-umap-ordering",
+   "name": "One-Dimensional Ordering of Features",
+   "tier": "minor",
+   "parent": "feature-umap",
+   "summary": "The feature list is sorted by a one-dimensional UMAP fit to the unclustered features together with the cluster medoids.",
+   "explanation": "To put the feature list in a sensible linear order, the paper fits a one-dimensional UMAP over the features HDBSCAN left unclustered plus one representative — the medoid — for each cluster. Sorting by that coordinate puts similar features and similar clusters near each other in the list. Using medoids rather than every clustered feature keeps a large cluster from dominating the ordering.",
+   "prerequisites": [
+    "feature-umap",
+    "hdbscan-feature-clustering"
+   ],
+   "sectionIds": [
+    "21"
+   ],
+   "floor": false,
+   "citedFrom": null
+  }
+ ],
+ "citationFlags": [
+  {
+   "citationKey": "olshausen1997sparse",
+   "refText": "Olshausen, Bruno A and Field, David J (1997). Sparse coding with an overcomplete basis set: A strategy employed by V1?. Vision research",
+   "concept": "sparsity-of-natural-latent-variables",
+   "whyNeeded": "Section 2.4 rests its entire motivation for seeking a sparse overcomplete decomposition on this paper, pointing the reader at its 'Why Sparseness?' section rather than restating the argument. It is also one of the two citations that define sparse dictionary learning for the paper."
+  },
+  {
+   "citationKey": "elad2010sparse",
+   "refText": "Elad, Michael (2010). Sparse and redundant representations: from theory to applications in signal and image processing.",
+   "concept": "sparse-dictionary-learning",
+   "whyNeeded": "The formal statement of the sparse dictionary learning problem — what is being optimized, over what — is deferred to this reference. Section 2.4 names the problem and moves on."
+  },
+  {
+   "citationKey": "elhage2022superposition",
+   "refText": "Elhage, Nelson and Hume, Tristan and Olsson, Catherine and Schiefer, Nicholas et al. (2022). Toy Models of Superposition. Transformer Circuits Thread",
+   "concept": "toy-model-ground-truth",
+   "whyNeeded": "Section 2.4 uses this work's result — that many sparse features can live as directions in a lower-dimensional space — as the premise for the whole method. Sections 2.5.1 and 18.1 then rely on its toy models as the ground-truth evaluation setting and as the source of the 'bounce plots' diagnostic that motivated the pre-encoder bias, neither of which is described here."
+  },
+  {
+   "citationKey": "sharkey2022interim",
+   "refText": "Lee Sharkey and Dan Braun and Beren Millidge (2022). [Interim research report] Taking features out of superposition with sparse autoencoders.",
+   "concept": "sparse-autoencoder",
+   "whyNeeded": "Section 2.4 describes its method as 'similar to Sharkey, et al.' This is the prior version of the sparse-autoencoder-for-superposition approach; knowing what it does is what makes this paper's modifications legible as modifications."
+  },
+  {
+   "citationKey": "aharon2006k",
+   "refText": "Aharon, Michal and Elad, Michael and Bruckstein, Alfred (2006). K-SVD: An algorithm for designing overcomplete dictionaries for sparse representation. IEEE Transactions on signal processing",
+   "concept": "classical-dictionary-learning-algorithms",
+   "whyNeeded": "K-SVD is one of the two named classical methods the paper says it tried and rejected as possibly 'too strong'. Assessing that argument requires knowing how iterative dictionary learning actually recovers codes."
+  },
+  {
+   "citationKey": "engan1999method",
+   "refText": "Engan, Kjersti and Aase, Sven Ole and Husoy, J Hakon (1999). Method of optimal directions for frame design. ICASSP 1999",
+   "concept": "classical-dictionary-learning-algorithms",
+   "whyNeeded": "The other named classical alternative. Together with K-SVD it defines the baseline the sparse autoencoder is chosen over, and neither is described in this paper."
+  },
+  {
+   "citationKey": "gao2020pile",
+   "refText": "Leo Gao, Stella Biderman, Sid Black, Laurence Golding et al. (2020). The Pile: An 800GB Dataset of Diverse Text for Language Modeling.",
+   "concept": "pile-dataset",
+   "whyNeeded": "The Pile is both the transformer's training corpus and the source of the 40 million contexts for the autoencoder dataset. Its composition determines which features exist at all — base64, DNA and Arabic script features are corpus artifacts — and the paper explicitly warns some features are idiosyncratic to the dataset."
+  },
+  {
+   "citationKey": "kingma2014adam",
+   "refText": "Kingma, Diederik P and Ba, Jimmy. Adam: A method for stochastic optimization. arXiv:1412.6980",
+   "concept": "adam-decoder-normalization-interaction",
+   "whyNeeded": "Section 18.5's gradient-projection fix and section 18.3's optimizer state reset both turn on how Adam's per-parameter moment estimates accumulate from past gradients. Neither modification can be understood without that mechanism."
+  },
+  {
+   "citationKey": "he2015delving",
+   "refText": "He, Kaiming and Zhang, Xiangyu and Ren, Shaoqing and Sun, Jian. Delving deep into rectifiers: Surpassing human-level performance on imagenet classification. ICCV",
+   "concept": "kaiming-uniform-initialization",
+   "whyNeeded": "The autoencoder's initialization scheme is given only by name, and it also serves as the losing baseline in the neuron resampling comparison. The distribution and scaling are a reproduction detail defined only in the cited work."
+  },
+  {
+   "citationKey": "hobbhahn2023more",
+   "refText": "Hobbhahn, Marius (2023). More findings on Memorization and double descent.",
+   "concept": "pre-encoder-bias",
+   "whyNeeded": "Section 18.1 says the pre-encoder bias investigation was motivated by Hobbhahn's observations but does not say what those observations were. The paper ranks this modification first in importance, so the justification matters."
+  },
+  {
+   "citationKey": "cunningham2023sparse",
+   "refText": "Cunningham, Hoagy and Ewart, Aidan and Smith, Logan and Huben, Robert and Sharkey, Lee. Sparse Autoencoders Find Highly Interpretable Model Directions. arXiv:2309.08600",
+   "concept": "untied-decoder-weights",
+   "whyNeeded": "Cited in section 18.2 as establishing the tied-weight convention this paper departs from, and in 7.3 as evidence the approach scales. The comparison in 18.2 only means something against the details of their setup."
+  },
+  {
+   "citationKey": "frey2014topk",
+   "refText": "Alireza Makhzani and Brendan J. Frey (2013). k-Sparse Autoencoders. CoRR",
+   "concept": "untied-decoder-weights",
+   "whyNeeded": "The second citation for the tied-weight convention, and a different route to sparsity in autoencoders (a hard top-k constraint rather than an L1 penalty), which contextualizes this paper's choice of an L1 objective."
+  },
+  {
+   "citationKey": "frankle2018lottery",
+   "refText": "Frankle, Jonathan and Carbin, Michael. The lottery ticket hypothesis: Finding sparse, trainable neural networks. arXiv:1803.03635",
+   "concept": "lottery-ticket-hypothesis",
+   "whyNeeded": "Section 18.3 offers this hypothesis as the possible mechanism behind why neuron resampling works. The hypothesis's actual content and evidence are entirely in the cited paper."
+  },
+  {
+   "citationKey": "bricken2023emergence",
+   "refText": "Bricken, Trenton and Schaeffer, Rylan and Olshausen, Bruno and Kreiman, Gabriel. Emergence of Sparse Representations from Noise.",
+   "concept": "dead-neurons",
+   "whyNeeded": "Section 18.3 says its findings on what causes dead neurons agree with this work but reproduces neither the experiments nor the mechanism. The list of causes — learning rate, batch size, dataset redundancy, step count, optimizer — is presented as corroborated rather than demonstrated here."
+  },
+  {
+   "citationKey": "smith2023found",
+   "refText": "Smith, Logan (2023). (tentatively) Found 600+ Monosemantic Features in a Small LM Using Sparse Autoencoders.",
+   "concept": "linear-logit-effects",
+   "whyNeeded": "Section 2.6 acknowledges that the one-layer model's near-linear logit structure may make its results less likely to generalize, and leans on this and two companion posts as the counterweight. The strength of that reassurance depends entirely on what those results actually show."
+  },
+  {
+   "citationKey": "smith2023strong",
+   "refText": "Smith, Logan (2023). Really Strong Features Found in Residual Stream.",
+   "concept": "linear-logit-effects",
+   "whyNeeded": "Second of the three multilayer sparse autoencoder results cited in section 2.6 to argue the one-layer findings generalize; the residual stream setting differs from this paper's MLP-activation setting in ways that matter."
+  },
+  {
+   "citationKey": "cunningham2023autointerpretation",
+   "refText": "Cunningham, Hoagy (2023). AutoInterpretation Finds Sparse Coding Beats Alternatives.",
+   "concept": "linear-logit-effects",
+   "whyNeeded": "Third of the generalization citations in section 2.6, and the one that compares sparse coding against alternative decomposition methods — relevant to this paper's choice of a sparse autoencoder over the architectural and classical approaches it set aside."
+  },
+  {
+   "citationKey": "elhage2022solu",
+   "refText": "Elhage, Nelson, Hume, Tristan, Olsson, Catherine, Nanda, Neel et al. (2022). Softmax Linear Units. Transformer Circuits Thread",
+   "concept": "sparsity-of-natural-latent-variables",
+   "whyNeeded": "Section 2.4 cites this as the source of the few concrete examples of language model features we have, which it reads as suggestive of highly sparse variables. That empirical basis for the sparsity prior is not restated here."
+  }
+ ]
+}

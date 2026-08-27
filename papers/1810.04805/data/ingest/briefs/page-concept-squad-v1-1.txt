@@ -1,0 +1,48 @@
+PAGE FOR CONCEPT: squad-v1-1
+NAME: SQuAD v1.1
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Over 100,000 crowdsourced question/answer pairs where the answer is a span of a given Wikipedia passage.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+Every question in v1.1 is answerable, so a system only has to locate the span, not decide whether one exists. Because the output is a pair of positions rather than a class label, SQuAD is where the paper introduces a token-level output head instead of a [CLS] head. It reports beating the top leaderboard entry by +1.5 F1 as an ensemble and +1.3 F1 as a single system, with the single model exceeding the top prior ensemble on F1; the abstract quotes 93.2 Test F1.
+
+THEME IT BELONGS TO: theme-the-eleven-tasks-and-the-scores | The eleven tasks and the scores - The evaluation itself: eleven tasks, each a small output layer on the same pre-trained encoder. GLUE supplies the sentence and sentence-pair tasks, SQuAD 1.1 and 2.0 the span extraction, and SWAG a four-way completion. Each gets its own head — a linear layer on C for GLUE, a start vector and an end vector for spans, one scoring vector over four packed sequences for SWAG. Gains are reported as absolute point differences over the previous best, and this theme walks each benchmark and what BERT scored on it.
+
+DEFINED IN A CITED PAPER joshi2017 (paper id 1705.03551). Those concepts are linkable: answer-string-distant-supervision, wikipedia-domain-construction, answer-span-approximation, first-400-token-training-filter, em-f1-with-aliases
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - answer-span | Answer span: A contiguous stretch of passage tokens, identified by start and end positions, that constitutes the answer.
+  - packed-question-passage-sequence | Question and passage as one packed sequence: Question and passage are concatenated into a single input, the question tagged with the A segment embedding and the passage with B.
+  - span-prediction-head | Start/end vector span prediction head: SQuAD fine-tuning adds only two vectors, $S$ and $E$, whose dot products with each token's final hidden vector give start and end distributions over the passage.
+    - start-and-end-vectors | Start vector S and end vector E: The only task-specific parameters introduced for SQuAD: two $H$-dimensional vectors, one scoring each token as a span start, one as an end.
+    - span-score-and-decoding | Span score and maximum-scoring-span decoding: A candidate span from $i$ to $j$ scores $S \cdot T_i + E \cdot T_j$, and the prediction is the highest-scoring span with $j \geq i$.
+  - triviaqa-augmentation | TriviaQA data augmentation: Before fine-tuning on SQuAD, the model is first fine-tuned on TriviaQA, described as modest data augmentation to match leaderboard systems that may use any public data.
+  - exact-match-and-f1 | Exact Match and F1 on SQuAD: SQuAD's two metrics: EM counts a prediction correct only on an exact match, F1 gives partial credit for token overlap.
+  - squad-leaderboard-public-data-rules | SQuAD leaderboard conditions: Top leaderboard entries have no up-to-date public system descriptions and may train on any public data, which shapes how the comparison is set up.
+  - prior-squad-systems | Prior published SQuAD systems: The published baselines Table 2 compares against, mostly purpose-built reading comprehension architectures with attention machinery between question and passage.
+  - squad-v2-0 | SQuAD v2.0: SQuAD extended so a question may have no short answer in the paragraph, which the paper calls more realistic.
+    - unanswerable-questions | Unanswerable questions: Questions for which the paragraph contains no short answer; the correct output is an abstention.
+    - cls-as-null-span | [CLS] as the null span: Unanswerable questions are treated as having a span that starts and ends at [CLS], so abstention becomes another position in the same probability space.
+      - null-span-score | Null score s_null: The score of abstaining, $s_{null} = S \cdot C + E \cdot C$, computed with the same start and end vectors against the [CLS] representation.
+      - tau-threshold | Threshold τ for answering: A non-null answer is predicted only when $\hat{s}_{i,j} > s_{null} + \tau$, with τ chosen on dev to maximise F1.
+
+PREREQUISITES:
+  - eleven-task-evaluation | The eleven-task fine-tuning sweep: BERT is evaluated by fine-tuning it on eleven NLP tasks, each with a small task-specific output layer on the same pre-trained encoder.
+  - question-answering | Question answering: Given a question and a passage, produce the answer; in the extractive form used here, mark the passage span that answers it.
+
+EDGES TOUCHING THIS CONCEPT (3) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] -> table-2 (BERT against the SQuAD leaderboard (table-2)) | supported-by | span extraction against a leaderboard: Table 2 puts the fine-tuned model against both published systems and live leaderboard entries. A single BERT_LARGE reaches 91.8 test F1 and the seven-model ensemble reaches 93.2, against 91.7 for the top ensemble on the board. The single model therefore edges past the best ensemble it is compared with, which is the sharper of the two claims.
+  [supporting] -> question-answering (Question answering) | instance-of | the extractive QA dataset used: Question answering in general can mean generating an answer. SQuAD v1.1 is the extractive case: over 100,000 crowdsourced questions whose answers are spans of a supplied Wikipedia passage, which is what lets a start/end head suffice.
+  [supporting] -> squad-v2-0 (SQuAD v2.0) | contrasts-with | answer guaranteed versus not: In v1.1 the passage always contains the answer, so the model only has to find it. v2.0 drops that guarantee, and some questions must be answered with an abstention. The paper calls the second setting more realistic, and it requires an extra decision the first never asks for.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-1 | The Same Stack, Twice: The figure claims that pre-training and fine-tuning use one and the same network: an identical token-in, vector-out Transformer encoder appears in both panels, and the only thing that changes between them is the thin output layer bolted on top. The dotted arrows carry every pre-trained weight across to initialize the task model, so a downstream task inherits the whole network rather than a set of embeddings.
+  - table-2 | BERT against the SQuAD leaderboard: On SQuAD 1.1 span extraction, a fine-tuned BERT_LARGE ensemble reaches 93.2 test F1 and a single fine-tuned BERT_LARGE reaches 91.8, which the paper reports as +1.5 F1 and +1.3 F1 over the top leaderboard system of the day. Both figures come with an asterisk the paper states itself: the leaderboard entries may train on any public data, so BERT is first fine-tuned on TriviaQA to match, and dropping that extra data costs only 0.1-0.4 points.
+  - table-5 | Pre-training Task Ablation: Holding architecture, data and fine-tuning fixed, the table charges each drop in score to one removed piece of the pre-training recipe. Dropping next sentence prediction costs a little; replacing the masked LM with a left-to-right LM costs much more, above all on SQuAD (88.5 to 77.8 F1), and bolting a BiLSTM onto the left-to-right model repairs only part of that gap while making the GLUE numbers slightly worse.
+  - fig-4 | Four task shapes, one encoder: Four families of downstream task are drawn as four copies of the same diagram, differing only in what is packed into the input sequence and which output vectors an arrow is attached to. The paper uses this to show that adapting BERT to a task means plugging in task-specific inputs and one extra output layer, not redesigning the model.
+  - eq-span-start-probability | The start-position softmax: This is the whole task-specific output layer BERT adds for extractive question answering: one learned vector $S$ is dotted with each passage token's final hidden vector, and a softmax over those scores gives a probability distribution over where the answer span starts. A second vector $E$ does the same for the end, and training maximizes the summed log-likelihood of the correct start and end positions.
+
+PAPER SECTIONS TO READ (in papers/1810.04805/data/ingest/sections/):
+  - 01-abstract-abstract.txt
+  - 12-4.2-squad-v1.1.txt

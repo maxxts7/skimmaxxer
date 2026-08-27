@@ -1,0 +1,47 @@
+PAGE FOR CONCEPT: scoring-robustness-panel-grid
+NAME: Scoring-robustness panel grid
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A grid of histograms crossing several invented interpretability scores against several populations of units — dictionary-learning features, MLP neurons, and features from a randomized transformer. It exists to show that the feature-over-neuron ordering survives every scoring choice, so no single panel is the result.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+Every interpretability score in this paper is something the paper made up. There is no ground truth for "is this unit interpretable", so the paper builds several imperfect graders — a blinded human [[feature-interpretability-rubric]], [[automated-interpretability]] on activations, the same explanation checked against output weights — and none of them is trusted on its own. The claim being defended is not a number; it is an *ordering*: [[dictionary-learning]] [[feature|features]] are more interpretable than the transformer's own MLP neurons, which are expected to be [[polysemanticity|polysemantic]]. A single bar chart of medians would state that ordering but leave open the obvious reply — that it holds only for the grader you chose. So one axis of the grid varies the scoring method and the other varies the population being scored, and the finding is that the ordering survives the crossing.
+
+A plain average would also have hidden the shapes, which here carry the argument. These distributions are skewed, spiky and sometimes bimodal: a tall column sitting exactly on zero correlation, because a constant prediction has no defined correlation and gets scored zero ([[constant-prediction-zero-score]]); a second clump at the far right. A mean over that is meaningless, which is why the paper marks medians with triangles and plots the full histogram behind them.
+
+### How to read it, step by step
+
+In fig-69, rows are scoring methods and columns are populations. The three columns are fixed all the way down: run A/1 features ([[feature-notation]]), the MLP neurons of that same transformer, and features from a [[randomized-transformer]] whose weight matrices had their entries shuffled in place ([[weight-shuffling]]). Row 1 is the human rubric, $0$–$14$, plotted as raw counts because the human sample is small — a few hundred scored [[activation-interval|activation intervals]], not units. Rows 2 and 3 are the *same* automated experiment scored twice, once with [[pearson-correlation]] and once with [[spearman-correlation]]; row 4 is [[automated-logit-scoring]], an accuracy where $0.5$ is chance. Rows 2–4 plot density, so panels with different unit counts are comparable. The dotted vertical line is the null value for that row.
+
+Look first down a column, then across. Down: does this population's shape hold under all four graders? Across: within one grader, does the left column beat the middle? Rows 2 and 3 should be read against each other directly — they differ only in the coefficient, and if the shapes track, the choice of coefficient did not make the result.
+
+Fig-70 keeps the shape but rotates it. Population becomes colour — magenta for A/1, yellow for randomized, dark orange where they overlap — and the panels become the three scores.
+
+### What a bad result would look like
+
+The ordering flipping between rows 2 and 3, or holding under the automated graders but not the human one. Or medians that separate while the histograms sit almost entirely on top of each other, so the gap is a summary statistic and not a difference. Or the randomized column tracking the feature column everywhere, which would mean the decomposition recovers dataset regularities rather than anything the model computes ([[model-vs-data-question]]).
+
+One cell does go the wrong way, and the paper leaves it in and labels it. On the activation score the randomized features take the higher median — roughly $0.62$ against $0.57$. This is the cell readers lift out and quote. The paper's answer is that the randomized model has more, and more strictly, [[single-token-features]], which are trivial to explain and so trivial to score; splitting the panel on that property reverses the ordering ([[randomized-feature-bimodality]]). Note that this split is chosen after seeing the awkward result, and the paper's further claim — that the remaining randomized features are uninterpretable — rests partly on the authors reporting they could not construct sensible interpretations, and inviting readers to check.
+
+### Where it comes back
+
+Fig-69 is the full four-by-three crossing, run to show the Pearson/Spearman choice does not matter. Fig-70 narrows to the two populations and the one cell that misbehaves, adding the single-token split as an inset. The importance-weighted rescoring then reruns the same populations under yet another correction to the grader — the same move, one more time.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - dictionary-learning | Dictionary learning: The problem of writing each activation vector as a sparse combination of directions drawn from a fixed, larger-than-necessary set. The paper frames the search for a model's features as exactly this problem.
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - polysemanticity | Polysemanticity: A single neuron responding to a mixture of seemingly unrelated inputs, which makes it a poor unit for human understanding of the network.
+  - automated-interpretability | Automated Interpretability: Having a language model write an explanation of a feature from examples where it activates, then use that explanation alone to predict the feature's activations on unseen tokens.
+  - manual-interpretability-scoring | Manual Human Analysis: A blinded human annotator scoring 412 activation intervals across 162 features and neurons on an interpretability rubric; the paper's most-trusted metric.
+  - feature-interpretability-rubric | Feature Interpretability Rubric: The 0–14 scoring scheme combining confidence in an interpretation, consistency of activations, consistency of logit weights, effect-size separation, and specificity.
+  - randomized-transformer | Randomized Transformer Baseline: Dictionary learning run on a one-layer model whose weights have been randomly shuffled, used to ask how much of the features' structure comes from the data rather than the model.
+  - activation-interval | Activation Interval: One of eleven evenly spaced bands between zero and a feature's maximum activation, used to sample examples uniformly across the whole activation spectrum rather than just the top.
+  - spearman-correlation | Spearman Rank Correlation: Correlation computed on the ranks of values rather than the values themselves.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 85-22.1-experimental-setup.txt
+  - 86-22.2-randomized-transformer.txt

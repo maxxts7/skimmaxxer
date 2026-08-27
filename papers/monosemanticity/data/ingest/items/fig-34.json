@@ -1,0 +1,192 @@
+{
+ "id": "fig-34",
+ "title": "Hebrew Feature Logit Weights",
+ "takeaway": "The Hebrew feature's effect on the model's output is concentrated in a small second bump far to the right of the main mode, and the tokens in that bump are Hebrew letters plus the byte `\\xd7`. Because `\\xd7` is the shared first byte of the UTF-8 encoding of most basic-Hebrew characters, pushing up that one token amounts to pushing up the whole script — evidence that the feature does not merely co-occur with Hebrew but acts to produce it.",
+ "walkthrough": "The plot summarizes one thing: what a single learned feature does to the model's output when it fires. [[hebrew-feature]] A/1/416 is the Hebrew feature from dictionary learning run A/1, one of that run's 4,096 features. For every vocabulary element the authors compute a [[logit-weight]] — they push the feature's direction through the MLP output weights, then a linearized layer norm, then the unembedding, which gives how much that token's next-token logit moves per unit of feature activation. The x axis is that number. The curve is its distribution across the whole vocabulary, and the y axis counts vocabulary elements per unit of logit weight, so area, not height, is a token count.\n\nTwo conventions come first. Softmax only cares about differences between logits, so the authors [[logit-weight-median-centering]] shift each feature's weights until the median is zero; the peak sitting at $0.0$ is therefore partly by construction. Weights for extremely rare or never-used vocabulary elements are [[anomalous-token-exclusion]] dropped from the plot.\n\nColor carries a second variable. Each token is tinted by the [[hebrew-script-proxy]] score, a [[log-likelihood-ratio-proxy]] of the form $\\log(P(s\\mid\\text{Hebrew})/P(s))$, which asks how much more likely that token is in Hebrew text than in the corpus at large. Deep red is $+5$, about $e^5 \\approx 148$ times more likely; deep blue is $-5$.\n\nNow the shape. Almost every token sits in the tall blue mode at zero, barely moved by the feature — which the paper elsewhere reads as [[weight-interference]] rather than as computation. The inset magnifies the right tail, invisible at the main plot's scale, and there the blue tail thins out into a separate low red bump around $0.45$. That bump is the [[logit-weight-second-mode]], and it is Hebrew.\n\nThe tokenization point is what makes the mode legible. [[utf8-multi-token-characters]] Hebrew letters are outside ASCII, so UTF-8 spends two bytes on each: the figure's example is ד (U+05D3), encoded as `\\xd7` then `\\x93`, and the [[byte-pair-encoding]] tokenizer leaves those as two tokens. Every letter from alef to tav shares that same leading byte `\\xd7`.\n\nSo the most useful single move available to a model that expects Hebrew next is to raise `\\xd7`. Upweighting one byte is upweighting the whole script.\n\nThat is what the mode holds: bare `\\xd7`, Hebrew letters, and merged tokens like `ר\\xd7` that end one character and open the next. A companion feature, [[hebrew-continuation-feature]] A/1/1016, fires on `\\xd7` and predicts the bytes that finish the character.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Distribution of Logit Weights (plot title)",
+   "definition": "The figure's title. It says the plot is a histogram/density over vocabulary tokens of the feature's linear effect on each token's output logit, not a histogram over dataset examples.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "A/1/416",
+   "definition": "The feature being plotted: model A, dictionary learning run 1, feature index 416. It is the paper's Hebrew feature, one of the 4,096 features in the A/1 autoencoder.",
+   "conceptId": "hebrew-feature"
+  },
+  {
+   "term": "\"Distribution of weights from feature to logit for each vocab element\" (subtitle)",
+   "definition": "The subtitle restating the unit of the plot: one data point per vocabulary element, its value being the weight along the path from this feature to that element's logit.",
+   "conceptId": null
+  },
+  {
+   "term": "Logit Weight (x axis)",
+   "definition": "How much the feature's firing raises or lowers one token's next-token logit, computed by multiplying the feature direction by the MLP output weights, a linearized layer norm, and the unembedding matrix. Positive means the feature makes that token more likely.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Density (y axis)",
+   "definition": "The number of vocabulary elements per unit of logit weight. The area under a stretch of the curve is a token count, so the tall central peak means most of the vocabulary sits there.",
+   "conceptId": null
+  },
+  {
+   "term": "vocab element",
+   "definition": "One entry of the tokenizer's vocabulary, i.e. one output logit. Here it includes whole words, word fragments, and single raw bytes such as `\\xd7`.",
+   "conceptId": null
+  },
+  {
+   "term": "Token Log-Likelihood Ratio (color bar label)",
+   "definition": "The color variable: each token's Hebrew proxy score, $\\log(P(s\\mid\\text{Hebrew})/P(s))$ — how much more probable that token is under the hypothesis that the text is Hebrew than under the corpus distribution.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "\"Hebrew →\" (label above the color bar)",
+   "definition": "Tells you which end of the scale is Hebrew: moving right along the bar, toward red, means more Hebrew-specific. The proxy itself is built by checking which Unicode block a character falls in.",
+   "conceptId": "hebrew-script-proxy"
+  },
+  {
+   "term": "Blue (color)",
+   "definition": "Tokens with a negative Hebrew log-likelihood ratio — tokens that are evidence against Hebrew, such as English word fragments.",
+   "conceptId": null
+  },
+  {
+   "term": "Red (color)",
+   "definition": "Tokens with a positive Hebrew log-likelihood ratio — tokens that occur far more often in Hebrew text than in the corpus overall.",
+   "conceptId": null
+  },
+  {
+   "term": "Inset (the boxed panel at upper right, connected by dashed guide lines)",
+   "definition": "A magnification of the right tail of the same distribution. It exists because the second mode is only about a thousandth the height of the central peak and would be a flat line at the main plot's scale; its own y scale is stretched and unlabeled.",
+   "conceptId": null
+  },
+  {
+   "term": "Color strip (the thin band directly under the main plot)",
+   "definition": "At each logit weight, the mix of token colors there, drawn as a stacked band rather than as a curve. It shows blue holding all the way up to roughly 0.3 and red taking over the far right, which is the same fact the inset shows in more detail.",
+   "conceptId": null
+  },
+  {
+   "term": "Main mode / central peak",
+   "definition": "The large blue bump centered at zero: the vast majority of tokens, whose logits the feature barely touches. The paper's reading elsewhere is that these small nonzero weights are interference from superposition rather than anything the model computes with.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "Second mode",
+   "definition": "The small red bump far to the right, the tokens whose probability rises most when the feature is on. Finding such a mode, and finding it interpretable, is the recurring pattern across the paper's case-study features.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "`\\xd7`",
+   "definition": "A single-byte token for byte 0xD7. In UTF-8 it is the first of the two bytes encoding most characters in the basic Hebrew Unicode block, including every letter from alef to tav, so it is the model's generic \"Hebrew character starts here\" token.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "`\\xd6`",
+   "definition": "A single-byte token for byte 0xD6, appearing at the low end of the red region. It is the leading byte for the codepoints just below the ones `\\xd7` covers, which in the Hebrew block are the accent and vowel-point characters, so it is Hebrew-associated but less exclusively so.",
+   "conceptId": null
+  },
+  {
+   "term": "`\\x93`",
+   "definition": "The second byte of the figure's worked example: the continuation byte that, after `\\xd7`, completes the character ד. It appears in the side note, not in the plotted labels.",
+   "conceptId": null
+  },
+  {
+   "term": "`\\x8b`",
+   "definition": "A continuation-byte token appearing in the blue tail of the distribution, alongside English fragments. It is not part of the Hebrew mode; it sits in the region the plot treats as unremarkable.",
+   "conceptId": null
+  },
+  {
+   "term": "ד",
+   "definition": "The Hebrew letter dalet, used in the side note as the worked tokenization example: one character, one codepoint, two byte tokens.",
+   "conceptId": null
+  },
+  {
+   "term": "Hebrew letter tokens ('ק', 'א', 'ע', 'י', 'ת', 'פ', 'ד', 'ור')",
+   "definition": "Vocabulary entries that render as one or two complete Hebrew letters (qof, alef, ayin, yod, tav, pe, dalet, and vav-resh). These sit in the second mode: the feature raises their logits directly.",
+   "conceptId": null
+  },
+  {
+   "term": "Merged tokens ('מ\\xd7', 'ר\\xd7', 'ו\\xd7', ' \\xd7')",
+   "definition": "Vocabulary entries that pair a completed Hebrew letter (or a space) with the leading byte of the next character. Byte-pair merging created them because that sequence is frequent in Hebrew text, and the feature upweights them for the same reason it upweights bare `\\xd7`.",
+   "conceptId": "byte-pair-encoding"
+  },
+  {
+   "term": "' microscope', 'oms', 'stal', 'clerosis', 'то'",
+   "definition": "Labeled tokens in the blue right tail — English word fragments plus one Cyrillic fragment. They get a mild positive logit weight from this feature with no Hebrew connection, which is what the tail below the second mode looks like.",
+   "conceptId": null
+  },
+  {
+   "term": "\"basic Hebrew Unicode block\"",
+   "definition": "The Unicode range U+0590–U+05FF holding Hebrew letters, points and marks. The paper's Hebrew proxy is defined by membership in this block, and the tokenization claim is about the UTF-8 encoding of its characters.",
+   "conceptId": "unicode-block-detection"
+  },
+  {
+   "term": "\"Many Hebrew unicode code points are split into two tokens\" (side note)",
+   "definition": "The figure's own gloss on why byte tokens dominate the second mode: a Hebrew character is usually not one token, so predicting Hebrew means predicting its byte pieces in order.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "A/1/1016 (not in the figure; from the surrounding text)",
+   "definition": "A complementary feature that fires on `\\xd7` and predicts the bytes completing Hebrew characters. It is the other half of the loop this figure's second mode sets up.",
+   "conceptId": "hebrew-continuation-feature"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "-0.6 to 0.6, ticked every 0.1",
+   "meaning": "The plotted range of logit weights. The scale is arbitrary in absolute terms — logit weights are only meaningful as differences — but relative to it, the second mode near 0.45 is a large effect and the central mode is not."
+  },
+  {
+   "value": "0.0",
+   "meaning": "Where the central peak sits. It sits there partly by construction: because softmax is shift-invariant, the authors subtract each feature's median logit weight, so the median is zero by definition."
+  },
+  {
+   "value": "0M, 0.1M, 0.2M, 0.3M, 0.4M",
+   "meaning": "The y-axis gridlines, in units of vocabulary elements per unit logit weight. The central peak reaches about 0.4M; multiplied by the roughly 0.1-wide core of that mode, that accounts for a vocabulary in the tens of thousands, which is the whole plotted vocabulary."
+  },
+  {
+   "value": "≈0.3 to 0.6",
+   "meaning": "The stretch of x the inset magnifies. The paper's interest is entirely here — everything left of it is the mode it calls interference."
+  },
+  {
+   "value": "≈0.45",
+   "meaning": "Roughly where the red second mode peaks, with the bump spanning about 0.35 to 0.6. These tokens are the ones the feature most raises: Hebrew letters and Hebrew-leading bytes."
+  },
+  {
+   "value": "≈0.3 to 0.35",
+   "meaning": "Where the labeled blue tail tokens (' microscope', 'oms', '\\x8b', 'stal', 'то', 'clerosis') sit. They get a positive but smaller weight than the Hebrew mode, and they show the tail is not clean — the separation between the two modes is a gap in density, not a total absence of non-Hebrew tokens."
+  },
+  {
+   "value": "≈0.4",
+   "meaning": "Roughly where '\\xd6', ' י' and 'נ' are labeled, at the left shoulder of the red mode. `\\xd6` leads the lower part of the Hebrew block, so it is a weaker Hebrew signal than `\\xd7` and is upweighted less."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5",
+   "meaning": "The ticks of the color bar, in nats of log-likelihood ratio. 0 means a token is exactly as likely in Hebrew text as in the corpus at large; +5 means about $e^5 \\approx 148$ times more likely; -5 means about 148 times less likely."
+  },
+  {
+   "value": "0xD7 (215)",
+   "meaning": "The byte written `\\xd7`. In UTF-8 a two-byte sequence starting 110xxxxx carries the codepoint's top five bits, and 0xD7 corresponds to codepoints U+05C0–U+05FF — which contains the Hebrew letters. That is why one byte stands in for the script."
+  },
+  {
+   "value": "U+05D3 → \\xd7 \\x93",
+   "meaning": "The figure's worked example. Dalet's codepoint 0x05D3 is 11 bits; the top five go into the first byte, giving 0xD7, and the bottom six into the second, giving 0x93. Every basic-Hebrew letter repeats the first half of that arithmetic."
+  },
+  {
+   "value": "U+0590–U+05FF",
+   "meaning": "The basic Hebrew Unicode block. It defines what the Hebrew proxy counts as Hebrew, and its upper part is exactly the range whose UTF-8 encodings begin with `\\xd7`."
+  },
+  {
+   "value": "two",
+   "meaning": "The number of tokens most Hebrew code points become. This is why the second mode contains raw bytes at all, and why a Hebrew feature's downstream job is partly a two-step sequence rather than a single prediction."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of features in the A/1 dictionary learning run that A/1/416 comes from. Context for reading the feature's name, not shown in the figure."
+  },
+  {
+   "value": "0.55",
+   "meaning": "The Pearson correlation between the Hebrew script proxy and A/1/416's activations, stated in the surrounding text rather than in the figure. It is moderate; the paper attributes part of the shortfall to feature A/1/1016 covering the `\\xd7` tokens instead."
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+PAGE FOR CONCEPT: l1-sparsity-penalty
+NAME: L1 penalty on feature activations
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A penalty on the sum of feature activations, which pushes most of them to exactly zero. This is what buys sparsity in the decomposition.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+The loss is L2 reconstruction error plus an L1 penalty on the hidden layer activations. Without the penalty, an overcomplete autoencoder could reconstruct perfectly using dense, meaningless codes; the penalty is what selects a sparse decomposition, matching the sparsity that superposition predicts. Because the reconstruction objective is MSE rather than cross-entropy, this sparsity pressure can genuinely inhibit superposition forming inside the dictionary — otherwise one would have superposition 'all the way down'. In Discussion the authors raise the opposite worry: an L1 penalty may push too far toward sparsity and so favor local codes over compositional ones.
+
+THEME IT BELONGS TO: theme-the-model-and-the-autoencoder | The model and the autoencoder - Two models are involved, and keeping them apart matters for everything that follows. One is the subject: a one-layer transformer with a 512-neuron MLP, overtrained on the Pile, whose MLP activations are the thing being decomposed. The other is the tool: a sparse autoencoder, wider than the layer it reads, trained to rebuild those activations from a small number of active hidden units, with an L1 penalty doing the work of forcing most units to zero. This theme also covers the training details the paper singles out as mattering — the tied pre-encoder bias, resampling of dead neurons — and the notation used to name a feature.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - l1-coefficient | L1 Coefficient $\lambda$: The scalar weighting the sparsity penalty against reconstruction error. It is one of the two hyperparameters the paper varies across dictionary learning runs.
+
+PREREQUISITES:
+  - feature-sparsity | Feature sparsity: The property that only a small number of the model's features are active on any given datapoint.
+  - l0-norm | $L^0$ Norm: The average number of features active on a token. This is the paper's direct measure of how sparse the decomposition actually is.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - sparse-autoencoder-loss | Reconstruction Plus Sparsity Loss: The training objective: mean squared reconstruction error plus an L1 penalty on the hidden activations, $\mathcal{L} = \frac{1}{|X|}\sum_\mathbf{x} \|\mathbf{x}-\hat{\mathbf{x}}\|_2^2 + \lambda\|\mathbf{f}\|_1$.
+
+EDGES TOUCHING THIS CONCEPT (3) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] -> unit-norm-dictionary-columns (Unit-Norm Dictionary Columns) | depends-on | norm constraint keeps the penalty honest: The L1 penalty is charged on the feature activations, so shrinking every activation lowers the loss. Without a constraint the decoder could grow its columns to compensate, leaving the reconstruction unchanged and the penalty paid off for free. Fixing every dictionary column to L2 norm 1 closes that escape route.
+  [load-bearing] -> mse-reconstruction-term (MSE Reconstruction Term) | contrasts-with | two loss terms wanting opposite things: The autoencoder's objective is a sum of exactly two terms. The squared-error term wants the reconstruction to match the MLP activation closely, which is easiest when many features are active. The L1 term charges for every unit of activation, so it drives most feature activations to exactly zero. The L1 coefficient is the dial between them.
+  [load-bearing] -> compositional-code (Compositional code) | contrasts-with | the penalty may manufacture local codes: A local code is sparser than a compositional one, because a single active unit stands for the whole combination rather than two. The autoencoder is trained with a penalty that rewards exactly that. So the paper's first hypothesis for its own token-in-context features is that its objective pushed too far toward sparsity, and that a better dictionary learning scheme might recover a more compositional set from the same transformer.
+
+EVIDENCE ITEMS THAT SHOW THIS (link them as [[item-id]]):
+  - fig-2 | Where the Dictionary Attaches: This schematic names the exact tensor the paper decomposes: the 512-dimensional post-ReLU MLP activation vector at a single token position of a one-layer transformer. It shows that vector being sent out to a sparse, overcomplete autoencoder and coming back, and that the thing the autoencoder returns is a set of between 512 and 131,072 feature activations rather than the 512 neuron values.
+  - table-1 | The Two Models, Side by Side: The table is the paper's specification sheet for both models it works with: the small transformer under study on the left, and the sparse autoencoder trained on that transformer's MLP activations on the right. It establishes that the transformer is an ordinary language model trained in the ordinary way, and that the only unusual thing about the autoencoder is its width and its sparsity penalty. The paper flags that although it trains dictionaries up to 256 times wider than the MLP, the analyses it presents mostly use an 8x expansion.
+  - fig-20 | DNA Activations Split by Proxy: Every token in a sample of the data is sorted by how strongly the DNA feature A/1/2937 fires on it, and colored by whether a hand-built "is this DNA" score fires on it too. The strong activations are almost entirely DNA and the weak ones are mixed, and across the whole range the feature and the yes/no score reach a Pearson correlation of 0.8.
+  - fig-25 | Base64 Activations Coloured by Proxy: The figure is the paper's specificity check for its base64 feature A/1/2357: it stacks every sampled token by how strongly the feature fired, and colours the stack by an independently computed base64 score. The higher the activation, the more completely the column is filled by tokens the score calls base64, which is what the authors mean by calling the feature "quite specific" — though they give no percentage here, and the score itself is admittedly too broad.
+  - eq-autoencoder-loss | The Sparse Autoencoder's Two-Term Loss: This is the entire method in four lines: a ReLU encoder turns one MLP activation vector into feature activations, a linear decoder rebuilds the activation from them, and training minimizes squared reconstruction error plus an L1 penalty on those activations. The two loss terms pull against each other — reconstruction forces the dictionary to keep the information, L1 forces most features to be off — and the coefficient lambda sets the exchange rate between them.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 75-18-advice-for-training-sparse-autoencoders-autoencoder-architec.txt
+  - 81-19-advice-for-training-sparse-autoencoders-hyperparameter-selec.txt
+  - 02-2-problem-setup.txt
+  - 06-2.3-why-not-use-architectural-approaches.txt
+  - 08-2.5-sparse-autoencoder-setup.txt
+  - 55-7.2-are-token-in-context-features-real.txt
+  - 56-7.3-future-work.txt

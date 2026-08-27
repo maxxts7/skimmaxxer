@@ -1,0 +1,12 @@
+[2.5] Sparse Autoencoder Setup
+
+We briefly overview the architecture and training of our sparse autoencoder here, and provide further details in Basic Autoencoder Training. Our sparse autoencoder is a model with a bias at the input, a linear layer with bias and ReLU for the encoder, and then another linear layer and bias for the decoder. In toy models we found that the bias terms were quite important to the autoencoder’s performance. (note: We tie the biases applied in the input and output, so the result is equivalent to subtracting a fixed bias from all activations and then using an autoencoder whose only bias is before the encoder activation.)
+
+We train this autoencoder using the Adam optimizer to reconstruct the MLP activations of our transformer model, with an MSE (note: Note that using an MSE loss avoids the challenges with polysemanticity that we discussed above in Why Not Architectural Approaches?) loss plus an L1 penalty to encourage sparsity.
+
+In training the autoencoder, we found a couple of principles to be quite important. First, scale really matters. We found that training the autoencoder on more data made features subjectively “sharper” and more interpretable. In the end, we decided to use 8 billion training points for the autoencoder (see Autoencoder Dataset).
+
+Second, we found that over the course of training some neurons cease to activate, even across a large number of datapoints. We found that “resampling” these dead neurons during training gave better results by allowing the model to represent more features for a given autoencoder hidden layer dimension. Our resampling procedure is detailed in Neuron Resampling, but in brief we periodically check for neurons which have not fired in a significant number of steps and reset the encoder weights on the dead neurons to match data points that the autoencoder does not currently represent well.
+
+For readers looking to apply this approach, we supply an appendix with Advice for Training Sparse Autoencoders.
+

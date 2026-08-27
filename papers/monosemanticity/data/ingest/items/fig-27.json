@@ -1,0 +1,207 @@
+{
+ "id": "fig-27",
+ "title": "The Base64 Feature Found Again in Model B",
+ "takeaway": "A separately trained transformer, decomposed by a separately trained dictionary, yields a feature (B/1/2165) whose activations correlate 0.85 with the base64 feature from the first model, and which fires almost exclusively on base64-looking strings at high activation. The paper offers this as evidence that the base64 feature is a property of models trained on this data rather than an artifact of one dictionary learning run.",
+ "walkthrough": "This is the specificity plot the paper drew for its base64 feature, redrawn for a feature in a second model. The title names B/1/2165. In the paper's [[feature-notation]], the `B` says the feature comes from the second of two one-layer transformers ([[transformer-a-and-b]]), trained on the same data with the same hyperparameters and a different random seed; the `1` names the [[dictionary-learning-run]]; `2165` is the feature's index inside that run's dictionary.\n\n### How to read it\n\nThe horizontal axis is the [[feature-activation]] value, running from just above zero to about 9.5. Exact zeros are pulled out and shown as the separate mark at the far left, because a sparse code puts a large spike of mass at exactly zero. The vertical axis counts tokens at each activation level, taken from a sampled hundred-million-token slice of the training data ([[activation-visualization-sampling]]).\n\nEach vertical slice of the shaded region is then split by color. The color is not the feature's own output. It is an independent score computed from the text alone, a [[computational-proxy]]: the [[base64-proxy]] $\\log(P(s\\mid\\text{base64})/P(s))$, whose numerator treats the string as random characters each of probability $1/64$ and whose denominator is a unigram estimate. Red means base64 is far more likely; blue means far less. The legend says \"Prefix String\" because the score is maximized over the prefixes ending at that token ([[prefix-maximization]]).\n\nThe narrow band under the histogram renormalizes each column to full height, so it reads as the proxy's conditional distribution given activation. The four boxes are five sampled examples from the four activation levels marked by dotted lines; orange shading marks activation, and the bold token is the one being measured.\n\n### What it shows\n\nBelow roughly 2.0 the columns carry visible blue — the feature fires weakly on strings the proxy rejects, like `nrk,nrk,` and `Cpz`. Above roughly 4.0 the columns are essentially all red and the sampled examples are unbroken base64. That pattern is what the paper calls [[activation-specificity]].\n\nThe figure exists for [[universality]]. The quoted 0.85 is [[activation-similarity]]: the [[pearson-correlation]] between the two features' activation vectors over a shared set of tokens. B/1/2165 is A/1/2357's nearest counterpart by that measure, and neither dictionary saw the other.\n\nThe paper quotes no specificity number for B and offers the picture instead. Note also that it calls this proxy too broad — against A's feature it reached only 0.38 — so low-activation blue is weak evidence of a false positive.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Activation Distribution (plot title)",
+   "definition": "The paper's standard specificity picture: a histogram of how often a feature takes each activation value, with each column split by an independently computed text score. It is the same plot type used for the Arabic, DNA and base64 features.",
+   "conceptId": "feature-activation-distribution-plot"
+  },
+  {
+   "term": "B/1/2165",
+   "definition": "The feature this figure is about: feature number 2165 in dictionary learning run 1 trained on transformer B. It is the base64 feature as found in the second model.",
+   "conceptId": null
+  },
+  {
+   "term": "A/1/2357",
+   "definition": "The base64 feature in the first model, studied in detail earlier in the paper. It is named in the caption as the feature B/1/2165 is being matched against; it does not appear in the plot itself.",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "B (first part of the name)",
+   "definition": "The second of the paper's two one-layer transformers. A and B share architecture, dataset and hyperparameters and differ only in the random seed used for initialization, so B is used to test whether features recur across models.",
+   "conceptId": "transformer-a-and-b"
+  },
+  {
+   "term": "1 (second part of the name)",
+   "definition": "The index of the dictionary learning run — one trained sparse autoencoder. Runs differ in dictionary size and in the L1 coefficient; run 1 on B is the matched pair of run 1 on A, trained with the same hyperparameters but on activations from a different transformer.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "2165 (third part of the name)",
+   "definition": "The feature's index within that run's learned dictionary. Indices carry no meaning and are not comparable between runs; feature 2165 in B has nothing to do with feature 2165 in A.",
+   "conceptId": "feature-notation"
+  },
+  {
+   "term": "Feature",
+   "definition": "A direction in the MLP activation space recovered by the sparse autoencoder, together with the scalar coefficient it takes on each token. It is the unit the paper proposes to analyze the model in, instead of neurons.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Activation Level (horizontal axis)",
+   "definition": "The scalar value this feature takes at a given token — the coefficient the autoencoder's encoder assigns to this dictionary direction, after ReLU. Larger means the feature is firing more strongly.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "Density (vertical axis)",
+   "definition": "How many sampled tokens fall in each activation bin. It is a raw count over the sampled corpus, labeled in thousands, not a normalized probability density.",
+   "conceptId": null
+  },
+  {
+   "term": "0 and >0 marks at the left of the axis",
+   "definition": "A separator showing that hard zeros are excluded from the plot body. Sparsity means most tokens give this feature exactly zero, which would be a spike of mass at the origin swamping everything else.",
+   "conceptId": null
+  },
+  {
+   "term": "Prefix String Log-Likelihood Ratio (color legend title)",
+   "definition": "The quantity the colors encode: how much more likely the text ending at this token is under a base64 hypothesis than under the general data distribution, in log space. It is computed from the text only and never sees the model.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Prefix String (in the legend title)",
+   "definition": "A reminder that the score is evaluated on several prefixes ending at the token in question, and the largest value is kept. This matters because a feature can fire more strongly deeper into a base64 run.",
+   "conceptId": "prefix-maximization"
+  },
+  {
+   "term": "Base64 proxy",
+   "definition": "The specific score behind the colors: base64 is modeled as an independent random draw from the 64 characters [a-zA-Z0-9+/], and P(s) from a unigram token model. The paper judges it too broad, since things like hexadecimal strings also score high.",
+   "conceptId": "base64-proxy"
+  },
+  {
+   "term": "Computational proxy",
+   "definition": "A cheap, model-independent guess at whether the hypothesized context is present, used as an outside yardstick against which the feature's firing is checked. Coloring by the proxy is how the paper avoids grading the feature by its own top examples.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "base64",
+   "definition": "The text encoding that writes binary data as characters drawn from [a-zA-Z0-9+/]. In a text corpus it shows up as long runs of mixed-case letters and digits with no word structure.",
+   "conceptId": null
+  },
+  {
+   "term": "Blue end of the color bar",
+   "definition": "Strongly negative log-likelihood ratio: the string is much less likely under the base64 hypothesis than under ordinary text. Blue area therefore marks tokens where the feature fires but the proxy says no base64.",
+   "conceptId": null
+  },
+  {
+   "term": "Red end of the color bar",
+   "definition": "Strongly positive log-likelihood ratio: the string looks far more like base64 than like ordinary text. Red is the color of agreement between feature and proxy.",
+   "conceptId": null
+  },
+  {
+   "term": "Narrow band below the histogram",
+   "definition": "The same data with every column stretched to full height, so it shows the mixture of proxy scores conditional on activation level rather than absolute counts. It makes the high-activation behavior readable where the raw counts are near zero.",
+   "conceptId": null
+  },
+  {
+   "term": "Dataset example boxes",
+   "definition": "Five randomly sampled text snippets drawn from each of four activation levels, connected to the histogram by dotted lines. They are sampled at that level rather than picked as top examples, which is what makes them evidence about typical behavior.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "Bold token inside an example",
+   "definition": "The token whose activation places that example at this point on the axis. The surrounding characters are context, shown four tokens either side.",
+   "conceptId": null
+  },
+  {
+   "term": "Orange highlighting inside an example",
+   "definition": "Per-token feature activation across the whole snippet: darker orange means the feature fires more strongly there. It lets you see the feature switching on across a base64 run rather than at a single point.",
+   "conceptId": null
+  },
+  {
+   "term": "corr = 0.85 (in the caption)",
+   "definition": "The Pearson correlation between the activation vectors of A/1/2357 and B/1/2165 over a shared set of dataset tokens. It is the paper's activation similarity measure, and B/1/2165 is the feature in run B/1 that maximizes it against A/1/2357.",
+   "conceptId": "activation-similarity"
+  },
+  {
+   "term": "Activation similarity",
+   "definition": "Representing a feature as the vector of values it takes over a fixed set of data points, and comparing features across models by correlating those vectors. It gives a model-independent handle on 'the same feature' when the two models share no weights or basis.",
+   "conceptId": "activation-similarity"
+  },
+  {
+   "term": "Pearson correlation",
+   "definition": "Ordinary linear correlation, between -1 and 1, computed here between two features' activation vectors. It is invariant to the arbitrary scale of each dictionary's activations, which is why the differing activation ranges of A and B do not matter.",
+   "conceptId": "pearson-correlation"
+  },
+  {
+   "term": "Activation specificity",
+   "definition": "The claim that when the feature is on, the hypothesized context is present — the direction that argues against the unit being polysemantic. This figure is the specificity evidence for B/1/2165.",
+   "conceptId": "activation-specificity"
+  },
+  {
+   "term": "Universality",
+   "definition": "The question of whether the same features arise in separately trained models. The paper treats it as evidence that recovered features are not artifacts of one dictionary learning run.",
+   "conceptId": "universality"
+  },
+  {
+   "term": "Sparse autoencoder / dictionary",
+   "definition": "The autoencoder whose hidden units are the features and whose decoder columns are the feature directions, trained on model activations with a reconstruction term and an L1 penalty. The two dictionaries compared here were trained separately, on activations from different transformers.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "A/1/3817",
+   "definition": "A separate feature in model A that handles hexadecimal strings. It is why the paper says the base64 proxy is too broad: hex scores high on the proxy but is covered by its own feature, not by the base64 feature.",
+   "conceptId": "hexadecimal-feature"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.85",
+   "meaning": "The Pearson correlation between the activations of A/1/2357 and B/1/2165 over a shared set of dataset tokens. B/1/2165 is the highest-correlating feature in run B/1, so this is the best available match, not a typical one."
+  },
+  {
+   "value": "0.72 / 0.46",
+   "meaning": "Context from the paper's global analysis, not printed on this figure: the median activation correlation between a feature in A/1 and its best match in B/1 is 0.72, while matching neurons between the two transformers gives only 0.46. Against those, 0.85 is a well-matched feature."
+  },
+  {
+   "value": "0.38",
+   "meaning": "The Pearson correlation between the base64 proxy and the activations of A/1/2357. The paper attributes the low value mostly to the proxy being too broad rather than to the feature being impure, which is why the blue material at low activation here should be read cautiously."
+  },
+  {
+   "value": "1/64 and 10^-10",
+   "meaning": "The character probabilities in the base64 hypothesis: each of the 64 base64 characters gets 1/64, everything else gets 10^-10 so that a single non-base64 character crushes the score. This is what makes the red-blue split near-binary on long strings."
+  },
+  {
+   "value": "64",
+   "meaning": "The size of the base64 alphabet [a-zA-Z0-9+/], which sets the 1/64 uniform probability above."
+  },
+  {
+   "value": "0 to about 9.5 (horizontal axis, ticks every 1.0)",
+   "meaning": "The observed activation range of B/1/2165. The comparable plot for A/1/2357 runs to about 12.5; the two dictionaries were trained separately, so activation scale is not comparable between them, and the 0.85 correlation is scale-invariant for exactly this reason."
+  },
+  {
+   "value": "0K to 40K, ticks every 5K (vertical axis)",
+   "meaning": "Token counts per activation bin over the sampled corpus. The units are counts, so the absolute height depends on the sample size, not just on the feature."
+  },
+  {
+   "value": "about 37K",
+   "meaning": "The peak of the histogram, at the smallest nonzero activations. Weak activations are by far the most common nonzero case, which is generic to sparse features."
+  },
+  {
+   "value": "about 7K to 8K, roughly flat from 2.0 to 5.5",
+   "meaning": "The long plateau in the middle of the distribution. It says a substantial number of tokens drive this feature to mid and high values, so the specificity claim is not resting on a handful of examples."
+  },
+  {
+   "value": "about 2.0",
+   "meaning": "The activation level above which visible blue largely disappears from the columns. Below it, the feature fires on some strings the proxy scores as non-base64."
+  },
+  {
+   "value": "about 4.0",
+   "meaning": "The level above which the columns read as essentially all red and the sampled snippets are unbroken base64 — where the paper's specificity claim is strongest."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5 (color bar)",
+   "meaning": "The log-likelihood ratio scale, in natural log units of how much more likely the string is under the base64 hypothesis than under the data distribution. It is clipped at the ends, so deep red means 'at least 5', not exactly 5."
+  },
+  {
+   "value": "4 boxes of 5 examples",
+   "meaning": "Four activation levels sampled, five randomly drawn snippets each, connected to the histogram at roughly 0.75, 3.5, 6.9 and 8.55. Random sampling at a level, rather than showing top examples, is what lets these snippets speak to specificity."
+  },
+  {
+   "value": "100 million tokens, 10 per context, 4 tokens each side",
+   "meaning": "The visualization sampling scheme: examples come from a 100M-token subset of the training data, only 10 tokens are taken from any one context so the samples are not dominated by a single document, and each snippet shows four tokens of context on either side of the measured token."
+  }
+ ]
+}

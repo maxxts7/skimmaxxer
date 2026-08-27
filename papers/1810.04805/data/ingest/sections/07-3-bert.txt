@@ -1,0 +1,92 @@
+[3] BERT
+
+3
+BERT
+
+We introduce BERT and its detailed implementa-
+tion in this section. There are two steps in our
+framework: pre-training and fine-tuning.
+Dur-
+ing pre-training, the model is trained on unlabeled
+data over different pre-training tasks.
+For fine-
+tuning, the BERT model is first initialized with
+the pre-trained parameters, and all of the param-
+eters are fine-tuned using labeled data from the
+downstream tasks. Each downstream task has sep-
+arate fine-tuned models, even though they are ini-
+tialized with the same pre-trained parameters. The
+question-answering example in Figure 1 will serve
+as a running example for this section.
+A distinctive feature of BERT is its unified ar-
+chitecture across different tasks. There is mini-
+
+mal difference between the pre-trained architec-
+ture and the final downstream architecture.
+
+Model Architecture
+BERT’s model architec-
+ture is a multi-layer bidirectional Transformer en-
+coder based on the original implementation de-
+scribed in Vaswani et al. (2017) and released in
+the tensor2tensor library.1 Because the use
+of Transformers has become common and our im-
+plementation is almost identical to the original,
+we will omit an exhaustive background descrip-
+tion of the model architecture and refer readers to
+Vaswani et al. (2017) as well as excellent guides
+such as “The Annotated Transformer.”2
+
+In this work, we denote the number of layers
+(i.e., Transformer blocks) as L, the hidden size as
+H, and the number of self-attention heads as A.3
+
+We primarily report results on two model sizes:
+BERTBASE (L=12, H=768, A=12, Total Param-
+eters=110M) and BERTLARGE (L=24, H=1024,
+A=16, Total Parameters=340M).
+BERTBASE was chosen to have the same model
+size as OpenAI GPT for comparison purposes.
+Critically, however, the BERT Transformer uses
+bidirectional self-attention, while the GPT Trans-
+former uses constrained self-attention where every
+token can only attend to context to its left.4
+
+1https://github.com/tensorflow/tensor2tensor
+2http://nlp.seas.harvard.edu/2018/04/03/attention.html
+3In all cases we set the feed-forward/filter size to be 4H,
+i.e., 3072 for the H = 768 and 4096 for the H = 1024.
+4We note that in the literature the bidirectional Trans-
+
+Input/Output Representations
+To make BERT
+handle a variety of down-stream tasks, our input
+representation is able to unambiguously represent
+both a single sentence and a pair of sentences
+(e.g., ⟨Question, Answer ⟩) in one token sequence.
+Throughout this work, a “sentence” can be an arbi-
+trary span of contiguous text, rather than an actual
+linguistic sentence. A “sequence” refers to the in-
+put token sequence to BERT, which may be a sin-
+gle sentence or two sentences packed together.
+We use WordPiece embeddings (Wu et al.,
+2016) with a 30,000 token vocabulary. The first
+token of every sequence is always a special clas-
+sification token ([CLS]). The final hidden state
+corresponding to this token is used as the ag-
+gregate sequence representation for classification
+tasks. Sentence pairs are packed together into a
+single sequence. We differentiate the sentences in
+two ways. First, we separate them with a special
+token ([SEP]). Second, we add a learned embed-
+ding to every token indicating whether it belongs
+to sentence A or sentence B. As shown in Figure 1,
+we denote input embedding as E, the final hidden
+vector of the special [CLS] token as C ∈RH,
+and the final hidden vector for the ith input token
+as Ti ∈RH.
+For a given token, its input representation is
+constructed by summing the corresponding token,
+segment, and position embeddings. A visualiza-
+tion of this construction can be seen in Figure 2.
+

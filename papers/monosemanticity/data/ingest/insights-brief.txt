@@ -1,0 +1,642 @@
+EVERY RELATIONSHIP THE PIPELINE FOUND IN 'ATTENTION IS ALL YOU NEED'
+
+127 edges, found by four agents each looking through a different lens.
+
+=== THE EDGE-THEMES (how a previous stage grouped them) ===
+
+[etheme-why-dictionary-learning] Why dictionary learning was the option left  (13 edges)
+    The paper starts from superposition: a layer with 512 neurons may carry many more features by giving each its own direction. More directions than dimensions is overcompleteness, and directions that outnumber dimensions cannot all be orthogonal, so switching one feature on slightly switches others on — interference. That picture is also the reason the authors abandon the other route, which was building models that have no superposition to start with: training the subject model for activation spar
+    members: e001, e002, e003, e004, e005, e030, e107, e108, e109, e110, e111, e112, e113
+
+[etheme-objective-and-run-quality] The objective, and the numbers used to judge a run  (22 edges)
+    The whole method is one loss: mean squared error between the MLP activation vector and its reconstruction, plus an L1 penalty on the hidden activations. The two terms want opposite things, a coefficient sets the exchange rate between them, and the decoder columns are held to unit norm so the penalty cannot be gamed by shrinking a direction and inflating the activation that rides on it. Those decoder columns are the feature directions, the ReLU hidden values are the feature activations, and the f
+    members: e063, e073, e097, e006, e071, e072, e077, e076, e021, e080, e031, e060, e096, e018, e122, e115, e116, e058, e114, e090, e007, e057
+
+[etheme-proxies-and-specificity] An outside yardstick for what a feature responds to  (26 edges)
+    Specificity is the claim that a feature firing implies its hypothesized context is present, and the paper treats it as the more important half of the case, above sensitivity. Establishing it needs a score computed without reference to the feature: a proxy of the form log of P(string given the hypothesis) over P(string), asking how much more likely that text is under a guessed context than under text in general. For a writing system the hard term is inverted with Bayes' rule, so that scoring 'is 
+    members: e012, e059, e064, e013, e065, e014, e066, e067, e068, e069, e070, e041, e042, e119, e120, e092, e032, e098, e089, e043, e040, e121, e081, e010, e011, e033
+
+[etheme-downstream-effects] Evidence that a feature changes what the model does  (13 edges)
+    In a one-layer model a feature's effect on the output logits is close to linear in its activation, so a single vector with one entry per vocabulary token — the logit weight — can stand for what firing does, once layer norm is approximated as a fixed projection plus a diagonal scaling. Ablation then means subtracting only the component along the feature's own dictionary direction, leaving every other feature's contribution to that activation vector intact, and doing so lowers the model's predicte
+    members: e008, e009, e034, e035, e075, e020, e036, e095, e048, e019, e037, e038, e127
+
+[etheme-universality] The same features in a second model  (11 edges)
+    To ask whether a feature is a fact about the model rather than about one training run, the paper trains a second one-layer transformer with the same architecture, data and hyperparameters, differing only in random seed, and runs dictionary learning on it separately. Features are matched by taking the highest Pearson correlation of activations over 40 million dataset examples, and the Arabic feature comes back in the second dictionary. Across the whole population the median match is 0.72 for feat
+    members: e025, e078, e039, e053, e093, e105, e054, e106, e055, e074, e091
+
+[etheme-population-scale-evidence] Whether any of it holds for features in general  (17 edges)
+    The four features studied in detail were picked because they were easy to analyze rather than because they are typical, and the paper says so before turning to the population of all features. Judging a unit only by its top-activating examples flatters it, so the annotator instead samples from eleven evenly spaced bands across each unit's activation range. Blinded scoring on a 0–14 rubric gives a median of 12 for features and 0 for neurons, and an automated version — where a language model writes
+    members: e123, e044, e024, e124, e099, e023, e045, e046, e094, e100, e061, e079, e101, e062, e022, e047, e117
+
+[etheme-what-the-features-are] What the dictionary turns up  (25 edges)
+    Making the autoencoder wider does not send features off to new parts of activation space; it splits the ones already there, so a single base64 feature in the 512-unit dictionary becomes three in the 4,096-unit one, separating letters, digits and base64 that decodes to readable text. The features that appear fall into recurring kinds: context features spanning a whole stretch of text, token-in-context features firing on one token only in one setting, and assemblies where one feature raises the pr
+    members: e050, e051, e027, e118, e082, e083, e084, e085, e102, e103, e104, e029, e026, e056, e016, e015, e087, e086, e017, e088, e052, e049, e028, e125, e126
+
+=== DEPENDS-ON  (understanding or building X requires Y first) - 31 edges ===
+
+e001 [load-bearing] sparse-autoencoder (Sparse autoencoder)  -->  sparsity-of-natural-latent-variables (Sparsity of Natural Latent Variables)
+    label: sparsity assumption licenses the penalty
+    The autoencoder is trained so that most of its hidden units are exactly zero on any given token. The paper does not derive that constraint from the transformer. It borrows a long-standing hypothesis that the latent variables behind natural data are mostly inactive at any moment, and asks for a sparse decomposition on that basis.
+
+e002 [load-bearing] overcompleteness (Overcompleteness)  -->  superposition (Superposition)
+    label: more directions than dimensions, because superposition
+    The dictionary is deliberately made wider than the activation vector it decomposes. That only makes sense if you believe the model packs more features into the layer than it has neurons, which is what the superposition hypothesis claims. The paper insists overcompleteness is what separates its setting from disentanglement work, which looks for at most as many factors as there are dimensions.
+
+e003 [load-bearing] interference (Interference)  -->  overcompleteness (Overcompleteness)
+    label: non-orthogonality forced by the extra directions
+    You cannot fit more than 512 mutually perpendicular directions into a 512-dimensional space. So once the feature set is overcomplete, some pairs of feature directions must have a nonzero dot product. Activating one feature then slightly activates its neighbours, and the paper calls that cross-talk interference.
+
+e004 [load-bearing] weak-dictionary-learning (A deliberately weak dictionary learning algorithm)  -->  np-hardness-of-exact-sparse-recovery (NP-Hardness of Exact Recovery)
+    label: NP-hardness makes strong solvers suspect
+    Recovering the sparse feature vector from a lower-dimensional activation is compressed sensing, which in its exact form is NP-hard. The transformer is certainly not solving an NP-hard problem when it reads its own activations. The paper turns that into a worry: a sophisticated recovery method might dig out structure the model itself has no way to use.
+
+e005 [supporting] sparse-autoencoder (Sparse autoencoder)  -->  weak-dictionary-learning (A deliberately weak dictionary learning algorithm)
+    label: weakness is why this method was picked
+    Having decided that a strong solver could over-recover, the paper wants a method about as capable as the model's own machinery. A one-hidden-layer ReLU autoencoder is close in architecture to a transformer MLP layer. That similarity, plus its ability to scale to the 8 billion activation vectors used here, is the stated reason classical dictionary learning algorithms were tried and set aside.
+
+e006 [load-bearing] l1-sparsity-penalty (L1 penalty on feature activations)  -->  unit-norm-dictionary-columns (Unit-Norm Dictionary Columns)
+    label: norm constraint keeps the penalty honest
+    The L1 penalty is charged on the feature activations, so shrinking every activation lowers the loss. Without a constraint the decoder could grow its columns to compensate, leaving the reconstruction unchanged and the penalty paid off for free. Fixing every dictionary column to L2 norm 1 closes that escape route.
+
+e007 [supporting] density-cluster-separation (Separating the Density Clusters)  -->  untied-decoder-weights (Untied Decoder Weights)
+    label: untying gives the diagnostic its number
+    In the largest runs the ultralow-density and high-density modes overlap, so how often a feature fires no longer separates them. The paper adds two more per-feature numbers, one of which is the dot product between a feature's encoder vector and its decoder vector. That quantity carries information only because the encoder was learned independently rather than fixed to the decoder's transpose.
+
+e008 [load-bearing] logit-weight (Logit Weight)  -->  linear-logit-effects (Approximately Linear Logit Effects)
+    label: one weight vector requires linearity
+    A logit weight is a single vector, one number per vocabulary token, summarising what a feature does to the output. That summary is well-defined only if the effect scales with the activation instead of changing shape as the activation grows. In a one-layer model the paper argues the effect is close to linear, which is what lets the whole downstream analysis be read off the weights.
+
+e009 [supporting] logit-weight (Logit Weight)  -->  layer-norm-linearization (Linearizing Layer Norm)
+    label: layer norm approximated to stay linear
+    The path from an MLP direction to the logits runs through the final layer norm, which is not a linear map. The paper approximates it as a fixed mean-removing projection followed by a diagonal rescaling. With that approximation the feature-to-logit path becomes a product of matrices.
+
+e010 [load-bearing] large-activations-dominate (Large Activations Matter Most)  -->  linear-logit-effects (Approximately Linear Logit Effects)
+    label: linearity is why big activations matter
+    The paper's answer to messy weak activations is that strong ones matter more. Its footnote makes the case specifically for a one-layer transformer: a feature's effect on the logits is linear in its activation, up to layer norm rescaling, so twice the activation is twice the push. The paper adds that in larger models the same claim rests on conjecture rather than a watertight argument.
+
+e011 [supporting] expected-value-plot (Expected Value Plot)  -->  large-activations-dominate (Large Activations Matter Most)
+    label: reweighting justified by that claim
+    The expected value plot weights each histogram bar by activation magnitude instead of counting one per token. That is the right picture to look at only if large activations really do carry more of the feature's effect. Given the linearity argument, the paper reads the reweighted Arabic histogram as showing that nearly all of the feature's activation mass sits on Arabic-script text.
+
+e012 [load-bearing] activation-specificity (Activation Specificity)  -->  computational-proxy (Computational Proxy)
+    label: specificity needs an outside yardstick
+    Saying a feature fires almost only on Arabic script needs some way of labelling text that does not come from the feature itself. The paper builds a cheap per-token score and colours the activation histogram by it. Arabic is 0.13% of training tokens but 81% of the tokens where the feature is active, a comparison that exists only because the labelling is independent.
+
+e013 [load-bearing] arabic-script-proxy (Arabic Script Proxy)  -->  script-proxy-via-bayes (Script Proxies via Bayes' Rule)
+    label: Bayes supplies the hard term
+    The proxy needs the probability of a string given Arabic script, which would otherwise mean building a generative model of Arabic text. Bayes' rule turns that into the probability of Arabic script given the string, which is easy: look at the characters. The script proxies exist in usable form because of that inversion.
+
+e014 [supporting] script-proxy-via-bayes (Script Proxies via Bayes' Rule)  -->  unicode-block-detection (Unicode Block Detection)
+    label: script decided by Unicode block
+    Whether a character belongs to a script is not estimated by any model. It is decided by whether the codepoint falls in one of the script's Unicode blocks, for Arabic including U+0600 to U+06FF and U+0750 to U+077F. Several entries in the paper's catalogue of proxy failures trace back to this rule, since whitespace and punctuation sit outside the block and are scored as non-Arabic.
+
+e015 [supporting] utf8-multi-token-characters (Split Unicode Characters in Tokenization)  -->  byte-pair-encoding (Byte-pair encoding)
+    label: byte tokenizer splits single characters
+    The tokenizer merges frequent byte sequences, so a token need not line up with a character. For scripts outside Latin the usual result is that one character arrives as several byte tokens: the paper's example is that the character U+062B is tokenized as \xd8 followed by \xab. It notes A/1/3450 typically fires only on the last token of such a character.
+
+e016 [load-bearing] unicode-token-state-machines (Two-node systems from split Unicode characters)  -->  utf8-multi-token-characters (Split Unicode Characters in Tokenization)
+    label: split characters create the two-node loop
+    This motif is a pair of features that hand off to each other, one firing on a prefix byte and one on the suffix that completes the character. Nothing like it would exist if a character were a single token. The state machine is as much a fact about the tokenizer as about the model.
+
+e017 [supporting] base64-digit-feature (Base64 Digit Feature and the BPE Exploit)  -->  byte-pair-encoding (Byte-pair encoding)
+    label: tokenizer explains the suppressed digits
+    This feature fires on single digits inside base64 strings, and then pushes the ten digit tokens down rather than up. The paper reads that as an exploit of the tokenizer: consecutive digits would have merged into one multi-digit token, so a lone digit token is itself evidence that the next character is not a digit.
+
+e018 [load-bearing] loss-recovered-by-features (Fraction of MLP Loss Recovered)  -->  zero-ablation-baseline (Zero-Ablation Baseline)
+    label: 79% is a ratio to zero ablation
+    Splicing the autoencoder's reconstruction in place of the real MLP activations raises the model's loss by some amount. That amount is divided by the loss increase from deleting the MLP layer entirely, and it comes to 21%, so 79% is called recovered. The paper says the ablated-MLP denominator may be an especially bad baseline, which would inflate the percentage.
+
+e019 [load-bearing] downstream-effects-outside-dictionary-learning (Downstream Effects Are Not An Input To Dictionary Learning)  -->  activations-only-decomposition (Fitting Activations Only)
+    label: held out because never fitted
+    The autoencoder is trained on MLP activation vectors alone; nothing about logits or next-token predictions enters its loss. That is exactly why the paper can turn round and use downstream effects as validation. Had the fit included them, a matching effect would prove nothing.
+
+e020 [supporting] directional-ablation (Directional Rather Than Wholesale Removal)  -->  linear-feature-decomposition (Features as a linear decomposition)
+    label: subtracting needs the linear form
+    Ablation here means subtracting one feature's activation times its dictionary direction from the activation vector. That operation names something specific only because the decomposition writes the activation as a bias plus a weighted sum of unit directions. Every other feature's contribution is left where it was.
+
+e021 [load-bearing] linear-feature-decomposition (Features as a linear decomposition)  -->  linear-representation-hypothesis (Linear representation hypothesis)
+    label: directions presumed before fitting
+    The decomposition writes each activation as a sum of scaled unit vectors, so a feature is a direction by construction. That is an assumption carried in from the linear representation hypothesis, not something the method establishes. If a property were represented some other way, this factorization would have nowhere to put it.
+
+e022 [load-bearing] importance-scoring-degeneracy (Why Importance Scoring Collapses Feature Scores)  -->  feature-density (Feature Density)
+    label: densities of 1e-3 to 1e-6 break it
+    Importance scoring reweights the automated scores to correct for non-random sampling, giving random tokens weight 1 and feature-interval tokens weight proportional to how often the feature fires. Because those densities run from about 1e-3 down to 1e-6, nearly all the weight lands on random text where the feature never fires. An explanation that predicts zero everywhere then scores well, which is why feature scores collapse toward zero under the correction.
+
+e023 [load-bearing] automated-interpretability (Automated Interpretability)  -->  no-activation-leakage (No Leakage of Activation Information)
+    label: explanation must be the only channel
+    Claude writes an explanation from examples where a unit fires, and a second pass then predicts that unit's activations from the explanation alone. The score measures how much of the unit's behaviour survived the written description, but only if nothing else about the activations reaches the prediction step. The paper treats that isolation as a design constraint rather than an incidental detail.
+
+e024 [load-bearing] manual-interpretability-scoring (Manual Human Analysis)  -->  activation-interval (Activation Interval)
+    label: bands fix the sampling bias
+    Judging a unit from its top-activating examples flatters polysemantic units, because even a mixed neuron looks coherent at its maximum. The paper instead cuts each unit's range into eleven evenly spaced bands and samples examples from each. The 412 scored intervals across 162 features and neurons are the units of that design.
+
+e025 [load-bearing] feature-universality (Feature Universality)  -->  transformer-a-and-b (The A and B Transformers)
+    label: needs a second seeded model
+    The universality claim is that the same feature turns up again when the method is run on a different model. That requires a second one-layer transformer with the same architecture, data and hyperparameters, differing only in random seed, and its own dictionary learning run. Without model B there is nothing for A/1/3450 to be matched against.
+
+e026 [load-bearing] finite-state-automata-features (Finite state automata)  -->  action-features (Features as actions)
+    label: handoffs need the action reading
+    Every feature in this model has two sides: it responds to something, and it pushes certain next tokens up. The automata motif reads a chain of features through that second side, where one feature raises the probability of tokens that would make the next feature fire a position later. Without the action reading, the four-node HTML system is just four unrelated detectors.
+
+e027 [supporting] autoencoder-width-limitation (Hypothesis 3: The Autoencoder Is Imperfect)  -->  feature-splitting (Feature splitting)
+    label: narrow-dictionary story rests on splitting
+    One explanation offered for impure weak activations is that the dictionary holds fewer entries than the model has true features, so unrecovered features smear across the learned ones. Feature splitting is what makes that plausible: widening the autoencoder keeps dividing features into finer ones rather than exhausting them. Whether there is a definite number of true features is a question the paper leaves open.
+
+e028 [load-bearing] theories-of-superposition (Theories of superposition, revised)  -->  feature-geometry-clusters (Geometric clustering of feature directions)
+    label: clumping forces the revision
+    The picture inherited from Toy Models has features spread roughly evenly, pushed apart from each other by interference. The dictionary's geometry shows something different locally: conceptually related features sit at small angles and form tight clusters. The paper revises its theory to fit that observation, and says it does not yet know which account of the clumping is right.
+
+e029 [load-bearing] sharper-predictions-argument (The sharper-predictions argument)  -->  logit-weight (Logit Weight)
+    label: argument is about achievable logits
+    The question is whether hundreds of features for 'the' in different contexts are the model's own code or something dictionary learning imposed. The paper's argument compares what each scheme can produce at the output: a compositional code makes the logits for 'the' in physics a sum of a generic 'the' contribution and a generic physics one, while a dedicated feature can push exactly the tokens that follow 'the' in physics writing. That comparison is available only because a feature's effect on th
+
+e030 [load-bearing] noisy-simulation (Noisy simulation of a larger network)  -->  feature-sparsity (Feature sparsity)
+    label: sparsity is what makes simulation cheap
+    Superposition is described as a small network approximately simulating a larger, sparser one. The simulation works because only a few features are active on any given token, so directions that are not orthogonal rarely fire at the same time. If many features fired at once the interference would be constant rather than occasional.
+
+e031 [supporting] l1-coefficient (L1 Coefficient $\lambda$)  -->  l0-nll-tradeoff (Sparsity vs. Explained Behavior Tradeoff)
+    label: chosen off the sparsity frontier
+    The L1 coefficient has no obviously correct value: raising it buys sparsity and costs reconstruction. The paper plots every trained autoencoder by the average number of features active per token against how much of the MLP's loss contribution it recovers. The coefficient is then a point picked off that frontier rather than a derived quantity.
+
+=== SUPPORTED-BY  (a claim and the evidence under it) - 32 edges ===
+
+e032 [load-bearing] activation-specificity (Activation Specificity)  -->  fig-8 (The Arabic Feature's Activation Spectrum)
+    label: proxy-coloured spectrum shows specificity
+    This is the paper's basic specificity picture: every sampled token is stacked by how hard the Arabic feature fired, and each column is split by an independently computed Unicode score. Arabic script is 0.13% of training tokens, but 81% of the tokens where the feature is active. The support is uneven across the spectrum, and the paper says so: the share is 98% above activation 5, but only 25% where the feature barely fires.
+
+e033 [supporting] large-activations-dominate (Large Activations Matter Most)  -->  fig-9 (Arabic Feature's Activation Mass)
+    label: activation mass sits on Arabic
+    The same histogram is redrawn with each bin weighted by activation magnitude instead of counted once per token, so a bar's height is the total activation contributed rather than the number of tokens. Almost all of that mass falls on Arabic-script text. Read carefully, this does not clean up the impure low activations — it argues they matter less, on the grounds that in a one-layer model a feature's effect on the logits is close to linear in its activation.
+
+e034 [load-bearing] logit-weight (Logit Weight)  -->  fig-10 (The Arabic Feature's Logit Weights)
+    label: second mode is Arabic tokens
+    Scoring every vocabulary token by how much the feature moves its next-token logit gives a fat mode at zero plus a small mode far to the right. The tokens in that right mode are Arabic characters and the byte tokens \xd8 and \xd9 that begin most Arabic UTF-8 encodings. The paper flags that this is a linear approximation and lists three ways it could overstate the feature's real influence, so the histogram alone does not establish a causal effect.
+
+e035 [load-bearing] feature-ablation (Feature Ablation)  -->  fig-11 (Ablating the Arabic Feature)
+    label: deleting the feature hurts Arabic predictions
+    Here the feature's own contribution is subtracted from the MLP activations and the rest of the forward pass is run, so the change in per-token loss is measured rather than approximated. Ablation lowers the model's probability on Arabic-script tokens across the whole activation range, and the only tokens it helps are punctuation shared with other scripts. This is the step that turns the logit-weight histogram from a suggestion into a causal claim.
+
+e036 [supporting] pinned-feature-sampling (Pinned Feature Sampling)  -->  fig-12 (Pinning the Arabic Script Feature)
+    label: pinning flips the continuation to Arabic
+    The feature is held at its maximum observed value while the model is sampled from the prefix 1,2,3,...,10, and the continuation comes out in Arabic script. Nothing else in the network is touched, so the change is attributable to that one direction. It is one hand-chosen prompt on one feature, so it demonstrates the effect rather than measuring how often it holds.
+
+e037 [load-bearing] feature-neuron-nonalignment (The Feature Is Not A Neuron)  -->  fig-13 (The Arabic Feature in the Neuron Basis)
+    label: direction spread across many neurons
+    The feature's decoder column is drawn coordinate by coordinate, one stem per MLP neuron, to answer whether dictionary learning simply handed back a neuron under a new name. The three largest coefficients are all negative, and 27 of the 512 neurons carry coefficients of at least 0.1 in magnitude. That rules out the feature being one neuron, though on its own it leaves open the possibility of a small set of neurons cancelling into one.
+
+e038 [supporting] mutually-exclusive-features-in-superposition (Mutually Exclusive Features Are Natural To Superpose)  -->  fig-14 (Neuron 489's Language Mixture)
+    label: nearest neuron mixes many languages
+    The neuron whose activations correlate most closely with the Arabic feature, A/neurons/489, fires on a grab-bag of non-English languages, with Arabic present only as a thin sliver. The paper offers an account of why: languages are close to mutually exclusive, which makes them cheap to pack into one direction under superposition. That account is an interpretation of the picture, not something the figure tests.
+
+e039 [load-bearing] feature-universality (Feature Universality)  -->  fig-19 (Arabic Feature Across Two Models)
+    label: same feature in a second model
+    A separately seeded transformer, given its own separately seeded dictionary, produces B/1/1334, whose activations correlate 0.91 with the original Arabic feature over 40 million tokens. The logit weights agree far less: the correlation there is 0.23, dragged down by a large central cloud. The paper reads that cloud as weight interference forced by superposition, and treats the shared outlier mode as the real finding — a hypothesis it does not test here.
+
+e040 [supporting] dna-feature (DNA Feature (A/1/2937))  -->  fig-20 (DNA Activations Split by Proxy)
+    label: binarized DNA proxy correlates 0.8
+    Tokens are sorted by how strongly the DNA feature fires and coloured by a hand-built score for whether the text is a nucleotide sequence. Because the proxy's log-probabilities come out strongly bimodal, they are reduced to a yes/no value, and that binarized proxy correlates 0.8 with the feature's activations. All ten random examples above activation 6.0 are DNA, but the lower registers carry a lot of colour saying the proxy did not fire.
+
+e041 [supporting] proxy-limitations (Where the Proxies Fail)  -->  fig-21 (The DNA Feature-Proxy Disagreement Grid)
+    label: audit of feature-proxy disagreements
+    A grid crosses the DNA feature's activation level against whether the proxy fires, so the disagreements can be read case by case. In all but two of them the feature is right and the proxy is wrong: a space inside TGG AGT breaks the strict ATCG vocabulary, and the feature fires productively on the '- in 5'-TCT because DNA follows. The audit is a small hand-read sample, and the authors are adjudicating disagreements about their own feature.
+
+e042 [supporting] base64-proxy (Base64 Proxy)  -->  fig-25 (Base64 Activations Coloured by Proxy)
+    label: weakest proxy correlation, blamed on proxy
+    The base64 feature's activations correlate only 0.38 with its computational proxy, much lower than the 0.74 reported for Arabic. The paper's answer is that the proxy is too broad rather than the feature impure: hexadecimal strings satisfy a model of base64 as random draws from [a-zA-Z0-9+/], but are actually handled by a separate feature, A/1/3817. This is the case where the independent yardstick disagrees most, and the paper resolves it by arguing against the yardstick.
+
+e043 [supporting] hebrew-feature (Hebrew Feature (A/1/416))  -->  fig-33 (The Hebrew Feature's Activation Spectrum)
+    label: specific at the top, leaky below
+    The activation histogram split by a Unicode-based Hebrew score is specific in its upper reaches and leaks at the bottom, where the feature weakly activates on other Unicode-script languages. Some of the non-Hebrew colour even in strong activations turns out to be whitespace and punctuation, which live in other Unicode blocks. The overall proxy correlation is 0.55, and the paper attributes part of the missing sensitivity to a companion feature, A/1/1016, that fires on the \xd7 byte.
+
+e044 [load-bearing] manual-interpretability-scoring (Manual Human Analysis)  -->  fig-39 (Hand-scored interpretability, features against neurons)
+    label: median feature 12, median neuron 0
+    Two score distributions are drawn over the same 0-14 rubric, one for learned features and one for MLP neurons, and they barely overlap. The median neuron scores 0, meaning the annotator could not form any hypothesis about it, while the median feature interval scores 12. The evidence is thinner than the gap suggests: 412 intervals across 162 units, scored by a single annotator who is one of the authors, blinded only to which kind of unit he was looking at.
+
+e045 [load-bearing] automated-interpretability (Automated Interpretability)  -->  fig-40 (Autointerp Activation Scores)
+    label: model-scored explanations favour features
+    A language model writes an explanation of a unit from examples where it fires, then predicts that unit's activations on unseen text from the explanation alone. The score is the Spearman correlation between predicted and true activations over 60 nine-token examples. It agrees with the human rating in direction, and its value is that it runs at a scale hand-scoring cannot reach.
+
+e046 [supporting] automated-logit-scoring (Automated Interpretability on Logit Weights)  -->  fig-41 (Logit-Weight Scores, Features vs Neurons)
+    label: 74% versus 58% on logits
+    This tests the other half of a feature's story: given only the written explanation, can the model say which unseen tokens the unit promotes. Scored against a 50/50 mix of top positive logit tokens and random ones, chance is 50%, features average 74%, and neurons 58%. The neuron figure sits above chance, so the claim is a margin rather than a clean separation.
+
+e047 [supporting] activation-interval-analysis (Activation Interval Analysis)  -->  fig-42 (Interpretability Across the Activation Spectrum)
+    label: interpretability falls with activation strength
+    Each band of a unit's activation range is scored separately against the hypothesis suggested by the whole spectrum, which turns interpretability into a curve instead of a single number. Strong activations are judged far more consistent with the interpretation than weak ones, with some features holding across the top 60% and then falling away. This partly undercuts the headline scores, because the paper also states that most actual activations are small and therefore land in exactly the bands tha
+
+e048 [load-bearing] model-vs-data-question (Do Features Tell Us About The Model Or The Data?)  -->  fig-43 (Pinning Features to Steer Generation)
+    label: steering shows effects are the model's
+    Pinning a single feature high while sampling makes the model emit text of the kind that feature normally fires on. The argument this serves is structural: the autoencoder only ever saw MLP activations, so what a feature does downstream was never an input to dictionary learning. If the downstream behaviour still matches the feature's interpretation, that match has to be a property of the model rather than of dataset correlations.
+
+e049 [supporting] feature-geometry-clusters (Geometric clustering of feature directions)  -->  fig-44 (Three Dictionaries in One UMAP)
+    label: text families are geometric clusters
+    Feature directions from three dictionaries of different widths are projected together into two dimensions, so nearby dots mean small angles between decoder vectors. The base64 features and the Arabic script features, found by reading text, show up as tight clusters in that projection. UMAP is built to preserve local neighbourhoods and not global distances, so the figure supports the clustering claim without licensing readings of the larger layout.
+
+e050 [load-bearing] feature-splitting (Feature splitting)  -->  fig-46 (The Mathematics and Physics Splitting Graph)
+    label: technical-writing features refine with width
+    Three autoencoders of increasing width, all trained on the same transformer, are lined up and their technical-writing features linked by masked cosine similarity. The wider runs make finer distinctions, separating mathematics from machine learning and separating the from a. The links also show that a feature at one width can both split and merge into the next, so the refinement is a graph rather than a tree, and the connection threshold of about 0.4 was picked to keep the picture readable.
+
+e051 [supporting] multiple-features-for-one-context (Multiple features for one context)  -->  fig-48 (One base64 Feature Becoming Three)
+    label: one base64 feature becomes three
+    In the 512-feature dictionary A/0 a single feature fires across whole base64 strings; in the 4,096-feature dictionary A/1 three features jointly cover the same tokens. One prefers letters, one prefers digits, and the third fires on base64 that decodes to readable ASCII. This is what turns an apparent bug — several features for one concept — into an instance of splitting.
+
+e052 [minor] tokenization-artifacts-in-features (Tokenization artifacts in features)  -->  fig-49 (The Digit Feature That Won't Predict Digits)
+    label: digit feature suppresses digit predictions
+    Two base64 features push almost the same tokens up, except that the one firing on single digits gives the ten digit tokens much lower weight. The paper's explanation is about the tokenizer, not the content: byte-pair encoding would have merged two consecutive digits into one token, so a lone digit token is evidence that the next token is not a digit. The feature is reading a property of the encoding scheme.
+
+e053 [load-bearing] feature-vs-neuron-universality (Features are more universal than neurons)  -->  fig-52 (Feature vs Neuron Match Histograms)
+    label: 0.72 for features, 0.46 for neurons
+    Each feature in run A/1 is matched to its closest counterpart in B/1, a dictionary learned from a separately trained transformer, and the same matching is done for the two models' neurons. The median activation correlation is 0.72 for features and 0.46 for neurons. This is the population-scale version of the four case studies, and it is the paper's strongest claim that features are more universal than neurons.
+
+e054 [supporting] logit-weight-similarity (Logit weight similarity)  -->  fig-53 (Matched Features That Fire Alike But Write Differently)
+    label: matched features write differently
+    Across thousands of matched pairs, agreement on when two features fire is consistently higher than agreement on what they do to the logits. The sharpest case is A/1/3949 and B/1/3321, which correlate 0.98 on activations and negatively on logit weights, yet both fire on PLoS journal abbreviations and predict the following period. This is the paper reporting evidence that cuts against a simple reading of its own universality result.
+
+e055 [supporting] attribution-similarity (Attribution similarity)  -->  fig-54 (Attribution vs Activation Correlation)
+    label: attribution restores the universality agreement
+    Each feature's activations are weighted by its logit weight on the token that actually came next, giving one attribution number per datapoint. Correlations between those attribution vectors track activation similarity closely, so features that fire together across models were also useful for predicting the same tokens. This is the paper's answer to the logit-weight disagreement, though the attribution score is itself built out of logit weights and so is not an independent measurement.
+
+e056 [supporting] finite-state-automata-features (Finite state automata)  -->  fig-58 (The Four-Node HTML Automaton)
+    label: four features generate valid HTML
+    Four features from the smallest dictionary hand off to each other through the token stream: open bracket, tag name, closing bracket, and newline-with-indent, then back to the open bracket. Each one raises the probability of tokens that make the next one fire. The evidence is read off feature visualisations and logit weights rather than tested by intervention, so the state machine is a description of observed handoffs.
+
+e057 [supporting] external-replication (External replication and commentary)  -->  fig-63 (Decoder Sparsity in the Neuron Basis)
+    label: outside replication finds dense directions
+    An invited external researcher trained his own sparse autoencoder on a different open-source one-layer model and measured how concentrated the learned directions are in the neuron basis. He reports 4% well explained by a single neuron, 4% by two to ten, and the remaining 92% dense. It is a check from outside the author group, and it lands on the same conclusion as the stem plot: these features are not neurons.
+
+e058 [supporting] feature-density (Feature Density)  -->  fig-64 (The Two Density Modes of A/16)
+    label: density histogram splits into two modes
+    Counting every feature in run A/16 by how often it fires, on a log axis, gives two humps: one around one token in ten million and one around one in a hundred thousand. The paper says almost all features in the right mode are interpretable and almost none in the left one are, and treats the left mode as an artifact of autoencoder training rather than a fact about the transformer. That interpretability split is reported anecdotally, with no scoring behind it, which is weaker than the use the diagn
+
+e059 [load-bearing] computational-proxy (Computational Proxy)  -->  eq-proxy-loglikelihood-ratio (The Log-Likelihood-Ratio Proxy)
+    label: defines the independent yardstick
+    Every specificity claim in the paper needs a score for the hypothesised context that was computed without looking at the feature. This formula supplies it: how much more likely a string is under a guessed context than under the general text distribution, written as a log-likelihood ratio. The whole specificity argument rests on this number being independent of the feature, so the places where the proxy is admitted to be wrong are also places where the argument weakens.
+
+e060 [supporting] l0-nll-tradeoff (Sparsity vs. Explained Behavior Tradeoff)  -->  fig-68 (Sparsity Against Explained Behavior)
+    label: sparsity against explained loss frontier
+    Every dot is one trained autoencoder, placed by how few features fire per token against how much of the MLP layer's loss contribution it recovers, with each line holding the L1 coefficient fixed. The frontier turns hyperparameter choice into something a person can look at, since neither axis alone says which run is better. The paper is candid that it has no principled target for sparsity, and reports only a rough preference for an average of fewer than ten or twenty active features per token.
+
+e061 [load-bearing] randomized-transformer (Randomized Transformer Baseline)  -->  fig-70 (The Randomized-Transformer Control)
+    label: control that initially beats the features
+    Dictionary learning is run on the same model with the entries of each weight matrix shuffled, so any structure recovered must come from the data rather than from what the model learned. On the automated activation score the randomized model's features get a slightly higher median than the real ones. The paper's response is to split the randomized features into a single-token cluster and a polysemantic cluster, after which the real features win on the second — a post hoc split, and the clearest c
+
+e062 [supporting] importance-scoring (Importance Scoring)  -->  fig-71 (Importance-Weighted Interpretability Scores)
+    label: reweighting shrinks the feature advantage
+    Scored examples were not drawn at random, and importance scoring is the principled correction for that. Applying it collapses most feature scores toward zero while barely moving the neurons: features still lead at a median of 0.28 against 0.04, but the gap is much smaller than the headline figures. The paper explains why, and the explanation is about density rather than quality — 88% of a feature's true activations on random examples are zero against 54% for neurons, so predicting zero everywher
+
+e063 [load-bearing] sparse-autoencoder (Sparse autoencoder)  -->  eq-autoencoder-loss (The Sparse Autoencoder's Two-Term Loss)
+    label: states the whole method's objective
+    The method reduces to two terms: squared error between the MLP activation and its reconstruction, plus an L1 penalty on the hidden activations scaled by a coefficient. The first term forces the dictionary to keep the information, and the second is what buys sparsity by pushing most feature activations to exactly zero. Everything the paper later reports about a run — its density histogram, its L0 norm, its position on the sparsity frontier — is a consequence of where that coefficient was set.
+
+=== INSTANCE-OF  (a specific case or setting of a general thing) - 32 edges ===
+
+e064 [load-bearing] log-likelihood-ratio-proxy (Log-Likelihood Ratio Form)  -->  eq-proxy-loglikelihood-ratio (The Log-Likelihood-Ratio Proxy)
+    label: named quantity defined by equation
+    Every proxy in the paper is the same expression with a different hypothesis plugged in. The equation is where that shape is fixed: the log of how much likelier the string is under the guessed context than under the general distribution.
+
+e065 [supporting] script-proxy-via-bayes (Script Proxies via Bayes' Rule)  -->  eq-bayes-script-proxy (Inverting the Script Probability)
+    label: the inversion written out
+    Scoring a string as Arabic-like needs P(s | Arabic script), and the paper has no generative model of Arabic text. This equation is the step that gets around that, turning the easy direction P(Arabic | s) into the hard one by Bayes' rule.
+
+e066 [supporting] arabic-script-proxy (Arabic Script Proxy)  -->  script-proxy-via-bayes (Script Proxies via Bayes' Rule)
+    label: the worked script proxy
+    The Arabic proxy is the case where the Bayes construction is actually carried out. Whether a character counts as Arabic is decided by its Unicode block, and the resulting per-token score is what colours the paper's lead specificity plots.
+
+e067 [minor] hebrew-script-proxy (Hebrew Script Proxy)  -->  script-proxy-via-bayes (Script Proxies via Bayes' Rule)
+    label: same recipe, Hebrew blocks
+    The Hebrew proxy is the Arabic construction with a different Unicode range substituted in. It correlates 0.55 with feature A/1/416, a weaker number than the Arabic case, which the paper attributes partly to a second Hebrew feature covering the gaps.
+
+e068 [supporting] base64-proxy (Base64 Proxy)  -->  character-distribution-proxy (Character-Distribution Proxies)
+    label: uniform draw over base64 alphabet
+    For a context defined by which characters are allowed, the paper models the string as a random draw over that alphabet — here [a-zA-Z0-9+/]. It judges this particular instance too broad, and reports a Pearson correlation of only 0.38 with the base64 feature A/1/2357.
+
+e069 [supporting] dna-proxy (DNA Proxy)  -->  character-distribution-proxy (Character-Distribution Proxies)
+    label: uniform draw over ATCG
+    The DNA proxy is the same character-set recipe with the alphabet narrowed to A, T, C and G. Because two random letters from a four-letter alphabet are not unusual on their own, the paper only evaluates it on groups of at least two tokens.
+
+e070 [supporting] hexadecimal-feature (Hexadecimal Feature (A/1/3817))  -->  proxy-limitations (Where the Proxies Fail)
+    label: a case where the proxy is wrong
+    Hexadecimal strings look unlike ordinary text, so the base64 proxy fires on them. The paper finds they are handled by a separate feature, A/1/3817, which makes this a disagreement where the proxy is at fault rather than the feature.
+
+e071 [load-bearing] feature-activation (Feature activation)  -->  eq-encoder (The Encoder Equation)
+    label: the scalar this equation defines
+    The paper talks throughout about how strongly a feature fires. This equation says exactly what that number is: a linear readout of the shifted activation vector, plus a bias, passed through a ReLU, so it is one non-negative value per dictionary element.
+
+e072 [load-bearing] feature-direction (Feature direction)  -->  eq-feature-decomposition (Activations as a Sum of Features)
+    label: the unit vector introduced here
+    A feature direction is the vector a feature writes along when it fires. The decomposition equation is where it is introduced, as one of the unit vectors summed with weights to rebuild an activation.
+
+e073 [load-bearing] sparse-autoencoder-loss (Reconstruction Plus Sparsity Loss)  -->  eq-autoencoder-loss (The Sparse Autoencoder's Two-Term Loss)
+    label: the objective written out
+    The training objective has two terms and no more: squared reconstruction error, and an L1 penalty on the hidden activations. This equation is where both are stated together, along with the encoder and decoder they act on.
+
+e074 [supporting] attribution-vector (Attribution vector)  -->  eq-attribution-vector (Attribution Score for the Observed Next Token)
+    label: defined in a footnote formula
+    The attribution vector is stacked from one number per sampled datapoint. This footnote formula says what that number is: the feature's activation at a token, multiplied by its logit weight on the token that actually came next.
+
+e075 [supporting] feature-ablation (Feature Ablation)  -->  eq-feature-ablation (Subtracting One Feature's Contribution)
+    label: what ablation subtracts, exactly
+    Ablation here does not zero the whole activation vector. The equation pins down that only one feature's own contribution is removed — its activation times its dictionary direction — leaving what every other feature wrote in place.
+
+e076 [load-bearing] sparse-autoencoder (Sparse autoencoder)  -->  linear-feature-decomposition (Features as a linear decomposition)
+    label: the concrete way the decomposition is fit
+    The decomposition is stated abstractly first: an activation is a bias plus a sparse weighted sum of unit directions. The sparse autoencoder is the paper's way of actually obtaining one, with the hidden units supplying the weights and the decoder columns supplying the directions.
+
+e077 [load-bearing] dictionary-decoder (Decoder as Dictionary)  -->  feature-direction (Feature direction)
+    label: decoder columns are the directions
+    The feature directions are abstract unit vectors in the decomposition. In the trained autoencoder they are simply the columns of the output matrix, which is why the paper uses the words decoder and dictionary interchangeably.
+
+e078 [load-bearing] transformer-a-and-b (The A and B Transformers)  -->  one-layer-transformer-testbed (The One-Layer Transformer Testbed)
+    label: a second run of the same recipe
+    Model B is the same architecture, the same data and the same hyperparameters as model A, changed only in random seed. That makes it a second instance of the testbed rather than a different experiment, which is what lets the paper read agreement between their dictionaries as universality.
+
+e079 [supporting] randomized-transformer (Randomized Transformer Baseline)  -->  one-layer-transformer-testbed (The One-Layer Transformer Testbed)
+    label: the testbed with weights shuffled
+    To ask whether features reflect the model or just the data, the paper runs dictionary learning on the same setup with the entries inside each weight matrix shuffled. It is the testbed as a control: same data, same shapes, no learned computation left.
+
+e080 [supporting] dictionary-learning-run (Dictionary Learning Run)  -->  sparse-autoencoder (Sparse autoencoder)
+    label: one trained autoencoder
+    A run is a single instance of the method, fixed by a dictionary size and an L1 coefficient. The feature notation carries this: in A/1/3450 the middle number says which run the feature came from.
+
+e081 [load-bearing] arabic-script-feature (Arabic Script Feature (A/1/3450))  -->  feature-evidence-template (The Five-Claim Feature Template)
+    label: the template's first full worked case
+    The paper does not argue for its features in general terms first. It walks the Arabic feature through all five claims in turn — specificity, sensitivity, downstream effects, not-a-neuron, universality — and the later case studies reuse that order.
+
+e082 [supporting] arabic-script-feature (Arabic Script Feature (A/1/3450))  -->  context-features (Context features)
+    label: a language as a context
+    A context feature fires across a whole stretch of text of a certain kind rather than on a single token. The Arabic feature is that pattern with the kind being a writing system.
+
+e083 [supporting] dna-feature (DNA Feature (A/1/2937))  -->  context-features (Context features)
+    label: named example of the motif
+    When the paper lists context features it names DNA first. A/1/2937 fires across long uppercase runs of A, T, C and G, and unlike the Arabic case it appears to be the only feature covering that context.
+
+e084 [minor] base64-feature (Base64 Feature (A/1/2357))  -->  context-features (Context features)
+    label: named example of the motif
+    Base64 is the paper's other named context feature. It also shows the motif's dual reading: the feature both responds to base64 strings and acts to raise the probability of more base64 tokens.
+
+e085 [load-bearing] token-in-context-features (Token-in-context features)  -->  local-code (Local code)
+    label: one unit per token-context pair
+    A local code gives each represented thing its own unit, including each combination of properties. The hundreds of features that fire on 'the' in one particular kind of text are that arrangement in practice, and section 7.2 asks whether the transformer really uses it or dictionary learning imposed it.
+
+e086 [supporting] hebrew-continuation-feature (Hebrew Continuation Feature (A/1/1016))  -->  unicode-token-state-machines (Two-node systems from split Unicode characters)
+    label: the prefix-byte half of a pair
+    Where a script's characters are split into a prefix byte and a suffix byte, the paper finds the model alternating between a feature for each. A/1/1016 fires on the \xd7 byte and predicts the bytes that finish the Hebrew codepoint, which is the prefix role; the paper introduces it in the Hebrew case study before naming the pattern generally.
+
+e087 [supporting] utf8-multi-token-characters (Split Unicode Characters in Tokenization)  -->  byte-pair-encoding (Byte-pair encoding)
+    label: tokens not lining up with characters
+    Byte-pair encoding merges frequent byte sequences, so a token need not be a character. Non-Latin scripts are the sharp case: one character arrives as several byte tokens, which shapes where script features fire and which tokens their logit weights can push.
+
+e088 [supporting] base64-digit-feature (Base64 Digit Feature and the BPE Exploit)  -->  tokenization-artifacts-in-features (Tokenization artifacts in features)
+    label: the paper's example of the artifact
+    A/1/2364 fires on single digits in base64 and gives the digit tokens unusually low logit weights. The paper reads this as the tokenizer showing through: two adjacent digits would have been merged into one token, so a lone digit token is evidence the next character is not a digit.
+
+e089 [supporting] complementary-arabic-features (Complementary Arabic Features)  -->  activation-sensitivity (Activation Sensitivity)
+    label: where sensitivity is patched
+    Sensitivity asks whether the feature is on whenever the context is present, and the paper finds it imperfect. The Arabic case is where that gap is traced: other features fire in Arabic contexts the lead feature misses, so coverage is shared rather than complete in one feature.
+
+e090 [supporting] ultralow-density-cluster (Ultralow Density Cluster)  -->  de-facto-dead-neurons (De Facto Dead Neurons)
+    label: the concrete dead-but-firing population
+    A zero-activity check counts 168 dead features in run A/1. The 292 ultralow-density features are the ones that check misses: they fire on fewer than one token in a million, and the paper treats them as effectively dead and excludes them from later analysis.
+
+e091 [supporting] solu-base64-neuron (The Earlier Base64 Neuron)  -->  universality-with-the-literature (Matching features to the literature)
+    label: a match to a previously reported unit
+    The stronger universality test is whether these features resemble units other researchers found in other models. The base64 case is one such match: a base64 neuron was reported earlier in a SoLU model, alongside hexadecimal and all-caps neurons that also have counterparts here.
+
+e092 [supporting] feature-proxy-correlation (Feature-Proxy Correlation)  -->  pearson-correlation (Pearson Correlation)
+    label: Pearson between feature and proxy
+    The paper wants one number combining sensitivity and specificity, and reaches for ordinary linear correlation. For the Arabic feature against its thresholded proxy over 40 million tokens it reports 0.74, which it calls substantial.
+
+e093 [supporting] activation-similarity (Activation similarity)  -->  pearson-correlation (Pearson Correlation)
+    label: Pearson used to match features
+    To find a feature's counterpart in another model's dictionary, the paper takes whichever feature has the highest Pearson correlation of activations across the same tokens. The universality result is read straight off this measure: a median of 0.72 for features against 0.46 for neurons.
+
+e094 [supporting] activation-prediction-scoring (Activation Prediction and Spearman Scoring)  -->  spearman-correlation (Spearman Rank Correlation)
+    label: Spearman on predicted activations
+    Claude predicts a feature's activations on 60 nine-token examples from the written explanation alone, giving 540 predictions per feature. The score is the rank correlation between those predictions and the true values, so it rewards getting the ordering right rather than the exact numbers.
+
+e095 [supporting] pinned-feature-sampling (Pinned Feature Sampling)  -->  uses-of-a-feature-decomposition (What a good decomposition would let you do)
+    label: the steering affordance, demonstrated
+    One affordance the paper claims for a good decomposition is changing the network's behaviour predictably by changing feature values. Pinning a single feature high and then sampling is the demonstration of that claim, and the generated text comes out in the kind of content the feature normally fires on.
+
+=== CONTRASTS-WITH  (alternatives, tensions, trade-offs) - 32 edges ===
+
+e096 [load-bearing] l0-norm ($L^0$ Norm)  -->  loss-recovered-by-features (Fraction of MLP Loss Recovered)
+    label: sparsity paid for with explained loss
+    Every trained autoencoder sits somewhere on a curve between these two numbers. A/1, the run the paper focuses on, is sparse and recovers 79% of the MLP layer's loss contribution; A/5, with 131,072 features and a lower L1 coefficient, recovers 94.5% but fires many more features per token. The paper picks its L1 coefficient by looking at this frontier rather than from any principle about how sparse a decomposition should be.
+
+e097 [load-bearing] l1-sparsity-penalty (L1 penalty on feature activations)  -->  mse-reconstruction-term (MSE Reconstruction Term)
+    label: two loss terms wanting opposite things
+    The autoencoder's objective is a sum of exactly two terms. The squared-error term wants the reconstruction to match the MLP activation closely, which is easiest when many features are active. The L1 term charges for every unit of activation, so it drives most feature activations to exactly zero. The L1 coefficient is the dial between them.
+
+e098 [load-bearing] activation-specificity (Activation Specificity)  -->  activation-sensitivity (Activation Sensitivity)
+    label: specificity ranked above sensitivity
+    The paper tries to establish both for each feature it studies, but says specificity is the more important half, because polysemanticity shows up as a unit firing on clearly unrelated things. The Arabic feature is specific — 98% of the tokens where it fires above activation 5 are Arabic script — and yet not sensitive, since it skips the common prefix "ال" entirely. Those gaps are filled by other Arabic features, not by this one.
+
+e099 [supporting] manual-interpretability-scoring (Manual Human Analysis)  -->  automated-interpretability (Automated Interpretability)
+    label: most trusted against most scalable
+    The blinded human rubric is the measure the paper trusts most, and it covers 412 activation intervals across 162 features and neurons. The automated version runs over far more units, but what it produces is a Spearman correlation between Claude's predicted activations and the true ones, which is a thinner thing to lean on. Both say features beat neurons; each buys that answer at a different price.
+
+e100 [load-bearing] randomized-transformer (Randomized Transformer Baseline)  -->  automated-interpretability (Automated Interpretability)
+    label: the control outscores the real features
+    Dictionary learning run on a weight-shuffled version of the transformer produces features whose median automated activation score is slightly higher than the real features'. The paper does not treat that as a refutation. It splits the randomized features into a single-token cluster and the rest, and reports that the real features win on the second cluster — but the disagreement in the headline metric stands as stated.
+
+e101 [supporting] importance-scoring (Importance Scoring)  -->  automated-interpretability (Automated Interpretability)
+    label: the principled correction flattens the scores
+    Importance scoring is the correct fix for the fact that the scored examples were not sampled at random. Applying it drives many feature scores to near zero, because feature densities run from about 1e-3 to 1e-6 and nearly all the weight lands on random text where the feature never fires. Neurons suffer less: on random examples 88% of a feature's true activations are zero, against 54% for neurons.
+
+e102 [load-bearing] local-code (Local code)  -->  compositional-code (Compositional code)
+    label: one unit per combination vs parts
+    These are the two ways a representation can handle a conjunction of properties. A compositional code has a unit for "the" and a separate unit for Physics, and lets them combine. A local code has a dedicated unit for "the" in Physics. The paper finds hundreds of such combination features and says openly that it did not expect them.
+
+e103 [load-bearing] l1-sparsity-penalty (L1 penalty on feature activations)  -->  compositional-code (Compositional code)
+    label: the penalty may manufacture local codes
+    A local code is sparser than a compositional one, because a single active unit stands for the whole combination rather than two. The autoencoder is trained with a penalty that rewards exactly that. So the paper's first hypothesis for its own token-in-context features is that its objective pushed too far toward sparsity, and that a better dictionary learning scheme might recover a more compositional set from the same transformer.
+
+e104 [supporting] sharper-predictions-argument (The sharper-predictions argument)  -->  compositional-code (Compositional code)
+    label: a sum cannot make a sharp prediction
+    This is the paper's reason for thinking the local code is at least partly real. If "the" and the Physics context were represented independently, the logits after "the" in Physics would be forced to be the sum of "tokens that follow the" and "tokens common in Physics". A model that wants a sharper prediction than that sum has no way to get it from a compositional code.
+
+e105 [load-bearing] activation-similarity (Activation similarity)  -->  logit-weight-similarity (Logit weight similarity)
+    label: same firing, different downstream effect
+    These are the paper's two model-independent ways of asking whether the same feature was found twice in two separately trained transformers, and they disagree. For the Arabic feature the activation correlation is 0.91 and the logit weight correlation only 0.23. The sharpest case is A/1/3949 and B/1/3321: correlated 0.98 on activations with a negative logit weight correlation, even though both fire on PLOS journal abbreviations and predict the period that follows.
+
+e106 [supporting] attribution-similarity (Attribution similarity)  -->  logit-weight-similarity (Logit weight similarity)
+    label: weighting by the actual next token
+    Logit weight similarity is dragged down by the large mode of near-zero weights the paper reads as interference. Attribution similarity instead multiplies a feature's activation at a datapoint by its logit weight on the token that actually came next, so those near-zero entries stop dominating. It tracks activation similarity much more closely, which is the paper's justification for using activation correlation throughout.
+
+e107 [load-bearing] architectural-approaches-to-superposition (Architectural approaches, and why they were abandoned)  -->  dictionary-learning (Dictionary learning)
+    label: two of three strategies, one abandoned
+    Toy Models laid out building models that lack superposition and decomposing models that have it as separate routes. The authors say they spent significant time on the first and concluded it is not merely costly but fundamentally non-viable for language models. This paper is the second route, taken up because the first did not work.
+
+e108 [load-bearing] activation-sparsity-training (Inducing activation sparsity during training)  -->  monosemanticity (Monosemanticity)
+    label: removing superposition does not buy interpretability
+    Training the subject model to have few active neurons, even to the point of one-hot activations, does eliminate superposition. It does not produce cleanly interpretable neurons. Individual neurons stay polysemantic, because representing several features ambiguously can reach a lower loss than representing one of them cleanly and ignoring the rest.
+
+e109 [load-bearing] cross-entropy-favors-polysemanticity (The four-feature loss calculation)  -->  mse-loss-and-monosemanticity (Why MSE models differ from language models)
+    label: the loss function decides the answer
+    In the paper's four-feature toy calculation under cross-entropy, a single binary neuron firing ambiguously on features A and B gets loss ln 2, about 0.7, while firing cleanly on A alone gets (3/4)ln 3, about 0.8. So cross-entropy prefers the polysemantic neuron. Under mean squared error, prior work finds the two solutions can tie, and for some feature importance curves the monosemantic one wins. Language models are trained with cross-entropy, which is the authors' reason for giving up on archite
+
+e110 [supporting] solu (SoLU activation)  -->  monosemanticity (Monosemanticity)
+    label: some neurons cleaner, others worse
+    SoLU was an earlier attempt to make features line up with the neuron basis. The paper reports that it appears to make some neurons more interpretable at the cost of making others even less interpretable than before. The gain is not free, and no total accounting of the trade is offered here.
+
+e111 [supporting] disentanglement (Disentanglement)  -->  overcompleteness (Overcompleteness)
+    label: as many factors as dimensions, or more
+    The disentanglement literature looks for a representation whose dimensions separate distinct influences on the data, typically as many factors as the space has dimensions. This paper asks for more directions than dimensions. It insists the difference is not cosmetic: overcompleteness is what turns the inner problem into compressed sensing rather than an ordinary matrix factorization.
+
+e112 [supporting] classical-dictionary-learning-algorithms (Classical Dictionary Learning Algorithms)  -->  sparse-autoencoder (Sparse autoencoder)
+    label: established methods set aside for a simpler one
+    The authors tried classical iterative methods such as Method of Optimal Directions and K-SVD, and moved on. The stated reason is scale: the sparse autoencoder trains on 8 billion activation vectors, which they believe is necessary to find rare features. A second reason follows in the next link.
+
+e113 [supporting] weak-dictionary-learning (A deliberately weak dictionary learning algorithm)  -->  np-hardness-of-exact-sparse-recovery (NP-Hardness of Exact Recovery)
+    label: a method too strong would prove nothing
+    Exact compressed sensing is NP-hard, so any method solving it exactly is doing something the transformer certainly is not doing. That is the paper's argument for deliberately preferring a weak decomposition method. A sparse autoencoder is architecturally close to an MLP layer, so structure it can recover is more plausibly structure the model itself can read.
+
+e114 [load-bearing] ultralow-density-cluster (Ultralow Density Cluster)  -->  high-density-cluster (High Density Cluster)
+    label: two density modes, opposite interpretability
+    Plotting how often each learned feature fires, on a log axis, usually splits a run into two humps. Anecdotally almost every feature in the right, higher-density mode is interpretable, and almost none in the ultralow mode are. The paper treats the ultralow cluster as an artifact of autoencoder training rather than a property of the transformer, and says it is still investigating where it comes from.
+
+e115 [minor] training-loss-metric (Training Loss as a Proxy)  -->  l1-coefficient (L1 Coefficient $\lambda$)
+    label: the cheapest metric breaks here
+    Training loss is the simplest signal available, and the paper uses it to compare optimizers and learning rates. It cannot be compared across runs with different L1 coefficients, because changing that coefficient changes the loss function being measured. The one hyperparameter the paper most needs to choose is the one the easy metric cannot speak to.
+
+e116 [supporting] information-based-metric (The Information-Based Metric That Failed)  -->  l0-norm ($L^0$ Norm)
+    label: the abstract metric rewarded dense solutions
+    The authors began by looking for a metric that would score a factorization by the total information of autoencoder plus data. It did not track what they cared about: runs whose average number of active features per token ran into the hundreds, but with low reconstruction error, could score better than sparser runs. They abandoned it and fell back on a bundle of imperfect signals.
+
+e117 [load-bearing] large-activations-dominate (Large Activations Matter Most)  -->  low-interval-activation-skew (Caveat: Activations Are Skewed Toward Low Intervals)
+    label: most activations sit in the worst bands
+    Scoring each band of a unit's activation range separately, the human annotator found strong activations far more consistent with a feature's interpretation than weak ones. Most actual activations are small, so they land in exactly the bands that score worst. The paper's answer is that large activations carry most of a feature's effect on the logits, so getting those right matters more — an argument rather than a measurement of what is left unexplained.
+
+e118 [supporting] dictionary-resolution (Dictionaries as resolutions)  -->  true-features (True features)
+    label: coverage bought with lost specificity
+    The paper conjectures an idealized set of features the model actually uses, clustered tightly in superposition. A dictionary of limited width cannot separate them, so it returns features covering roughly the same territory while being less specific. Widening the dictionary splits them apart, which is why the authors read dictionary size as a zoom level rather than as a guess at a correct count.
+
+e119 [supporting] base64-proxy (Base64 Proxy)  -->  base64-feature (Base64 Feature (A/1/2357))
+    label: feature and its own yardstick correlate 0.38
+    The base64 proxy scores a string by modelling it as a random draw from [a-zA-Z0-9+/]. Its Pearson correlation with the base64 feature's activations is only 0.38, well below the 0.74 the Arabic pair reaches. The paper blames the proxy rather than the feature: hexadecimal strings set it off too, and those have a feature of their own, A/1/3817.
+
+e120 [supporting] feature-proxy-correlation (Feature-Proxy Correlation)  -->  proxy-limitations (Where the Proxies Fail)
+    label: one number against a list of proxy failures
+    The feature-proxy correlation is meant to fold sensitivity and specificity into a single score. Alongside it the paper catalogs disagreements where the proxy is the one at fault: DNA triplets separated by spaces, the "'-" in 5'-TCT that precedes DNA without being DNA, a newline inside Arabic text. Where the yardstick is wrong the correlation understates the feature, so the number cannot be read on its own.
+
+e121 [supporting] dna-feature (DNA Feature (A/1/2937))  -->  arabic-script-feature (Arabic Script Feature (A/1/3450))
+    label: one feature for DNA, a family for Arabic
+    The DNA feature appears to be the only one devoted to its context, and by the end of a long DNA sequence the paper says it is the only feature active. Arabic script takes several: A/1/3450 misses the definite article prefix, and A/1/3134, A/1/1466 and A/1/3399 cover parts it does not. Nothing in the paper predicts in advance which contexts get one feature and which get a family.
+
+e122 [supporting] explanation-based-loss-measure (Explanation-Based Loss Measurement)  -->  loss-recovered-by-features (Fraction of MLP Loss Recovered)
+    label: the better measure is priced out
+    Replacing MLP activations with activations simulated from each feature's written explanation would measure what the paper actually wants to know: how much the interpretations explain, not how much the reconstruction does. The naive version needs one sample from the explaining model per feature per token. The paper's own estimate is $12,500–$25,000 to simulate 100k features over a single 4096-token context, so it reports the 79% reconstruction figure instead.
+
+e123 [load-bearing] cherry-picked-case-studies (Cherry-Picked Case Studies)  -->  global-analysis-framing (From Cherry-Picked Features To Global Claims)
+    label: four easy features against the population
+    The four detailed features were chosen because simple computational proxies exist for them, which the paper states outright — a proxy for "text concerning fantasy games" would be hard to build. Section 4 turns to features sampled uniformly from the run, where no proxy is available and the evidence is human and automated scoring instead. The deep evidence and the representative evidence are never available for the same features.
+
+e124 [load-bearing] top-dataset-examples (Top activating dataset examples)  -->  activation-interval (Activation Interval)
+    label: top examples flatter, uniform sampling does not
+    The standard way to interpret a unit is to read the datapoints where it fires hardest. The paper treats this as a weakness in its own earlier work: many polysemantic neurons look monosemantic if you only look at the top. Its scoring instead cuts the range into eleven evenly spaced intervals between zero and the maximum, and samples from each one.
+
+e125 [supporting] feature-manifolds (Feature manifolds)  -->  isotropic-superposition-model (Isotropic superposition model)
+    label: clumped directions vs continuous families
+    The picture inherited from Toy Models has features as discrete one-dimensional directions repelling each other into a roughly even spread. This paper's observations do not fit that. One revision keeps features one-dimensional but has them clump into dense related groups; another drops the assumption that a feature is one-dimensional at all, allowing continuous manifolds of related directions. Under the second, asking for the correct number of features may not be a well-posed question.
+
+e126 [supporting] correlated-features (Correlated features)  -->  action-sharing-features (Action-sharing features)
+    label: firing together vs acting alike
+    Two candidate explanations for why conceptually similar features have small angles between their dictionary vectors. One is that they tend to fire together, an idea Toy Models considered briefly. The other is that they produce similar downstream effects, which the paper suspects is more central: the base64 digit feature and the base64 letter feature predict nearly the same tokens, so they end up pointing nearly the same way.
+
+e127 [supporting] weight-interference (Weight Interference)  -->  logit-weight-second-mode (The Second Mode in Logit Weights)
+    label: noise mode against behaviour mode
+    A feature's logit weight histogram has a tall mode near zero and a small mode far to the right. The paper reads the right mode as the feature's deliberate effect, holding tokens specific to its context. It hypothesizes the central mode is interference — crosstalk forced by superposition rather than anything the model wants — which is one reason logit weight correlations across two models come out low even when the features fire alike.
+
+=== EVIDENCE ITEMS (linkable as [[fig-1]] etc.) ===
+  fig-1 | The UMAP Feature Browser: A screenshot of the interactive map the authors publish alongside the article: every dictionary direction from two autoencoder runs — 4,608 of them — projected 
+  fig-2 | Where the Dictionary Attaches: This schematic names the exact tensor the paper decomposes: the 512-dimensional post-ReLU MLP activation vector at a single token position of a one-layer transf
+  table-1 | The Two Models, Side by Side: The table is the paper's specification sheet for both models it works with: the small transformer under study on the left, and the sparse autoencoder trained on
+  fig-3 | The Simulated Larger Network: The figure states the paper's working picture of superposition: the network we can actually inspect is a squeezed-down projection of a much larger, much sparser
+  fig-4 | Anatomy of a Feature Page: A labelled tour of one page of the paper's published feature browser, which puts four kinds of evidence about a single learned feature side by side: where it fi
+  fig-5 | The Feature Search Bar: A screenshot of the search strip in the paper's public feature browser, with its four dropdowns opened. It carries no results, so what it establishes is only th
+  fig-6 | Text-First Feature Browser: A second published interface that inverts the usual view: instead of picking a feature and seeing the texts it fires on, you pick a text and see every feature a
+  fig-7 | Ruling Out Polysemanticity With a Proxy: A schematic of the paper's argument for specificity: if an independently computed proxy marks out a small, specific region of the data, and a feature only fires
+  fig-8 | The Arabic Feature's Activation Spectrum: The paper's specificity claim for the Arabic feature is not one number but a curve: the higher the feature fires, the more purely Arabic-script the text is. Bar
+  fig-9 | Arabic Feature's Activation Mass: Re-weighting the feature's activation histogram by activation magnitude shows that almost all of the total activation the Arabic script feature contributes come
+  fig-10 | The Arabic Feature's Logit Weights: Scoring every vocabulary token by how much feature A/1/3450 pushes its next-token logit gives a histogram with two humps: a fat one at zero covering nearly the 
+  fig-11 | Ablating the Arabic Feature: Deleting this one feature's contribution from the MLP activations lowers the model's predicted probability on Arabic-script tokens, and it does so across the fe
+  fig-12 | Pinning the Arabic Script Feature: Holding one learned feature's activation at its maximum, with nothing else in the network touched, turns the model's continuation of a counting prefix into Arab
+  fig-13 | The Arabic Feature in the Neuron Basis: The Arabic script feature's direction, written out one MLP neuron at a time, is spread across many neurons rather than living in one: 27 of the 512 coefficients
+  fig-14 | Neuron 489's Language Mixture: The neuron whose activations correlate most closely with the Arabic script feature fires on a grab-bag of non-English languages — Japanese, Russian, Spanish, Ge
+  fig-15 | Neuron 489's Logit Weights: The neuron whose activations track the Arabic script feature most closely does not share the feature's downstream effect. Its logit weights form a single mode c
+  fig-16 | The Arabic Feature Against Its Closest Neuron: Plotted against the single neuron whose behaviour is closest to it, the Arabic script feature separates Arabic contexts and Arabic output tokens along its own a
+  fig-17 | The Arabic Feature Found Again in Model B: A second, independently seeded one-layer transformer, given its own independently seeded dictionary-learning run, produces a feature (B/1/1334) whose per-token 
+  fig-18 | The Same Arabic Feature in Model B: A dictionary trained on a second, separately seeded one-layer transformer contains a feature, B/1/1334, that behaves like the paper's Arabic script feature: its
+  fig-19 | Arabic Feature Across Two Models: Dictionary learning on a second, independently trained transformer produces a feature whose firing pattern closely tracks the original Arabic script feature (Pe
+  fig-20 | DNA Activations Split by Proxy: Every token in a sample of the data is sorted by how strongly the DNA feature A/1/2937 fires on it, and colored by whether a hand-built "is this DNA" score fire
+  fig-21 | The DNA Feature-Proxy Disagreement Grid: A random-sample grid crossing the DNA feature's activation level against whether the hand-built DNA proxy fires, used to audit the cases where the two disagree.
+  fig-22 | The DNA Feature's Logit Weights: Plotting how much the DNA feature A/1/2937 pushes each vocabulary token's next-token logit up or down, the paper finds the usual shape: a tall mode of near-zero
+  fig-23 | The DNA Feature's Nearest Neuron: The neuron that comes closest to the DNA feature is not a DNA neuron: across its whole activation range, and in random examples drawn from the top of that range
+  fig-24 | The DNA Feature in a Second Model: A separately trained transformer, given its own dictionary learning run, yields a feature that fires on almost exactly the same tokens as the DNA feature (activ
+  fig-25 | Base64 Activations Coloured by Proxy: The figure is the paper's specificity check for its base64 feature A/1/2357: it stacks every sampled token by how strongly the feature fired, and colours the st
+  fig-26 | Base64 Logit Weights and Their Conditional Strip: For the base64 feature A/1/2357, the tokens whose logits it raises shade gradually from ordinary text tokens into base64-specific ones, rather than separating i
+  fig-27 | The Base64 Feature Found Again in Model B: A separately trained transformer, decomposed by a separately trained dictionary, yields a feature (B/1/2165) whose activations correlate 0.85 with the base64 fe
+  fig-28 | B/1/2165's Base64 Logit Mode: In the second model's dictionary, the feature that matches the base64 feature does the same thing to the output that the original does: its logit-weight histogr
+  fig-29 | Base64 Feature, Matched Across Two Runs: The base64 feature found in model A (A/1/2357) and the one found in a separately seeded model B (B/1/2165) line up on both axes the paper uses to compare featur
+  fig-30 | The Base64 Feature's Nearest Neuron: The MLP neuron whose activations track the base64 feature most closely, A/neurons/470, correlates with it at only 0.18, and its own activation distribution stay
+  fig-31 | Neuron 470's Mixed Logit Weights: The neuron most correlated with the base64 feature does push base64 tokens up a little, but the tokens it pushes up hardest are filename endings like 'htm', 'pn
+  fig-32 | Base64 Feature Against Neuron 470: The neuron whose activations most resemble the base64 feature's shares only part of its behaviour: an activation correlation of 0.18 and a logit-weight correlat
+  fig-33 | The Hebrew Feature's Activation Spectrum: A histogram of how often feature A/1/416 takes each activation value, with each slice split by an independent Unicode-based score for "is this Hebrew". Strong a
+  fig-34 | Hebrew Feature Logit Weights: The Hebrew feature's effect on the model's output is concentrated in a small second bump far to the right of the main mode, and the tokens in that bump are Hebr
+  fig-35 | The Hebrew Feature Against Its Closest Neuron: The neuron whose activations track the Hebrew feature most closely does not behave like the feature: the correlation is 0.1 on activations and 0.38 on logit wei
+  fig-36 | Hebrew Feature Found Again in Model B: A dictionary trained on a second, independently seeded transformer contains a feature, B/1/1901, whose activation histogram looks like the Hebrew feature's: the
+  fig-37 | B/1/1901's Hebrew Logit-Weight Mode: For the Hebrew feature found in the second transformer's dictionary (B/1/1901), the distribution of logit weights over the vocabulary has the same shape reporte
+  fig-38 | Hebrew Feature Across Two Models: The Hebrew feature from run A has a counterpart in a second, independently trained run that fires on nearly the same tokens (activation correlation 0.92) but wh
+  fig-39 | Hand-scored interpretability, features against neurons: A blinded human rater scored features and MLP neurons on the same 0–14 interpretability rubric, and the two score distributions barely overlap: the median neuro
+  fig-40 | Autointerp Activation Scores: A language model is asked to write an explanation of a unit from examples where it fires, then to predict that unit's activations on unseen text using nothing b
+  fig-41 | Logit-Weight Scores, Features vs Neurons: Given only a written explanation of a unit, Claude predicts which unseen tokens that unit promotes with 0.74 mean accuracy for autoencoder features and 0.58 for
+  fig-42 | Interpretability Across the Activation Spectrum: Scoring each band of a unit's activation range separately, the paper's human annotator judged strong activations far more consistent with a feature's interpreta
+  fig-43 | Pinning Features to Steer Generation: Holding a single learned feature at a high value while sampling makes the model emit text of exactly the kind that feature normally fires on — Arabic script, DN
+  fig-44 | Three Dictionaries in One UMAP: The families the authors found by reading text — base64 features, Arabic script features — are also families in geometry: their dictionary vectors point in simi
+  fig-45 | One Region, More Arrows: A hand-drawn schematic of what the paper means by feature splitting: widening the autoencoder does not send new features off to new parts of activation space, i
+  fig-46 | The Mathematics and Physics Splitting Graph: Three autoencoders of increasing width, trained on the same one-layer transformer, are lined up side by side, and the technical-writing features of the smallest
+  fig-47 | The P Feature Zoo: One coarse feature that looked like a pointless "fires on the letter P" detector turns out, in wider dictionaries, to be a family of sixteen or more features th
+  fig-48 | One base64 Feature Becoming Three: In the 512-feature dictionary A/0, a single feature (A/0/45) fires across a whole base64 string. In the 4,096-feature dictionary A/1, three features share that 
+  fig-49 | The Digit Feature That Won't Predict Digits: Two base64 features from the same dictionary push almost the same tokens up, except that the feature firing on single digits gives the ten digit tokens far less
+  fig-50 | Base64 That Decodes to Text: Three features in run A/1 all fire on base64, and this figure shows what separates the third one: the strings A/1/1544 fires hardest on decode into readable sou
+  fig-51 | Activation Similarity vs Logit Weight Similarity: The figure sets out the paper's two model-independent ways of asking whether the same feature was found twice, and shows that for the Arabic script feature they
+  fig-52 | Feature vs Neuron Match Histograms: When you look for each item's closest counterpart in a second, independently trained one-layer transformer, autoencoder features match far better than raw MLP n
+  fig-53 | Matched Features That Fire Alike But Write Differently: For thousands of feature pairs matched across two independently trained models, agreement on *when* the features fire is much higher than agreement on *what* th
+  fig-54 | Attribution vs Activation Correlation: For each feature in one dictionary and its best-matching feature in a dictionary learned from a separately trained transformer, the plot compares how similarly 
+  fig-55 | Single-Node Feature Loops: Four features from the smallest dictionary each raise the probability of exactly the kind of token that would make them fire again one position later, so each o
+  fig-56 | The All-Caps Snake Case Loop: Two features from the smallest dictionary — one firing on all-caps word pieces, one on underscores — each raise the probability of the tokens that switch the ot
+  fig-57 | Unicode Prefix–Suffix Feature Loops: Where a script's characters are tokenized as a prefix byte plus a suffix byte, the paper finds a pair of features that hand off to each other: each one's top pr
+  fig-58 | The Four-Node HTML Automaton: Four features in the smallest dictionary hand off to each other through the token stream — open bracket, tag name, closing bracket, newline-and-indent, back to 
+  fig-59 | The IRC Transcript Automaton: Four features from run A/0 hand off to each other across an IRC transcript: one fires on the "<" that opens a nickname, one on the nickname's interior, one on t
+  fig-60 | The License-Boilerplate Chain: Three narrow features from the large A/4 dictionary fire in sequence — on the "A", then on "PARTICULAR", then on "PURPOSE" — with each one raising the probabili
+  fig-61 | Three Pictures of Feature Geometry: A hand-drawn contrast between three ways features might be arranged in activation space: evenly spread one-dimensional directions, clumped one-dimensional direc
+  fig-62 | Two Alternatives to 1-D Features: A pair of sketches arguing that "features are higher-dimensional manifolds" is not one hypothesis but two. One version — the convex hull of a few features that 
+  fig-63 | Decoder Sparsity in the Neuron Basis: In an outside replication, 92% of the learned feature directions turn out to be spread across many MLP neurons rather than concentrated in one neuron or ten. Th
+  fig-64 | The Two Density Modes of A/16: Plotting how often each learned feature fires, on a log axis, splits the features of run A/16 into two humps: a spike of features that fire on roughly one token
+  fig-65 | Overlapping Density Clusters in Run A/5: The paper's quick diagnostic — read two separated humps off a log-scale histogram of how often each feature fires — stops working at the largest autoencoder siz
+  fig-66 | Three Diagnostics That Isolate the High-Density Cluster: In a run where feature density alone leaves the two modes overlapping, plotting each feature's density together with its encoder bias and its decoder-encoder do
+  fig-67 | Density Histograms Across Dictionary Sizes: Across five sparsity settings, each panel overlays the feature-density histograms of six autoencoders whose dictionaries run from 512 up to 131,072 units. Widen
+  fig-68 | Sparsity Against Explained Behavior: Plotting how sparse each trained dictionary is against how much of the MLP layer's loss contribution it recovers turns hyperparameter choice into a visible trad
+  fig-69 | Pearson vs Spearman Scoring Panel: The paper re-runs its automated interpretability scoring with Pearson correlation alongside the Spearman correlation used throughout the main text, and the two 
+  fig-70 | The Randomized-Transformer Control: On the paper's automated activation score, features found in a random-weight transformer get a slightly higher median than the real features do. Splitting the r
+  fig-71 | Importance-Weighted Interpretability Scores: Once the automated-interpretability scores are reweighted to what random text would have given, features still beat neurons (median 0.28 vs 0.04) but both distr
+  fig-72 | Explanation Length Distributions: A prompting bug sometimes let Claude's whole chain of thought stand in as a feature's explanation, producing explanations several hundred tokens long instead of
+  eq-feature-decomposition | Activations as a Sum of Features: The paper defines a decomposition of a layer as writing each token's MLP activation vector as a fixed bias plus a weighted sum of unit directions, one direction
+  eq-encoder | The Encoder Equation: This fixes what a "feature activation" concretely is in this paper: one non-negative number per dictionary element, produced by a single linear readout of the M
+  eq-autoencoder-loss | The Sparse Autoencoder's Two-Term Loss: This is the entire method in four lines: a ReLU encoder turns one MLP activation vector into feature activations, a linear decoder rebuilds the activation from 
+  eq-proxy-loglikelihood-ratio | The Log-Likelihood-Ratio Proxy: The paper scores every string with a hand-built number: how much more likely that string is under a guessed context (base64, Arabic script, DNA) than under the 
+  eq-bayes-script-proxy | Inverting the Script Probability: To score how Arabic-like a string is, the paper needs $P(s|\text{Arabic})$, which would otherwise require a generative model of Arabic text. Bayes' rule replace
+  eq-attribution-vector | Attribution Score for the Observed Next Token: This footnote formula defines one number per datapoint: a feature's activation there, multiplied by its logit weight on the token that actually came next. Stack
+  eq-feature-ablation | Subtracting One Feature's Contribution: Ablating a feature means subtracting exactly that feature's own contribution — its activation times its dictionary direction — from the MLP activation at every 
+
+=== THE MAIN NARRATIVE'S CHAPTERS (do not retell these; Insights is the other read) ===
+  1. The parts you get are the wrong parts
+  2. Why decompose a model instead of rebuilding it
+  3. The model being read, and the thing reading it
+  4. What a feature has to prove
+  5. Does the feature change what the model does
+  6. From four features to the whole dictionary
+  7. The same features in a second model
+  8. What the whole collection looks like
+  9. Which run to keep, and what the paper settled

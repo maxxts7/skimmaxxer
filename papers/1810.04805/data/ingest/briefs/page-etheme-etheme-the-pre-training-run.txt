@@ -1,0 +1,51 @@
+PAGE FOR EDGE-THEME: etheme-the-pre-training-run
+NAME: What the pre-training run actually consists of
+
+THEME SUMMARY (shown above your page as the lede - do not repeat verbatim):
+Alongside masked prediction, BERT is trained on a second task: decide whether span B genuinely followed span A in the corpus, or was sampled from somewhere else. That task needs the A/B slots the input format already provides, and it is read off C, the final vector at [CLS] — a footnote warns that C should not be treated as a general sentence embedding without fine-tuning. Sampling contiguous spans requires documents left intact, so BooksCorpus and English Wikipedia are used and the shuffled-sentence Billion Word Benchmark is named as what to avoid. Attention scores every pair of positions, so doubling the length roughly quadruples the cost; 90% of steps therefore run at length 128 and only the last 10% at 512, specifically to train the longer-range position embeddings. That whole run happens once, while each downstream result is reproducible in about an hour from the finished checkpoint.
+
+MEMBER EDGES (12) - these render as a list BELOW your page. Your page is the argument they add up to, not a re-listing:
+  e007 [supporting] sequence-length-schedule (128-then-512 sequence length schedule) --depends-on--> attention-quadratic-cost (Attention is quadratic in sequence length) | quadratic cost forces the schedule: Each attention layer scores every pair of positions, so cost grows with the square of the length. Going from 128 tokens to 512 is a factor of four in length, and therefore roughly sixteen times the attention work per sequence. That is why 90% of pre-training steps run at length 128 rather than at the full 512.
+  e008 [supporting] sequence-length-schedule (128-then-512 sequence length schedule) --depends-on--> position-embeddings (Position embeddings) | last 10% trains the long positions: Position embeddings are learned, one vector per slot. Training only at length 128 would leave the vectors for positions 128 through 511 untouched. The paper says the final 10% of steps run at length 512 specifically to learn those longer-range position embeddings.
+  e009 [supporting] training-sequence-generation (Generating a training input sequence) --depends-on--> document-level-corpus (Document-level corpus) | contiguous spans need intact documents: Each training example samples two spans that are usually genuine neighbours, then caps their combined length at 512 tokens. Both the length and the neighbour relation require the corpus to keep documents whole. The paper names the Billion Word Benchmark, a shuffled sentence-level corpus, as the kind of data it deliberately avoids.
+  e010 [load-bearing] next-sentence-prediction (Next Sentence Prediction (NSP)) --depends-on--> sentence-pair-packing (Sentence A / sentence B packing) | NSP needs the A/B slots: The label being predicted is whether span B really followed span A. That question only exists once two spans are packed into one sequence and marked as first and second. Without the A/B format there is nothing for NSP to classify.
+  e011 [load-bearing] next-sentence-prediction (Next Sentence Prediction (NSP)) --depends-on--> final-hidden-vector-c (C, the final [CLS] vector) | NSP is read off C: The binary IsNext/NotNext decision is made from the final hidden vector at the [CLS] position. The paper reports the final model reaching 97-98% accuracy on this task. A footnote adds a caution: because C was trained this way, it should not be read as a general sentence representation without fine-tuning.
+  e031 [minor] gelu-activation (gelu activation) --depends-on--> openai-gpt (OpenAI GPT) | activation choice follows GPT: BERT uses gelu inside each block rather than the more common relu. The paper's stated reason is that it follows OpenAI GPT. It is one of several small settings inherited so the two systems stay comparable.
+  e080 [supporting] bookscorpus (BooksCorpus (800M words)) --instance-of--> document-level-corpus (Document-level corpus) | one of the two document corpora: The paper insists on a corpus that keeps documents intact, so long contiguous spans can be sampled. BooksCorpus, at 800M words of unpublished books, is one of the two sources chosen to meet that requirement.
+  e081 [minor] english-wikipedia-corpus (English Wikipedia (2,500M words)) --instance-of--> document-level-corpus (Document-level corpus) | the larger document-level source: English Wikipedia contributes 2,500M words, with lists, tables and headers stripped so only running text remains. Together with BooksCorpus it makes the roughly 3.3 billion word corpus, and both are picked for keeping documents whole.
+  e116 [supporting] attention-quadratic-cost (Attention is quadratic in sequence length) --contrasts-with--> sequence-length-schedule (128-then-512 sequence length schedule) | speed traded against long positions: Attention scores every pair of positions, so long sequences are disproportionately expensive. Training entirely at length 512 would be slow; training entirely at 128 would leave the higher position embeddings untrained. The schedule splits the difference, spending 90% of steps at length 128 and the final 10% at 512 specifically to learn the longer-range position embeddings.
+  e123 [supporting] fine-tuning-cost (Fine-tuning cost) --contrasts-with--> pre-training-procedure (Pre-training procedure) | four days once, an hour each: Pre-training BERT_LARGE took four days on 16 Cloud TPUs, which is the expensive half of the recipe and is paid once. Fine-tuning any of the paper's results takes at most an hour on a single Cloud TPU. The lopsidedness is what makes the exhaustive hyperparameter search and the random restarts affordable.
+  e125 [supporting] document-level-corpus (Document-level corpus) --contrasts-with--> billion-word-benchmark (Billion Word Benchmark (as a counter-example)) | documents versus shuffled sentences: BERT needs long contiguous text, both to sample 512-token sequences and to have a genuine next sentence for NSP. The Billion Word Benchmark is named as the kind of corpus that cannot supply this, because its sentences are shuffled. The paper calls keeping documents intact critical, which makes the choice of corpus a constraint rather than a convenience.
+  e137 [minor] c-not-a-sentence-representation (C is not a sentence representation without fine-tuning) --contrasts-with--> final-hidden-vector-c (C, the final [CLS] vector) | aggregate vector is not a sentence vector: C is the final hidden state at [CLS] and is used as the aggregate representation of the input for classification. A footnote warns against reading more into it. Because it was trained only through NSP, the paper says it is not a meaningful sentence representation before fine-tuning.
+
+NODES INVOLVED (link them as [[id]]):
+  - attention-quadratic-cost | Attention is quadratic in sequence length: Each layer scores every pair of positions, so doubling the sequence length roughly quadruples attention cost.
+  - billion-word-benchmark | Billion Word Benchmark (as a counter-example): The shuffled sentence-level corpus the paper names as the kind of data it deliberately avoids.
+  - bookscorpus | BooksCorpus (800M words): A corpus of unpublished books forming the smaller half of BERT's pre-training data, and the whole of GPT's.
+  - c-not-a-sentence-representation | C is not a sentence representation without fine-tuning: A footnote cautioning that the pre-trained [CLS] vector should not be read as a general-purpose sentence embedding.
+  - document-level-corpus | Document-level corpus: The requirement that pre-training text keep documents intact, so long contiguous sequences can be sampled.
+  - english-wikipedia-corpus | English Wikipedia (2,500M words): The larger half of the pre-training data, with only running text kept.
+  - final-hidden-vector-c | C, the final [CLS] vector: The paper's notation for the final hidden vector at the [CLS] position, $C \in \mathbb{R}^H$.
+  - fine-tuning-cost | Fine-tuning cost: Every result in the paper can be reproduced in at most an hour on a single Cloud TPU, or a few hours on a GPU, starting from the p
+  - gelu-activation | gelu activation: BERT uses the gelu activation rather than relu, following OpenAI GPT.
+  - next-sentence-prediction | Next Sentence Prediction (NSP): BERT's second pre-training task: a binary classification of whether span B actually followed span A in the corpus, predicted from 
+  - openai-gpt | OpenAI GPT: A fine-tuning approach that pre-trains a left-to-right Transformer language model on unlabeled text, then fine-tunes it on downstr
+  - position-embeddings | Position embeddings: A learned vector per position, added so the model knows token order.
+  - pre-training-procedure | Pre-training procedure: The concrete recipe: corpus, how input sequences are generated, batch size and step count, optimizer settings, and the sequence-le
+  - sentence-pair-packing | Sentence A / sentence B packing: Two spans are concatenated into one sequence, the first labeled A and the second B, so a pair of texts is handled by the same sing
+  - sequence-length-schedule | 128-then-512 sequence length schedule: 90% of pre-training steps use length-128 sequences; the last 10% use length 512, specifically to learn the longer-range position e
+  - training-sequence-generation | Generating a training input sequence: Two spans are sampled, assigned the A and B embeddings, given the 50/50 NSP treatment, capped at 512 combined tokens, and then mas
+
+PAPER SECTIONS TO READ (in papers/1810.04805/data/ingest/sections/):
+  - 02-1-introduction.txt
+  - 05-2.2-unsupervised-fine-tuning-approaches.txt
+  - 07-3-bert.txt
+  - 08-3.1-pre-training-bert.txt
+  - 09-3.2-fine-tuning-bert.txt
+  - 11-4.1-glue.txt
+  - 12-4.2-squad-v1.1.txt
+  - 13-4.3-squad-v2.0.txt
+  - 22-A.1-illustration-of-the-pre-training-tasks.txt
+  - 23-A.2-pre-training-procedure.txt
+  - 24-A.3-fine-tuning-procedure.txt
+  - 25-A.4-comparison-of-bert-elmo-and.txt

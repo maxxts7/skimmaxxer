@@ -1,0 +1,48 @@
+PAGE FOR CONCEPT: activation-mass-expected-value-plot
+NAME: Activation-mass (expected value) plot
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A feature's activation histogram with each bin weighted by activation magnitude instead of counted once per token, so a bar's height is total activation contributed rather than number of firings. It answers where a feature's influence on the model comes from, not how often it fires.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+The claim on the table is [[activation-specificity]] for the [[arabic-script-feature]]: when this feature fires, the text is Arabic script. The paper has a number for it — 81% of the tokens the feature is active on score as Arabic under an independent [[computational-proxy]], against a 0.13% base rate — and the [[feature-activation-distribution-plot]] behind it. Both count every firing once, the wrong weighting for the claim. A [[feature]] fires at 0.2 on some tokens and at 7 on others, and in this one-layer model a feature's contribution to the logits is approximately linear in its activation ([[linear-logit-effects]]), so those firings do not matter equally to the model's behaviour. The paper states this as [[large-activations-dominate]].
+
+That matters because the impure region is also the crowded one: about 25% Arabic where the feature is barely on, about 98% above activation 5. A count histogram is tallest exactly where the interpretation is weakest, and a single average inherits that bias without showing it. A table of purity per band would give percentages but not say how much of the feature's output each band supplies. Multiplying each bin's count by its activation level is the smallest change that puts frequency and consequence in one picture. The paper calls the result an [[expected-value-plot]], taking the device from Cammarata et al.'s curve detector work. What it assumes rather than shows is that magnitude is the right currency: firm for one layer, the paper says, and conjectural for deeper models.
+
+### How to read it, step by step
+
+Two of the three encodings are copied from the companion histogram, which is the trap. The horizontal axis is the same [[feature-activation]] level — the post-ReLU scalar the [[sparse-autoencoder]] assigns to this feature's direction on a token — from just above zero to 9, with exact zeros left out because the [[l1-sparsity-penalty]] makes them the overwhelming majority. The colour is the same stacked split by the [[log-likelihood-ratio-proxy]] $\log(P(s\mid\text{Arabic Script})/P(s))$: deep blue at $-5$, white at $0$, deep red at $+5$, the legend printed on the companion.
+
+Only the vertical axis changed, and it is no longer a token count. A bin's height is how many tokens landed in it times how hard the feature fired on them: total activation contributed, in units (0K to 35K) set by the sample size. Read the shape and the colour split, not the number.
+
+Check the difference by hand, with both charts open. At the far left the companion peaks above 5K tokens and is visibly blue; here the curve is on the floor, because a large count times an activation near zero is almost nothing. Near 6.9 the companion has a lower hump of roughly 4.7K, and $4.7\text{K} \times 6.9 \approx 32\text{K}$ — this chart's peak. Then read the blue as a fraction of column height, not as a width.
+
+### What a bad result would look like
+
+Mass piled on the left and decaying rightward: the feature's influence coming from its weak, impure firings, with the 98%-pure region a sliver doing almost none of the work. Or blue keeping a broad share of the area after weighting, meaning non-Arabic strings drive the feature hard — [[polysemanticity]] surviving the test rather than being excluded by it. Or red filling every activation level, which would say the proxy calls most text Arabic and proves nothing. The figure shows mass concentrated between 5 and 8, blue reduced to a hairline.
+
+It does not adjudicate the [[weak-activation-hypotheses]]; it argues only that whichever is right, that tail carries little weight. It cannot separate proxy false negatives at high activation from real non-Arabic firing. And the weighting is a choice, not a neutral view.
+
+### Where it comes back
+
+As a drawn figure, once: fig-9, always read against its companion. The DNA, base64 and Hebrew case studies get the unweighted spectrum only, the argument carried over rather than redrawn, so this evidence exists for one feature. The move returns twice more. [[activation-interval-analysis]] scores each band of the spectrum separately, then uses the same large-activations argument to discount the low bands. [[importance-scoring]] re-weights the other way, toward what random text would give, and there the correction makes features look worse, not better.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - feature-activation | Feature activation: The scalar $f_i(\mathbf{x})$ giving how strongly feature $i$ fires on a datapoint; in the autoencoder it is the ReLU hidden-layer value.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - l1-sparsity-penalty | L1 penalty on feature activations: A penalty on the sum of feature activations, which pushes most of them to exactly zero. This is what buys sparsity in the decomposition.
+  - computational-proxy | Computational Proxy: A cheaply computable numerical score estimating how likely a string is to come from a hypothesized context, used as an independent yardstick against which feature activations are checked.
+  - log-likelihood-ratio-proxy | Log-Likelihood Ratio Form: Proxies take the form $\log(P(s|\text{hypothesis})/P(s))$ — how much more likely the string is under the feature's hypothesis than under the general distribution.
+  - activation-specificity | Activation Specificity: Whether a feature being on implies the hypothesized context is present. The paper treats this as the more important half of the case against polysemanticity.
+  - large-activations-dominate | Large Activations Matter Most: The argument that getting the interpretation of strong activations right matters more than getting weak ones right, because strong activations move the logits more.
+  - feature-activation-distribution-plot | Feature Activation Distribution Broken Down by Proxy: A histogram of a feature's activations with each bar colored by whether the proxy fires, used as the paper's basic specificity picture.
+  - polysemanticity | Polysemanticity: A single neuron responding to a mixture of seemingly unrelated inputs, which makes it a poor unit for human understanding of the network.
+  - superposition | Superposition: A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 15-3.1.1-activation-specificity.txt

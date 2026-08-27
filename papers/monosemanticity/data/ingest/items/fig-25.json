@@ -1,0 +1,181 @@
+{
+ "id": "fig-25",
+ "title": "Base64 Activations Coloured by Proxy",
+ "takeaway": "The figure is the paper's specificity check for its base64 feature A/1/2357: it stacks every sampled token by how strongly the feature fired, and colours the stack by an independently computed base64 score. The higher the activation, the more completely the column is filled by tokens the score calls base64, which is what the authors mean by calling the feature \"quite specific\" — though they give no percentage here, and the score itself is admittedly too broad.",
+ "walkthrough": "You are looking at the entire firing record of one learned feature, spread out along the axis of how hard it fired.\n\nThe title names the feature in the paper's [[feature-notation]]: transformer **A**, dictionary learning run **1** (the run with 4,096 learned features), feature index **2357**. That is the [[base64-feature]].\n\nThe horizontal axis is the [[feature-activation]] value on a token, running from just above $0$ to about $12.5$. The vertical axis, Density, counts how many sampled tokens fall in each activation bin — nearly 40K in the leftmost bin, thinning to a shelf near 5K between roughly 3.5 and 7, then trailing to nothing.\n\nNote the small break at the left. Tokens where the feature is exactly zero are pulled out of the plot and shown only as the separate stub at $0$; the [[l1-sparsity-penalty]] forces most activations to be hard zeros, so leaving them in would put a spike at the origin taller than everything else. The plotted region begins at the mark `>0`.\n\nNow the colour, which is where the actual claim lives. Every token also gets a [[computational-proxy]] score for base64, computed without reference to the model. It is a [[log-likelihood-ratio-proxy]]: $\\log(P(s\\mid\\text{base64})/P(s))$. The numerator models base64 as a uniform draw over the 64 characters `[a-zA-Z0-9+/]`, each at $1/64$, with anything else at $10^{-10}$ ([[base64-proxy]]). The denominator is a [[unigram-p-s-estimate]]. The score is taken as the maximum over prefixes ending at the token ([[prefix-maximization]]). Blue is $-5$, red is $+5$, and the legend's arrow marks red as the base64 end.\n\nSo each vertical slice is a stack of that bin's tokens sorted by score, and the band underneath redraws the same stacks as proportions. Height tells you how often the feature fires that hard; colour tells you what those tokens were ([[feature-activation-distribution-plot]]).\n\nReading left to right: at the weakest activations roughly half the column is deep red, with a clear blue and white band on top. By about 2.5 the blue is a sliver. Above about 4 the column is essentially solid red — that is the [[activation-specificity]] claim.\n\nThe four panels sample five random examples each at the marked levels, four tokens of context on either side, drawn from a 100-million-token subset ([[activation-visualization-sampling]]). The weakest panel is ordinary web text; the rest are base64 strings.\n\nTwo cautions the paper states itself. Red means the proxy fired, not that the text is base64 — hexadecimal scores red too and has its own feature, A/1/3817 ([[hexadecimal-feature]], [[proxy-limitations]]). And the digits left unhighlighted inside these strings belong to a separate feature ([[base64-digit-feature]]).",
+ "terms": [
+  {
+   "term": "Activation Distribution",
+   "definition": "The plot title. It means the histogram of how strongly this one feature fired across a large sample of dataset tokens, with each bin broken down by the proxy score of the tokens in it.",
+   "conceptId": "feature-activation-distribution-plot"
+  },
+  {
+   "term": "A/1/2357",
+   "definition": "The identifier of the feature being plotted, in the paper's three-part scheme: transformer A, dictionary learning run 1, feature number 2357 within that run. It is the feature the paper calls the base64 feature.",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "A (first part of the identifier)",
+   "definition": "One of the two one-layer transformers the paper trained with identical hyperparameters and different random seeds. A is the main model studied; B is used mostly for universality checks.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "1 (second part of the identifier)",
+   "definition": "The dictionary learning run, meaning one trained sparse autoencoder. Run A/1 has 4,096 learned features; runs differ in dictionary size and L1 coefficient.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Activation Level (x axis)",
+   "definition": "The scalar value this feature takes on a token, i.e. the ReLU hidden-unit value of the sparse autoencoder for dictionary element 2357. Larger means the feature fired harder on that token.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "Density (y axis)",
+   "definition": "The number of sampled tokens whose activation falls in that bin, labelled in thousands. It measures how often the feature fires at that strength, not how base64 those tokens are.",
+   "conceptId": null
+  },
+  {
+   "term": "Hard zeros (the note under the axis)",
+   "definition": "Tokens where the feature's value is exactly zero, excluded from the density curve and shown only as the separate stub at 0. The note explains that sparsity puts a dirac delta of probability mass at zero, which would swamp the rest of the plot.",
+   "conceptId": "l1-sparsity-penalty"
+  },
+  {
+   "term": ">0",
+   "definition": "The axis mark showing where the plotted region begins, immediately above zero. Everything to the right of it is a token on which the feature is actually active.",
+   "conceptId": null
+  },
+  {
+   "term": "Log-Likelihood Ratio (legend title)",
+   "definition": "The quantity the colour encodes: log of the probability of the string under the base64 hypothesis divided by its probability under the general data distribution. It is the paper's standard form for every feature proxy.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "base64",
+   "definition": "The encoding whose alphabet is [a-zA-Z0-9+/], used to write binary data as text; it shows up in web pages, URLs and embedded assets. The paper models a base64 string as a random sequence of those characters.",
+   "conceptId": null
+  },
+  {
+   "term": "base64 → (label at the red end of the legend)",
+   "definition": "Marks which direction of the colour scale means base64-like. Red is a high ratio, meaning the surrounding string is far more probable under the base64 model than under ordinary text.",
+   "conceptId": "base64-proxy"
+  },
+  {
+   "term": "Blue-to-red colour ramp",
+   "definition": "The continuous scale mapping proxy score to colour, blue at -5 through white at 0 to red at +5. Within each vertical slice, tokens are stacked by this score with the reddest at the bottom.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "Proportion band (the strip below the main plot)",
+   "definition": "The same stacks rescaled so each activation bin fills the full height. It shows the colour composition at each activation level without the histogram's shape getting in the way, and it is the only place the hard-zero column appears.",
+   "conceptId": null
+  },
+  {
+   "term": "Dataset Examples (panels along the top)",
+   "definition": "Randomly drawn text snippets from the levels marked by the dotted lines, showing what the feature was actually looking at when it fired that hard. They are random at that level, not the top-activating examples, which is what makes them evidence about specificity.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "Dotted vertical lines",
+   "definition": "Connect each example panel to the activation level its samples were drawn from, at roughly 0+, 4.7, 8.25 and 11.85.",
+   "conceptId": null
+  },
+  {
+   "term": "Orange highlighting in the examples",
+   "definition": "Shows the feature's activation on each token in the snippet, darker for stronger. The bold token in the middle is the one whose activation places the example in that panel.",
+   "conceptId": null
+  },
+  {
+   "term": "⏎ and \\n in the snippets",
+   "definition": "Rendered newline characters inside the sampled text. They appear because the visualizer prints the raw token stream, including whitespace tokens.",
+   "conceptId": null
+  },
+  {
+   "term": "Specificity",
+   "definition": "The claim that when this feature is on, the hypothesized context is present. It is the property this figure is built to test, and the paper treats it as the more important half of the case that a feature is not polysemantic.",
+   "conceptId": "activation-specificity"
+  },
+  {
+   "term": "Computational proxy",
+   "definition": "A cheaply computed score for whether a string looks like it came from the hypothesized context, built by hand and not from the model. It gives an independent yardstick to compare feature activations against.",
+   "conceptId": "computational-proxy"
+  },
+  {
+   "term": "P(s | base64)",
+   "definition": "The numerator of the proxy: the probability of the string under the assumption it is a random base64 string, computed as a product over characters.",
+   "conceptId": "character-distribution-proxy"
+  },
+  {
+   "term": "P(s)",
+   "definition": "The denominator of the proxy: the probability of the string under the general data distribution, estimated as a product of independent per-token unigram probabilities.",
+   "conceptId": "unigram-p-s-estimate"
+  },
+  {
+   "term": "A/1/3817",
+   "definition": "A separate feature in the same run that fires on hexadecimal strings. It matters here because hexadecimal also scores high on the base64 proxy, so some red in this plot belongs to a different feature's territory.",
+   "conceptId": "hexadecimal-feature"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "2357",
+   "meaning": "The feature's index within dictionary learning run A/1. It is just an identifier; the run's features have no meaningful ordering."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of learned features in run A/1, the run this feature comes from. The paper's run sequence goes 512 features in A/0, 4,096 in A/1, 16,384 in A/2."
+  },
+  {
+   "value": "0 to about 12.5",
+   "meaning": "The range of the activation axis, i.e. the smallest positive to the largest observed value of this feature. The upper end is set by the data: no sampled token drove the feature past roughly 12.5."
+  },
+  {
+   "value": "0K, 5K, 10K, ... 40K",
+   "meaning": "The density ticks, in thousands of sampled tokens per activation bin. The curve peaks just under 40K at the smallest positive activations, sits on a shelf near 5K between roughly 3.5 and 7, and falls to zero past about 12."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5",
+   "meaning": "The ticks on the log-likelihood-ratio colour scale. Zero means the string is equally likely under the base64 model and under general text; +5 means about e^5, roughly 150 times, more likely under base64; -5 the reverse."
+  },
+  {
+   "value": "64",
+   "meaning": "The size of the base64 alphabet [a-zA-Z0-9+/], which is what the proxy's model of a base64 string draws from uniformly."
+  },
+  {
+   "value": "1/64",
+   "meaning": "The probability the proxy assigns to each character that is in the base64 alphabet, under the assumption that a base64 string is a uniform random sequence over those characters."
+  },
+  {
+   "value": "10^-10",
+   "meaning": "The probability the proxy assigns to any character outside the base64 alphabet. It is a small floor rather than zero, so that a single stray character drives the score down sharply without making it undefined."
+  },
+  {
+   "value": "roughly 0+, 4.7, 8.25, 11.85",
+   "meaning": "The activation levels the four example panels are sampled from, spread across the range so the reader can see how the text changes from the weakest firings to the strongest."
+  },
+  {
+   "value": "5",
+   "meaning": "The number of random dataset examples shown per panel. They are sampled rather than cherry-picked from the top, which is what lets them speak to specificity at each level."
+  },
+  {
+   "value": "4",
+   "meaning": "The number of tokens of context displayed on each side of the selected token in every snippet, per the paper's visualization settings."
+  },
+  {
+   "value": "100 million",
+   "meaning": "The size in tokens of the training-data subset the visualizations are drawn from, taking only 10 tokens from every context so the samples are spread across many documents."
+  },
+  {
+   "value": "0.38",
+   "meaning": "The Pearson correlation between this feature's activation and its base64 proxy, reported in the text. The authors call it low and attribute it mainly to the proxy being too broad, since hexadecimal and similar strings also score high while being handled by other features."
+  },
+  {
+   "value": "2, 4, 7, 9",
+   "meaning": "Digits the text singles out as visible in this figure's snippets without highlighting, because A/1/2357 fires preferentially on letters in base64. The digits are covered by a companion feature, A/1/2364."
+  },
+  {
+   "value": "3817",
+   "meaning": "The index of the hexadecimal feature in the same run, which handles strings made of [0-9A-F]. It is named to explain why some red in this plot is not really base64."
+  }
+ ],
+ "latex": null
+}

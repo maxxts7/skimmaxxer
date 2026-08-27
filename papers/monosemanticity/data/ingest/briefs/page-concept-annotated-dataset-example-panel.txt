@@ -1,0 +1,51 @@
+PAGE FOR CONCEPT: annotated-dataset-example-panel
+NAME: Annotated dataset-example panel
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Dataset snippets laid out in cells by activation level, with two separate quantities drawn onto each token: orange shading for how hard the feature fires, and a coloured underline for how much that token's predicted log-likelihood moved when the feature was ablated. It is how the paper shows a feature's causal effect and audits feature-proxy disagreements case by case, by inspection and count rather than by measurement.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+Two questions force this shape. Does a [[feature]] actually change what the model predicts, and on which tokens? And when a feature and an independent [[computational-proxy]] disagree, which is wrong? Neither is answerable by a number, because both are claims about *alignment*: that a measured quantity lands on exactly the tokens a reader would point to. No axis can encode "this token is Arabic script" — only the text does, so the text becomes the substrate and the measurements are drawn onto it.
+
+A bar chart of mean logit change would say the [[arabic-script-feature]] helps Arabic predictions on average, and hide that the only tokens it *hurts* are punctuation shared with other scripts — the detail that makes the interpretation specific. An average flattens the second question too. The paper reports a Pearson correlation of $0.8$ between the binarized DNA proxy and the [[dna-feature]]'s activations; that says disagreement exists without saying whose fault it is. The grid exists so the authors can open each disagreement and assign blame.
+
+### How to read it, step by step
+
+There is no y-axis. The layout encodes conditions. Columns are bands of the feature's firing range: in fig-11 two [[activation-interval]]s, the top band and a middle one at about half that activation; in fig-21 four sampled levels, each tied by a dotted line to the activation histogram underneath. Rows, where there are two, carry a second variable — the proxy's yes/no verdict after [[proxy-binarization]].
+
+Each cell holds five or six snippets. One snippet is a nine-token window — a bold selected token whose activation put the example in that cell, four tokens of context either side — drawn from a 100-million-token subset ([[activation-visualization-sampling]]).
+
+Two independent encodings sit on the same token. Orange background is [[feature-activation]], the ReLU output of one [[sparse-autoencoder]] hidden unit, darker for stronger. The underline comes from a second forward pass in which the feature's activation times its [[feature-direction]] is subtracted from the MLP activations across the whole context ([[feature-ablation]]). It shows how far that token's predicted log-likelihood moved: purple or blue for a drop, meaning the feature had been helping; orange-red for a rise, meaning it had been hurting; flat grey for no change; thickness and saturation for size ([[ablation-effect-visualization]]). The scale is unlabelled, so compare underlines within a figure, not across.
+
+Read the legend inset first, then the cells where feature and proxy agree, then the off-diagonal cells. In fig-11, Arabic glyphs render on a lower line while byte tokens that are only half a character appear above as escape codes, each with its own background and underline ([[utf8-multi-token-characters]]).
+
+### What a bad result would look like
+
+For an ablation panel: underlines indifferent to the script, heavy purple under Latin tokens as often as Arabic ones; or every underline flat grey, meaning the direction is a fact about the data, not something the MLP uses; or the half-activation column carrying underlines as heavy as the full-activation column, which would break the roughly linear story the [[logit-weight]] picture assumes ([[large-activations-dominate]]).
+
+For a disagreement grid: the cell where the proxy fires and the feature is off filled with plain nucleotide strings the feature simply missed ([[activation-sensitivity]]), and the feature-on, proxy-off row filled with ordinary English ([[activation-specificity]]). Then the blame would fall on the feature, and the correlation would be flattering it.
+
+Judge the counting honestly: ten and forty-eight hand-read examples, adjudicated by the authors, on features the paper says were chosen for being easy to analyze ([[cherry-picked-case-studies]]). "One genuine error out of six" is a tally of a display, not an error rate on a population, and the attribution of the other twenty-two disagreements to [[proxy-limitations]] is a judgement.
+
+### Where it comes back
+
+fig-11 (3.1.3) is the ablation form: one feature, no proxy, columns as activation bands. fig-21 (3.2.1) is the audit form: random rather than top examples ([[top-dataset-examples]]), a proxy verdict on the rows, no underlines, and a histogram welded to the bottom. What changes is what the columns condition on and whether the underline encoding is present at all. The same annotated snippet is the atom of the [[feature-exploration-interface]]; fig-12 answers the causal question by generation instead ([[pinned-feature-sampling]]).
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - sparse-autoencoder | Sparse autoencoder: A one-hidden-layer autoencoder with a wide ReLU hidden layer and an L1 penalty on that layer, trained to reconstruct MLP activations. Its hidden units are the learned features and its decoder columns are the feature directions.
+  - feature-activation | Feature activation: The scalar $f_i(\mathbf{x})$ giving how strongly feature $i$ fires on a datapoint; in the autoencoder it is the ReLU hidden-layer value.
+  - feature-direction | Feature direction: The unit vector $\mathbf{d}_i$ in activation space along which feature $i$ writes when it fires; in the autoencoder these are the columns of the decoder weight matrix.
+  - feature-ablation | Feature Ablation: Subtracting a feature's contribution from the MLP activations and finishing the forward pass, to see which token predictions depended on it.
+  - computational-proxy | Computational Proxy: A cheaply computable numerical score estimating how likely a string is to come from a hypothesized context, used as an independent yardstick against which feature activations are checked.
+  - activation-specificity | Activation Specificity: Whether a feature being on implies the hypothesized context is present. The paper treats this as the more important half of the case against polysemanticity.
+  - activation-sensitivity | Activation Sensitivity: Whether the feature is on whenever the hypothesized context is present. The paper finds sensitivity is imperfect and often patched by other features.
+  - polysemanticity | Polysemanticity: A single neuron responding to a mixture of seemingly unrelated inputs, which makes it a poor unit for human understanding of the network.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 17-3.1.3-feature-downstream-effects.txt
+  - 21-3.2.1-activation-specificity-and-sensitivity.txt

@@ -1,0 +1,22 @@
+[2] Problem Setup
+
+A key challenge to our agenda of reverse engineering neural networks is the curse of dimensionality: as we study ever-larger models, the volume of the latent space representing the model's internal state that we need to interpret grows exponentially. We do not currently see a way to understand, search or enumerate such a space unless it can be decomposed into independent components, each of which we can understand on its own.
+
+In certain limited cases, it is possible to side step these issues by rewriting neural networks in ways that don't make reference to certain hidden states. For example, in A Mathematical Framework for Transformer Circuits [cite: nelhage2021mathematical] , we were able to analyze a one-layer attention-only network without addressing this problem. But this approach becomes impossible if we consider even a simple standard one-layer transformer with an MLP layer with a ReLU activation function. Understanding such a model requires us to have a way to decompose the MLP layer.
+
+In some sense, this is the simplest language model we profoundly don't understand. And so it makes a natural target for our paper. We aim to take its MLP activations – the activations we can't avoid needing to decompose – and decompose them into "features":
+
+[fig-2] We aim to take its MLP activations – the activations we can't avoid needing to decompose – and decompose them into "features":
+
+Crucially, we decompose into more features than there are neurons. This is because we believe that the MLP layer likely uses superposition [cite: arora2018linear,goh2016decoding,olah2020zoom,elhage2022superposition] to represent more features than it has neurons (and correspondingly do more useful non-linear work!). In fact, in our largest experiments we'll expand to have 256 times more features than neurons, although we'll primarily focus on a more modest 8× expansion.
+
+[table-1] In fact, in our largest experiments we'll expand to have 256 times more features than neurons, although we'll primarily focus on a more modest 8× expansion.
+
+ | Transformer | Sparse Autoencoder
+Layers | 1 Attention Block 1 MLP Block (ReLU) | 1 ReLU (up) 1 Linear (down)
+MLP Size | 512 | 512 (1×) – 131,072 (256×)
+Dataset | The Pile [cite: gao2020pile] (100 billion tokens) | Transformer MLP Activations (8 billion samples)
+Loss | Autoregressive Log-Likelihood | L2 reconstruction + L1 on hidden layer activation
+
+In the following subsections, we will motivate this setup at more length. Additionally, a more detailed discussion of the architectural details and training of these models can be found in the appendix.
+

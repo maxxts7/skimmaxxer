@@ -1,0 +1,56 @@
+PAGE FOR CONCEPT: logit-weight-histogram
+NAME: Logit-weight histogram over the vocabulary
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A histogram of one unit's logit weights, one number per vocabulary entry saying how much that token's next-token logit moves when the unit fires, with each column coloured by an independent score for whether the token belongs to the hypothesised context. It is the paper's first check that a feature does what it fires on, and the claim lives in the small second mode out in the right tail, not in the towering mode at zero.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+[[dictionary-learning]] here is fit to MLP activations and nothing else, so a sceptic can say the [[feature|features]] are structure in the training data, not in the model. The reply is to ask what the next-token distribution does when a unit fires ([[feature-downstream-effects]]) — a check independent of how the feature was found, since logits never enter the autoencoder's objective ([[downstream-effects-outside-dictionary-learning]]).
+
+One number per vocabulary entry means tens of thousands of them, so a bar chart is out. So is an average: softmax is shift-invariant, the weights have no absolute zero, and the paper slides each unit's until the median is $0$ ([[logit-weight-median-centering]]), leaving any mean near zero by construction. The obvious alternative, a table of the twenty highest-weighted tokens, hides the claim — which is not "the top tokens are Arabic" but "the vocabulary splits": a bulk the unit barely touches, and a small coherent group far away that it pushes hard. A table cannot say whether its twentieth row sits above the bulk or inside it.
+
+### How to read it, step by step
+
+This looks like the activation histogram ([[feature-activation-distribution-plot]]) — same blue-to-red legend, same strip under the axis — but it counts something else. There, one observation was one token of sampled text; here it is one vocabulary entry, and no text is run at all. It says what a unit writes, never when it fires.
+
+The x axis is the [[logit-weight]], $-0.6$ to $0.6$: push the [[feature-direction]] through the [[mlp-output-weights]], a [[layer-norm-linearization|linearised layer norm]] and the [[unembedding-matrix]] ($d_i W_{down} \pi L W_{unembed}$, the [[path-expansion-logit-attribution]]) to get how much one unit of activation adds to that token's next-token logit. The y axis is density in vocabulary entries per unit of weight, so area is a count and peaks run to $0.2$–$0.4$M over an axis $1.2$ wide. Extremely rare or never-used entries are dropped ([[anomalous-token-exclusion]]). Colour comes from outside the histogram: each token string is scored by a [[computational-proxy]], the [[log-likelihood-ratio-proxy]] $\log(P(s\mid H)/P(s))$ clipped to $\pm 5$, and each column is stacked by that score.
+
+Do not look first at the tall mode at zero. It is nearly the whole vocabulary, and the paper's label on it is "Interference Weights?", question mark included — a guess that this is cross-talk forced by [[superposition]] rather than anything the model uses ([[weight-interference]]). The result is the [[logit-weight-second-mode]] in the right tail, near $0.3$–$0.5$ and small enough to need an inset. Read the strip to find where the colour turns, then the inset to confirm there is mass there.
+
+### What a bad result would look like
+
+One mode, no separated bump, and the red tokens scattered through the bulk on both sides of zero. The paper draws that version itself: A/neuron/489, the [[most-correlated-neuron]] to the Arabic feature, spreads its Arabic tokens from about $-0.25$ to $+0.32$, "very slightly positive leaning overall, but some are negative" (fig-15). The other failure is a second mode of the wrong tokens: A/neuron/470 has one, and it holds 'htm', 'png', 'pdf' — filename endings, not base64 (fig-31). Both are read as [[feature-neuron-nonalignment]], consistent with [[polysemanticity]].
+
+Two things the shape cannot settle, and the paper says so ([[logit-weight-caveats]]): the weights may be too small to matter once multiplied by real activations, and the unit may only fire where other features already rule those tokens out. Hence [[feature-ablation]] and [[pinned-feature-sampling]] alongside. Note too that the strip renormalises every column, so a few tokens can paint a solid red band; check density first.
+
+### Where it comes back
+
+Four case studies: fig-10 (Arabic), fig-22 (DNA), fig-26 (base64), fig-34 (Hebrew). What changes is the hypothesis, its proxy, and how sharp the handover is. Arabic and Hebrew flip almost as a step, helped by each script concentrating on one lead byte — \xd8/\xd9, \xd7 ([[utf8-multi-token-characters]]). Base64 slides instead: 'fr' is both a French abbreviation and a legal base64 pair, which is why fig-26's caption points at the strip rather than the histogram.
+
+Three repeat the plot for the matched feature in the second transformer: fig-18, fig-28, fig-37. Those features were selected by activation correlation alone, so a matching second mode is separate evidence for [[universality]]. Two are the neuron controls, fig-15 and fig-31.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - This paper argues with a small number of chart shapes, used over and over with different data poured into them. Each one is explained once here: why that shape was chosen, how to read it, and what it would look like if the claim it supports were false. The order follows where a reader meets them — schematics and browser screenshots first, then the per-feature evidence, then the population plots, then the geometry and the training diagnostics. These teach how to read the evidence rather than what it says, so they sit apart from the argument, at the end.
+
+PREREQUISITES:
+  - feature | Feature: A basic interpretable direction in activation space — the unit the paper wants to decompose models into, in place of neurons.
+  - feature-direction | Feature direction: The unit vector $\mathbf{d}_i$ in activation space along which feature $i$ writes when it fires; in the autoencoder these are the columns of the decoder weight matrix.
+  - logit-weight | Logit Weight: The vector, one entry per vocabulary token, giving how much a feature's firing pushes up or down each next-token logit.
+  - unembedding-matrix | Unembedding matrix: The final linear map from the residual stream to one logit per vocabulary token.
+  - dictionary-learning | Dictionary learning: The problem of writing each activation vector as a sparse combination of directions drawn from a fixed, larger-than-necessary set. The paper frames the search for a model's features as exactly this problem.
+  - superposition | Superposition: A hypothesized phenomenon in which a network represents more independent features than it has neurons, by giving each feature its own linear combination of neurons.
+  - computational-proxy | Computational Proxy: A cheaply computable numerical score estimating how likely a string is to come from a hypothesized context, used as an independent yardstick against which feature activations are checked.
+  - log-likelihood-ratio-proxy | Log-Likelihood Ratio Form: Proxies take the form $\log(P(s|\text{hypothesis})/P(s))$ — how much more likely the string is under the feature's hypothesis than under the general distribution.
+  - feature-downstream-effects | Feature Downstream Effects: Evidence that a feature causally changes the model's predictions in a way that matches its interpretation, measured three ways: logit weights, ablation, and pinned sampling.
+
+PAPER SECTIONS TO READ (in papers/monosemanticity/data/ingest/sections/):
+  - 17-3.1.3-feature-downstream-effects.txt
+  - 18-3.1.4-the-feature-is-not-a-neuron.txt
+  - 19-3.1.5-universality.txt
+  - 22-3.2.2-feature-downstream-effect.txt
+  - 25-3.3-base64-feature.txt
+  - 26-3.3.1-universality.txt
+  - 27-3.3.2-the-feature-is-not-a-neuron.txt
+  - 28-3.4-hebrew-feature.txt
+  - 30-3.4.2-universality.txt

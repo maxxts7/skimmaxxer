@@ -1,0 +1,104 @@
+{
+ "id": "eq-encoder",
+ "title": "The Encoder Equation",
+ "takeaway": "This fixes what a \"feature activation\" concretely is in this paper: one non-negative number per dictionary element, produced by a single linear readout of the MLP activation vector followed by ReLU, computed after a learned offset has been subtracted from the input. Everything the paper later says about a feature firing, weakly or strongly, is a statement about this quantity.",
+ "walkthrough": "This is the encoder half of the paper's [[sparse-autoencoder]] — the rule that turns one activation vector into a list of [[feature]] activations.\n\nThe output $f_i(\\mathbf{x})$ is the [[feature-activation]] of feature $i$ on datapoint $\\mathbf{x}$. Here $\\mathbf{x}$ is the MLP activation vector of the one-layer transformer being studied, a vector of 512 numbers ([[mlp-activations-as-target]]).\n\nRead the operations in order. A fixed vector $\\mathbf{b}_d$ is subtracted from the input. The matrix $W_e$ multiplies what is left. The vector $\\mathbf{b}_e$ is added. ReLU clips anything negative to zero. The subscript $i$ then picks out the $i$-th entry of the resulting vector.\n\n$W_e$ has one row per feature. Row $i$, dotted with the centred input, is a raw score for feature $i$ — large when the input points along that row's direction. So each row works as a detector. Having more rows than the input has dimensions is deliberate; the paper calls this [[overcompleteness]], and it follows from expecting the MLP to carry more features than neurons through [[superposition]].\n\n$\\mathbf{b}_e$ is an ordinary learned threshold. A negative entry means that feature needs a stronger match before it fires at all.\n\nReLU makes every activation zero or positive. A feature is therefore absent, or present with some intensity — it cannot fire negatively. Paired with the [[l1-sparsity-penalty]], which pushes most entries to exactly zero, this makes \"did the feature fire here?\" a plain yes-or-no question.\n\n$\\mathbf{b}_d$ is the [[pre-encoder-bias]], and its name comes from the decoder. The decoder reconstructs $\\hat{\\mathbf{x}} = W_d\\mathbf{f} + \\mathbf{b}_d$, adding back the same vector that was subtracted here; the paper ties the two rather than learning them separately. The effect is that the autoencoder fits the activations after a fixed offset is removed, so the [[feature-direction]]s stored in $W_d$ describe deviations from that offset instead of spending capacity on the offset itself.\n\nAppendix 18.1 gives the reason it is there. On toy problems with a bias, the autoencoder failed to produce the expected [[bounce-plots]] unless a learned bias sat at both the encoder input and the decoder output. The bias is initialised to the geometric median of the activation dataset ([[geometric-median-initialization]]). The paper ranks this first among its architecture modifications, while saying plainly that it ran no rigorous ablations — the support offered is toy-model behaviour and intuition.",
+ "latex": "f_i(x) = \\text{ReLU}( W_e (\\mathbf{x} - \\mathbf{b}_d) + \\mathbf{b}_e )_i",
+ "terms": [
+  {
+   "term": "$f_i(\\mathbf{x})$",
+   "definition": "The activation of feature $i$ on datapoint $\\mathbf{x}$: a single non-negative number saying how strongly that feature fires there. It is the $i$-th hidden unit of the sparse autoencoder.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "$\\mathbf{f}$",
+   "definition": "The full vector of feature activations for one datapoint, of which $f_i$ is one entry. Its length equals the number of dictionary elements, not the number of neurons.",
+   "conceptId": null
+  },
+  {
+   "term": "$\\mathbf{x}$",
+   "definition": "The input to the encoder: one datapoint's MLP activation vector from the transformer under study. This is the thing the paper is trying to decompose.",
+   "conceptId": "mlp-activations-as-target"
+  },
+  {
+   "term": "$\\bar{\\mathbf{x}}$",
+   "definition": "The centred input $\\mathbf{x} - \\mathbf{b}_d$, written explicitly in the appendix version of the same equation. It is what the encoder matrix actually multiplies.",
+   "conceptId": null
+  },
+  {
+   "term": "$W_e$",
+   "definition": "The encoder weight matrix, with one row per feature and one column per input dimension. Each row is the detector for its feature; the dot product of that row with the centred input is the feature's raw score before bias and ReLU.",
+   "conceptId": "autoencoder-encoder"
+  },
+  {
+   "term": "$\\mathbf{b}_d$",
+   "definition": "The pre-encoder bias, subtracted from the input before encoding and added back by the decoder on the way out. It is a single learned vector shared by both ends, not two independent biases.",
+   "conceptId": "pre-encoder-bias"
+  },
+  {
+   "term": "$\\mathbf{b}_e$",
+   "definition": "The encoder bias, one learned number per feature, added to the raw scores before ReLU. A negative entry raises the bar the input must clear for that feature to fire.",
+   "conceptId": null
+  },
+  {
+   "term": "ReLU",
+   "definition": "The elementwise non-linearity applied last, replacing every negative entry with zero. Here its role is to make feature activations non-negative, so a feature is either off or on with some intensity.",
+   "conceptId": null
+  },
+  {
+   "term": "subscript $i$ (outside the parentheses)",
+   "definition": "An index selecting one coordinate of the vector the ReLU produced. It runs over the dictionary elements, so $i$ names a feature rather than a neuron.",
+   "conceptId": null
+  },
+  {
+   "term": "$W_d$",
+   "definition": "The decoder weight matrix, named in the sentence following the equation. Its columns are the feature directions, and the same $\\mathbf{b}_d$ that is subtracted here is added after multiplying by $W_d$.",
+   "conceptId": "dictionary-decoder"
+  },
+  {
+   "term": "$\\mathbf{d}_i$",
+   "definition": "The direction of feature $i$: the unit vector in activation space that feature $i$ writes along when it fires, equal to column $i$ of $W_d$. The encoder produces the coefficient, this is what the coefficient multiplies.",
+   "conceptId": "feature-direction"
+  },
+  {
+   "term": "$n$",
+   "definition": "The input and output dimension of the autoencoder in the appendix notation, equal to the transformer's MLP width. $\\mathbf{x}$ and $\\mathbf{b}_d$ have $n$ entries.",
+   "conceptId": null
+  },
+  {
+   "term": "$m$",
+   "definition": "The autoencoder's hidden width in the appendix notation: how many features the dictionary has. $W_e$ has $m$ rows and $\\mathbf{b}_e$ has $m$ entries, with $m \\geq n$.",
+   "conceptId": "expansion-factor"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0",
+   "meaning": "The floor ReLU imposes on every feature activation. Any raw score that comes out negative becomes exactly zero, which is what makes a feature's state readable as absent versus present."
+  },
+  {
+   "value": "512",
+   "meaning": "The MLP width of the one-layer transformer the paper studies, so the number of entries in $\\mathbf{x}$, in $\\mathbf{b}_d$, and in each row of $W_e$. Table 1 lists it as the transformer's MLP size."
+  },
+  {
+   "value": "8x",
+   "meaning": "The expansion factor the paper focuses on: eight times more dictionary features than neurons. With a 512-wide MLP that makes $W_e$ 4,096 rows tall, so 4,096 values of $f_i$ per datapoint."
+  },
+  {
+   "value": "1x to 256x",
+   "meaning": "The range of expansion factors across the paper's dictionary learning runs, from as many features as neurons up to 256 times as many. The same equation applies at every size; only the number of rows in $W_e$ changes."
+  },
+  {
+   "value": "131,072",
+   "meaning": "The largest hidden width used, being 512 x 256. It is the upper end of how many $f_i$ values a single activation vector can be decomposed into here."
+  },
+  {
+   "value": "8 billion",
+   "meaning": "The number of MLP activation samples the autoencoder is trained on. $W_e$, $\\mathbf{b}_e$ and $\\mathbf{b}_d$ are all learned by gradient descent over this dataset, so it is what fixes the equation's numbers."
+  },
+  {
+   "value": "1",
+   "meaning": "The L2 norm the columns of $W_d$ are constrained to. It matters for reading $f_i$ as an intensity: with directions pinned to unit length, the encoder cannot shrink a direction to inflate its activation, or vice versa."
+  }
+ ]
+}

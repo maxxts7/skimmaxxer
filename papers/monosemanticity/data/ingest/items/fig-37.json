@@ -1,0 +1,194 @@
+{
+ "id": "fig-37",
+ "title": "B/1/1901's Hebrew Logit-Weight Mode",
+ "takeaway": "For the Hebrew feature found in the second transformer's dictionary (B/1/1901), the distribution of logit weights over the vocabulary has the same shape reported for the first transformer's Hebrew feature: one large mode at zero, plus a small mode far to the right made of Hebrew-script tokens and the byte \\xd7 that begins most Hebrew UTF-8 characters. The paper offers this as evidence that the matched features in the two runs do the same job downstream, not just fire at the same times.",
+ "walkthrough": "**What you are looking at.** B/1/1901 is a [[feature]] from run B/1 — dictionary learning applied to a second one-layer transformer, trained identically to the main one but from a different random seed. For every element of the output vocabulary, the paper computes a [[logit-weight]]: it pushes the [[feature-direction]] through the MLP output weights, a linearized layer norm, and the unembedding ($d_iW_{down}\\pi L W_{unembed}$), a [[path-expansion-logit-attribution]]. Each weight says how much that token's next-token logit moves when the feature fires.\n\nThe horizontal axis is that weight. The vertical axis is a smoothed density over vocabulary elements, in millions. Softmax is shift-invariant, so there is no absolute zero here; the paper shifts each feature's weights so the median is zero ([[logit-weight-median-centering]]). Extremely rare and never-used tokens are dropped ([[anomalous-token-exclusion]]).\n\nColour is not part of the histogram. Each token is tinted by its Hebrew [[computational-proxy]] score — the [[log-likelihood-ratio-proxy]] $\\log(P(s|\\text{Hebrew})/P(s))$ — blue for low, red for high.\n\n**How to read it.** The inset is a magnifier on the right tail: roughly the region above weight $0.2$, with density below about $0.03$M. It has no ticks of its own. The narrow strip beneath the main panel shares the x-axis but shows *composition* — what fraction of tokens at that weight are Hebrew — rather than how many tokens are there.\n\n**What it shows.** Almost the whole vocabulary sits in the blue mode at zero: firing this feature barely moves those logits. In the tail, a small red bump appears near $0.45$. This is [[logit-weight-second-mode]].\n\nThe labels say which tokens. Around $0.3$ the tokens are ordinary fragments — 'rosis', 'l', 'urion', 'bird', 'lichen', 'ч' — no Hebrew. At the red bump the labelled tokens are Hebrew letters and tokens containing \\xd7, the first byte of the UTF-8 encoding of most basic-block Hebrew characters ([[utf8-multi-token-characters]]).\n\nSo the feature raises the probability of Hebrew script, matching what it fires on. The A-run feature A/1/416 gave the same picture ([[hebrew-feature]]), which the paper reads as [[universality]]. Note this is a linear estimate of effect, not a measured one ([[logit-weight-caveats]]).",
+ "terms": [
+  {
+   "term": "Distribution of Logit Weights",
+   "definition": "The chart's title. It names what is being plotted: a histogram whose population is the vocabulary, and whose value per token is that token's logit weight for this one feature.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "B/1/1901",
+   "definition": "The feature being shown. Read as model B, dictionary learning run 1, feature index 1901 within that run's 4,096 learned features.",
+   "conceptId": null
+  },
+  {
+   "term": "B (the transformer)",
+   "definition": "The second of the paper's two one-layer transformers. It has the same hyperparameters, dataset and architecture as the main model A, and differs only in the random seed used for initialization.",
+   "conceptId": null
+  },
+  {
+   "term": "B/1 (the run)",
+   "definition": "A dictionary learning run on model B's MLP activations, matched in hyperparameters to A/1 but trained on activations from a different transformer and different tokens. It is the run the paper uses to test whether features recur across models.",
+   "conceptId": "feature-universality"
+  },
+  {
+   "term": "A/1/416",
+   "definition": "The Hebrew feature in the main model, whose logit-weight plot this one is being compared against. The introducing sentence's 'as before' points at it.",
+   "conceptId": "hebrew-feature"
+  },
+  {
+   "term": "Feature",
+   "definition": "A direction in the MLP activation space recovered by the sparse autoencoder, treated by the paper as an interpretable unit in place of a neuron.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Logit Weight (x-axis)",
+   "definition": "For one vocabulary token, the linear estimate of how much this feature's firing changes that token's next-token logit. Positive means the feature makes the token more likely; negative, less likely.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Density (y-axis)",
+   "definition": "How many vocabulary elements fall near a given logit weight, smoothed into a curve and scaled in millions. It measures crowding of tokens, not strength of effect.",
+   "conceptId": null
+  },
+  {
+   "term": "vocab element",
+   "definition": "One entry of the model's output vocabulary, used here as the unit being counted. The subtitle says the histogram has one weight per vocab element.",
+   "conceptId": null
+  },
+  {
+   "term": "Token Log-Likelihood Ratio (legend axis)",
+   "definition": "The colour scale's variable: the Hebrew proxy score of each token, an estimate of log(P(s|Hebrew)/P(s)). It is an independently computed label, not derived from the feature.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Hebrew →",
+   "definition": "The label above the colour bar, saying which end is which. Redder means more Hebrew-specific under the proxy; bluer means more typical of the dataset at large.",
+   "conceptId": "hebrew-script-proxy"
+  },
+  {
+   "term": "Blue-to-red colormap",
+   "definition": "The visual encoding of the proxy score. Blue tokens carry a strongly negative Hebrew score, white near zero, red strongly positive.",
+   "conceptId": null
+  },
+  {
+   "term": "Inset panel",
+   "definition": "The unlabelled magnified box on the upper right. It stretches the right tail of the main histogram — roughly weights above 0.2 at very low density — so the small second mode becomes visible.",
+   "conceptId": null
+  },
+  {
+   "term": "Composition strip",
+   "definition": "The short bar directly under the main panel, on the same x-axis. Instead of density it shows the red/blue mix at each weight, so a mostly-red section means nearly every token at that weight scores as Hebrew.",
+   "conceptId": null
+  },
+  {
+   "term": "Second mode",
+   "definition": "The small separate hump far to the right of zero. It is the set of tokens whose likelihood this feature raises most, and the paper reads it as the feature's downstream 'meaning'.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "'rosis', 'l', 'urion', 'bird', 'lichen', 'ч'",
+   "definition": "The tokens labelled in the lower part of the right tail, around weight 0.3. None are Hebrew, which is why the curve there is still largely blue.",
+   "conceptId": null
+  },
+  {
+   "term": "Hebrew token cluster label",
+   "definition": "The list annotating the red mode. As printed it mixes Hebrew letters with escape sequences — 'ר', 'ת', 'ו', 'ש', '\\xd7', 'ק', 'ות', 'י', 'ל', '\\xd7מ', '\\xd7ה', 'א' — and its exact ordering is hard to recover because right-to-left Hebrew and left-to-right escapes are rendered together.",
+   "conceptId": null
+  },
+  {
+   "term": "\\xd7",
+   "definition": "A raw byte written in escape notation, decimal 215. It is the first byte of the UTF-8 encoding of most characters in the basic Hebrew Unicode block, so predicting it is how the model starts predicting a Hebrew character.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "'\\xd7ו'",
+   "definition": "The single token annotated furthest right, at the highest labelled logit weight. It pairs a Hebrew letter with the \\xd7 lead byte in one token — the kind of merge byte-level BPE produces on Hebrew text.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "Median-centering",
+   "definition": "The convention that fixes the x-axis origin. Since softmax ignores a constant shift across all logits, the paper subtracts each feature's median logit weight, putting the bulk of the vocabulary at zero by construction.",
+   "conceptId": "logit-weight-median-centering"
+  },
+  {
+   "term": "Excluded anomalous tokens",
+   "definition": "Vocabulary elements that are extremely rare or never used, which the paper drops from these plots because their weights are unreliable.",
+   "conceptId": "anomalous-token-exclusion"
+  },
+  {
+   "term": "Path expansion / logit attribution",
+   "definition": "The method behind the numbers on the x-axis: trace one linear route from the feature direction through the MLP output weights, a linearized layer norm, and the unembedding to the logits.",
+   "conceptId": "path-expansion-logit-attribution"
+  },
+  {
+   "term": "Computational proxy",
+   "definition": "A cheaply computed score standing in for 'is this Hebrew', built here from Unicode block membership via Bayes' rule. It is the independent yardstick the colour uses.",
+   "conceptId": "computational-proxy"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "1901",
+   "meaning": "The feature index within run B/1. It carries no meaning of its own; features are numbered arbitrarily inside a run."
+  },
+  {
+   "value": "B/1",
+   "meaning": "Model B, dictionary run 1. Run 1 is the 4,096-feature setting the paper studies in most depth; B/1 is its counterpart on the second transformer."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of features in a run-1 dictionary, so the size of the pool B/1/1901 was picked from. It is an 8x expansion over the 512 MLP neurons."
+  },
+  {
+   "value": "512",
+   "meaning": "The width of the transformer's MLP layer, and so the dimension of the activation vector the autoencoder decomposes. Feature directions live in this space."
+  },
+  {
+   "value": "128",
+   "meaning": "The residual stream dimension of the one-layer transformers. It bounds how much the MLP output can write before the unembedding."
+  },
+  {
+   "value": "-0.6 to 0.6",
+   "meaning": "The full x-axis range of logit weights shown, with ticks every 0.1. The paper does not claim these are the extreme values; the axis is cropped to where the density is."
+  },
+  {
+   "value": "0M to 0.4M, ticks at 0.1M",
+   "meaning": "The y-axis range. The curve peaks at about 0.4M just below zero, meaning tokens are packed most densely there; multiplying that height by the roughly 0.13-wide bulk gives a count on the order of the vocabulary size, though the paper does not state the vocabulary size or the exact normalization."
+  },
+  {
+   "value": "≈0.0",
+   "meaning": "Where the main mode sits. It sits there by construction, because each feature's logit weights are shifted so the median is zero."
+  },
+  {
+   "value": "≈0.2",
+   "meaning": "The left edge of the region the inset magnifies. By this point the main mode has almost died out, which is why the tail needs its own panel to be visible at all."
+  },
+  {
+   "value": "≈0.03M",
+   "meaning": "The upper density limit of the magnified box, roughly one-thirteenth of the main peak. It is the ceiling that makes the second mode readable."
+  },
+  {
+   "value": "≈0.3",
+   "meaning": "Where the non-Hebrew label ('rosis', 'l', 'urion', 'bird', 'lichen', 'ч') points. The moderate-positive region is not yet Hebrew-specific, so the curve there is still mostly blue."
+  },
+  {
+   "value": "≈0.45",
+   "meaning": "Roughly where the small red second mode peaks. These are the tokens whose likelihood the feature raises most, and they are the ones the Hebrew proxy scores highest."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5",
+   "meaning": "Ticks on the colour legend, in units of the Hebrew log-likelihood ratio. Zero means the token is as likely under the general data distribution as under the Hebrew hypothesis; +5 means about e^5 times more likely under Hebrew."
+  },
+  {
+   "value": "\\xd7 (215)",
+   "meaning": "The byte value that opens most basic-block Hebrew characters in UTF-8. Its presence high in the second mode is the paper's explanation for why a Hebrew feature upweights an apparently meaningless byte token."
+  },
+  {
+   "value": "0.92",
+   "meaning": "The activation correlation between A/1/416 and B/1/1901, reported in the preceding sentence of the paper. It is why these two are treated as the same feature found twice, and it is what makes this figure a matched comparison rather than a coincidence."
+  },
+  {
+   "value": "0.55",
+   "meaning": "The Pearson correlation between the Hebrew script proxy and A/1/416's activations. The paper attributes part of that shortfall to a separate feature, A/1/1016, which fires on \\xd7 and predicts the bytes completing a Hebrew codepoint."
+  },
+  {
+   "value": "0.72 vs 0.46",
+   "meaning": "Median activation correlation between best-matching features across the two models, against the same figure for best-matching neurons. The gap is the paper's general universality claim, of which this figure is one instance."
+  }
+ ],
+ "latex": null
+}

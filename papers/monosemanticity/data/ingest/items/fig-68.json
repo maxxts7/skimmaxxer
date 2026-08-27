@@ -1,0 +1,154 @@
+{
+ "id": "fig-68",
+ "title": "Sparsity Against Explained Behavior",
+ "takeaway": "Plotting how sparse each trained dictionary is against how much of the MLP layer's loss contribution it recovers turns hyperparameter choice into a visible tradeoff: a weaker sparsity penalty explains more of the model's behavior, but only by letting more features fire on every token. The four L1 coefficients sit as four separate vertical bands, so the penalty largely fixes the sparsity level, while widening the dictionary climbs the band by raising explained behavior at nearly constant sparsity.",
+ "walkthrough": "Each dot here is one finished [[sparse-autoencoder]] — one [[dictionary-learning-run]] against the same one-layer transformer, whose MLP layer has 512 neurons. The sweep varies two things: how wide the dictionary is, and how hard the sparsity penalty pushes.\n\n### The two axes\n\nThe horizontal axis is the average [[l0-norm]], written $L^0$: the mean number of features with a nonzero activation on a token. Left is sparser. Runs here land between about 4 and 20 active features per token.\n\nThe vertical axis is the share of the MLP's loss contribution the features account for — the paper's [[loss-recovered-by-features]] measure. To compute it, run the transformer, pass the MLP activations through the autoencoder, splice the reconstruction back in place of the real activations, and see how much the loss rises.\n\nThat rise is then divided by the rise you get from deleting the MLP outright, the [[zero-ablation-baseline]]. One minus that ratio is what is plotted. For the paper's main run the substitution costs 21% of what full ablation costs, so 79% is recovered.\n\n### The four lines\n\nThe legend lists four values of the [[l1-coefficient]] $\\lambda$, the weight on the [[l1-sparsity-penalty]] in the training loss. Each colored line joins six dictionary sizes trained at that one $\\lambda$.\n\nWithin a line the movement is almost vertical. Going from 512 to 131,072 dictionary entries at $\\lambda=0.004$ lifts explained behavior from roughly 0.80 to 0.945 while $L^0$ only drifts from about 16 to about 20. Size buys explanation cheaply in sparsity terms.\n\nAcross lines the movement is horizontal. Halving $\\lambda$ from 0.008 to 0.004 shifts a run's $L^0$ from around 8.5 to around 20, and buys about 3.5 points of explained behavior at the largest size. That is the tradeoff the paper reads off the plot, and it is the plot's whole point.\n\n### Cautions the paper attaches\n\nThe percentage is called an overestimate, because zero-ablating the MLP may be an unusually bad baseline ([[reconstructed-nll-overestimate-caveat]]). The lowest coefficient tried, 0.001, is left out because its $L^0$ would stretch the axis. And no point here is chosen as best: the paper only says it targets $L^0$ below 10 or 20 and distrusts codes as dense as a large fraction of 512, which is why this chart is a guide rather than a verdict ([[l0-nll-tradeoff]]).",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Sparsity vs. Explained Behavior",
+   "definition": "The chart's title. It names the two quantities being traded against one another: how few features fire per token, versus how much of the MLP layer's effect on the loss the features reproduce.",
+   "conceptId": "l0-nll-tradeoff"
+  },
+  {
+   "term": "Average L0 norm (x axis)",
+   "definition": "The mean, over tokens, of the number of features with a strictly nonzero activation. It is the paper's direct measure of how sparse a learned code actually is, as opposed to how much sparsity pressure was applied.",
+   "conceptId": "l0-norm"
+  },
+  {
+   "term": "$L^0$",
+   "definition": "The count of nonzero entries in a vector. It is not a norm in the usual sense, but the name is standard; here the vector is the autoencoder's hidden activations on one token.",
+   "conceptId": "l0-norm"
+  },
+  {
+   "term": "Percent of MLP Loss Contribution Explained (y axis)",
+   "definition": "The fraction of the loss improvement the MLP layer provides that survives when the layer's activations are replaced by the autoencoder's reconstruction. Higher means the learned features carry more of what the MLP was doing.",
+   "conceptId": "loss-recovered-by-features"
+  },
+  {
+   "term": "MLP loss contribution",
+   "definition": "The amount by which having the MLP layer lowers the transformer's next-token loss, measured as the gap between the intact model and the model with that layer zeroed out. It is the denominator that turns a raw loss increase into a percentage.",
+   "conceptId": "zero-ablation-baseline"
+  },
+  {
+   "term": "Reconstructed Transformer NLL",
+   "definition": "The name the surrounding appendix gives the y-axis metric: the negative log-likelihood of the transformer when it runs on autoencoder reconstructions instead of true MLP activations. The plotted number is that loss increase, normalized by the zero-ablation gap and subtracted from one.",
+   "conceptId": "loss-recovered-by-features"
+  },
+  {
+   "term": "L1 coefficient (legend title)",
+   "definition": "The scalar $\\lambda$ multiplying the sum of feature activations in the autoencoder's training loss, alongside the reconstruction error. It is the knob that sets how strongly the model is pushed to leave most features at exactly zero.",
+   "conceptId": "l1-coefficient"
+  },
+  {
+   "term": "0.004 (blue)",
+   "definition": "The weakest sparsity penalty shown. Its runs are the densest on the plot, sitting near an average of 16 to 20 active features per token, and also the highest in explained behavior.",
+   "conceptId": "l1-coefficient"
+  },
+  {
+   "term": "0.006 (red)",
+   "definition": "The second-weakest penalty shown. Its runs sit around 8 to 12 active features per token, with explained behavior from about 0.74 to 0.93.",
+   "conceptId": "l1-coefficient"
+  },
+  {
+   "term": "0.008 (green)",
+   "definition": "The second-strongest penalty shown. Its runs sit around 5 to 8.5 active features per token, with explained behavior from about 0.71 to 0.91.",
+   "conceptId": "l1-coefficient"
+  },
+  {
+   "term": "0.01 (purple)",
+   "definition": "The strongest sparsity penalty shown. Its runs are the sparsest, near 4 to 7 active features per token, and explain the least of the MLP's loss contribution, from about 0.67 to 0.89.",
+   "conceptId": "l1-coefficient"
+  },
+  {
+   "term": "A connected series (one line)",
+   "definition": "All the runs sharing one L1 coefficient, joined in order of dictionary size. The connecting line is not a fitted curve; it just marks which points belong to the same penalty setting.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Dictionary size",
+   "definition": "The unlabeled variable moving along each line: the number of hidden units in the autoencoder, which is the number of candidate features it can learn. The companion feature-density figure names the six sizes used, from 512 up to 131,072.",
+   "conceptId": "expansion-factor"
+  },
+  {
+   "term": "Dictionary learning run",
+   "definition": "One trained autoencoder, identified in the paper as A/0 through A/5 and so on. Every dot on this plot is one such run.",
+   "conceptId": "dictionary-learning-run"
+  },
+  {
+   "term": "Zero ablation",
+   "definition": "Setting the MLP layer's output to zero and finishing the forward pass, to measure how much the layer was worth. The paper flags this as possibly an unusually weak baseline, which would inflate every y value here.",
+   "conceptId": "zero-ablation-baseline"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "about 4 to 20",
+   "meaning": "The span of average L0 norm across all plotted runs, i.e. how many features fire on a typical token. The floor is set by the strongest penalty (0.01) and the ceiling by the weakest one shown (0.004)."
+  },
+  {
+   "value": "5, 10, 15, 20",
+   "meaning": "The x-axis tick marks, in features active per token. There is no unit beyond a count of features."
+  },
+  {
+   "value": "about 0.67 to 0.95",
+   "meaning": "The span of explained MLP loss contribution across all plotted runs. The worst point is the smallest dictionary under the strongest penalty; the best is the largest dictionary under the weakest penalty shown."
+  },
+  {
+   "value": "0.70, 0.75, 0.80, 0.85, 0.90, 0.95",
+   "meaning": "The y-axis tick marks. Note the axis is labelled 'Percent' but the values are fractions, so 0.95 means 95%."
+  },
+  {
+   "value": "0.004, 0.006, 0.008, 0.01",
+   "meaning": "The four L1 coefficients in the legend. They are the four sparsity-penalty weights whose runs are drawn; each defines one colored series."
+  },
+  {
+   "value": "0.001",
+   "meaning": "The fifth L1 coefficient the paper trained but excluded from this plot. With so little sparsity pressure its runs had far higher L0, and including them would have stretched the x-axis; the appendix says it was dropped 'to create a reasonable scale'."
+  },
+  {
+   "value": "six",
+   "meaning": "The number of points per line, one per dictionary size. The feature-density appendix lists those sizes as 512, 4,096, 16,384, 32,768, 65,536 and 131,072."
+  },
+  {
+   "value": "512",
+   "meaning": "Two things at once: the smallest dictionary size, and the number of neurons in the transformer's MLP layer. A 512-entry dictionary is therefore not overcomplete, and 512 is also the dimensionality the paper compares L0 against when deciding a code is too dense."
+  },
+  {
+   "value": "131,072",
+   "meaning": "The largest dictionary size, 256 times the MLP's 512 neurons. Its runs are the top point of each line."
+  },
+  {
+   "value": "79% / 21%",
+   "meaning": "For A/1, the 4,096-feature run at L1 = 0.004 that the paper studies most, the features recover 79% of the MLP's loss contribution, because substituting the reconstruction costs only 21% of what zero-ablating the MLP costs. The blue series has a point near 0.80, consistent with this run."
+  },
+  {
+   "value": "94.5%",
+   "meaning": "The explained fraction the paper quotes for A/5, the 131,072-feature run at L1 = 0.004. It matches the top-right blue point at roughly (19.8, 0.945), the best explained behavior anywhere on the plot."
+  },
+  {
+   "value": "purple: about 3.9 to 6.6 on x, 0.67 to 0.89 on y",
+   "meaning": "The extent of the L1 = 0.01 series. Sparsity barely changes across a 256-fold increase in dictionary size, while explained behavior climbs about 22 points."
+  },
+  {
+   "value": "green: about 5.2 to 8.5 on x, 0.71 to 0.91 on y",
+   "meaning": "The extent of the L1 = 0.008 series. Loosening the penalty from 0.01 to 0.008 shifts the whole band right by roughly 1.5 features per token and up by about 2 points at the top end."
+  },
+  {
+   "value": "red: about 7.8 to 11.9 on x, 0.74 to 0.93 on y",
+   "meaning": "The extent of the L1 = 0.006 series. Its top end explains about 0.93, roughly 2 points more than the 0.008 band, at the cost of about 3.4 more active features per token."
+  },
+  {
+   "value": "blue: about 16.0 to 19.8 on x, 0.80 to 0.945 on y",
+   "meaning": "The extent of the L1 = 0.004 series. Compared with 0.006 it gains only about 1.5 points of explained behavior at the top but roughly doubles L0, which is the sharpest illustration of diminishing returns on the plot."
+  },
+  {
+   "value": "about 3.5 points",
+   "meaning": "The gain in explained behavior from halving the L1 coefficient from 0.008 to 0.004 at the largest dictionary size, going from roughly 0.910 to 0.945. It costs a jump in L0 from about 8.5 to about 20."
+  },
+  {
+   "value": "less than 10 or 20",
+   "meaning": "The L0 range the appendix says the authors generally target when picking hyperparameters. It is stated as a rule of thumb with no principled derivation, and it places the blue (0.004) band right at the edge of what they accept."
+  }
+ ]
+}

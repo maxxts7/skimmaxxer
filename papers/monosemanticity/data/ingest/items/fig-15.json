@@ -1,0 +1,162 @@
+{
+ "id": "fig-15",
+ "title": "Neuron 489's Logit Weights",
+ "takeaway": "The neuron whose activations track the Arabic script feature most closely does not share the feature's downstream effect. Its logit weights form a single mode centred on zero, with the Arabic-script tokens scattered inside that bulk rather than gathered into the clean far-right second mode the feature had. The paper reads those Arabic weights as leaning very slightly positive overall, while noting that some of them are negative.",
+ "walkthrough": "This is a histogram of one MLP neuron's [[logit-weight]] vector. A logit weight is computed per vocabulary token: it says how much this unit firing pushes that token's next-token logit up or down, following the direct path through the unembedding. The unit here is `A/neuron/489`, an actual neuron of the [[one-layer-transformer-testbed]] rather than a learned feature — the slash form is the paper's [[neuron-notation]]. It was picked as the [[most-correlated-neuron]] to the [[arabic-script-feature]], so it is the best single-neuron stand-in for that feature the paper could find.\n\nTo read it, take the horizontal axis as logit weight, running $-0.6$ to $0.6$. Every vocabulary token sits somewhere on that axis, and the filled curve is their smoothed density. The weights are median-centred, because softmax is shift-invariant and only differences matter ([[logit-weight-median-centering]]); that is why the peak lands at zero rather than anywhere meaningful.\n\nColour is the extra channel. Each token is tinted by the [[arabic-script-proxy]], a [[log-likelihood-ratio-proxy]] scored from $-5$ (blue, not Arabic) to $+5$ (red, distinctively Arabic). The strip under the plot repeats the same axis with those colours stacked, so a handful of red tokens stays visible where the main curve would hide them.\n\nNow what it shows. There is one mode, roughly bell-shaped around zero, with a mild right tail. The labelled extremes are Cyrillic and Korean fragments — `'ений'` furthest right, then a cluster near $0.46$. That fits a neuron responding to a mixture of non-English languages, which the paper explains as a sensible packing since languages rarely co-occur ([[mutually-exclusive-features-in-superposition]]).\n\nThe point is what is missing. The feature's own histogram had a second, small mode far to the right, made almost entirely of Arabic tokens ([[logit-weight-second-mode]]). Here that mode is absent. The thin red sliver runs through the middle of the bulk, roughly $-0.25$ to $+0.32$, straddling zero.\n\nSo the neuron's push toward Arabic tokens is weak and inconsistent. The paper hedges accordingly, and offers this as one strand of evidence for [[feature-neuron-nonalignment]] rather than as proof on its own.",
+ "terms": [
+  {
+   "term": "Distribution of Logit Weights (plot title)",
+   "definition": "The figure is a density plot over the neuron's per-token logit weights, one value for every vocabulary element. It is the same plot type used earlier for the Arabic feature, so the two can be compared side by side.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "A/neuron/489",
+   "definition": "Names neuron 489 of transformer A's MLP layer. In the paper's scheme the middle slot holds a dictionary-learning run number for features, and the literal word \"neuron\" instead marks a raw MLP unit; the body text writes it as A/neurons/489.",
+   "conceptId": "neuron-notation"
+  },
+  {
+   "term": "Logit Weight (x-axis)",
+   "definition": "How much this neuron's activation raises or lowers a given token's output logit, via the linear direct path: neuron output weights, then a linearized layer norm, then the unembedding matrix. Positive means the token becomes more likely when the neuron fires.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Density (y-axis)",
+   "definition": "A smoothed count of vocabulary tokens per unit of logit weight. Area under the curve is a token count, so the vertical scale reflects the size of the vocabulary and is not comparable across plots with different bandwidths.",
+   "conceptId": null
+  },
+  {
+   "term": "Log-Likelihood Ratio (colour bar)",
+   "definition": "The colour assigned to each token is its Arabic-script proxy score, $\\log(P(s|\\text{Arabic})/P(s))$ — how much more likely the token string is under the Arabic hypothesis than under text at large. Blue is far below, red far above.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Arabic script proxy",
+   "definition": "The specific proxy behind the colour: $P(\\text{Arabic}|s)$ is read off Unicode block membership and inverted with Bayes' rule. It is a cheap independent yardstick, computed without ever looking at the model.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "The red sliver",
+   "definition": "The thin band of Arabic-script tokens, visible mostly in the strip below the main curve because there are too few of them to show up against the bulk. Its horizontal spread is the actual content of the figure.",
+   "conceptId": null
+  },
+  {
+   "term": "Marginal strip (the bar under the axis)",
+   "definition": "The same logit-weight axis with token colours stacked vertically instead of a density height. It makes rare colour categories legible where the density curve would bury them.",
+   "conceptId": null
+  },
+  {
+   "term": "'ений'",
+   "definition": "A Cyrillic token, a common Russian noun ending. It sits at the far right of the distribution, so it is the token this neuron most increases.",
+   "conceptId": null
+  },
+  {
+   "term": "'ал', 'ной', 'кт', 'то', 'ест'",
+   "definition": "Cyrillic token fragments among the neuron's highest logit weights. Their presence is the evidence that this neuron is doing Russian, not Arabic.",
+   "conceptId": null
+  },
+  {
+   "term": "'아', '은'",
+   "definition": "Korean tokens in the same high-weight cluster. Together with the Cyrillic ones they support reading the neuron as a mixture of non-English languages.",
+   "conceptId": "polysemanticity"
+  },
+  {
+   "term": "'\\xec\\x95'",
+   "definition": "A raw byte token, printed as its hex escape. Non-Latin characters are often split across several byte tokens by the tokenizer, so byte fragments show up alongside whole tokens in these plots.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "'↵\\n↵\\n'",
+   "definition": "A double-newline token, shown with the editor's return glyph. It carries a high logit weight here, which is not language-specific and is part of why the neuron reads as mixed.",
+   "conceptId": null
+  },
+  {
+   "term": "' colleagues', 'tics', 'ún'",
+   "definition": "English and Latin-script fragments in the top-weight cluster. They rule out any reading in which this neuron only promotes non-Latin scripts.",
+   "conceptId": null
+  },
+  {
+   "term": "Second mode (absent here)",
+   "definition": "In the Arabic feature's version of this plot, a small separate hump sits far to the right and is composed almost entirely of Arabic tokens. This neuron has no such hump, and that absence is the figure's point.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "Median-centring",
+   "definition": "Each unit's logit weights are shifted so their median is zero. Softmax only cares about differences between logits, so there is no absolute scale to preserve.",
+   "conceptId": "logit-weight-median-centering"
+  },
+  {
+   "term": "Anomalous token exclusion",
+   "definition": "Weights for extremely rare or never-used vocabulary elements are dropped before plotting. Those tokens receive little training signal and their weights would be noise on the tails.",
+   "conceptId": "anomalous-token-exclusion"
+  },
+  {
+   "term": "Most correlated neuron",
+   "definition": "The neuron whose activations correlate best with the feature's across a large sample of dataset examples. The paper prefers this to reading off the feature's largest neuron-basis coefficients, which it found less reliable.",
+   "conceptId": "most-correlated-neuron"
+  },
+  {
+   "term": "A/1/3450",
+   "definition": "The Arabic script feature this neuron is being compared against: feature 3450 from dictionary-learning run 1 on transformer A. Its own logit-weight plot is the reference for what a clean downstream signature looks like.",
+   "conceptId": "arabic-script-feature"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "-0.6 to 0.6",
+   "meaning": "Range of the horizontal logit-weight axis, with ticks every 0.1. It matches the axis used for the Arabic feature's own logit-weight plot, so the two figures can be laid against each other directly."
+  },
+  {
+   "value": "0, 50K, 0.1M, 0.15M",
+   "meaning": "The density ticks on the vertical axis. Because area under the curve counts tokens, these magnitudes reflect a vocabulary of order tens of thousands spread over a narrow weight range; the paper does not ask the reader to interpret the height itself."
+  },
+  {
+   "value": "about 0.175M",
+   "meaning": "Approximate peak density, reached just below a logit weight of 0.0. It is the mode of the bulk of vocabulary tokens, which this neuron barely moves in either direction."
+  },
+  {
+   "value": "0.0",
+   "meaning": "Location of the single mode. It sits at zero by construction, since weights are shifted so each unit's median weight is zero."
+  },
+  {
+   "value": "about 0.46",
+   "meaning": "Logit weight of the labelled cluster of top tokens — the Cyrillic, Korean, byte and newline fragments. These are the tokens the neuron pushes hardest, and none of them is Arabic."
+  },
+  {
+   "value": "about 0.6",
+   "meaning": "Logit weight of 'ений', the single highest-weight token shown. It is Russian, which is the figure's direct evidence that the neuron's strongest downstream pull is toward another language."
+  },
+  {
+   "value": "roughly -0.25 to +0.32",
+   "meaning": "The horizontal extent of the red Arabic-token sliver in the marginal strip. It straddles zero and stays inside the main bulk, which is what the paper means by no clean separation; the slightly greater reach on the positive side is the basis for the hedge that these weights lean very slightly positive overall."
+  },
+  {
+   "value": "-5 to +5",
+   "meaning": "Range of the log-likelihood-ratio colour bar, with ticks at -5, -2.5, 0, 2.5 and 5. Zero means a token is no more Arabic-typical than the dataset average; +5 means it is roughly e^5 times more likely under the Arabic hypothesis."
+  },
+  {
+   "value": "1e-10",
+   "meaning": "The tiny probability the proxy assigns to P(Arabic|s) when the string contains any non-Arabic character. It is why the overwhelming majority of vocabulary tokens sit hard at the blue end of the colour scale rather than spreading across it."
+  },
+  {
+   "value": "489",
+   "meaning": "Index of the neuron, out of the 512 units in the transformer's MLP layer. It carries no meaning beyond identity; it was selected only for being the most activation-correlated neuron to the Arabic feature."
+  },
+  {
+   "value": "512",
+   "meaning": "Width of the MLP layer in the one-layer transformer being studied, so 512 neurons is the whole pool this one was chosen from. The residual stream is 128-dimensional."
+  },
+  {
+   "value": "about 40 million",
+   "meaning": "Number of dataset examples over which the feature-neuron activation correlations were computed to pick this neuron. A large sample is used so the choice is not an artifact of a small set of contexts."
+  },
+  {
+   "value": "27",
+   "meaning": "Number of neurons whose coefficients in the Arabic feature's neuron-basis decomposition are at least 0.1 in magnitude, reported just before this figure. The feature is spread across many neurons rather than aligned with one, which is the setting for asking whether any single neuron reproduces its behaviour."
+  },
+  {
+   "value": "3",
+   "meaning": "The three largest neuron-basis coefficients of the Arabic feature are all negative, from the same earlier check. That already makes a simple one-neuron account unlikely before this logit plot is examined."
+  }
+ ],
+ "latex": null
+}

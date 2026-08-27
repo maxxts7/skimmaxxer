@@ -1,0 +1,50 @@
+PAGE FOR CONCEPT: bert-framework
+NAME: BERT's two-stage framework
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Pre-train on unlabeled text with self-supervised tasks, then fine-tune every parameter on a labeled task; the same pre-trained weights initialize a separate model per task.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+In pre-training the model is trained on unlabeled data over two tasks, producing one set of general parameters; this is where nearly all the compute goes, four days on Cloud TPUs. In fine-tuning that checkpoint initializes the model and all parameters are updated on the task's labeled data. The paper presents this as its organizing idea for Section 3, with a question-answering example as the running illustration.
+
+THEME IT BELONGS TO: theme-one-architecture-two-stages | One architecture, two stages - BERT is one Transformer encoder used twice: pre-trained on unlabeled text, then fine-tuned on a labeled task from those weights. Fine-tuning yields a separate model per task, but the paper stresses that the network barely changes between the two stages. This theme also fixes the size shorthand — L layers, hidden size H, A attention heads — and the two reported configurations, 110M parameters for BERT_BASE and 340M for BERT_LARGE. BERT_BASE was sized to match OpenAI GPT so the later comparison turns on bidirectionality rather than capacity.
+
+SUB-CONCEPTS (these render as expandable sections BELOW your page - reference them, do not duplicate them):
+  - separate-fine-tuned-models-per-task | One fine-tuned model per task: Fine-tuning produces a distinct model for each downstream task, all branching from the same pre-trained starting point.
+  - unified-architecture-across-tasks | Unified architecture across tasks: The paper calls it a distinctive feature that the pre-trained architecture and the final downstream architecture differ minimally.
+  - pre-training-procedure | Pre-training procedure: The concrete recipe: corpus, how input sequences are generated, batch size and step count, optimizer settings, and the sequence-length schedule.
+    - pre-training-data | Pre-training corpus: BooksCorpus (800M words) plus English Wikipedia (2,500M words), roughly 3.3 billion words in total.
+      - bookscorpus | BooksCorpus (800M words): A corpus of unpublished books forming the smaller half of BERT's pre-training data, and the whole of GPT's.
+      - english-wikipedia-corpus | English Wikipedia (2,500M words): The larger half of the pre-training data, with only running text kept.
+      - document-level-corpus | Document-level corpus: The requirement that pre-training text keep documents intact, so long contiguous sequences can be sampled.
+        - billion-word-benchmark | Billion Word Benchmark (as a counter-example): The shuffled sentence-level corpus the paper names as the kind of data it deliberately avoids.
+    - training-sequence-generation | Generating a training input sequence: Two spans are sampled, assigned the A and B embeddings, given the 50/50 NSP treatment, capped at 512 combined tokens, and then masked.
+      - max-sequence-length-512 | 512-token maximum sequence length: The two sampled spans are drawn so their combined length does not exceed 512 tokens.
+    - training-steps-and-epochs | 1,000,000 steps at 128,000 tokens per batch: Pre-training runs for one million updates on 256-sequence batches, approximately 40 passes over the 3.3 billion word corpus.
+    - pretraining-optimizer-settings | Adam settings for pre-training: Adam with learning rate 1e-4, $\beta_1=0.9$, $\beta_2=0.999$, L2 weight decay 0.01, warmup over the first 10,000 steps then linear decay, and dropout 0.1 on all layers.
+    - gelu-activation | gelu activation: BERT uses the gelu activation rather than relu, following OpenAI GPT.
+    - combined-pretraining-loss | Combined MLM + NSP training loss: The training loss is the sum of the mean masked LM likelihood and the mean next sentence prediction likelihood.
+    - sequence-length-schedule | 128-then-512 sequence length schedule: 90% of pre-training steps use length-128 sequences; the last 10% use length 512, specifically to learn the longer-range position embeddings.
+  - fine-tuning-bert | Fine-tuning BERT: Adapting the pre-trained model to a task by plugging in task-specific inputs and outputs and training every parameter end-to-end.
+    - task-specific-input-output-plugging | Plugging in task-specific inputs and outputs: Task adaptation consists of mapping the task's texts onto the A/B slots and attaching an output layer to the right hidden vectors.
+      - degenerate-text-pair | Degenerate text-∅ pair: Single-text tasks are handled by treating the input as a pair whose second half is empty.
+    - self-attention-unifies-cross-attention | Self-attention subsuming cross-attention: The paper's argument that encoding a concatenated pair with self-attention already includes bidirectional cross attention between the two texts.
+      - bidirectional-cross-attention | Bidirectional cross attention: Attention computed between two separately encoded texts in both directions, the pattern BERT's concatenated encoding replaces.
+    - task-specific-output-layer | One additional output layer: Task-specific models are formed by adding a single output layer to BERT, so a minimal number of parameters is learned from scratch.
+    - end-to-end-fine-tuning | End-to-end fine-tuning of all parameters: Both the pre-trained encoder and the new output layer are trained together on the task's labeled data.
+    - fine-tuning-cost | Fine-tuning cost: Every result in the paper can be reproduced in at most an hour on a single Cloud TPU, or a few hours on a GPU, starting from the pre-trained model.
+    - fine-tuning-hyperparameters | Fine-tuning hyperparameter grid: Fine-tuning reuses the pre-training settings except batch size (16 or 32), Adam learning rate (5e-5, 3e-5 or 2e-5) and epochs (2, 3 or 4), searched over a small grid.
+      - dataset-size-hyperparameter-sensitivity | Small datasets are more hyperparameter-sensitive: The authors observed that large datasets, around 100k+ labeled examples, were far less sensitive to hyperparameter choice than small ones.
+      - exhaustive-hyperparameter-search | Exhaustive search on the development set: Because fine-tuning is cheap, every combination in the grid is run and the best model on dev is kept.
+
+PREREQUISITES:
+  - language-model-pre-training | Language model pre-training: Training a model on a language modeling objective over unlabeled text, then reusing it for downstream NLP tasks.
+  - fine-tuning-approach | Fine-tuning approach: Add minimal task-specific parameters on top of the pre-trained model and train all pre-trained parameters further on labeled task data.
+
+EDGES TOUCHING THIS CONCEPT (1) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [load-bearing] -> fig-1 (The Same Stack, Twice (fig-1)) | supported-by | same encoder drawn twice: The paper's framing claim is that pre-training and fine-tuning are two stages of one network, not two networks. Figure 1 puts the two panels side by side and the encoder block is identical in both. What changes between them is only the output layer and the arrows feeding it.
+
+PAPER SECTIONS TO READ (in papers/1810.04805/data/ingest/sections/):
+  - 07-3-bert.txt
+  - 08-3.1-pre-training-bert.txt
+  - 09-3.2-fine-tuning-bert.txt

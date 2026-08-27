@@ -1,0 +1,57 @@
+PAGE FOR THEME: theme-adapting-to-a-task
+NAME: Adapting to a task
+
+THEME SUMMARY (shown above your page as the lede - do not repeat verbatim):
+How a pre-trained BERT becomes a task model. The task's texts are mapped onto the A and B slots — a single text uses an empty second slot — and one output layer is attached to either C or the per-token vectors. Every parameter is then trained on the labeled data, which the paper says costs at most an hour on one Cloud TPU. The hyperparameter grid is small enough to run in full, though the authors report that small datasets are far more sensitive to the choice than large ones.
+
+PREVIOUS THEME: theme-the-two-pre-training-tasks | The two pre-training tasks
+NEXT THEME: theme-the-eleven-tasks-and-the-scores | The eleven tasks and the scores
+
+MEMBER CONCEPTS (11) - each has its own page or expandable section; your job is the connective tissue between them, not to restate each one:
+  - fine-tuning-bert | Fine-tuning BERT [major]: Adapting the pre-trained model to a task by plugging in task-specific inputs and outputs and training every parameter end-to-end.
+      · task-specific-input-output-plugging | Plugging in task-specific inputs and outputs: Task adaptation consists of mapping the task's texts onto the A/B slots and attaching an output layer to the r
+      · degenerate-text-pair | Degenerate text-∅ pair: Single-text tasks are handled by treating the input as a pair whose second half is empty.
+      · self-attention-unifies-cross-attention | Self-attention subsuming cross-attention: The paper's argument that encoding a concatenated pair with self-attention already includes bidirectional cros
+      · bidirectional-cross-attention | Bidirectional cross attention: Attention computed between two separately encoded texts in both directions, the pattern BERT's concatenated en
+      · task-specific-output-layer | One additional output layer: Task-specific models are formed by adding a single output layer to BERT, so a minimal number of parameters is 
+      · end-to-end-fine-tuning | End-to-end fine-tuning of all parameters: Both the pre-trained encoder and the new output layer are trained together on the task's labeled data.
+  - task-specific-input-output-plugging | Plugging in task-specific inputs and outputs [minor]: Task adaptation consists of mapping the task's texts onto the A/B slots and attaching an output layer to the right hidden vectors.
+      · degenerate-text-pair | Degenerate text-∅ pair: Single-text tasks are handled by treating the input as a pair whose second half is empty.
+  - degenerate-text-pair | Degenerate text-∅ pair [minor]: Single-text tasks are handled by treating the input as a pair whose second half is empty.
+  - self-attention-unifies-cross-attention | Self-attention subsuming cross-attention [minor]: The paper's argument that encoding a concatenated pair with self-attention already includes bidirectional cross attention between the two texts.
+      · bidirectional-cross-attention | Bidirectional cross attention: Attention computed between two separately encoded texts in both directions, the pattern BERT's concatenated en
+  - bidirectional-cross-attention | Bidirectional cross attention [minor]: Attention computed between two separately encoded texts in both directions, the pattern BERT's concatenated encoding replaces.
+  - task-specific-output-layer | One additional output layer [minor]: Task-specific models are formed by adding a single output layer to BERT, so a minimal number of parameters is learned from scratch.
+  - end-to-end-fine-tuning | End-to-end fine-tuning of all parameters [minor]: Both the pre-trained encoder and the new output layer are trained together on the task's labeled data.
+  - fine-tuning-cost | Fine-tuning cost [minor]: Every result in the paper can be reproduced in at most an hour on a single Cloud TPU, or a few hours on a GPU, starting from the pre-trained model.
+  - fine-tuning-hyperparameters | Fine-tuning hyperparameter grid [minor]: Fine-tuning reuses the pre-training settings except batch size (16 or 32), Adam learning rate (5e-5, 3e-5 or 2e-5) and epochs (2, 3 or 4), searched over a small grid.
+      · dataset-size-hyperparameter-sensitivity | Small datasets are more hyperparameter-sensitive: The authors observed that large datasets, around 100k+ labeled examples, were far less sensitive to hyperparam
+      · exhaustive-hyperparameter-search | Exhaustive search on the development set: Because fine-tuning is cheap, every combination in the grid is run and the best model on dev is kept.
+  - exhaustive-hyperparameter-search | Exhaustive search on the development set [minor]: Because fine-tuning is cheap, every combination in the grid is run and the best model on dev is kept.
+  - dataset-size-hyperparameter-sensitivity | Small datasets are more hyperparameter-sensitive [minor]: The authors observed that large datasets, around 100k+ labeled examples, were far less sensitive to hyperparameter choice than small ones.
+
+EDGES BETWEEN MEMBERS OF THIS THEME:
+  [supporting] exhaustive-hyperparameter-search --depends-on--> fine-tuning-cost | cheap fine-tuning permits full search: The grid is two batch sizes, three learning rates and three epoch counts, which is eighteen runs per task. The paper says such a search is reasonable precisely because fine-tuning is fast, at most an hour on a single Cloud TPU. If fine-tuning cost what pre-training costs, this protocol would not be affordable.
+  [supporting] self-attention-unifies-cross-attention --contrasts-with--> bidirectional-cross-attention | concatenate instead of cross-attend: The usual way to relate two texts is to encode each one separately and then run attention between them in both directions. BERT packs both texts into one sequence and runs ordinary self-attention over the whole thing. The paper's argument is that this already includes the cross attention, so the separate mechanism is not needed.
+
+LOAD-BEARING EDGES LEAVING THIS THEME (use these to point forward/back):
+  self-attention-unifies-cross-attention --depends-on--> bidirectional-self-attention | argument needs unmasked attention
+  c-vector-classification-head --instance-of--> task-specific-output-layer | GLUE's one added layer
+  span-prediction-head --instance-of--> task-specific-output-layer | SQuAD's one added layer
+  fine-tuning-bert --contrasts-with--> feature-based-approach-with-bert | update the weights or freeze them
+
+EVIDENCE ITEMS RELATED TO THIS THEME (link as [[item-id]]):
+  - fig-1 | The Same Stack, Twice: The figure claims that pre-training and fine-tuning use one and the same network: an identical token-in, vector-out Transformer encoder appears in both panels, and the only thing that changes between them is the thin output layer bolted on top. The dotted arrows carry every pre-trained weight across to initialize the task model, so a downstream task inherits the whole network rather than a set of embeddings.
+  - table-5 | Pre-training Task Ablation: Holding architecture, data and fine-tuning fixed, the table charges each drop in score to one removed piece of the pre-training recipe. Dropping next sentence prediction costs a little; replacing the masked LM with a left-to-right LM costs much more, above all on SQuAD (88.5 to 77.8 F1), and bolting a BiLSTM onto the left-to-right model repairs only part of that gap while making the GLUE numbers slightly worse.
+  - table-6 | The Model-Size Ladder: Six separately pre-trained BERT models, from 3 layers up to 24, are lined up smallest to largest: held-out masked-LM perplexity falls at every step (5.84 to 3.23) while accuracy on MNLI-m, MRPC and SST-2 rises at every step. The paper reads this as evidence that scaling keeps paying off past sizes already considered large, and — its actual point — that the gains reach a task as small as MRPC, which has only 3,600 training examples.
+  - fig-4 | Four task shapes, one encoder: Four families of downstream task are drawn as four copies of the same diagram, differing only in what is packed into the input sequence and which output vectors an arrow is attached to. The paper uses this to show that adapting BERT to a task means plugging in task-specific inputs and one extra output layer, not redesigning the model.
+  - fig-5 | MLM vs. Left-to-Right Over a Million Steps: Fine-tuning from progressively later pre-training checkpoints shows that MNLI accuracy is still climbing at 1,000,000 steps, so BERT's long pre-training run is not wasted. It also shows that the masked LM objective is behind a left-to-right objective at the very first checkpoints, overtakes it before 100k steps, and finishes roughly two points ahead.
+  - table-8 | The masking mixture ablation: Six BERT pre-training runs that differ only in what happens to a token once it has been selected for prediction. Changing the mixture barely moves the fine-tuned scores, but pre-training with [MASK] alone costs 0.9 F1 on NER when BERT is frozen and used as a feature extractor. That single column is the paper's evidence for keeping the 80/10/10 mixture rather than always inserting [MASK].
+  - eq-classification-loss | The GLUE Classification Head: This inline expression is the whole task-specific model BERT adds for a GLUE sentence-classification task: take the final hidden vector at the [CLS] position, multiply it by one new weight matrix to get one score per label, and train with ordinary cross-entropy. The paper's point in printing it is how little there is — a single $K \times H$ matrix is the only parameter matrix fine-tuning introduces.
+
+PAPER SECTIONS TO READ (in papers/1810.04805/data/ingest/sections/):
+  - 09-3.2-fine-tuning-bert.txt
+  - 11-4.1-glue.txt
+  - 24-A.3-fine-tuning-procedure.txt
+  - 26-A.5-illustrations-of-fine-tuning-on-different.txt
+  - 01-abstract-abstract.txt

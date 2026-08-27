@@ -1,0 +1,158 @@
+{
+ "id": "fig-10",
+ "title": "The Arabic Feature's Logit Weights",
+ "takeaway": "Scoring every vocabulary token by how much feature A/1/3450 pushes its next-token logit gives a histogram with two humps: a fat one at zero covering nearly the whole vocabulary, and a small one at the far right made almost entirely of Arabic tokens and of the byte tokens \\xd8 and \\xd9 that start Arabic UTF-8 characters. That is evidence the feature does not merely fire on Arabic text but pushes the model to produce it.",
+ "walkthrough": "The plot holds one number per vocabulary token, for a single feature: A/1/3450, the [[arabic-script-feature]].\n\nThat number is the [[logit-weight]]. Push the feature's direction through the MLP output matrix, then through a linearised layer norm, then through the unembedding, and you get how much one unit of this feature's activation adds to each next-token logit ([[path-expansion-logit-attribution]]).\n\nThe horizontal axis is that weight, from $-0.6$ to $0.6$. Positive means the feature raises the token's logit; negative means it lowers it. Softmax only cares about differences between logits, so the scale has no zero of its own; the paper slides each feature's weights until their median sits at $0$ ([[logit-weight-median-centering]]).\n\nThe vertical axis is density: a smoothed count of vocabulary tokens per unit of logit weight. Heights of hundreds of thousands come from that narrow horizontal scale, not from a token count. Weights for extremely rare or never-used vocabulary entries were dropped first ([[anomalous-token-exclusion]]).\n\nColour is separate from position. Each token is scored by the [[arabic-script-proxy]], a log-likelihood ratio running $-5$ (not Arabic, blue) to $+5$ (Arabic, red), and the strip under the axis shows the red-blue composition at each weight.\n\n### Reading it\n\nAlmost the entire vocabulary sits in the blue hump at zero, peaking near $0.42\\text{M}$. The paper annotates it \"Interference Weights?\" — a hypothesis, hedged with the question mark, that this is cross-talk forced by [[superposition]] rather than anything the model uses ([[weight-interference]]).\n\nThe inset stretches the range $0.3$ to $0.6$ vertically. Its left part is still blue and mixed: 'ран', 'сл', 'esis', 'fiction', 'molecules'. Only past about $0.35$ does the strip turn red, and the highest weights of all are Arabic: 'ال', 'ن', 'ة', plus the byte tokens '\\xd8' and '\\xd9'.\n\n### Why byte tokens\n\n[[byte-pair-encoding]] merges byte pairs that are frequent in the training text. Arabic letters live in U+0600–U+06FF and take two UTF-8 bytes each; ث (U+062B) becomes \\xd8\\xab, because the top five bits of the codepoint set the lead byte. Arabic pairs are rare in a Latin-dominated corpus, so many never earn a merge and the lead byte stands alone ([[utf8-multi-token-characters]]).\n\nPredicting Arabic therefore means predicting \\xd8 or \\xd9 first. That is exactly where this feature's weight is largest.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Logit Weights Distribution",
+   "definition": "The plot's title. It names what is being histogrammed: the collection of logit weights that one feature has, one weight per vocabulary token.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "A/1/3450",
+   "definition": "The feature being plotted, written in the paper's naming scheme: transformer A, dictionary learning run 1, feature number 3450 within that run. It is the Arabic script feature the paper uses as its first case study.",
+   "conceptId": "arabic-script-feature"
+  },
+  {
+   "term": "expanded weights from feature to logit",
+   "definition": "The subtitle's phrase for how the plotted number is computed: the feature direction is multiplied out along the single linear path to the output, through the MLP output matrix, a linearised layer norm, and the unembedding.",
+   "conceptId": "path-expansion-logit-attribution"
+  },
+  {
+   "term": "vocab element",
+   "definition": "One entry of the tokenizer's vocabulary. The plot has one data point per vocab element, so the histogram's total mass is roughly the vocabulary size after rare entries are dropped.",
+   "conceptId": "byte-pair-encoding"
+  },
+  {
+   "term": "Logit Weight (x axis)",
+   "definition": "How much the feature's firing adds to that token's next-token logit, per unit of feature activation. Right of zero the feature makes the token more likely; left of zero, less likely.",
+   "conceptId": "logit-weight"
+  },
+  {
+   "term": "Density (y axis)",
+   "definition": "A smoothed count of how many vocabulary tokens fall at each logit weight. It is a density in weight-units, not a token count, which is why the numbers run into the hundreds of thousands over an axis only 1.2 units wide.",
+   "conceptId": null
+  },
+  {
+   "term": "Interference Weights?",
+   "definition": "The paper's annotation on the central hump, with the question mark kept. It labels the guess that these near-zero weights are unwanted cross-talk from packing many features into few dimensions, rather than behaviour the model relies on.",
+   "conceptId": "weight-interference"
+  },
+  {
+   "term": "Log-Likelihood Ratio (colour legend)",
+   "definition": "The score used to colour each token, $\\log(P(s|\\text{Arabic Script})/P(s))$: how much more likely the token is under the hypothesis that the text is Arabic script than under the data distribution generally.",
+   "conceptId": "arabic-script-proxy"
+  },
+  {
+   "term": "Arabic → (legend arrow)",
+   "definition": "Tells you which end of the colour scale is Arabic. Red, at the high end of the ratio, marks tokens the proxy judges Arabic; blue marks tokens it judges non-Arabic.",
+   "conceptId": "log-likelihood-ratio-proxy"
+  },
+  {
+   "term": "Composition strip (bar under the axis)",
+   "definition": "A full-height stacked bar showing, at each logit weight, what fraction of the tokens there are Arabic (red) versus not (blue). It is blue almost everywhere and flips to mostly red past roughly 0.35.",
+   "conceptId": null
+  },
+  {
+   "term": "Inset (dashed callout box)",
+   "definition": "A vertically stretched redraw of the region from 0.3 to 0.6, where the density is too small to see in the main panel. Its vertical scale is unlabelled, so only the shape and colour inside it are readable, not the heights.",
+   "conceptId": null
+  },
+  {
+   "term": "'\\xd8'",
+   "definition": "A single-byte vocabulary token for the byte 0xD8, the first of the two UTF-8 bytes for Arabic characters U+0600 through U+063F. It carries one of the two largest logit weights of the whole vocabulary for this feature.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "'\\xd9'",
+   "definition": "The byte token 0xD9, the lead byte for Arabic characters U+0640 through U+067F. Like \\xd8 it sits in the far-right mode, because predicting an Arabic character means predicting its lead byte first.",
+   "conceptId": "utf8-multi-token-characters"
+  },
+  {
+   "term": "'\\xda', '\\xdb'",
+   "definition": "The lead bytes for the upper half of the same Unicode block, U+0680 through U+06FF, which holds letters added for Persian, Urdu and related languages. They are marked at a lower logit weight than \\xd8 and \\xd9; the paper does not comment on why.",
+   "conceptId": "unicode-block-detection"
+  },
+  {
+   "term": "'ص', 'ال', 'ن', 'ة', 'و', 'ى', 'ان', 'ج'",
+   "definition": "Arabic-script tokens labelled at the very top of the right-hand mode. Some are single letters and some are common letter pairs that were frequent enough for the tokenizer to merge into one token.",
+   "conceptId": null
+  },
+  {
+   "term": "'د', 'اف', 'م'",
+   "definition": "A second group of Arabic tokens labelled slightly lower in the right-hand mode, sharing the bump with \\xd8.",
+   "conceptId": null
+  },
+  {
+   "term": "'ран', 'сл', 'али', 'ж', 'г'",
+   "definition": "Cyrillic fragments sitting in the mid-tail near 0.5, coloured blue because the Arabic proxy scores them low. They show that the region between the two modes is not yet Arabic-specific.",
+   "conceptId": null
+  },
+  {
+   "term": "'esis', 'fiction', 'mption', 'fluence', 'molecules'",
+   "definition": "Latin-script word pieces also found in the mid-tail. Their presence is why the paper places the second mode at the far right rather than treating the whole tail as meaningful.",
+   "conceptId": "logit-weight-second-mode"
+  },
+  {
+   "term": "Second mode",
+   "definition": "The small far-right hump of tokens whose likelihood rises most when the feature fires. The paper reports this two-hump shape as a recurring pattern across features, not something specific to this one.",
+   "conceptId": "logit-weight-second-mode"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "A / 1 / 3450",
+   "meaning": "The feature's address: model A (one of two one-layer transformers trained with different seeds), dictionary learning run 1, feature index 3450 inside that run. Runs A/0 through A/5 share an L1 coefficient and grow in dictionary size, so run 1 is one of the smaller dictionaries."
+  },
+  {
+   "value": "-0.6 to 0.6",
+   "meaning": "The plotted range of logit weights, with ticks every 0.1. Weights outside this range are not shown; the range is wide enough to contain both modes."
+  },
+  {
+   "value": "0, 0.1M, 0.2M, 0.3M, 0.4M",
+   "meaning": "The density ticks. Because density is tokens per unit of logit weight and the whole axis spans only 1.2 units, a peak height of 0.4M corresponds to a total mass on the order of the vocabulary size, not to 400,000 tokens sitting at one weight."
+  },
+  {
+   "value": "~0.42M",
+   "meaning": "The approximate peak of the central mode, reached at a logit weight just above zero. It is high because almost every vocabulary token has a weight near zero."
+  },
+  {
+   "value": "0 (median)",
+   "meaning": "Where the paper places each feature's median logit weight. Softmax is shift-invariant, so adding a constant to every logit changes nothing; the median-centering fixes an otherwise arbitrary origin."
+  },
+  {
+   "value": "0.3",
+   "meaning": "The left edge of the inset, chosen because the density beyond it is invisible at the main panel's scale. The blue curve is clipped by the top of the inset box here, meaning the density at 0.3 exceeds the inset's own vertical range."
+  },
+  {
+   "value": "~0.35",
+   "meaning": "Roughly where the composition strip flips from mostly blue to mostly red. Below it the tokens with high weights are a mixed bag; above it they are predominantly Arabic by the proxy."
+  },
+  {
+   "value": "~0.5",
+   "meaning": "Where the mixed Cyrillic and Latin tail tokens are labelled. They sit at high weight but score low on the Arabic proxy, so they stay blue."
+  },
+  {
+   "value": "-5, -2.5, 0, 2.5, 5",
+   "meaning": "The colour legend's log-likelihood-ratio scale. Zero means the token is no more likely under the Arabic hypothesis than in general; +5 means about e^5, roughly 150 times more likely; -5 the reverse."
+  },
+  {
+   "value": "U+0600–U+06FF",
+   "meaning": "The basic Arabic Unicode block, the range the paper's Arabic proxy checks for (along with U+0750–U+077F). Every codepoint in it needs two UTF-8 bytes."
+  },
+  {
+   "value": "U+062B",
+   "meaning": "The codepoint of ث, the paper's worked example. Its UTF-8 encoding is \\xd8 followed by \\xab, and the tokenizer emits those as two separate tokens."
+  },
+  {
+   "value": "U+0600–U+063F → \\xd8, U+0640–U+067F → \\xd9, U+0680–U+06FF → \\xda and \\xdb",
+   "meaning": "Which lead byte a character gets. A two-byte UTF-8 encoding puts the codepoint's top five bits into the lead byte, so each lead byte covers a run of 64 codepoints; that is why exactly four byte tokens cover the whole basic Arabic block."
+  },
+  {
+   "value": "0.13% / 81%",
+   "meaning": "From the surrounding text rather than the plot: Arabic is 0.13% of the training tokens but 81% of the tokens on which this feature fires. It is the specificity result that this logit-weight plot is complementing with a causal-direction result."
+  }
+ ]
+}

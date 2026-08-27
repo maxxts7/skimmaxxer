@@ -1,0 +1,167 @@
+{
+ "id": "fig-48",
+ "title": "One base64 Feature Becoming Three",
+ "takeaway": "In the 512-feature dictionary A/0, a single feature (A/0/45) fires across a whole base64 string. In the 4,096-feature dictionary A/1, three features share that job — one leaning on letters, one on digits, one on base64 that decodes to ASCII — and between them they light up roughly the same tokens the parent did. The figure is the paper's picture of feature splitting at the level of individual tokens, shown on one example.",
+ "walkthrough": "### What you are looking at\n\nFour rows, all showing the same piece of text. The left column names a [[feature]] — one direction in the MLP activation space, learned by the [[sparse-autoencoder]]. The right column is a dataset example, a YouTube URL, with each token shaded by how strongly that feature fired on it. Darker orange means a larger activation. No shading means the feature was off.\n\nRead a name like A/0/45 in three parts: model A, dictionary learning run 0, feature number 45 inside that run. Run A/0 learned 512 features; run A/1 learned 4,096, with the same sparsity penalty. The arrows drop from the A/0 feature to three A/1 features. That downward branching is [[feature-splitting]].\n\n### How to read it\n\nCompare where the shading sits, row against row.\n\nThe top row runs continuously from `?v=` to the final `A`. A/0/45 treats the whole base64 tail as one undifferentiated thing.\n\nNow the children. [[base64-feature|A/1/2357]] shades the letters — `qap`, `a`, `O`, `z`, `A` — and skips the digits. [[base64-digit-feature|A/1/2364]] does the reverse: `5`, `5`, `4`, `9` are dark, the letters bare. A/1/1544 barely fires here at all, a few pale tokens near the start.\n\n### What it shows\n\nNo single child reproduces the parent. Taken together they cover most of the parent's span, and they are dark roughly where it was dark. That is what \"jointly cover\" means here: the union of firing positions, with total activation roughly preserved.\n\nWhy three and not two: the paper reads the digit/letter distinction as a tokenizer artifact ([[tokenization-artifacts-in-features]]), since two adjacent digits would have merged into one token, so a lone digit token is informative about what comes next. The third child responds to base64 that decodes to printable ASCII text; this video id is random, so it stays pale.\n\nThe evidence in this panel is one example, compared by eye. The paper says the activations \"seem to jointly cover\" the parent's and gives no coverage score alongside the picture.\n\nThe consequence the paper draws is that dictionary width behaves like a zoom level ([[dictionary-resolution]]), and that [[multiple-features-for-one-context|several features for one apparent concept]] is refinement rather than a bug.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Feature (left column header)",
+   "definition": "Labels the column holding feature names. In this paper a feature is a single direction in the transformer's MLP activation space that the sparse autoencoder learned, not a neuron of the transformer.",
+   "conceptId": "feature"
+  },
+  {
+   "term": "Activations on Dataset Example (right column header)",
+   "definition": "Labels the column showing text with per-token shading. Each row shows how strongly that row's feature fired at each token of the same example.",
+   "conceptId": null
+  },
+  {
+   "term": "A (first part of every name)",
+   "definition": "The transformer the features come from — the paper's main one-layer model. A second model, B, is used elsewhere for universality checks but does not appear here.",
+   "conceptId": "one-layer-transformer-testbed"
+  },
+  {
+   "term": "/0 and /1 (middle part of every name)",
+   "definition": "The dictionary learning run the feature was found in. Runs A/0 through A/5 hold the sparsity penalty fixed and increase the dictionary size, so a higher run number means a wider autoencoder.",
+   "conceptId": "dictionary-learning"
+  },
+  {
+   "term": "45, 2357, 2364, 1544 (last part of every name)",
+   "definition": "The index of the feature inside its run. The numbering carries no meaning; it is just a slot in the autoencoder's hidden layer.",
+   "conceptId": null
+  },
+  {
+   "term": "A/0/45",
+   "definition": "The parent feature, from the 512-feature dictionary. The paper describes it as activating on all tokens of base64-encoded strings — the only base64-related feature that run has.",
+   "conceptId": "base64-feature-family"
+  },
+  {
+   "term": "A/1/2357",
+   "definition": "One of the three children, from the 4,096-feature dictionary. It fires preferentially on the letter tokens inside base64 strings, and is the feature the paper studies in detail earlier as its base64 case study.",
+   "conceptId": "base64-feature"
+  },
+  {
+   "term": "A/1/2364",
+   "definition": "The second child, firing preferentially on single-digit tokens inside base64 strings. Its logit weights predict base64 tokens like the others but push down on digits.",
+   "conceptId": "base64-digit-feature"
+  },
+  {
+   "term": "A/1/1544",
+   "definition": "The third child. The paper argues it responds to base64 strings that decode into printable ASCII text rather than to base64 in general, which is why it is nearly silent on this random video id.",
+   "conceptId": "base64-feature-family"
+  },
+  {
+   "term": "base64 (bold right-hand label)",
+   "definition": "The interpretation attached to each row — every one of these four features is about base64 context. base64 encodes arbitrary bytes as characters drawn from [a-zA-Z0-9+/].",
+   "conceptId": "context-features"
+  },
+  {
+   "term": "prefer letters (italic label, A/1/2357)",
+   "definition": "The authors' shorthand for what distinguishes this child: within a base64 run it fires on letter tokens and mostly not on digit tokens.",
+   "conceptId": null
+  },
+  {
+   "term": "prefer digits (italic label, A/1/2364)",
+   "definition": "The shorthand for the complementary child: it fires on the digit tokens the letter feature skips.",
+   "conceptId": null
+  },
+  {
+   "term": "prefers encoded ASCII (italic label, A/1/1544)",
+   "definition": "The shorthand for the third child: it prefers base64 whose bytes decode to readable ASCII text over base64 that is random-looking.",
+   "conceptId": null
+  },
+  {
+   "term": "Orange shading",
+   "definition": "Per-token activation strength for the row's feature. Deeper orange is a larger activation; an unshaded token means the feature did not fire there. It is a relative scale within the row, not an absolute number.",
+   "conceptId": null
+  },
+  {
+   "term": "Token",
+   "definition": "The unit each shaded block covers. The shading here lands on pieces of the video id such as qap, a lone 5, and a lone 4, which is what lets a letter/digit split show up at all.",
+   "conceptId": null
+  },
+  {
+   "term": "Dataset example",
+   "definition": "A snippet of real text from the model's training distribution, chosen to display a feature's behaviour. The paper's activation visualizations are drawn from a 100-million-token subset of that data.",
+   "conceptId": "activation-visualization-sampling"
+  },
+  {
+   "term": "https://www.youtube.com/watch?v=5qap5aO4z9A",
+   "definition": "The example text. The query string after ?v= is a base64-style video id, so the base64 features fire on its tail and not on the plain-English domain that precedes it.",
+   "conceptId": null
+  },
+  {
+   "term": "Arrows / branching lines",
+   "definition": "The link from the A/0 feature down to the three A/1 features, asserting a parent-child relation between dictionary sizes. The paper elsewhere notes this refinement structure is not strictly a tree — features can also merge going up in size.",
+   "conceptId": "splitting-is-not-a-tree"
+  },
+  {
+   "term": "ASCII",
+   "definition": "Ordinary printable text bytes. Because base64 decodes groups of characters back into bytes, a base64 string can carry readable ASCII or arbitrary binary, and A/1/1544 keys on the difference.",
+   "conceptId": null
+  },
+  {
+   "term": "Jointly cover",
+   "definition": "The claim the figure is making: the set of tokens where at least one child fires approximates the set where the parent fired, with comparable strength. It is asserted here by visual comparison, not by a stated metric.",
+   "conceptId": "feature-splitting"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "512",
+   "meaning": "The number of learned features in run A/0, the parent's dictionary. At this width the run has room for exactly one base64-related feature, A/0/45."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The number of learned features in run A/1, the children's dictionary — eight times A/0. The sparsity penalty is held fixed between the two runs, so width is the variable that changes."
+  },
+  {
+   "value": "16,384",
+   "meaning": "The width of the next run, A/2. The paper says the base64 features there are 'many more' still, though A/2 is not shown in this figure."
+  },
+  {
+   "value": "1 → 3 → many more",
+   "meaning": "The count of base64-specific features in A/0, A/1 and A/2. This progression is the paper's headline evidence for feature splitting; the figure shows the first step of it, 1 into 3."
+  },
+  {
+   "value": "3",
+   "meaning": "The number of children in this panel. The paper's answer to 'why three?' is that the split separates letters from digits, and separately separates base64 that decodes to ASCII from base64 that does not."
+  },
+  {
+   "value": "45",
+   "meaning": "The parent's index within A/0's 512 slots. Arbitrary — it is the position in the autoencoder's hidden layer, with no ordering by importance."
+  },
+  {
+   "value": "2357, 2364, 1544",
+   "meaning": "The children's indices within A/1's 4,096 slots. That 2357 and 2364 are seven apart carries no meaning; features are not sorted by similarity."
+  },
+  {
+   "value": "0 and 1 (in A/0 and A/1)",
+   "meaning": "Run identifiers, ordered by dictionary size. A/0…A/5 form a sequence of increasing width at fixed L1 coefficient, so a larger run number means a finer decomposition of the same activations."
+  },
+  {
+   "value": "64 (in 'base64')",
+   "meaning": "The size of the base64 character alphabet, [a-zA-Z0-9+/]. The paper models base64 strings as random draws from these 64 characters when building its computational proxy for the base64 feature."
+  },
+  {
+   "value": "4 and 3",
+   "meaning": "base64 packs four encoded characters into three bytes. This is why the paper says deciding whether an example decodes to ASCII is subtle — it can only be decoded in groups of four — and why it selects substrings maximizing printable ASCII characters when checking A/1/1544."
+  },
+  {
+   "value": "5, 5, 4, 9 (the digits in 5qap5aO4z9A)",
+   "meaning": "The tokens A/1/2364 shades and A/1/2357 skips. Each appears as a lone digit because the BPE tokenizer would have merged two adjacent digits into one token, which is the tokenization artifact the paper says this feature exploits."
+  },
+  {
+   "value": "11 (characters in the video id 5qap5aO4z9A)",
+   "meaning": "The length of the base64-ish string in the example. It is short and random-looking, which is consistent with A/1/1544 — the decodes-to-ASCII feature — staying nearly unshaded here."
+  },
+  {
+   "value": "100 million tokens / 10 tokens per context",
+   "meaning": "The sampling behind the paper's activation visualizations: examples are drawn from a 100-million-token subset of the training data, taking only 10 tokens from each context. It sets the pool this dataset example came from."
+  },
+  {
+   "value": "0.38",
+   "meaning": "Stated elsewhere for A/1/2357: the Pearson correlation between the feature's activations and the base64 computational proxy. The paper attributes the low value mostly to the proxy being too broad — it also counts hexadecimal strings, which have their own feature — rather than to the feature being impure."
+  }
+ ]
+}

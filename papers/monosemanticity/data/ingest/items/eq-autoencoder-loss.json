@@ -1,0 +1,190 @@
+{
+ "id": "eq-autoencoder-loss",
+ "title": "The Sparse Autoencoder's Two-Term Loss",
+ "takeaway": "This is the entire method in four lines: a ReLU encoder turns one MLP activation vector into feature activations, a linear decoder rebuilds the activation from them, and training minimizes squared reconstruction error plus an L1 penalty on those activations. The two loss terms pull against each other — reconstruction forces the dictionary to keep the information, L1 forces most features to be off — and the coefficient lambda sets the exchange rate between them.",
+ "walkthrough": "This block is the whole [[sparse-autoencoder]] written out: three lines defining a forward pass, and one line defining what training minimizes.\n\nRead the first three lines as a round trip. The input $\\mathbf{x}$ is a single MLP activation vector taken from the transformer under study — the activations are the only thing the autoencoder ever sees ([[mlp-activations-as-target]]).\n\nLine one subtracts $\\mathbf{b}_d$ from the input. The same bias is used at the input and at the output, so the whole autoencoder works in coordinates recentred on the data. The paper calls this the [[pre-encoder-bias]] and lists it as its single most important modification to a standard autoencoder.\n\nLine two is the [[autoencoder-encoder]]: a linear map, a bias, then ReLU. Its output $\\mathbf{f}$ is the vector of [[feature-activation]]s. ReLU matters here because it makes entries that are exactly zero possible, not merely small.\n\nLine three rebuilds the activation. $W_d\\mathbf{f}$ is a weighted sum of the columns of $W_d$, with $\\mathbf{f}$ supplying the weights. Each column is one [[feature-direction]], which is why the paper calls $W_d$ the dictionary ([[dictionary-decoder]]).\n\nLine four is the loss, and it has two terms pulling opposite ways.\n\nThe first, $||\\mathbf{x}-\\hat{\\mathbf{x}}||_2^2$, is squared reconstruction error ([[mse-reconstruction-term]]). It is what forces the dictionary to keep the information: drop a direction the activations actually use, and this term rises.\n\nThe second, $\\lambda||\\mathbf{f}||_1$, sums the feature activations ([[l1-sparsity-penalty]]). What the paper actually wants is a small count of nonzero entries, which it measures separately as the [[l0-norm]] — but a count gives gradient descent nothing to push on. The L1 sum is the differentiable stand-in, and sitting above a ReLU it drives most entries to exactly zero.\n\n$\\lambda$ sets the trade between the two ([[l1-coefficient]]). Raise it and the code gets sparser but reconstructs worse; lower it and the reverse ([[l0-nll-tradeoff]]).\n\nOne detail keeps the L1 term honest. Nothing stops a network from halving every entry of $\\mathbf{f}$ and doubling the matching column of $W_d$ — same reconstruction, half the penalty. So the columns of $W_d$ are constrained to unit L2 norm ([[unit-norm-dictionary-columns]]).\n\nFinally, note $m \\geq n$: the hidden layer is wider than the input ([[overcompleteness]]). That is what lets the decomposition have more features than the MLP has neurons, as [[superposition]] would require.",
+ "latex": "\\begin{aligned} \\bar{\\mathbf{x}} &= \\mathbf{x} - \\mathbf{b}_{d} \\\\ \\mathbf{f} &= \\text{ReLU}( W_e \\bar{\\mathbf{x}}+\\mathbf{b}_e ) \\\\ \\hat{\\mathbf{x}} &= W_d \\mathbf{f}+\\mathbf{b}_d \\\\ \\mathcal{L} &= \\frac{1}{|X|} \\sum_{\\mathbf{x}\\in X} ||\\mathbf{x}-\\hat{\\mathbf{x}}||_2^2 + \\lambda||\\mathbf{f}||_1 \\end{aligned}",
+ "terms": [
+  {
+   "term": "$\\mathbf{x}$",
+   "definition": "One MLP activation vector from the transformer being decomposed — a single datapoint the autoencoder is asked to reconstruct. It lives in $\\mathbb{R}^n$.",
+   "conceptId": "mlp-activations-as-target"
+  },
+  {
+   "term": "$\\bar{\\mathbf{x}}$",
+   "definition": "The input after the decoder bias has been subtracted, $\\mathbf{x} - \\mathbf{b}_d$. This recentred vector, not the raw activation, is what the encoder sees.",
+   "conceptId": "pre-encoder-bias"
+  },
+  {
+   "term": "$\\mathbf{f}$",
+   "definition": "The hidden-layer activations, which the paper calls its learned features. Entry $f_i$ says how strongly feature $i$ fires on this datapoint; most entries are zero.",
+   "conceptId": "feature-activation"
+  },
+  {
+   "term": "$\\hat{\\mathbf{x}}$",
+   "definition": "The autoencoder's reconstruction of the input, built as a weighted sum of dictionary directions plus the bias. The gap between $\\mathbf{x}$ and $\\hat{\\mathbf{x}}$ is what the first loss term punishes.",
+   "conceptId": null
+  },
+  {
+   "term": "$W_e$",
+   "definition": "The encoder weight matrix, shape $m \\times n$. It maps a recentred activation vector up into the wider feature space.",
+   "conceptId": "autoencoder-encoder"
+  },
+  {
+   "term": "$W_d$",
+   "definition": "The decoder weight matrix, shape $n \\times m$, also called the dictionary. Its columns are the feature directions, and they are constrained to unit norm.",
+   "conceptId": "dictionary-decoder"
+  },
+  {
+   "term": "$\\mathbf{b}_e$",
+   "definition": "The encoder bias, a vector in $\\mathbb{R}^m$ added before the ReLU. It sets each feature's firing threshold.",
+   "conceptId": "autoencoder-encoder"
+  },
+  {
+   "term": "$\\mathbf{b}_d$",
+   "definition": "The decoder bias, a vector in $\\mathbb{R}^n$. It appears twice: subtracted from the input in line one and added back in line three, so the input and output biases are tied.",
+   "conceptId": "pre-encoder-bias"
+  },
+  {
+   "term": "$\\mathcal{L}$",
+   "definition": "The training objective, minimized by Adam over the activation dataset. It is reconstruction error plus the sparsity penalty, with nothing else in it.",
+   "conceptId": "sparse-autoencoder-loss"
+  },
+  {
+   "term": "$n$",
+   "definition": "The input and output dimension of the autoencoder — here the width of the transformer's MLP layer, since MLP activations are what is being decomposed.",
+   "conceptId": null
+  },
+  {
+   "term": "$m$",
+   "definition": "The autoencoder's hidden-layer dimension, i.e. the number of features in the dictionary. The paper takes $m \\geq n$.",
+   "conceptId": "expansion-factor"
+  },
+  {
+   "term": "$X$",
+   "definition": "The dataset of MLP activation vectors the autoencoder is trained on. Each $\\mathbf{x}$ in the sum is one such vector.",
+   "conceptId": "autoencoder-training-dataset"
+  },
+  {
+   "term": "$|X|$",
+   "definition": "The number of activation vectors in the dataset, used to turn the summed loss into a mean. In practice this is a batch average.",
+   "conceptId": null
+  },
+  {
+   "term": "$\\text{ReLU}$",
+   "definition": "The elementwise nonlinearity on the hidden layer. Here its role is specifically to allow feature activations that are exactly zero, so the L1 penalty produces genuine sparsity rather than many small values.",
+   "conceptId": null
+  },
+  {
+   "term": "$||\\mathbf{x}-\\hat{\\mathbf{x}}||_2^2$",
+   "definition": "Squared L2 reconstruction error between the true activation and its reconstruction. The paper notes this is taken as a mean over vector elements.",
+   "conceptId": "mse-reconstruction-term"
+  },
+  {
+   "term": "$||\\mathbf{f}||_1$",
+   "definition": "The L1 norm of the feature activations, the sum of their absolute values (all non-negative here, after ReLU). Unlike the MSE term, this is a sum rather than a mean over elements.",
+   "conceptId": "l1-sparsity-penalty"
+  },
+  {
+   "term": "$\\lambda$",
+   "definition": "The L1 coefficient, a scalar weighting the sparsity penalty against reconstruction error. It is one of the two hyperparameters the paper varies across its dictionary learning runs, the other being $m$.",
+   "conceptId": "l1-coefficient"
+  },
+  {
+   "term": "Columns of unit norm",
+   "definition": "The constraint that every column of $W_d$ has L2 norm exactly 1. Without it the network could shrink $\\mathbf{f}$ and grow the matching column, cutting the L1 penalty without changing the reconstruction.",
+   "conceptId": "unit-norm-dictionary-columns"
+  },
+  {
+   "term": "Overcomplete ($m \\geq n$)",
+   "definition": "Having at least as many dictionary directions as the dimension of the space they live in, usually many more. The paper treats this as what separates its setting from ordinary disentanglement work.",
+   "conceptId": "overcompleteness"
+  },
+  {
+   "term": "Dictionary",
+   "definition": "The paper's alternate name for the decoder $W_d$, taken from sparse dictionary learning, where a signal is written as a sparse combination of a fixed set of directions.",
+   "conceptId": "dictionary-learning"
+  },
+  {
+   "term": "Encoder as amortized sparse coding",
+   "definition": "The paper's framing of what $W_e$ is doing: a single linear-plus-ReLU stand-in for a multi-step, non-linear sparse coding algorithm that would otherwise have to be run per datapoint.",
+   "conceptId": "amortized-sparse-coding-approximation"
+  },
+  {
+   "term": "Untied decoder weights",
+   "definition": "$W_e$ is learned independently rather than being fixed to the transpose of $W_d$. The paper reports the learned encoder ends up tilted away from the decoder, which it says increases representational capacity.",
+   "conceptId": "untied-decoder-weights"
+  },
+  {
+   "term": "$L^0$ norm",
+   "definition": "The average number of nonzero feature activations per datapoint. This is the paper's direct measure of sparsity, and the quantity the L1 term is standing in for during training.",
+   "conceptId": "l0-norm"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "2 (in $||\\cdot||_2^2$)",
+   "meaning": "The subscript names the L2 norm and the exponent squares it, making the first term ordinary squared error. The paper says it uses an MSE loss, and elsewhere notes that MSE — unlike the cross-entropy the transformer was trained with — does not itself reward polysemantic representations, so sparsity can inhibit superposition forming inside the learned dictionary."
+  },
+  {
+   "value": "1 (in $||\\cdot||_1$)",
+   "meaning": "The L1 norm, the plain sum of the feature activations. It is used instead of a count of nonzeros because a count gives no gradient."
+  },
+  {
+   "value": "1 (unit norm)",
+   "meaning": "The fixed L2 length of every column of $W_d$. It is set to 1 purely to remove the rescaling degree of freedom that would otherwise let the L1 penalty be gamed."
+  },
+  {
+   "value": "$1/|X|$",
+   "meaning": "The averaging factor over the dataset, so the loss does not scale with batch size."
+  },
+  {
+   "value": "$m \\geq n$",
+   "meaning": "The overcompleteness condition. The paper wants more features than neurons because it believes the MLP layer uses superposition to represent more features than it has dimensions."
+  },
+  {
+   "value": "512",
+   "meaning": "The value of $n$ in this paper — the transformer's inner MLP dimension, and hence the dimension of the activation vectors being decomposed."
+  },
+  {
+   "value": "128",
+   "meaning": "The residual stream dimension of the one-layer transformer. It is not part of this equation, but it is the space the MLP reads from and writes back into."
+  },
+  {
+   "value": "512 to 131,072",
+   "meaning": "The range of $m$ across the paper's runs, i.e. expansion factors from 1x (no overcompleteness at all) to 256x."
+  },
+  {
+   "value": "4,096",
+   "meaning": "The value of $m$ in run A/1, the 8x expansion the paper focuses its detailed analysis on."
+  },
+  {
+   "value": "0.004",
+   "meaning": "The value of $\\lambda$ in run A/5, given as the paper's example of a low L1 coefficient paired with the largest dictionary. It is the one numeric $\\lambda$ the text names."
+  },
+  {
+   "value": "less than 10 or 20",
+   "meaning": "The $L^0$ norm the paper generally targets when choosing $\\lambda$ — the average number of features it wants active per token. The paper says it has no principled way to pick this level, and distrusts solutions where $L^0$ is a large fraction of 512."
+  },
+  {
+   "value": "79% / 21%",
+   "meaning": "For run A/1, the fraction of the MLP's log-likelihood loss contribution recovered when the autoencoder's $\\hat{\\mathbf{x}}$ is spliced in for the real activations, and the fraction lost. This is the reconstruction side of the trade $\\lambda$ controls."
+  },
+  {
+   "value": "94.5%",
+   "meaning": "The same measure for A/5, the largest dictionary with the low $\\lambda$ of 0.004. The paper offers it as the extreme showing that reconstruction improves as $\\lambda$ falls and $m$ grows."
+  },
+  {
+   "value": "1%",
+   "meaning": "The feature density above which the paper reads a $\\lambda$ as too low. A feature firing on more than 1% of tokens is treated as a sign the sparsity penalty is not biting hard enough."
+  },
+  {
+   "value": "8 billion / 10 billion",
+   "meaning": "The number of activation vectors used to train the autoencoder, drawn from a pool of 10 billion. The paper reports that more data made features subjectively sharper."
+  },
+  {
+   "value": "8192 / 1 million",
+   "meaning": "The autoencoder's batch size and its number of update steps, sampled without replacement. Multiplied together these give the just-over-8-billion activation vectors seen."
+  }
+ ]
+}
