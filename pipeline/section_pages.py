@@ -17,7 +17,20 @@ from paper import paper_id
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAIN = paper_id()
 
-doc = pymupdf.open(os.path.join(ROOT, "papers", MAIN, "paper.pdf"))
+# A paper published as a web page has no pages to map to, and ingest_web.py
+# has already written section-pages.json with anchors in their place. This is
+# a PDF-only stage, so on a web paper it is finished before it starts rather
+# than a failure to work around.
+PDF = os.path.join(ROOT, "papers", MAIN, "paper.pdf")
+if not os.path.exists(PDF):
+    out = os.path.join(ROOT, "papers", MAIN, "data", "ingest", "section-pages.json")
+    if os.path.exists(out):
+        n = len(json.load(open(out, encoding="utf-8")))
+        print(f"{MAIN} has no PDF - web-ingested, {n} sections already mapped to anchors. Nothing to do.")
+        raise SystemExit(0)
+    raise SystemExit(f"{MAIN} has neither paper.pdf nor a section-pages.json from the web ingest.")
+
+doc = pymupdf.open(PDF)
 heads = find_headings(doc)          # (page_index, y, id, title), document order
 n_pages = len(doc)
 

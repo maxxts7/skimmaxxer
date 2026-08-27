@@ -1,6 +1,11 @@
 """Merge stage-2 figure-agent output onto the ingest inventory -> data/items.json.
 
-usage: python pipeline/save_items.py <workflow-task-output.json>
+usage: python pipeline/save_items.py <dir-of-per-item-json | task-output.json>
+
+A directory is the normal case: each figure agent writes its own result to
+data/ingest/items/<item-id>.json, so eighty walkthroughs reach this script
+without any agent having to carry them. A single task-output file still works,
+for a run whose results arrived that way.
 """
 import json
 import os
@@ -12,8 +17,23 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAIN = paper_id()
 
 
+def load_results(src):
+    if os.path.isdir(src):
+        out = {}
+        for f in sorted(os.listdir(src)):
+            if not f.endswith(".json"):
+                continue
+            r = json.load(open(os.path.join(src, f), encoding="utf-8"))
+            r = r.get("result", r)          # tolerate either wrapping
+            if isinstance(r, dict) and r.get("id"):
+                out[r["id"]] = r
+        return out
+    raw = json.load(open(src, encoding="utf-8"))
+    return {i["id"]: i for i in raw["result"]["items"]}
+
+
 def main(task_out):
-    agent_items = {i["id"]: i for i in json.load(open(task_out, encoding="utf-8"))["result"]["items"]}
+    agent_items = load_results(task_out)
     base = json.load(open(os.path.join(ROOT, "papers", MAIN, "data", "ingest", "items.json"),
                           encoding="utf-8"))["items"]
 

@@ -8,7 +8,7 @@ import json
 import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PARTS = ["concepts", "items", "edges", "themes", "pages", "narrative", "insights"]
+PARTS = ["concepts", "items", "edges", "themes", "pages", "narrative", "insights", "reading"]
 
 
 def load(path, default):
@@ -35,6 +35,19 @@ def main():
             else:
                 data[part] = raw
         data["refs"] = load(os.path.join(pdir, "refs.json"), {"accessed": []})
+        # Where each block sits on the PDF page. Scripted rather than authored,
+        # so it lives under ingest/ and is picked up from there.
+        reg = load(os.path.join(pdir, "data", "ingest", "regions.json"), None)
+        data["regions"] = reg["regions"] if reg else []
+        data["pdfPages"] = reg["pages"] if reg else 0
+        # A PDF or a page on the web. The reader opens a different file and
+        # cites differently for each; nothing else in the viewer cares.
+        data["readerKind"] = (reg or {}).get("kind", "pdf")
+        # Section titles, so the reader can name where a block sits without
+        # every surface having to carry the title itself.
+        sec = load(os.path.join(pdir, "data", "ingest", "sections.json"), None)
+        data["sections"] = [{"id": x["id"], "title": x["title"]}
+                            for x in (sec or {}).get("sections", [])]
         os.makedirs(os.path.join(pdir, "data", "js"), exist_ok=True)
         out = os.path.join(pdir, "data", "js", "bundle.js")
         with open(out, "w", encoding="utf-8") as f:

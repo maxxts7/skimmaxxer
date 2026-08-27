@@ -1,16 +1,17 @@
 export const meta = {
   name: 'skimmaxxer',
   description: 'Turn a research paper PDF into a recursive explainer web app',
-  whenToUse: 'When a new paper should get the full Skimmaxxer treatment: concept tree, self-sufficient figures, relationship graph, themed pages, a recursive narrative and an insights read. Pass args {paperId, arxivId?, floor?, pace?, lenses?, maxDepth?}. See METHOD.md.',
+  whenToUse: 'When a new paper should get the full Skimmaxxer treatment: concept tree, self-sufficient figures, relationship graph, themed pages, a recursive narrative and an insights read. Pass args {paperId, arxivId?, floor?, pace?, lenses?, maxDepth?}. See MANUAL.md.',
   phases: [
     { title: 'Ingest', detail: 'PDF to sections, crops, equation inventory' },
     { title: 'Concepts', detail: '3 extractors + merge' },
-    { title: 'Cited papers', detail: 'narrow reads of what the paper leans on' },
+    { title: 'Cited papers', detail: 'triage, then a narrow read of what the paper leans on' },
     { title: 'Figures', detail: 'one agent per figure, table and equation' },
+    { title: 'Charts', detail: 'one explainer per kind of plot: why this shape, how to read it' },
     { title: 'Edges', detail: 'one agent per relationship lens' },
     { title: 'Themes', detail: 'concept themes and edge themes' },
-    { title: 'Pages', detail: 'one agent per theme, edge-theme and major concept' },
-    { title: 'Narrative', detail: 'root storyline, then recursive expansion' },
+    { title: 'Pages', detail: 'triage, then one agent per theme, edge-theme and major concept' },
+    { title: 'Narrative', detail: 'root storyline, then recursive expansion, triaged each round' },
     { title: 'Insights', detail: 'the second read, spined on the edges' },
     { title: 'Finish', detail: 'citations, auto-link, bundle, quality gate' },
   ],
@@ -26,6 +27,10 @@ const ROOT = 'C:/Users/44759/Desktop/SkimReconstruct'
 const P = ROOT + '/papers/' + PAPER
 const ING = P + '/data/ingest'
 const PY = 'SKIM_PAPER=' + PAPER + ' python'
+// A paper is a PDF or a page on the web. It changes stage 0 and where the
+// figure agents find their image; every other stage reads text and JSON and
+// never learns which it was. Pass {kind: 'web', url: '...'} for the latter.
+const WEB = A.kind === 'web'
 const MAX_DEPTH = A.maxDepth || 3
 const PACE = (A.pace || 'slow') === 'slow'
 
@@ -72,6 +77,75 @@ Report failures rather than working around them. Do not edit pipeline scripts un
     { label, phase: phaseName, schema, effort: 'low' })
 }
 
+/* ---------------------------------------------------------------- triage */
+/* Before a fan-out, one agent decides what each job in it is worth.
+
+   A fan-out is the expensive part of a run and its size is a property of the
+   paper, not of anything anyone chose: eighty figures is eighty agents. But
+   the jobs in it are not equal. Some carry a claim the argument rests on;
+   some are a screenshot of the authors' tooling; some are the fourth
+   near-identical version of a scatter already explained three times.
+
+   Two grounds for spending less, and only two:
+     - the job carries no claim
+     - it repeats something already covered properly
+
+   It rates each job and does not stop to ask. What it never does is remove
+   coverage: a "brief" still gets written, still gets its terms defined, still
+   gets its page. The gate's promise - every major concept has a page, every
+   item has a walkthrough - holds whatever triage decides. The one place a
+   decision is genuinely a cut is a narrative branch that would restate its
+   parent, and not expanding that is the right answer at any budget. */
+
+const TRIAGE_SCHEMA = {
+  type: 'object',
+  required: ['calls', 'note'],
+  properties: {
+    calls: { type: 'array', items: { type: 'object', required: ['id', 'verdict', 'why'], properties: { id: { type: 'string' }, verdict: { enum: ['full', 'brief', 'skip'] }, why: { type: 'string' } } } },
+    note: { type: 'string' },
+  },
+}
+
+async function triage(label, phaseName, what, jobs, grounds) {
+  if (jobs.length < 4) return new Map(jobs.map((j) => [j.id, 'full']))
+  const r = await agent(
+    `You decide what each job in one fan-out of "${ingest.title}" is worth, before any of them runs.
+
+${what}
+
+THE JOBS (${jobs.length}):
+${jobs.map((j) => `- ${j.id}: ${j.about}`).join('\n')}
+
+${READER}
+
+Rate each on TWO grounds and no others:
+- Does it carry a claim? Something the paper's argument rests on, or a mechanism a reader has to understand, earns "full".
+- Does it repeat something already covered? The fourth near-identical version of a thing explained properly three times earns "brief", with the why naming the id it repeats.
+
+Anything else gets "full". Do not rate on how interesting you find it, how long it is, or how much work it looks like.
+
+${grounds}
+
+VERDICTS:
+- full: the normal treatment.
+- brief: written, but shorter and leaning on the fuller one. Coverage is not lost - it is a shorter telling with a pointer.
+- skip: only where listed above as allowed. Never as a way to save effort on something that carries a claim.
+
+RETURN calls: one per job, with id, verdict, and a why of one sentence. And note: one or two sentences on what you cut back and what you left alone. Every job must appear.`,
+    { label, phase: phaseName, schema: TRIAGE_SCHEMA, effort: 'medium' })
+  if (!r) {
+    log(`${label}: no verdicts, everything runs full`)
+    return new Map(jobs.map((j) => [j.id, 'full']))
+  }
+  const m = new Map(r.calls.map((c) => [c.id, c.verdict]))
+  jobs.forEach((j) => { if (!m.has(j.id)) m.set(j.id, 'full') })
+  const n = (v) => r.calls.filter((c) => c.verdict === v).length
+  log(`${label}: ${n('full')} full, ${n('brief')} brief, ${n('skip')} skipped - ${r.note}`)
+  return m
+}
+
+const BRIEF_RULE = `\n\nTHIS ONE IS BRIEF. It repeats something the reader has already met, so it is a short telling that leans on the fuller one: cover what is genuinely different here, say plainly what it has in common, and link to the fuller version rather than restating it. Aim for a third of the usual length. Do not drop a term, a number or a link that only appears here.`
+
 /* ------------------------------------------------------------- 1. ingest */
 
 phase('Ingest')
@@ -83,7 +157,7 @@ const INGEST_SCHEMA = {
     title: { type: 'string' },
     authors: { type: 'string' },
     sections: { type: 'array', items: { type: 'object', required: ['id', 'title', 'file'], properties: { id: { type: 'string' }, title: { type: 'string' }, file: { type: 'string' } } } },
-    items: { type: 'array', items: { type: 'object', required: ['id', 'kind', 'caption'], properties: { id: { type: 'string' }, kind: { type: 'string' }, caption: { type: 'string' }, page: { type: ['number', 'null'] }, focus: { type: 'string' } } } },
+    items: { type: 'array', items: { type: 'object', required: ['id', 'kind', 'caption', 'asset'], properties: { id: { type: 'string' }, kind: { type: 'string' }, caption: { type: 'string' }, page: { type: ['number', 'null'] }, asset: { type: ['string', 'null'] }, focus: { type: 'string' } } } },
     sectionGroups: {
       type: 'array',
       items: { type: 'object', required: ['key', 'files', 'hint'], properties: { key: { type: 'string' }, files: { type: 'array', items: { type: 'string' } }, hint: { type: 'string' } } },
@@ -94,20 +168,30 @@ const INGEST_SCHEMA = {
 
 const ingest = await sh('ingest', 'Ingest', `TASK, in order:
 
-1. Make sure ${P}/paper.pdf exists.${A.arxivId ? ` If not, fetch it:  curl -sL -o "${P}/paper.pdf" "https://arxiv.org/pdf/${A.arxivId}"` : ''}
+${WEB ? `1. Make sure ${P}/paper.html exists.${A.url ? ` If not, write ${P}/source.json as {"url": "${A.url}"} first.` : ''}
+   Create the directories it needs: ${P}/data/ingest and ${P}/assets.
+2. Write ${ROOT}/pipeline/active.json as {"paperId": "${PAPER}"}.
+3. Run:  ${PY} pipeline/ingest_web.py     (the fetch is cached, so re-running is free)
+4. READ THE SECTION LIST it printed. A web article's headings carry no numbers, so the risk is not a missing heading but a wrong nesting - a run of sub-headings hanging off the wrong parent, or an appendix reading as a subsection of the last section. Say what you found.
+5. CHECK THE IMAGES BY EYE. Use the Read tool on several files in ${P}/assets/. These are the authors' own image files rather than crops, so the failure is a different one: an image that turns out to be a screenshot of their tooling rather than a result, or a figure that was a live widget and has no file at all. Note any item whose image cannot carry a page of its own.
+   AND CHECK THE INFERRED CAPTIONS. A web figure usually has no caption, so ingest takes the sentence that introduces it and marks the item captionInferred. Read half a dozen of those in ${ING}/items.json against their section text and say whether they actually describe the figure. Where one is plainly wrong, fix that item's caption in ${ING}/items.json directly.
+   Report all of it in cropCheck.
+6. INVENTORY THE EQUATIONS. Read the section text files and find the displayed equations that carry real weight - the ones a reader would need explained. Write them to ${P}/equations.json as a JSON list of {"id": "eq-<slug>", "name": "<what it is>", "section": "<section id>"}. Aim for the 3-8 that matter, not every inline formula. Then re-run ingest_web.py so they enter the item inventory.
+7. Nothing more - ingest_web.py writes section-pages.json itself, with anchors in place of page numbers.` :
+`1. Make sure ${P}/paper.pdf exists.${A.arxivId ? ` If not, fetch it:  curl -sL -o "${P}/paper.pdf" "https://arxiv.org/pdf/${A.arxivId}"` : ''}
    Create the directories it needs: ${P}/data/ingest and ${P}/assets.
 2. Write ${ROOT}/pipeline/active.json as {"paperId": "${PAPER}"}.
 3. Run:  ${PY} pipeline/ingest.py
 4. READ THE SECTION LIST it printed. If sections are obviously wrong - one giant section, or headings missing - the heading heuristic has failed on this layout. Unnumbered section titles can be added to ${P}/headings.json (a JSON list of strings); re-run ingest after editing.
 5. VERIFY THE CROPS BY EYE. Use the Read tool on several images in ${P}/assets/ - at minimum the first figure, the largest table, and any crop whose printed rect looks unusually short or tall. You are checking that each image contains the whole figure or table and its caption, and nothing from the body text. If one is wrong, write a rect override into ${P}/crops.json as {"<item-id>": {"rect": [x0, y0, x1, y1]}} in PDF points and re-run ingest. Report honestly in cropCheck what you looked at and what you found.
 6. INVENTORY THE EQUATIONS. Read the section text files and find the displayed equations that carry real weight - the ones a reader would need explained. Write them to ${P}/equations.json as a JSON list of {"id": "eq-<slug>", "name": "<what it is, incl. its printed number>", "section": "<section id>"}. Aim for the 3-8 that matter, not every inline formula. Then re-run ingest so they enter the item inventory.
-7. Run:  ${PY} pipeline/section_pages.py
+7. Run:  ${PY} pipeline/section_pages.py`}
 
 THEN REPORT:
-- title, authors: read off page 1.
+- title, authors: ${WEB ? 'from the top of the article.' : 'read off page 1.'}
 - sections: every section from ingest's output (id, title, and the section's filename).
-- items: every figure, table and equation now in the inventory. For each, a "focus" field: one or two sentences telling a later agent what specifically must be covered for that item to stand on its own - the axes and legend of a plot, every row and column of a table, the symbols and the reason for each term of an equation.
-- sectionGroups: split the sections into 3 balanced groups for parallel concept extraction, by role rather than by count. Typically: framing (abstract, intro, related work, discussion/conclusion), method (the architecture or approach), experiments (setup, results, ablations). Give each a "key", the list of section FILENAMES, and a "hint" naming the concepts an extractor should expect to find there, specific to this paper.
+- items: every figure, table and equation now in the inventory. For each, its "asset" exactly as items.json records it (or null where it has none), and a "focus" field: one or two sentences telling a later agent what specifically must be covered for that item to stand on its own - the axes and legend of a plot, every row and column of a table, the symbols and the reason for each term of an equation.
+- sectionGroups: split the sections into 3 balanced groups for parallel concept extraction, by role rather than by count. EVERY section file goes into exactly one group, appendices included - an appendix carries ablations and setup this paper's claims rest on, and a file in no group is read by nobody. Typically: framing (abstract, intro, related work, discussion/conclusion), method (the architecture or approach), experiments (setup, results, ablations). Give each a "key", the list of section FILENAMES, and a "hint" naming the concepts an extractor should expect to find there, specific to this paper.
 - cropCheck: what you verified and what you fixed.`, INGEST_SCHEMA)
 
 if (!ingest) throw new Error('ingest failed')
@@ -167,45 +251,67 @@ DO NOT: walk through figures cell-by-cell (a dedicated stage does that); invent 
 
 log(`extractors: ${extracted.length}/${ingest.sectionGroups.length}, ${extracted.reduce((n, o) => n + o.concepts.length, 0)} raw concepts`)
 
+/* The merge returns judgements, not a copy of its input. Handing it every
+   concept and asking for every concept back is thousands of lines of
+   retyping, none of it a decision, and on a large paper the answer will not
+   fit in one reply at all. A script folds the duplicates, rewrites the
+   references and writes the file; the agent settles what a script cannot. */
+
+const OUT_SCHEMA = { type: 'object', required: ['out'], properties: { out: { type: 'string' } } }
+
+const mergePrep = await sh('merge:prep', 'Concepts',
+  `Run:  ${PY} pipeline/merge_prep.py
+Then report its output verbatim as "out".`, OUT_SCHEMA)
+log(`merge brief: ${((mergePrep && mergePrep.out) || 'FAILED').split('\n').filter(Boolean).slice(-6).join(' | ')}`)
+
 const MERGED_SCHEMA = {
   type: 'object',
-  required: ['concepts', 'citedReads', 'notes'],
+  required: ['aliases', 'majors', 'add', 'edits', 'drop', 'citedReads', 'notes'],
   properties: {
-    concepts: CONCEPTS_SCHEMA.properties.concepts,
+    aliases: { type: 'array', items: { type: 'object', required: ['from', 'to'], properties: { from: { type: 'string' }, to: { type: 'string' } } } },
+    majors: { type: 'array', items: { type: 'string' } },
+    add: CONCEPTS_SCHEMA.properties.concepts,
+    edits: { type: 'array', items: { type: 'object', required: ['id'], properties: { id: { type: 'string' }, name: { type: 'string' }, parent: { type: ['string', 'null'] }, summary: { type: 'string' }, explanation: { type: 'string' }, floor: { type: 'boolean' } } } },
+    drop: { type: 'array', items: { type: 'string' } },
     citedReads: { type: 'array', items: { type: 'object', required: ['citationKey', 'title', 'whyNeeded', 'wantedConcepts'], properties: { citationKey: { type: 'string' }, title: { type: 'string' }, arxivId: { type: ['string', 'null'] }, whyNeeded: { type: 'string' }, wantedConcepts: { type: 'array', items: { type: 'string' } } } } },
     notes: { type: 'string' },
   },
 }
 
-const merged = await agent(`You merge the outputs of ${extracted.length} concept extractors that worked on different sections of "${ingest.title}". Produce ONE coherent concept set.
+const merged = await agent(`You are the merge for "${ingest.title}". ${extracted.length} extractors read different sections and produced one concept set each. Your job is to make them ONE coherent set.
 
-${extracted.map((o, i) => `=== ${ingest.sectionGroups[i] ? ingest.sectionGroups[i].key : i} ===\n` + JSON.stringify(o)).join('\n\n')}
+READ FIRST: ${ING}/merge-brief.txt
+It lists every concept that exists, which extractor produced it, where ids collide, which different ids may be the same idea, what is referenced but never defined, and every citation flagged as leaned on. Read the extractors' own files where you need the full explanation of a concept: ${ING}/extract-*.json
 
 ${READER}
 
-DO:
-1. Dedup. Where two extractors describe the same idea under different ids, keep ONE (best id, best explanation, union of sectionIds and prerequisites) and map every reference to the survivor.
-2. Resolve. Every id in any prerequisites[] or parent must exist in the final set. Add anything referenced but never defined - as a floor stub if it sits at or below the floor, else with a real explanation.
-3. Tree sanity. No cycles; parents exist; a child's parent is the concept it is genuinely part of.
-4. Tier. Aim for 12-20 tier="major" concepts - the ones that get their own pages. Floor concepts are never major.
-5. Adjudicate citationFlags into citedReads: cited papers that deserve a narrow read. Include one when this paper USES a specific mechanism or setting from it whose details matter for understanding or reproducing results. Do NOT include background or competitor citations unless a specific reused mechanism comes from them. Expect 3-6. Give arxivId only if confident, else null.
-6. notes: what you merged, dropped or flagged.
+A script applies what you return. It already folds two extractors' versions of the same id together, unions sectionIds and prerequisites, rewrites every reference onto the survivor, cuts cycles and writes the file. DO NOT return concepts that already exist - they are kept whether you mention them or not.
 
-${VOICE}
+RETURN ONLY DECISIONS:
+- aliases: [{from, to}] for every pair of DIFFERENT ids that are the same idea. The brief suggests some by name; the real ones are found by reading the list. from = the id that disappears, to = the id that survives (the better, more guessable slug). Be thorough: a duplicate that survives becomes two pages about one thing.
+- majors: the 12-20 ids that are load-bearing enough to earn their own page. This is a TABLE OF CONTENTS for the paper - read it back and ask whether it covers the argument. Everything not named becomes minor and renders inside its parent. Floor concepts are never major.
+- add: full concept objects for anything named but never defined (the brief lists them). A floor stub where it sits at or below the reader's floor, a real explanation where it does not. Use the same fields as the extractors did.
+- edits: only where something is actually wrong - a bad parent, a summary that will not survive being read out of context, a concept wrongly marked floor. {id, and just the fields you are changing}. Do not rewrite what is already fine.
+- drop: ids that should not exist at all - an extractor's artefact, or something so redundant that aliasing it would be wrong.
+- citedReads: cited papers that deserve a narrow read. Include one when this paper USES a specific mechanism or setting from it whose details matter for understanding or reproducing results. NOT background or competitor citations unless a specific reused mechanism comes from them. Expect 3-6. arxivId only if confident, else null.
+- notes: what you unified, what you cut, and anything you were unsure about.
 
-Return the complete merged result - every concept, not a diff.`, { label: 'merge', phase: 'Concepts', schema: MERGED_SCHEMA, effort: 'high' })
+${VOICE}`, { label: 'merge', phase: 'Concepts', schema: MERGED_SCHEMA, effort: 'high' })
 
 if (!merged) throw new Error('merge failed')
-log(`merged: ${merged.concepts.length} concepts, ${merged.citedReads.length} cited reads`)
+log(`merge decisions: ${merged.aliases.length} aliases, ${merged.majors.length} majors, ` +
+    `${merged.add.length} added, ${merged.edits.length} edits, ${merged.drop.length} dropped, ` +
+    `${merged.citedReads.length} cited reads`)
 
 const saveConcepts = await sh('save:concepts', 'Concepts',
-  `Write this concept set to ${P}/data/concepts.json in the form {"concepts": [...]}, and the cited-read plan to ${ROOT}/pipeline/cited-reads.json as the bare array.
+  `Apply the merge's decisions and write the concept set:
 
-CONCEPTS:
-${JSON.stringify({ concepts: merged.concepts })}
+1. Save the merge result to a file, exactly as given, as {"result": <the object below>}:
+${JSON.stringify({ result: merged })}
 
-CITED READS:
-${JSON.stringify(merged.citedReads)}
+2. Run:  ${PY} pipeline/merge_apply.py <that file>
+   It writes ${P}/data/concepts.json and ${ROOT}/pipeline/cited-reads.json. Read what it prints:
+   anything it reports as unresolved or cut is worth repeating in your report.
 
 Then register this paper: read ${ROOT}/register.json (create it as {"papers":{}} if missing) and add or update the entry for "${PAPER}" with title ${JSON.stringify(ingest.title)}, authors ${JSON.stringify(ingest.authors)}, source, and status "full". Also write ${P}/refs.json as {"paperId": "${PAPER}", "accessed": []} if it does not exist.
 
@@ -276,11 +382,29 @@ Then report which concepts you linked and any wantedConcepts you could not match
     { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, note: { type: 'string' } } })
 }
 
-const fetchable = merged.citedReads.filter((r) => r.arxivId && !knownKeys.has(r.citationKey))
-const noId = merged.citedReads.filter((r) => !r.arxivId && !knownKeys.has(r.citationKey))
+/* A narrow read is few agents but each is a whole paper, so this fan-out is
+   the one where a single job skipped is a real saving. Skipping is allowed
+   here and nowhere else, because the register already models a cited paper
+   the project does not hold: it simply stays unread until something needs it. */
+const citedCalls = await triage('triage:cited', 'Cited papers',
+  `Each job is a NARROW READ of a cited paper: fetching it and extracting only the concepts this paper leans on. It costs a full paper's reading each time.`,
+  merged.citedReads.filter((r) => !knownKeys.has(r.citationKey)).map((r) => ({
+    id: r.citationKey,
+    about: `${r.title} - wanted for: ${(r.wantedConcepts || []).join(', ')}. Why: ${r.whyNeeded}`,
+  })),
+  `SKIP IS ALLOWED HERE. Skip a cited paper when this paper cites it for context, agreement or comparison rather than borrowing a mechanism from it - when a reader can follow every claim without knowing what is in it. Do not skip one whose mechanism, setting or measure this paper actually reuses.`)
+
+const skippedCited = merged.citedReads.filter((r) => citedCalls.get(r.citationKey) === 'skip')
+const fetchable = merged.citedReads.filter((r) => r.arxivId && !knownKeys.has(r.citationKey)
+  && citedCalls.get(r.citationKey) !== 'skip')
+const noId = merged.citedReads.filter((r) => !r.arxivId && !knownKeys.has(r.citationKey)
+  && citedCalls.get(r.citationKey) !== 'skip')
 if (noId.length) {
   log(`NOTE: ${noId.length} cited papers have no arXiv id and were skipped: ` +
       noId.map((r) => r.citationKey).join(', '))
+}
+if (skippedCited.length) {
+  log(`triage skipped ${skippedCited.length} cited reads: ${skippedCited.map((r) => r.citationKey).join(', ')}`)
 }
 
 let citedReads = []
@@ -352,15 +476,21 @@ const items = (await parallel(ingest.items.map((it) => () => agent(
   `You make ONE item from "${ingest.title}" completely self-sufficient: a reader should understand it without reading the paper.
 
 ITEM: ${it.id} (${it.kind})
-CAPTION AS PRINTED: ${it.caption}
+CAPTION${WEB ? ' (INFERRED from the sentence that introduces it - the article prints none, so treat it as a pointer, not as the authors\' words)' : ' AS PRINTED'}: ${it.caption}
 
 ${it.kind === 'equation'
-    ? `The page it appears on, for exact notation (Read this image): ${P}/assets/pages/page-${String(it.page || 1).padStart(2, '0')}.png`
-    : `The item as cropped from the PDF (Read this image): ${P}/assets/${it.id}.png`}
+    ? (it.page
+      ? `The page it appears on, for exact notation (Read this image): ${P}/assets/pages/page-${String(it.page).padStart(2, '0')}.png`
+      : `There is no page image for this paper. Take the notation from the section text, which carries the maths as LaTeX between dollars.`)
+    : `The item itself (Read this image): ${P}/${it.asset || 'assets/' + it.id + '.png'}
+If that file is not there, look this item up in ${ING}/items.json: "asset" gives its real path, and null there means the item is markup rather than a picture - in which case its content is in that same entry under "text", and in its section file.`}
 Paper sections: ${SECT}/   (read the ones relevant to this item)
 Concept index of the whole explainer: ${ING}/node-index.txt
 
 WHAT TO COVER: ${it.focus || 'every element in it'}
+
+WHEN YOU HAVE IT, WRITE IT TO ${ING}/items/${it.id}.json - the same object you return, as JSON.
+A later script reads that directory. Create the directory if it is not there.
 
 RETURN:
 - id: "${it.id}"
@@ -377,12 +507,109 @@ ${VOICE}${PACE_RULE}`,
 
 log(`figures: ${items.length}/${ingest.items.length} self-sufficient`)
 
+/* The figure results are thirty thousand words of walkthrough plus every term
+   and number in every item. An agent asked to carry that into a file types it
+   out by hand, one chunk per turn, for over half an hour - and the reply it
+   is building has a size limit it will eventually hit. save_items.py does the
+   same merge in a second, so the agents write their own results and the
+   script reads them. */
 await sh('save:items', 'Figures',
-  `Merge these agent results onto the ingest inventory at ${ING}/items.json (matching by id, keeping kind/number/caption/page/asset and dropping rect) and write ${P}/data/items.json as {"items": [...]}. Every item in the inventory must appear, even if an agent result is missing for it.
+  `Every figure agent wrote its result to ${ING}/items/<item-id>.json.
 
-RESULTS:
-${JSON.stringify({ items })}`,
+1. Check they are all there: ${ingest.items.length} were expected. List the directory and name any that are missing.
+2. Run:  ${PY} pipeline/save_items.py ${ING}/items
+   It merges them onto the inventory and writes ${P}/data/items.json.
+3. Report its summary line, and any item it printed as MISSING.`,
   { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, note: { type: 'string' } } })
+
+/* ------------------------------------------------- 4b. how to read a chart */
+/* A figure walkthrough says what THIS plot shows. It does not say why the
+   shape was chosen, or how to get information out of one - and a paper that
+   argues from evidence reuses a handful of shapes and applies each many
+   times. So the plots are grouped by kind and each kind is explained once,
+   which is also the only version a reader can carry from one case study to
+   the next. */
+
+phase('Charts')
+
+await sh('charts:prep', 'Charts', `Run:  ${PY} pipeline/charts_prep.py`, OUT_SCHEMA)
+
+const CHART_GROUPS_SCHEMA = {
+  type: 'object',
+  required: ['kinds'],
+  properties: {
+    kinds: { type: 'array', items: { type: 'object', required: ['id', 'name', 'itemIds', 'hint'], properties: { id: { type: 'string' }, name: { type: 'string' }, itemIds: { type: 'array', items: { type: 'string' } }, hint: { type: 'string' } } } },
+  },
+}
+
+const chartKinds = await agent(`You group the plots in "${ingest.title}" by KIND.
+
+Read: ${ING}/plots.txt - one line per plot, with what it establishes and the axis and colour terms its walkthrough names. Read ${P}/data/items.json for any you cannot place from that.
+
+A KIND is a chart shape the paper uses more than once, or a one-off whose shape is genuinely its own. Two plots are the same kind when a reader who has learned to read one can read the other without help - same axes meaning the same things, same encoding, same question. They are NOT the same kind merely because they are both histograms: a histogram of activations coloured by a proxy and a histogram of feature densities answer different questions and are read differently.
+
+Expect roughly 8-12 kinds for a paper that repeats its measurements across several cases. Every plot in plots.txt belongs to exactly one kind.
+
+RETURN kinds: for each,
+- id: kebab-case slug naming the shape by what it does, e.g. "activation-spectrum-plot". Not "figure-8".
+- name: display name a reader would recognise.
+- itemIds: every item id of this kind, in the order they appear in the paper.
+- hint: one or two sentences for the agent that will write this explainer - what specifically makes this shape hard to read, and what the reader most often gets wrong about it.`,
+  { label: 'charts:group', phase: 'Charts', schema: CHART_GROUPS_SCHEMA, effort: 'high' })
+
+if (!chartKinds) throw new Error('chart grouping failed')
+log(`chart kinds: ${chartKinds.kinds.length}, covering ${chartKinds.kinds.reduce((n, k) => n + k.itemIds.length, 0)} plots`)
+
+const CHART_SCHEMA = {
+  type: 'object',
+  required: ['id', 'name', 'summary', 'explanation', 'prerequisites', 'sectionIds', 'itemIds'],
+  properties: {
+    id: { type: 'string' }, name: { type: 'string' }, summary: { type: 'string' },
+    explanation: { type: 'string' },
+    prerequisites: { type: 'array', items: { type: 'string' } },
+    sectionIds: { type: 'array', items: { type: 'string' } },
+    itemIds: { type: 'array', items: { type: 'string' } },
+  },
+}
+
+await parallel(chartKinds.kinds.map((k) => () => agent(
+  `You write the page that teaches a reader to READ one kind of chart from "${ingest.title}".
+
+CHART KIND: ${k.name} (${k.id})
+USED BY: ${k.itemIds.join(', ')}
+WHAT MAKES IT HARD: ${k.hint}
+
+Read those items in ${P}/data/items.json - their walkthroughs, terms and numbers - and the images themselves in ${P}/assets/. Read the sections they sit in: ${SECT}/
+Concept index: ${ING}/node-index.txt
+
+${READER}
+
+This page is NOT about what any one figure shows - each figure has its own page for that. It is about the SHAPE: what it is for, and how to use it. Four things, in this order, as flowing prose under ### headings:
+
+1. WHY THIS CHART AND NOT ANOTHER. What question forced this shape? What would a bar chart, a plain average, or a table have hidden? Papers almost never say this out loud; work it out from what the plot is being asked to prove.
+2. HOW TO READ IT, STEP BY STEP. Axes and what each is measuring, the scale and why it is that scale, what one point or one bar IS, what the colour encodes, and where to look first. Concrete enough that someone can follow it with the figure open beside them.
+3. WHAT A BAD RESULT WOULD LOOK LIKE. Draw the version where the claim is false. This is what turns the chart from decoration into evidence the reader can judge for themselves.
+4. WHERE IT COMES BACK. The figures that reuse this shape and what changes between them - so the reader knows the shape returns and can compare across cases.
+
+RETURN:
+- id: "${k.id}"
+- name: "${k.name}"
+- summary: 1-2 sentences. What this chart shows and what it is for. Read out of context as card text, so keep it tight.
+- explanation: the four parts above, 350-700 words of markdown. Use [[concept-id]] wiki-links for concepts in the index, first mention only. Inline math as $...$. No markdown tables.
+- prerequisites: concept ids a reader needs before this page.
+- sectionIds: the sections these figures sit in.
+- itemIds: ${JSON.stringify(k.itemIds)}
+
+WRITE IT TO ${ING}/charts/${k.id}.json - the same object you return, as JSON. Create the directory if it is not there.
+
+${VOICE}`,
+  { label: 'chart:' + k.id, phase: 'Charts', schema: CHART_SCHEMA, effort: 'high' })))
+
+await sh('charts:save', 'Charts',
+  `Run:  ${PY} pipeline/charts_save.py ${ING}/charts
+It adds one concept per chart kind under "reading-the-evidence" and tags every plot with its chartId.
+Report the summary it prints, including any figure it lists as having no chart explainer.`,
+  { type: 'object', required: ['ok', 'note'], properties: { ok: { type: 'boolean' }, note: { type: 'string' } } })
 
 /* -------------------------------------------------------------- 5. edges */
 
@@ -454,6 +681,7 @@ The node index: ${ING}/node-index.txt
 
 Produce 6-8 themes covering the concept nodes. Rules:
 - A theme is a coherent chunk of the paper's thinking, named plainly for what it covers. Do not use the paper's section numbers as names.
+- ONE theme is fixed: the chart explainers under "reading-the-evidence" are their own theme, with that concept and all of its children as the members, ordered as a reader would meet the charts. They teach how to read the paper's evidence rather than what it says, so they do not belong inside a theme about the argument. Name it for what it does for the reader. It goes last.
 - members: concept ids, verbatim. EVERY non-floor concept with no parent must land in exactly one theme. Concepts with a parent may be omitted unless important in their own right. Floor concepts may be omitted. No concept in two themes. Order members so a reader can read top to bottom.
 - summary: 2-4 plain sentences on what it covers and why it sits where it does.
 - order: 1..N, the order a reader should meet them.
@@ -554,6 +782,19 @@ LENGTH: 350-650 words.`
   return { t, briefName, job }
 })
 
+/* Nothing is skipped here. Every major concept has a page and every theme has
+   a page - that is what the gate checks and what the reader is promised - so
+   the only question is how much each one earns. A theme or an edge-theme is
+   structural and always full; a concept page that repeats a sibling gets a
+   shorter telling that points at the sibling. */
+const pageCalls = await triage('triage:pages', 'Pages',
+  `Each job WRITES ONE PAGE of the explainer. Themes and edge-themes are the spine of the reader's tour. Concept pages are the depth behind it.`,
+  pageJobs.map((j) => ({
+    id: j.t.forId,
+    about: `${j.t.kind}: ${j.t.name || j.t.forId}`,
+  })),
+  `SKIP IS NOT ALLOWED HERE - every one of these gets written. Give "full" to every theme and every edge-theme without exception: they are structural, and a short one leaves a hole in the tour. Use "brief" only for a concept page that is the third or fourth of a set of near-identical siblings, where one of them is already being written in full - name that sibling in the why.`)
+
 const pages = (await parallel(pageJobs.map((j) => () => agent(
   `You write ONE page of an explainer web app for "${ingest.title}".
 
@@ -571,8 +812,9 @@ ${READER}
 ${PAGE_FORMAT}
 ${VOICE}${PACE_RULE}
 
-Return forId = "${j.t.forId}" and body = the markdown.`,
-  { label: 'page:' + j.t.forId, phase: 'Pages', schema: PAGE_SCHEMA, effort: 'high' })))).filter(Boolean)
+Return forId = "${j.t.forId}" and body = the markdown.${pageCalls.get(j.t.forId) === 'brief' ? BRIEF_RULE : ''}`,
+  { label: 'page:' + j.t.forId, phase: 'Pages', schema: PAGE_SCHEMA,
+    effort: pageCalls.get(j.t.forId) === 'brief' ? 'medium' : 'high' })))).filter(Boolean)
 
 log(`pages: ${pages.length}/${pageJobs.length}`)
 
@@ -652,6 +894,20 @@ const narNodes = []
 let depth = 1
 
 while (frontier.length && depth <= MAX_DEPTH) {
+  /* The one place a cut is genuinely right. A chapter declares its own child
+     worth writing, and a chapter that is wrong about that produces a node
+     restating its parent in different words - which is the characteristic
+     failure of this whole structure, not merely an expense. Checking the
+     claim before the round costs one agent and can save a level. */
+  const expandCalls = await triage(`triage:narrative-${depth}`, 'Narrative',
+    `Each job WRITES ONE NODE of the recursive narrative: the same span of the paper told again at higher resolution, and it may declare children of its own. A node that only restates its parent in different words is worse than no node.`,
+    frontier.map((f) => ({
+      id: f.nodeId,
+      about: `"${f.path[f.path.length - 1]}" under ${f.path.slice(0, -1).join(' > ')}. Its parent says: ${String(f.parentBody || '').slice(0, 400)}${f.scope ? ` | scope given: ${f.scope}` : ''}`,
+    })),
+    `SKIP IS ALLOWED HERE, and means the branch stops. Skip when the child would restate its parent rather than go deeper - when the parent has already got down to a single mechanism, or when the next level would just repeat a concept page that already exists. Prefer skipping when unsure: a shallow honest branch beats a padded deep one.`)
+  frontier = frontier.filter((f) => expandCalls.get(f.nodeId) !== 'skip')
+  if (!frontier.length) { log(`narrative level ${depth}: nothing earned another level`); break }
   log(`narrative level ${depth}: expanding ${frontier.length}`)
   const written = await parallel(frontier.map((j) => () => agent(
     `You write ONE node of a RECURSIVE narrative about "${ingest.title}".
@@ -689,7 +945,11 @@ LINKING: [[concept-id]] / [[fig-1]] / [[theme-...]]. First mention of each, 5-12
 FORMAT: markdown, 150-350 words per chapter. No H1. ### rarely. Math as $...$ / $$...$$. No markdown tables.
 
 ${READER}
-${VOICE}${PACE_RULE}`,
+${VOICE}${PACE_RULE}
+
+WRITE IT TO ${ING}/narrative/${j.nodeId}.json - what you return, plus the identity of this node, as
+{"id": "${j.nodeId}", "parentId": "${j.parentNodeId}", "parentChapterId": "${j.parentChapterId}", "depth": ${j.depth}, "title": ..., "intro": ..., "chapters": [...]}
+Keep each chapter's expand flag in the file. Create the directory if it is not there. A later script assembles the tree from that directory and decides which chapters really do open further.`,
     { label: 'L' + j.depth + ':' + j.parentChapterId, phase: 'Narrative', schema: NODE_SCHEMA, effort: 'high' })
     .then((r) => (r ? { job: j, node: r } : null))))
 
@@ -711,12 +971,14 @@ ${VOICE}${PACE_RULE}`,
   depth++
 }
 
+/* Thirty-odd narrative nodes is the whole recursive story again in one prompt,
+   and none of assembling them is a judgement. The nodes write themselves as
+   they are produced; this reads the directory, settles every child pointer
+   against the nodes that actually exist, and numbers the tree. */
 await sh('save:narrative-tree', 'Narrative',
-  `Attach this narrative tree to ${P}/data/narrative.json. Set each root chapter's childId to "n-" + its id when a node with that id exists, else null. Add a "nodes" map keyed by node id. Then number everything: root chapters get "1".."N", and a node inherits its parent chapter's number, with its own chapters numbered "<parent>.1", "<parent>.2" and so on, recursively.
-
-NODES:
-${JSON.stringify({ nodes: narNodes })}`,
-  { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, note: { type: 'string' } } })
+  `Run:  ${PY} pipeline/save_narrative.py ${ING}/narrative
+Report what it prints, especially any child pointer it had to clear - each one is a chapter whose deeper telling was lost, and a human should know which.`,
+  { type: 'object', required: ['ok', 'note'], properties: { ok: { type: 'boolean' }, note: { type: 'string' } } })
 log(`narrative tree: ${narNodes.length} sub-narratives`)
 
 /* --------------------------------------------------------- 9. insights */
@@ -775,7 +1037,15 @@ let insNodes = []
 if (insRoot) {
   log(`insights: ${insRoot.chapters.length} chapters, ${insRoot.chapters.filter((c) => c.expand).length} expanding`)
   const insSibs = insRoot.chapters.map((c, i) => `  ${i + 1}. ${c.title}`).join('\n')
-  insNodes = (await parallel(insRoot.chapters.filter((c) => c.expand).map((ch) => () => agent(
+  const insCalls = await triage('triage:insights', 'Insights',
+    `Each job WRITES ONE NODE of the second read: one root insight told again at higher resolution, through the relationships behind it. A node that restates its root chapter is worse than no node.`,
+    insRoot.chapters.filter((c) => c.expand).map((ch) => ({
+      id: ch.id,
+      about: `"${ch.title}" - ${String(ch.body || '').slice(0, 350)}${ch.childScope ? ` | scope: ${ch.childScope}` : ''}`,
+    })),
+    `SKIP IS ALLOWED HERE, and means this insight is not expanded. Skip when the root chapter has already said the whole of it, or when going deeper would repeat the edge-theme page it is drawn from. Prefer skipping when unsure.`)
+
+  insNodes = (await parallel(insRoot.chapters.filter((c) => c.expand && insCalls.get(c.id) !== 'skip').map((ch) => () => agent(
     `You write ONE node of the recursive "Insights" narrative about "${ingest.title}". Where the main narrative tours the paper front to back, this one surfaces what only becomes visible in the RELATIONSHIPS between its parts. You are expanding one root chapter: the same insight, told again at higher resolution.
 
 WHERE YOU SIT
@@ -855,7 +1125,13 @@ Return: gate (the final quality-gate output), autolink (how many mentions were l
 return {
   paper: { id: PAPER, title: ingest.title, authors: ingest.authors },
   counts: {
-    sections: ingest.sections.length, items: items.length, concepts: merged.concepts.length,
+    // The merge returns decisions rather than the concept set, so the count
+    // belongs to the script that wrote the file, not to this object.
+    sections: ingest.sections.length, items: items.length,
+    conceptDecisions: {
+      aliased: merged.aliases.length, majors: merged.majors.length,
+      added: merged.add.length, dropped: merged.drop.length,
+    },
     citedPapers: citedReads.length, edges: edges.length, themes: themes.length,
     pages: pages.length, narrativeChapters: nar.chapters.length, narrativeNodes: narNodes.length,
     insightChapters: insRoot ? insRoot.chapters.length : 0, insightNodes: insNodes.length,

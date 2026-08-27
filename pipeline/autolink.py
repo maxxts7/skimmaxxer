@@ -92,7 +92,11 @@ for c in concepts + cited:
 ALIAS = {a: next(iter(v)) for a, v in ALIAS.items() if len(v) == 1}
 PATTERNS = sorted(ALIAS, key=len, reverse=True)
 
-MASK = re.compile(r"\[\[[^\]]*\]\]|\$\$[\s\S]*?\$\$|\$[^$\n]*\$|`[^`\n]*`|\[[^\]]*\]\([^)]*\)")
+# The link body is matched lazily to the closing "]]" rather than by "no ]
+# allowed": a label may legitimately contain one, as every [MASK], [CLS] and
+# [SEP] in this project does, and such a link went unmasked - so its own id
+# was treated as prose and linked a second time, inside itself.
+MASK = re.compile(r"\[\[.*?\]\]|\$\$[\s\S]*?\$\$|\$[^$\n]*\$|`[^`\n]*`|\[[^\]]*\]\([^)]*\)")
 
 
 def linked_ids(text):

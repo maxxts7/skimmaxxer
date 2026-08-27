@@ -31,13 +31,24 @@ def wr(name, raw):
 
 
 def sources_from(section_ids, pages=()):
+    """Where a surface came from: its sections, and where those sit.
+
+    A paper published as a web page has no pages to sit on, so the section
+    carries the anchor of its own heading in the frozen copy instead. Both
+    forms are the same shape - a list of sections, each with somewhere to go -
+    and the viewer reads whichever one is filled in.
+    """
     secs, pgs = [], set(pages)
     for sid in sorted(set(section_ids), key=lambda s: ORDER.get(s, 999)):
         s = SEC.get(sid)
         if not s:
             continue
-        secs.append({"id": sid, "title": s["title"], "start": s["start"], "end": s["end"]})
-        pgs.update(range(s["start"], s["end"] + 1))
+        sec = {"id": sid, "title": s["title"], "start": s["start"], "end": s["end"]}
+        if s.get("anchor"):
+            sec["anchor"] = s["anchor"]
+        secs.append(sec)
+        if s["start"]:
+            pgs.update(range(s["start"], s["end"] + 1))
     if not secs and not pgs:
         return None
     return {"sections": secs, "pages": sorted(pgs)}
@@ -89,6 +100,10 @@ for it in items:
         it["sources"] = {"sections": [], "pages": [it["page"]]}
     elif it.get("section"):
         it["sources"] = sources_from([it["section"]])
+    # A figure on a web page has an anchor of its own, which is a better place
+    # to land than the top of the section it happens to sit in.
+    if it.get("anchor") and it.get("sources"):
+        it["sources"]["anchor"] = it["anchor"]
 print(f"items with sources: {sum(1 for i in items if i.get('sources'))}/{len(items)}")
 
 
