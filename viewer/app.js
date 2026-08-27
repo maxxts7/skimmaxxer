@@ -703,21 +703,6 @@ function buildBlockIndex() {
     const r = n.getBoundingClientRect();
     if (!r.height && !r.width) return;              // not laid out yet
     out.push({ id: n.getAttribute("data-skim"), top: r.top + base, mid: (r.top + r.bottom) / 2 + base });
-    /* Let the browser skip drawing a figure it is not showing. Worth doing for
-       a figure that is an image, which costs nothing to draw again when it
-       comes back. NOT worth doing for one built out of live markup: this
-       paper's feature map is four and a half thousand SVG nodes, and asking
-       for all of them at once as it scrolls into view stalls the page for over
-       two seconds - far worse than the steady cost of just leaving it drawn.
-       So the test is how much is inside it, not how big it looks. The exact
-       measured height goes with it, so nothing moves and the offsets above
-       stay true. */
-    if (n.tagName === "FIGURE" && !n.dataset.skimRelieved && r.height > 200 &&
-        n.querySelectorAll("*").length < 40) {
-      n.dataset.skimRelieved = "1";
-      n.style.containIntrinsicSize = Math.round(r.height) + "px";
-      n.style.contentVisibility = "auto";
-    }
   });
   out.sort((a, b) => a.top - b.top);
   RD.index = out;
@@ -855,7 +840,7 @@ function paintColumn() {
     // is, so the frame is re-fitted and the block offsets re-measured. A
     // snapped layout is already at its new width; an animated one is not.
     if (was !== !!top) {
-      if (reader.classList.contains("snap")) applyZoom();
+      if (reader.classList.contains("framed")) applyZoom();
       else setTimeout(applyZoom, 260);
     }
   }
@@ -1143,7 +1128,7 @@ async function mountWebPaper(host) {
   }
   RD.fdoc = fdoc;
   const shell = document.querySelector(".reader");
-  if (shell) shell.classList.add("snap");
+  if (shell) shell.classList.add("framed");
 
   /* Decoding a full-resolution PNG on the main thread is a dropped frame, and
      this article has seventy-one of them. Asking for it off-thread costs
@@ -1165,7 +1150,13 @@ async function mountWebPaper(host) {
   style.textContent =
     "[data-skim]{cursor:pointer;scroll-margin-top:70px}" +
     "[data-skim]:hover{box-shadow:-16px 0 0 -15px " + accent + "2e}" +
-    "[data-skim].skim-pinned{box-shadow:-16px 0 0 -15px " + accent + "59}";
+    "[data-skim].skim-pinned{box-shadow:-16px 0 0 -15px " + accent + "59}" +
+    /* The width and height on each image are there so a deferred one still
+       holds its place. Without this they are also taken as the size to draw
+       it at: the width scales to the column and the height does not, and
+       every figure comes out squashed. Auto gives the browser the aspect
+       ratio to reserve, and the article's own CSS the size to draw. */
+    "figure img[width][height]{height:auto}";
   fdoc.head.appendChild(style);
 
   /* The frame is laid out at the full height of the article and never scrolls
