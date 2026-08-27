@@ -1629,9 +1629,14 @@ function buildNav() {
   h += '<p class="brand"><a href="#/">' + esc(meta.title || MAIN_ID) + "</a></p>";
   h += '<input id="search" type="search" placeholder="Find a concept…" autocomplete="off"><ul id="search-results"></ul>';
 
+  /* A destination, not a section. THE STORY / INSIGHTS / THEMES are headings
+     over groups; this opens one page and has nothing under it, so it is a
+     single target with the rail's own hover and active states rather than a
+     label that happens to be clickable. */
   if (p.summary) {
-    h += '<p class="nav-label"><a href="#/summary">Summary</a></p>';
-    h += '<p class="nav-note">Plain language, no ML assumed</p>';
+    h += '<a class="nav-jump" href="#/summary">' +
+      '<span class="nav-jump-name">Summary</span>' +
+      '<span class="nav-jump-note">Plain language, no ML assumed</span></a>';
   }
 
   const main = p.narrative;
