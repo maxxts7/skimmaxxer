@@ -570,9 +570,6 @@ Voice and pace are part of the design, not decoration.
   what is true.
 - **Hedge with the source.** "Suspects", "seems to", "is an estimate" survive intact. More room
   means a clearer hedge, never a softer or firmer one.
-- **Banned words, enforced mechanically:** novel, remarkably, elegant, powerful, seminal,
-  groundbreaking, revolutionary, cutting-edge, crucial, delve, leverage (as a verb), it's worth
-  noting, importantly, unlock, harness.
 - **Write in the source's moment.** No hindsight about what the field later did with it.
 - **Define before use, and link the first mention only.** One link per concept per surface;
   repeating it is noise.

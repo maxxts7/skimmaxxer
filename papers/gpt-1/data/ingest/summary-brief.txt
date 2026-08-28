@@ -1,0 +1,218 @@
+SUMMARY BRIEF - Improving Language Understanding by Generative Pre-Training
+
+One flat page carrying the whole argument, read top to bottom, in one
+sitting. Same floor as every other surface: use the real names. Gloss a
+term in a clause where the argument leans on it, then keep going - never
+paraphrase the vocabulary away to avoid explaining it.
+What makes this a summary is shape, not level: the line of reasoning
+only, no figures, no run names, no evidence apparatus.
+
+=== COVERED BY THE FLOOR: THESE COME FOR FREE ===
+  maximum-likelihood-training | Maximum-Likelihood Training: Fitting parameters by maximizing the log-probability the model assigns to the observed data. Assumed known.
+  transformer-gpt1 | Transformer Architecture: The stacked self-attention and feed-forward architecture this paper builds on. Assumed known.
+  layer-normalization-gpt1 | Layer Normalization: Per-position normalization of activations to zero mean and unit variance, with learned gain and bias. Used throughout the stack.
+  dropout-gpt1 | Dropout: Randomly zeroing activations during training to discourage co-adaptation. Assumed known.
+  lstm-gpt1 | LSTM: A recurrent architecture that processes tokens in sequence through a gated hidden state. Assumed known; used here as the comparison architecture.
+
+=== THE SPINE: WHAT THE STORY COVERS, IN ITS ORDER ===
+  story title: One Pre-Trained Stack, Twelve Tasks
+  1. The Mismatch, and the Claim
+       Labelled data for a language task is made by people. Someone reads a pair of sentences and writes down whether the second follows from the first. That is slow, and it costs money, so the datasets stay small ([[labeled-da
+  2. Which Family This Joins
+       Using unlabelled text to help a supervised task was already ordinary practice. So the related work section has one job: name the family, cut it into branches, and say which branch this is. The family is [[semi-supervised
+  3. One Set of Weights, Used Twice
+       The recipe in outline. Stage one, [[generative-pretraining]]: fit a language model to a large unlabelled corpus, and keep the weights rather than any text it generates. Stage two, [[supervised-fine-tuning]]: take those e
+  4. Predicting the Next Token
+       Stage one has no labels, so the training signal has to come out of the text itself. The paper takes the oldest one available: given the tokens so far, predict the one that comes next. Written down, that is [[eq-lm-object
+  5. The Corpus, the Model, the Run
+       The objective says what to maximize. It does not say over what text, in what units, or with which optimizer. The corpus is [[bookscorpus]]: over 7,000 unpublished books across genres. The stated reason for choosing it is
+  6. From Language Model to Classifier
+       Stage two has to turn a next-token predictor into a label predictor, the same way for every task. The labelled data is [[labeled-dataset-c|$\mathcal{C}$]]: each instance is a token sequence $x_1,\dots,x_m$ paired with on
+  7. One Sequence Per Task
+       A decoder reads one ordered run of tokens. Several of these tasks do not hand over one run of tokens. Entailment gives an ordered sentence pair; reading comprehension gives a document, a question and a list of candidate 
+  8. The Scoreboard
+       Gains are reported as [[absolute-improvement|differences in percentage points]] against the previous best published number, not as relative error reduction. On the other side are mostly biLSTMs built for the individual t
+  9. Which Parts Do the Work, and What Is Left Open
+       The results say the recipe works. They do not say which part of it works. The analysis section asks three times. First, how much of the stack is worth carrying. Fine-tune with the embeddings alone transferred, then with 
+
+=== CONCEPT THEMES, IN READING ORDER ===
+  [1] theme-the-problem-and-the-open-questions | The Problem and the Open Questions: The paper starts from an imbalance: raw text is plentiful, while labelled data for any particular language understanding task is small and costly to produce. It frames the diverse supervised tasks it cares about under one label, and asks whether one model trained on unlabelled text could serve them 
+  [2] theme-where-this-sits-in-prior-work | Where This Sits in Prior Work: The paper places itself inside semi-supervised learning for NLP and then separates that field into branches so it can say which one it is joining. One branch learns word, phrase or sentence vectors and hands them to a task model as features; another adds an unsupervised loss term alongside the super
+  [3] theme-one-model-two-stages | One Model, Two Stages: The recipe in outline: train a network to predict next tokens on a large unlabelled corpus, then take those same weights as the starting point for supervised training on a target task. Nothing is frozen and no task-specific network is built on top, so the same architecture is what gets fine-tuned ev
+  [4] theme-stage-one-next-token-prediction | Stage One: Predicting the Next Token: Stage one trains on a single loss: the log-probability the model assigns each token given a window of preceding tokens, summed over the corpus. The window here is 512 contiguous tokens, which is what lets a prediction condition on material several sentences back. The network is a stack of transforme
+  [5] theme-corpus-tokens-and-training-setup | Corpus, Tokens and Training Setup: The corpus is over 7,000 unpublished books, chosen because the text stays in its original order across sentences and paragraphs; the paper contrasts it with a same-sized benchmark that is shuffled sentence by sentence. Raw text is cleaned, tokenized, then cut into subword units by byte-pair encoding
+  [6] theme-stage-two-fine-tuning-and-input-shapes | Stage Two: Fine-Tuning and Reshaping Task Inputs: Stage two runs a labelled input through the pre-trained stack, takes the final block's activation at the last token, and multiplies it by one added matrix to score labels. The language modelling loss is not dropped: it keeps being optimized alongside the task loss, scaled by a weight the paper sets 
+  [7] theme-what-the-twelve-datasets-show | What the Twelve Datasets Show: The same fine-tuned model is measured on four families of tasks across twelve datasets: inference, reading and commonsense reasoning, sentence similarity, and single-sentence classification. Gains are reported as differences in percentage points against the previous best published number, mostly tas
+  [8] theme-taking-the-recipe-apart | Taking the Recipe Apart: Three diagnostics ask which parts of the recipe are doing the work. Transferring more pre-trained layers keeps helping rather than saturating early, and hand-built heuristics show the pre-trained model already doing several tasks at some level with no supervised training at all, improving steadily a
+
+=== MAJOR CONCEPTS (each has a page; link the first mention) ===
+  labeled-data-scarcity | Scarcity of Labelled Data: The problem the paper starts from: raw text is abundant, but human-annotated data for any one task is small and expensive.
+  semi-supervised-learning-for-nlp | Semi-Supervised Learning for NLP: The family of methods that combine a large unlabelled corpus with a small labelled dataset, which the paper places itself inside.
+  two-stage-training-procedure | Two-Stage Training Procedure: The paper's recipe: learn the network's initial parameters with a language modelling objective on unlabelled text, then adapt those same parameters to each target task wi
+  generative-pretraining | Generative Pre-Training (Stage One): Train a multi-layer transformer decoder to predict each next token on a large unlabelled corpus, and keep the weights rather than the outputs.
+  language-modeling-objective | Language Modelling Objective $L_1$: The pre-training loss $L_1(U)=\sum_i \log P(u_i \mid u_{i-k},\dots,u_{i-1};\Theta)$: maximize the log-probability the model gives each token given the tokens before it.
+  multi-layer-transformer-decoder | Multi-Layer Transformer Decoder: The language model is a stack of transformer blocks used as a decoder only: masked multi-head self-attention over the context, then position-wise feedforward layers.
+  decoder-only-stack | Decoder-Only Stack: The model drops the encoder half of the original encoder-decoder transformer and keeps one stack that attends only to its own past tokens.
+  masked-self-attention | Masked Self-Attention: Self-attention restricted so each position attends only to itself and earlier positions, never to later ones.
+  supervised-fine-tuning | Supervised Fine-Tuning (Stage Two): Run labelled inputs through the pre-trained model, take the final block's activation at the last token, and train a linear layer on it to predict the label.
+  auxiliary-lm-objective | Auxiliary Language Modelling Objective: During fine-tuning the paper keeps optimizing the language modelling loss alongside the task loss: $L_3(C) = L_2(C) + \lambda\, L_1(C)$.
+  task-specific-input-transformations | Task-Specific Input Transformations: Structured task inputs are rewritten as one ordered token sequence, so the pre-trained model can read them without architectural change.
+  task-agnostic-model | Task-Agnostic Model: A single architecture, pre-trained once, applied to every task without being redesigned for any of them.
+  bookscorpus | BooksCorpus: The pre-training corpus: over 7,000 unpublished books across genres. Its selling point in this paper is long stretches of contiguous text.
+  model-specification | Model Specification: The exact architecture trained: a 12-layer decoder-only transformer with 768-dimensional states, 12 attention heads and 3072-dimensional inner feed-forward states.
+  pre-training-optimization | Pre-Training Optimization Setup: How the language model was actually trained: Adam, a warmup-then-cosine schedule peaking at 2.5e-4, and 100 epochs of 64-sequence minibatches.
+  fine-tuning-hyperparameters | Fine-Tuning Hyperparameters: Fine-tuning reuses the pre-training settings except for a learning rate of 6.25e-5, batch size 32, three epochs, classifier dropout 0.1, and a short warmup.
+  evaluation-task-families | Four Task Families, Twelve Datasets: The paper evaluates on natural language inference, question answering and commonsense reasoning, semantic similarity, and text classification, across twelve datasets.
+  layers-transferred | Impact of Number of Layers Transferred: An analysis varying how many pre-trained layers are carried into fine-tuning, showing each transformer layer adds performance, up to 9% on MultiNLI for full transfer.
+  zero-shot-behaviors | Zero-Shot Behaviours: Heuristics that make the pre-trained generative model perform the evaluation tasks with no supervised fine-tuning at all, tracked across pre-training.
+  ablation-studies | Ablation Studies: Three controlled removals reported in Table 5: dropping the auxiliary LM objective, replacing the transformer with an LSTM, and skipping pre-training entirely.
+
+=== SUPPORTING CONCEPTS YOU MAY ALSO LINK ===
+  generative-vs-discriminative-training | Generative vs Discriminative Training
+  natural-language-understanding | Natural Language Understanding
+  word-embedding-transfer | Pre-Trained Word Embedding Transfer
+  phrase-and-sentence-embeddings | Phrase- and Sentence-Level Embeddings
+  unsupervised-pretraining | Unsupervised Pre-Training as a Category
+  pretraining-as-regularization | Pre-Training as a Regularization Scheme
+  auxiliary-training-objectives | Auxiliary Training Objectives
+  feature-based-transfer | Feature-Based Transfer
+  elmo-deep-contextualized-word-representations | Deep Contextualized Word Representations (ELMo)
+  per-task-parameter-cost | Per-Task Parameter Cost
+  lm-pretraining-then-finetuning-predecessors | Language-Model Pre-Training Then Fine-Tuning
+  semi-supervised-sequence-learning | Semi-Supervised Sequence Learning
+  ulmfit | Universal Language Model Fine-Tuning
+  lstm-short-range-limitation | Short-Range Limitation of LSTM Pre-Training
+  choice-of-pretraining-objective | Which Pre-Training Objective to Use
+  how-to-transfer-representations | How to Transfer Learned Representations
+  transfer-learning | Transfer Learning Here
+  domain-mismatch-tolerance | No Domain Match Required
+  world-knowledge | World Knowledge from Pre-Training
+  input-representation-h0 | Input Representation $h_0$
+  token-embedding-matrix | Token Embedding Matrix $W_e$
+  learned-position-embeddings | Learned Position Embeddings
+  output-softmax-tied-embeddings | Output Distribution $P(u) = \mathrm{softmax}(h_n W_e^T)$
+  long-range-dependencies-gpt1 | Long-Range Dependencies in Text
+  labeled-dataset-c | Labelled Dataset $C$
+  final-token-activation | Final Block Activation $h_l^m$
+  linear-output-layer-wy | Added Linear Output Layer $W_y$
+  supervised-objective-l2 | Supervised Objective $L_2$
+  auxiliary-objective-weight | Auxiliary Objective Weight $\lambda = 0.5$
+  minimal-extra-parameters | Minimal Extra Fine-Tuning Parameters
+  structured-inputs | Structured Inputs
+  traversal-style-approach | Traversal-Style Approach
+  start-and-end-tokens | Start and End Tokens $\langle s\rangle$, $\langle e\rangle$
+  delimiter-token | Delimiter Token ($)
+  entailment-input-transformation | Entailment Input Transformation
+  similarity-input-transformation | Similarity Input Transformation
+  qa-and-commonsense-input-transformation | Question Answering and Commonsense Transformation
+  task-specific-architectures | Task-Specific Architectures
+  long-range-contiguous-text | Long-Range Contiguous Text
+  one-billion-word-benchmark | 1B Word Benchmark
+  token-level-perplexity | Token-Level Perplexity of 18.4
+  twelve-layer-depth | 12 Layers
+  hidden-state-dimension-768 | 768-Dimensional States
+  twelve-attention-heads | 12 Attention Heads
+  position-wise-feedforward-3072 | 3072-Dimensional Inner Feed-Forward States
+  gelu | Gaussian Error Linear Unit (GELU)
+  weight-initialization | $\mathcal{N}(0, 0.02)$ Weight Initialization
+  adam-optimizer-gpt1 | Adam Optimizer
+  linear-warmup | Linear Warmup Over 2000 Updates
+  cosine-annealing | Cosine Learning Rate Annealing
+  pretraining-schedule | 100 Epochs of 64-Sequence Minibatches
+  context-window-512-tokens | 512-Token Context Window
+  regularization-setup | Regularization Setup
+  residual-embedding-attention-dropout | Residual, Embedding and Attention Dropout at 0.1
+  decoupled-weight-decay | Modified L2 Regularization (Decoupled Weight Decay)
+  text-preprocessing-pipeline | Text Preprocessing Pipeline
+  ftfy | ftfy
+  spacy-tokenizer | spaCy Tokenizer
+  byte-pair-encoding-gpt1 | Byte-Pair Encoding (BPE)
+  bpe-merges-40000 | 40,000 Merges
+  classifier-dropout | Classifier Dropout
+  fine-tuning-lr-and-batch | Learning Rate 6.25e-5, Batch Size 32
+  three-epochs-fine-tuning | Three Epochs of Fine-Tuning
+  fine-tuning-lr-schedule | Linear Decay with 0.2% Warmup
+  absolute-improvement | Absolute Improvement
+  state-of-the-art-9-of-12 | 9 of 12 Datasets
+  glue-benchmark | GLUE Benchmark
+  baseline-comparisons | Baselines and Ensembles
+  natural-language-inference | Natural Language Inference (Textual Entailment)
+  coreference | Coreference
+  snli | SNLI
+  multinli | MultiNLI (MNLI)
+  qnli | QNLI
+  scitail | SciTail
+  rte | RTE
+  question-answering-and-commonsense-reasoning | Question Answering and Commonsense Reasoning
+  race-dataset | RACE
+  cnn-and-squad-contrast | CNN and SQuAD as Contrast Datasets
+  story-cloze-test | Story Cloze Test
+  semantic-similarity | Semantic Similarity
+  mrpc | Microsoft Paraphrase Corpus (MRPC)
+  qqp | Quora Question Pairs (QQP)
+  sts-b | Semantic Textual Similarity Benchmark (STS-B)
+  text-classification | Text Classification
+  cola | Corpus of Linguistic Acceptability (CoLA)
+  sst-2 | Stanford Sentiment Treebank (SST-2)
+  average-token-log-probability-scoring | Average Token Log-Probability Scoring
+  cola-zero-shot-heuristic | CoLA Zero-Shot Heuristic
+  sst2-zero-shot-heuristic | SST-2 Zero-Shot Heuristic
+  race-zero-shot-heuristic | RACE Zero-Shot Heuristic
+  dprd-winograd-heuristic | DPRD Winograd-Schema Zero-Shot Heuristic
+  transformer-inductive-bias | Structured Attentional Memory and Inductive Bias
+  ablation-no-auxiliary-objective | Ablation: No Auxiliary LM Objective
+  ablation-lstm-substitution | Ablation: LSTM Instead of Transformer
+  ablation-no-pretraining | Ablation: No Pre-Training
+
+=== EVIDENCE ITEMS (link where a number comes from one) ===
+  fig-1 | One Stack, Four Input Shapes: The figure shows that a single decoder-only transformer, pre-trained once, serves every task in the paper: the left panel draws the block that is repeated twelv
+  table-1 | The Twelve Evaluation Datasets: This table is the paper's full evaluation menu: four families of supervised language understanding tasks covering twelve datasets in total. It establishes the b
+  table-2 | NLI Benchmark Scoreboard: Table 2 compares one fine-tuned general model against task-built baselines on five natural language inference datasets, and reports it ahead on four of them — b
+  table-3 | RACE and Story Cloze Results: On the paper's two reading-and-reasoning benchmarks, a single fine-tuned transformer language model beats every previously published system, by 8.9 accuracy poi
+  table-4 | Classification and Similarity Results: On the five GLUE tasks outside natural language inference, one fine-tuned transformer beats the previous best published number on CoLA, STS-B and QQP, and raise
+  fig-2 | Layer Transfer and Zero-Shot Growth: Two diagnostics for why the recipe works. The left panel says every pre-trained layer carries transferable value: dev accuracy on RACE and MultiNLI rises steadi
+  table-5 | Three Ablations Against the Full Model: Removing pre-training costs the most by far (14.8 average points), swapping the transformer for an LSTM costs 5.6, and dropping the auxiliary language modelling
+  eq-lm-objective | The Pre-Training Likelihood $L_1$: This is the entire training signal for stage one: over a corpus of unlabelled tokens, sum the log-probability the network assigns to each token given the $k$ to
+  eq-decoder-stack | The Decoder Stack, Input to Output Distribution: Equation 2 spells out the whole pre-training network in three lines: embed the context tokens and their positions, push the result through $n$ identical transfo
+  eq-task-head | The Linear Task Head on the Last Token: Equation 3 is the entire task-specific classifier: take the final transformer block's activation at the last input token, multiply it by one matrix $W_y$, and s
+  eq-supervised-objective | Supervised Fine-Tuning Objective $L_2$: Equation 4 is the loss used in the second training stage: over a target task's labelled dataset $\mathcal{C}$, sum the log-probability the model assigns to each
+  eq-combined-objective | The Combined Fine-Tuning Objective: During fine-tuning the paper does not drop the language modelling loss; it keeps optimizing it alongside the classification loss, scaled by a weight $\lambda$, 
+
+=== THE REASONING THE PAPER RESTS ON ===
+  Two-Stage Training Procedure --depends-on--> Scarcity of Labelled Data: The two-stage recipe only earns its complexity if labelled data for each task is small while raw text is plentiful. If every task had enough annotated examples, there would be nothing for a pre-training stage to buy. The paper ope
+  Supervised Fine-Tuning (Stage Two) --depends-on--> Generative Pre-Training (Stage One): Stage two does not train a fresh network; it continues training the exact parameters stage one produced. The ablation puts a number on how much of the result comes from that starting point: training the same transformer directly o
+  Language Modelling Objective $L_1$ --depends-on--> Masked Self-Attention: The loss asks the model to predict each token from the tokens before it, and it does this at every position at once. Without the mask, a position could attend to the token it is being asked to predict, and the objective would be s
+  Multi-Layer Transformer Decoder --depends-on--> Transformer Architecture: The pre-training network is not a new architecture. It is the transformer block of prior work, stacked twelve deep and restricted to attend backwards. Everything the paper says about capacity and long-range conditioning inherits f
+  BooksCorpus --depends-on--> Long-Range Dependencies in Text: The paper says the point of BooksCorpus is its long stretches of contiguous text, which let the model learn to condition on far-away information. It names the 1B Word Benchmark, of roughly the same size, as the alternative it reje
+  Task-Agnostic Model --depends-on--> Task-Specific Input Transformations: The claim of a single model for every task holds only because the tasks are made to look alike at the input. Entailment pairs, similarity pairs and document-question-answer triplets are all rewritten as one ordered token sequence 
+  Minimal Extra Fine-Tuning Parameters --depends-on--> Task-Specific Input Transformations: The paper says the only extra parameters during fine-tuning are $W_y$ and embeddings for the delimiter tokens. That count stays small because structured inputs are handled by rewriting them, not by adding encoders or attention mod
+  Zero-Shot Behaviours --depends-on--> Average Token Log-Probability Scoring: A generative model does not emit labels, so making it answer a task without fine-tuning requires turning it into a scorer. Three of the four heuristics do the same thing: score a candidate string by the mean log-probability the mo
+  Two-Stage Training Procedure --supported-by--> Three Ablations Against the Full Model: The whole recipe rests on the claim that stage one matters. Table 5 trains the same transformer directly on the supervised tasks with no pre-training and reports a 14.8% drop across the board. That single row is the paper's strong
+  Multi-Layer Transformer Decoder --supported-by--> Three Ablations Against the Full Model: The paper needs a reason to pick a transformer rather than a recurrent net. Table 5 holds everything else fixed and substitutes a single-layer 2048-unit LSTM, which costs 5.6 average score points. The LSTM wins on only one dataset
+  Ablation: No Pre-Training --supported-by--> Three Ablations Against the Full Model: This ablation exists only as a row in Table 5. Removing pre-training hurts on every task measured, making it the largest of the three ablation effects.
+  Language Modelling Objective $L_1$ --supported-by--> The Pre-Training Likelihood $L_1$: Equation 1 is the entire training signal for stage one: sum the log-probability the network assigns each token given the k tokens before it. Everything the model knows before fine-tuning comes from maximizing this one quantity.
+  Multi-Layer Transformer Decoder --supported-by--> The Decoder Stack, Input to Output Distribution: Equation 2 writes the pre-training network out in full: embed the context tokens and add position embeddings, push the result through n identical transformer blocks, then project to a token distribution. Reading it is how you conf
+  Supervised Fine-Tuning (Stage Two) --supported-by--> The Linear Task Head on the Last Token: Equation 3 says the task-specific part is: take the final block's activation at the last token, multiply by one matrix, softmax. The paper's claim of minimal architectural change is checkable directly against this line.
+  Task-Specific Input Transformations --supported-by--> One Stack, Four Input Shapes: Figure 1's right panel is the concrete content of this idea: classification, entailment, similarity and multiple choice each shown as a token sequence with start, delimiter and end markers. Without the picture the claim that struc
+  Natural Language Inference (Textual Entailment) --supported-by--> NLI Benchmark Scoreboard: Table 2 puts the fine-tuned general model against task-built systems on five NLI datasets. It reports gains of 1.5% on MNLI, 5% on SciTail, 5.8% on QNLI and 0.6% on SNLI, and a loss on RTE.
+  Question Answering and Commonsense Reasoning --supported-by--> RACE and Story Cloze Results: Table 3 reports the paper's largest margins: 8.9% on the Story Cloze Test and 5.7% overall on RACE, ahead of every previously published system on both. These are the two numbers the abstract leads with.
+  Impact of Number of Layers Transferred --supported-by--> Layer Transfer and Zero-Shot Growth: The left panel of Figure 2 varies how many pre-trained layers are carried into fine-tuning and plots dev accuracy on MultiNLI and RACE. Accuracy climbs with each additional layer, reaching up to 9% for full transfer on MultiNLI, w
+  Two-Stage Training Procedure --instance-of--> Semi-Supervised Learning for NLP: Semi-supervised learning for NLP is the general family: a large unlabelled corpus plus a small labelled dataset. The paper's two-stage recipe is one specific member of that family, where the unlabelled corpus is used first to set 
+  Multi-Layer Transformer Decoder --instance-of--> Transformer Architecture: The transformer architecture is the general design the paper starts from. The language model here is one particular cut of it: the encoder half is dropped and a single stack of blocks with masked multi-head self-attention and posi
+  Multi-Layer Transformer Decoder --instance-of--> Task-Agnostic Model: Task-agnostic model is the claim: one architecture, pre-trained once, applied everywhere without redesign. The 12-block decoder stack is what actually fills that role in this paper. Every one of the twelve datasets is run through 
+  Masked Self-Attention --instance-of--> Language Modelling Objective $L_1$: L1 conditions each token only on the tokens before it. Masking the attention so a position can see itself and earlier positions but never later ones is the architectural realization of that constraint. Without the mask the model c
+  Language Modelling Objective $L_1$ --instance-of--> The Pre-Training Likelihood $L_1$: Equation 1 is where the symbol L1 gets its meaning: sum over positions of log P(u_i | u_{i-k}, ..., u_{i-1}; Theta). Every later mention of the pre-training loss, including the lambda-weighted term during fine-tuning, refers back 
+  Task-Agnostic Model --contrasts-with--> Task-Specific Architectures: The paper's central comparison is between a single pre-trained stack applied everywhere and the prevailing practice of hand-designing a network around each task's structure. It claims the general model beats those discriminatively
+  Task-Specific Input Transformations --contrasts-with--> Task-Specific Architectures: Both approaches accept that tasks differ; they disagree about where that difference is absorbed. Prior work adds task-shaped modules on top of transferred representations, which the paper says re-introduces customization that gets
+  Two-Stage Training Procedure --contrasts-with--> Feature-Based Transfer: Feature-based transfer keeps the pre-trained model fixed and feeds its hidden states into a separate task model as extra inputs. The paper instead carries the pre-trained weights themselves into the target task and keeps training 
+  Minimal Extra Fine-Tuning Parameters --contrasts-with--> Per-Task Parameter Cost: The paper measures the two transfer styles by how many freshly initialized parameters a new task needs. Feature-based methods bring a substantial number of new parameters per task; here the additions are the linear output layer an
+  Multi-Layer Transformer Decoder --contrasts-with--> Ablation: LSTM Instead of Transformer: The ablation keeps the whole recipe and swaps only the architecture for a single-layer 2048-unit LSTM. The average score falls by 5.6 points, which is the paper's own measurement of what the architecture choice buys.
+  Ablation: No Auxiliary LM Objective --contrasts-with--> Auxiliary Language Modelling Objective: Dropping the language modelling loss during fine-tuning does not simply degrade the model. It helps on the NLI tasks and QQP and hurts elsewhere, with the paper reading the trend as larger datasets benefiting and smaller ones not.
+  Ablation: No Pre-Training --contrasts-with--> Generative Pre-Training (Stage One): Training the identical architecture directly on the supervised tasks isolates what stage one contributes. Performance drops on all tasks, by 14.8 compared with the full model, which is the paper's strongest single number for pre-t
+  Generative Pre-Training (Stage One) --contrasts-with--> Supervised Fine-Tuning (Stage Two): The two stages train the same weights against opposite kinds of target. Stage one maximizes the probability of the next token over unlabelled text; stage two maximizes the probability of the correct label given the input.
+
+=== SHAPE TO RETURN ===
+  {"title": ..., "lede": one paragraph, "beats": [{"id", "heading", "body"}, ...]}
+  Eight to twelve beats. Each is a step in one argument, not a topic.
+  Headings are sentences a reader could follow on their own.
+  Link with [[concept-id]], first mention only, using the ids above.

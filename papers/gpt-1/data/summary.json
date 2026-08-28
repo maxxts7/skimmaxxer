@@ -1,0 +1,629 @@
+{
+ "title": "Learn the language first, and spend the labels on the task",
+ "lede": "The paper starts from an imbalance in what data exists. For any one language understanding task, the labelled examples were written by people and there are not many of them, while the raw text nobody labelled is effectively unlimited. Its answer is to train one network twice — first to predict the next token across 7,000 books, then, starting from those same weights, on each task's labelled data — and to change nothing else per task beyond one matrix and a way of writing the input as a single sequence. Measured on twelve datasets, that recipe beats systems built for each of them individually on nine. What follows is the argument in order, from why the labels run out to what the paper's own numbers leave unsettled.",
+ "beats": [
+  {
+   "id": "the-labels-are-what-runs-out",
+   "heading": "Labelled data is made by hand, so there is never much of it",
+   "body": "A labelled example for a language task is written by a person. Someone reads a premise and a hypothesis and records whether the second follows from the first. Someone else judges whether a sentence is grammatical, or scores a pair of sentences for similarity.\n\nThat is slow work and it is paid work, so the sets stay small. Several of the datasets this paper measures on have a few thousand training examples.\n\nRaw text has no such ceiling. There is far more of it than anyone will ever annotate.\n\nThe paper gathers a spread of tasks under one heading — entailment, question answering, [[semantic-similarity]], document classification — and calls the set [[natural-language-understanding]]. Each comes with its own dataset and its own idea of a correct answer.\n\nThe standard treatment trains a network to predict the label directly from the input, which is [[generative-vs-discriminative-training|discriminative training]]. Follow what that requires. The network starts from random weights, so the labelled examples have to pay for everything it learns: not only the task, but how words go together, what a negation does, and what the words refer to.\n\nThat is the mismatch the paper opens on ([[labeled-data-scarcity]]). The scarce resource is being spent on the part that is not scarce.\n\nThe alternative is to learn the language from unlabelled text first, and spend the labels on the task alone. The paper is not the first to want that. Its claim is about what it takes to make it work across tasks that do not look alike.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "two-questions-and-the-branch-this-joins",
+   "heading": "Two things were unsettled: which objective to pre-train on, and how to carry it over",
+   "body": "Using unlabelled text to help a supervised task was already ordinary practice. So the related work section has one job: name the family, cut it into branches, and say which branch this is.\n\nThe family is [[semi-supervised-learning-for-nlp]] — a large unlabelled corpus alongside a small labelled one. Its best-known members train one vector per word on raw text and hand that table to a task model ([[word-embedding-transfer]]). The paper grants that this works, and notes it carries word-level information only. Later work moved up to [[phrase-and-sentence-embeddings]], one vector for a longer span.\n\nCut the family a second way, by what the unlabelled data is allowed to change. One branch adds a second unsupervised loss beside the supervised one ([[auxiliary-training-objectives]]), so the objective itself changes. The other leaves the objective alone and uses unlabelled text only to decide where optimization starts ([[unsupervised-pretraining]]). A cited result there argues the starting point does more than ease optimization: it also generalizes better ([[pretraining-as-regularization]]).\n\nThis paper sits in the second branch, and splits it once more.\n\n[[feature-based-transfer]] freezes the pre-trained model and feeds its hidden states into a separate task network as extra inputs; [[elmo-deep-contextualized-word-representations|ELMo]] is the example named. The objection is [[per-task-parameter-cost]]. The task network is designed and initialized fresh for every task, so each one pays for a substantial set of new parameters.\n\nThe line the paper calls closest to its own carries the weights themselves forward instead ([[lm-pretraining-then-finetuning-predecessors]]). [[semi-supervised-sequence-learning]] did that with a recurrent network and [[ulmfit]] with a staged fine-tuning schedule, both for [[text-classification|classification]]. The disagreement there is not about the recipe but about the architecture and the reach: the paper argues a recurrent pre-trained model keeps its predictions local ([[lstm-short-range-limitation]]), and it evaluates on far more than classification.\n\nTwo questions are left standing, and the paper names them both. Which unsupervised objective produces representations that transfer ([[choice-of-pretraining-objective]]), and how to move a representation into a target task once you have one ([[how-to-transfer-representations]]).",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "one-set-of-weights-trained-twice",
+   "heading": "One set of weights is trained twice, and nothing is frozen in between",
+   "body": "The recipe in outline. Stage one, [[generative-pretraining]]: fit a language model to a large unlabelled corpus, and keep the weights rather than any text it produces. Stage two, [[supervised-fine-tuning]]: take those exact weights as the initialization and go on training them on a task's labelled examples. Together that is the [[two-stage-training-procedure]].\n\nThat is all [[transfer-learning|the transfer]] amounts to here. No layer is held fixed. The pre-trained model is not consulted from outside as a feature extractor — it becomes the task model.\n\nTwo consequences follow, and the paper leans on both.\n\nFirst, the thing being fine-tuned is the same stack every time. That is what it means by a [[task-agnostic-model]], and the comparison it wants is against [[task-specific-architectures]]: networks designed around one task's structure, which is what most of the published baselines are.\n\nSecond, the pre-training text need not resemble the task text. The paper states that the target tasks are not required to be in the same domain as the unlabelled corpus ([[domain-mismatch-tolerance]]). Books are the pre-training text, and the evaluation includes science exams, news, image captions and Wikipedia.\n\nThat second one is an assumption stated, not a result shown. No matched-domain corpus is run as a control.\n\nThe architecture is the transformer of prior work, not a new design. What remains to specify is what stage one optimizes, what network it optimizes, and what stage two does with the result.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "the-whole-signal-is-the-next-token",
+   "heading": "Stage one trains on one quantity: the probability the model gives each token, given the ones before it",
+   "body": "Stage one has no labels, so the training signal has to come out of the text itself. The paper takes the oldest one available: given the tokens so far, predict the one that comes next.\n\nOver an unlabelled corpus of tokens $\\mathcal{U}$, maximize\n\n$$L_1(\\mathcal{U}) = \\sum_i \\log P(u_i \\mid u_{i-k},\\dots,u_{i-1};\\Theta)$$\n\nRead it position by position. At each $i$ the network sees the $k$ tokens before it and produces a distribution over the vocabulary. The number added into the sum is the log-probability it gave to the token that actually appeared. Nothing else is scored.\n\nThat single sum is the whole of stage one ([[language-modeling-objective]]). Every parameter the model has is set by pushing it up.\n\nThe network is a [[multi-layer-transformer-decoder]]: the transformer block of prior work with the encoder half removed, leaving one stack that reads only its own past ([[decoder-only-stack]]).\n\nThe removal is load-bearing rather than a tidying-up. The objective scores every position at once, and a position must not be able to see the token it is being asked to predict. [[masked-self-attention]] enforces that — each position attends to itself and to earlier positions, never to later ones. Without the mask the loss would be trivial to drive down, and driving it down would teach nothing.\n\nThe network itself is three lines. Embed the context tokens and add a position vector to each, giving $h_0 = UW_e + W_p$ ([[input-representation-h0]]). $W_e$ is the [[token-embedding-matrix]], and $W_p$ is a trained table with one vector per slot ([[learned-position-embeddings]]) rather than the fixed sinusoids of the original transformer. Push $h_0$ through $n$ identical blocks. Multiply the top layer by $W_e^{\\mathsf{T}}$ and softmax ([[output-softmax-tied-embeddings]]), so the matrix that turns tokens into vectors also turns vectors back into scores over tokens.",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3",
+      "title": "Framework",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ]
+   }
+  },
+  {
+   "id": "books-because-the-sentences-stay-in-order",
+   "heading": "The corpus was chosen for the length of its contiguous text, not for its size",
+   "body": "The objective says what to maximize. It does not say over what text.\n\nThe corpus is [[bookscorpus]]: over 7,000 unpublished books across genres. The stated reason for choosing it is not the amount of text. It is that a book keeps its sentences in their original order, paragraph after paragraph ([[long-range-contiguous-text]]).\n\nThe comparison the paper draws makes the point. The [[one-billion-word-benchmark|1B Word Benchmark]] holds roughly as much text, and is the corpus ELMo used, but it is shuffled sentence by sentence. Shuffling leaves the word statistics intact and destroys everything above the sentence.\n\nWhether that matters depends on how much text the model may look at once. The context window $k$ is fixed at 512 tokens ([[context-window-512-tokens]]).\n\n512 tokens is several paragraphs. So a prediction can condition on material from well before the sentence it sits in, which is where the [[long-range-dependencies-gpt1|far-apart relations]] the paper wants learned would have to come from.\n\nA window that wide only earns its cost if the text inside it is continuous. On shuffled data the far end of the window is a different sentence about something else, and there is nothing there to condition on.\n\nThis is a bet, and it is argued rather than measured. No model is trained on the shuffled corpus here for comparison. Where the corpus choice pays off, if it does, is in which task families the model gains most on later.",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     8
+    ]
+   }
+  },
+  {
+   "id": "what-was-actually-trained",
+   "heading": "The model is twelve blocks deep, and the depth is what makes one later experiment possible",
+   "body": "Text becomes tokens in three steps ([[text-preprocessing-pipeline]]): clean the raw text, tokenize it, then cut the tokens into subword units with [[byte-pair-encoding-gpt1|byte-pair encoding]]. BPE starts from characters and repeatedly merges the most frequent adjacent pair. The count of merges is the single knob, set to [[bpe-merges-40000|40,000]] — enough that common words survive whole while rare ones break into pieces that were seen elsewhere.\n\nThe trained model is 12 blocks deep, with [[hidden-state-dimension-768|768-dimensional]] states, [[twelve-attention-heads|12 attention heads]] and a [[position-wise-feedforward-3072|3072-dimensional]] inner feed-forward layer ([[model-specification]]). The numbers are related to one another: 768 split across 12 heads leaves each head a 64-dimensional subspace, and 3072 is four times 768. [[gelu|GELU]] stands in for ReLU as the activation.\n\n[[twelve-layer-depth|The depth of 12]] is worth marking here, because it is what makes one of the later diagnostics possible. With twelve blocks you can transfer zero through twelve of them and watch what each one adds.\n\nThe run uses [[adam-optimizer-gpt1|Adam]] at a peak learning rate of 2.5e-4, [[linear-warmup|raised from zero over the first 2000 updates]] and then [[cosine-annealing|annealed back to zero on a cosine curve]], for [[pretraining-schedule|100 passes]] over minibatches of 64 sequences ([[pre-training-optimization]]). Dropout in three places and a [[decoupled-weight-decay|modified weight decay]] do the regularizing ([[regularization-setup]]).\n\nOne number comes out of stage one: [[token-level-perplexity|18.4]] token-level perplexity on the corpus. It says the model fit the books. It says nothing yet about any task, and the paper does not argue from it.",
+   "sources": {
+    "sections": [
+     {
+      "id": "3.1",
+      "title": "Unsupervised pre-training",
+      "start": 3,
+      "end": 3
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     }
+    ],
+    "pages": [
+     3,
+     4,
+     5,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "one-matrix-on-the-last-token",
+   "heading": "Stage two adds one matrix, and keeps the language modelling loss running beside the task loss",
+   "body": "Stage two has to turn a next-token predictor into a label predictor, and it has to do it the same way for every task.\n\nThe labelled data is [[labeled-dataset-c|$\\mathcal{C}$]]: each instance is a token sequence $x_1,\\dots,x_m$ paired with one label $y$.\n\nRun the sequence through the pre-trained stack. Take the final block's activation at the last token ([[final-token-activation]]) — one vector, which has attended over everything before it. Multiply it by one added matrix $W_y$ ([[linear-output-layer-wy]]) and softmax.\n\nThat is the entire task-specific classifier. The loss on top of it is ordinary supervised likelihood: sum $\\log P(y \\mid x_1,\\dots,x_m)$ over the labelled set ([[supervised-objective-l2|$L_2$]]).\n\nThe paper does not stop there. It keeps the language modelling loss running during fine-tuning, computed on the labelled task data, and adds it in ([[auxiliary-lm-objective]]):\n\n$$L_3(\\mathcal{C}) = L_2(\\mathcal{C}) + \\lambda\\, L_1(\\mathcal{C})$$\n\nwith [[auxiliary-objective-weight|$\\lambda = 0.5$]]. The stated reasons are better generalization and faster convergence.\n\nNotice what has happened there. The auxiliary-objective branch, set aside earlier as a rival way of using unlabelled data, is used here on top of pre-training instead of in place of it. Its own removal, later, does not come back uniform.\n\nFine-tuning is short. Most tasks use a learning rate of 6.25e-5, about four times smaller than the pre-training peak, at batch size 32 ([[fine-tuning-lr-and-batch]]), warmed up over the first 0.2% of updates and then [[fine-tuning-lr-schedule|decayed linearly to zero]]. [[three-epochs-fine-tuning|Three passes]] over a task's training set sufficed for most datasets, with [[classifier-dropout|dropout 0.1]] on the added head and everything else inherited from stage one ([[fine-tuning-hyperparameters]]).",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.1",
+      "title": "Setup",
+      "start": 4,
+      "end": 5
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "every-task-is-written-as-one-sequence",
+   "heading": "Tasks that are not one sequence of tokens get rewritten until they are",
+   "body": "A decoder reads one ordered run of tokens. Several of these tasks do not hand over one run of tokens. Entailment gives an ordered pair of sentences; reading comprehension gives a document, a question and a list of candidate answers ([[structured-inputs]]).\n\nThere are two places to absorb that difference. Prior work absorbs it in the architecture, building a module shaped like the task and stacking it on the transferred representation. The paper's objection is that this puts the per-task design straight back in, and that the added module starts from random weights, so it gets nothing from pre-training.\n\nSo the difference is absorbed in the input instead ([[task-specific-input-transformations]]). Each structured input is walked into a single sequence ([[traversal-style-approach]]), bracketed by a randomly initialized start and end token ([[start-and-end-tokens]]) and split by a `$` [[delimiter-token|delimiter]].\n\nEntailment becomes premise, delimiter, hypothesis, read as one sequence ([[entailment-input-transformation]]).\n\nSimilarity has no natural order between its two sentences. So both orderings are built and run through the stack separately, and the two final activations are added element-wise before the linear layer ([[similarity-input-transformation]]).\n\nQuestion answering builds one sequence per candidate answer — document, question, delimiter, that answer. Each is scored on its own, and the scores are softmaxed across the candidates ([[qa-and-commonsense-input-transformation]]).\n\nThis is what keeps the parameter count small. The only weights a new task adds are $W_y$ and embeddings for the delimiter tokens ([[minimal-extra-parameters]]), which is the paper's direct answer to the per-task cost it charged against [[feature-based-transfer|feature-based transfer]].\n\nIt is also what makes the evaluation menu possible: [[evaluation-task-families|four families of tasks across twelve datasets]], several of them drawn from the [[glue-benchmark|GLUE]] bundle.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.2",
+      "title": "Supervised fine-tuning",
+      "start": 3,
+      "end": 4
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ]
+   }
+  },
+  {
+   "id": "nine-of-twelve",
+   "heading": "One fine-tuned model beats task-built systems on nine of the twelve datasets",
+   "body": "Gains are reported as [[absolute-improvement|differences in percentage points]] against the previous best published number, not as relative error reduction. On the other side are mostly biLSTMs built for the individual task, some with attention, some using ELMo features, some ensembles ([[baseline-comparisons]]).\n\n[[natural-language-inference]] asks for a judgement on a premise and a hypothesis: entailment, contradiction or neutral. Across five datasets the fine-tuned model leads on four — 1.5 points on [[multinli|MultiNLI]], 5 on [[scitail|SciTail]], 5.8 on [[qnli|QNLI]] and 0.6 on [[snli|SNLI]], the largest set at roughly 550,000 training pairs.\n\nIt loses the fifth. [[rte|RTE]] has 2,490 training examples, and the model reaches 56% against 61.7% from a multi-task biLSTM. The paper's reading is that its own approach would probably also benefit from multi-task training, and it says it has not tried that.\n\n[[question-answering-and-commonsense-reasoning|Reading and commonsense reasoning]] give the widest margins. On [[race-dataset|RACE]], exam passages with questions written for middle- and high-school students, the gain is 5.7 points overall. On the [[story-cloze-test|Story Cloze Test]], choosing the right ending to a short story from two options, it is 8.9. Both reward conditioning on a long passage, which is what the corpus and the 512-token window were chosen for.\n\n[[semantic-similarity]] and classification fill out the rest. [[qqp|Quora Question Pairs]] gains 4.2 points over a single-task biLSTM with attention and ELMo. [[sts-b|STS-B]], the smallest set in the evaluation at about 5,700 examples, gains 1. On [[cola|CoLA]], expert judgements of whether a sentence is grammatical, the score is 45.4 against a previous best of 35.0, the widest gap on the board. On [[sst-2|SST-2]] sentiment the model reaches 91.3%, which the paper calls competitive rather than best. The overall GLUE score is 72.8 against a previous 68.9.\n\nCounted up: new best published results on [[state-of-the-art-9-of-12|nine of the twelve datasets]], over training sets spanning two orders of magnitude in size.",
+   "sources": {
+    "sections": [
+     {
+      "id": "abstract",
+      "title": "Abstract",
+      "start": 1,
+      "end": 1
+     },
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "2",
+      "title": "Related Work",
+      "start": 2,
+      "end": 3
+     },
+     {
+      "id": "3.3",
+      "title": "Task-specific input transformations",
+      "start": 4,
+      "end": 4
+     },
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     },
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "which-parts-do-the-work",
+   "heading": "Every transferred layer helps, and some of the tasks already work with no fine-tuning at all",
+   "body": "The scoreboard says the recipe works. It does not say which part of it works. The analysis asks three times.\n\nThe first varies how much of the stack is carried over ([[layers-transferred]]). Fine-tune with the embeddings alone transferred, then with one block, then two, and so on up to all twelve, and plot development accuracy. It climbs with each added layer, reaching up to 9 points on MultiNLI at full transfer, and nothing saturates early. The reading offered is that every layer holds something a target task can use, so moving the embeddings alone leaves most of the value behind.\n\nThe second asks what the pre-trained model can already do with no fine-tuning at all ([[zero-shot-behaviors]]). A generative model does not emit labels, so each task has to be turned into a scoring problem. Three of the four heuristics use the same device: the mean log-probability the model assigns a candidate string ([[average-token-log-probability-scoring]]). Threshold that score for grammatical acceptability ([[cola-zero-shot-heuristic]]); pick the highest-scoring answer given the document and the question ([[race-zero-shot-heuristic]]); or substitute each candidate referent for the pronoun and keep the reading that scores better ([[dprd-winograd-heuristic]]). Sentiment is done differently — append the token *very*, restrict the output to *positive* and *negative*, and take the higher ([[sst2-zero-shot-heuristic]]).\n\nTracked across pre-training, all four rise steadily and stay stable. The paper reads that as the language modelling objective picking up task-relevant behaviour on its way to better next-token prediction, rather than that behaviour appearing only when supervision arrives.\n\nThe same heuristics run against an LSTM give noisier scores. That is offered in support of [[transformer-inductive-bias|the transformer's more structured attentional memory helping transfer]] — a hypothesis resting on one comparison.",
+   "sources": {
+    "sections": [
+     {
+      "id": "1",
+      "title": "Introduction",
+      "start": 1,
+      "end": 2
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     }
+    ],
+    "pages": [
+     1,
+     2,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "the-three-removals",
+   "heading": "Taking the pieces out one at a time: pre-training costs the most, and the auxiliary loss is not uniform",
+   "body": "The third diagnostic removes one piece at a time and re-runs the recipe without it ([[ablation-studies]]).\n\nTraining the same transformer straight on the labelled tasks, with no pre-training, costs 14.8 average points and hurts on every task measured ([[ablation-no-pretraining]]). That is the strongest single number in the paper. It is also the one carrying the central claim: the gains come from stage one, not from the architecture arriving in good shape.\n\nSwapping the transformer for a single-layer 2048-unit LSTM, holding the rest of the recipe fixed, costs 5.6 average points ([[ablation-lstm-substitution]]). The LSTM wins on exactly one dataset, [[mrpc|MRPC]]. That is the paper's own measurement of what the architecture choice buys on top of what pre-training buys.\n\nThe third removal is the awkward one. Dropping the auxiliary language modelling loss during fine-tuning does not simply degrade the model ([[ablation-no-auxiliary-objective]]). It helps on some datasets and hurts on others, and the paper reads the pattern as the larger sets benefiting from the extra loss and the smaller ones not.\n\nThat reading is drawn from twelve points, with no repeated runs behind any of them. The loss stays in the recipe on the strength of it.",
+   "sources": {
+    "sections": [
+     {
+      "id": "4.2",
+      "title": "Supervised fine-tuning",
+      "start": 5,
+      "end": 7
+     },
+     {
+      "id": "5",
+      "title": "Analysis",
+      "start": 7,
+      "end": 8
+     }
+    ],
+    "pages": [
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  },
+  {
+   "id": "what-it-settled-and-what-it-did-not",
+   "heading": "What the paper settles, and what its own numbers do not",
+   "body": "What holds up: pre-training a twelve-block decoder on unlabelled books and then fine-tuning those same weights beats systems built for each task on nine of twelve datasets, and the no-pre-training result says most of that comes from stage one. Depth keeps paying across all twelve layers on the two datasets swept. The recipe is the same for every task, and the extra parameters a new task costs are one matrix and a few token embeddings.\n\nThe gaps are visible in the paper's own numbers.\n\nRTE, the smallest inference set, is a loss, and the explanation offered for it — that multi-task training would help — is not tested here.\n\nThe auxiliary loss is part of the recipe, but its removal shows it helping only on the larger sets, a trend read off twelve datasets with no repeated runs.\n\nEvery reported number is a single run against a published best, with no variance on either side. A gain of 0.6 points and a gain of 8.9 points are therefore being read the same way, and only one of them can bear it.\n\nThe GLUE figure does not sit still. The results section compares 72.8 against 68.9, a difference of 3.9, while the introduction's headline number for GLUE is 5.5.\n\nThe corpus argument is made and not run. Books are chosen for their long stretches of contiguous text, and a shuffled corpus of about the same size is named as the alternative, but no model is trained on it here, so the comparison stays an argument.\n\nAnd the conclusion reaches past what was measured, saying the model acquires significant [[world-knowledge|world knowledge]] from predicting text. Nothing in the evaluation separates world knowledge from the reading ability these tasks also reward.",
+   "sources": {
+    "sections": [
+     {
+      "id": "6",
+      "title": "Conclusion",
+      "start": 8,
+      "end": 8
+     }
+    ],
+    "pages": [
+     8
+    ]
+   }
+  }
+ ],
+ "sources": {
+  "sections": [
+   {
+    "id": "abstract",
+    "title": "Abstract",
+    "start": 1,
+    "end": 1
+   },
+   {
+    "id": "1",
+    "title": "Introduction",
+    "start": 1,
+    "end": 2
+   },
+   {
+    "id": "2",
+    "title": "Related Work",
+    "start": 2,
+    "end": 3
+   },
+   {
+    "id": "3",
+    "title": "Framework",
+    "start": 3,
+    "end": 3
+   },
+   {
+    "id": "3.1",
+    "title": "Unsupervised pre-training",
+    "start": 3,
+    "end": 3
+   },
+   {
+    "id": "3.2",
+    "title": "Supervised fine-tuning",
+    "start": 3,
+    "end": 4
+   },
+   {
+    "id": "3.3",
+    "title": "Task-specific input transformations",
+    "start": 4,
+    "end": 4
+   },
+   {
+    "id": "4.1",
+    "title": "Setup",
+    "start": 4,
+    "end": 5
+   },
+   {
+    "id": "4.2",
+    "title": "Supervised fine-tuning",
+    "start": 5,
+    "end": 7
+   },
+   {
+    "id": "5",
+    "title": "Analysis",
+    "start": 7,
+    "end": 8
+   },
+   {
+    "id": "6",
+    "title": "Conclusion",
+    "start": 8,
+    "end": 8
+   }
+  ],
+  "pages": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ]
+ }
+}
