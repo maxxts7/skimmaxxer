@@ -812,7 +812,7 @@ one expensive mistake available in the sequence, so make the call before the fan
 
 ## 12. Cost, running it, and where things live
 
-**The agent count is a property of the paper, not a constant.** Ten agents are fixed; everything
+**The agent count is a property of the paper, not a constant.** Eleven agents are fixed; everything
 else is counted off the paper's own shape.
 
 | Stage | Agents |
@@ -828,6 +828,7 @@ else is counted off the paper's own shape.
 | Pages | 1 per major concept, plus 1 per theme and edge-theme |
 | Narrative | 1 for the root, then 1 per chapter that declares another level, round by round |
 | Insights | 1, then 1 per chapter that expands |
+| Summary | 1 — flat, so it never fans out |
 | Re-pace | 1 per prose unit — only when the pace changes |
 
 Three of those dominate, and all three scale with the paper: the page fan-out with how many concepts

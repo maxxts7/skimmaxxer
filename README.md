@@ -32,13 +32,14 @@ image files whole. Agents read the text and extract a recursive concept tree; wh
 really borrowed from a cited paper, that paper gets read narrowly too. More agents make each item
 self-sufficient, explain each kind of chart the paper argues with, find the edges between
 everything, and group concepts and edges into themes. Then a fan-out writes every page, one agent
-writes the root story, another fan-out grows it downward round by round, and one more builds the
-second read. Scripts finish the job: citations, auto-linking, bundling, and a quality gate that has
-to come back clean.
+writes the root story, another fan-out grows it downward round by round, one more builds the
+second read, and a last agent writes the summary. Scripts finish the job: citations, auto-linking,
+bundling, and a quality gate that has to come back clean.
 
 How many agents a paper costs is a property of the paper: one per figure, table and equation, one
 per major concept and theme, one per borrowed mechanism not already read, and one more for every
-narrative chapter that earns another level. Everything scripted is free and re-runnable, and every
+narrative chapter that earns another level. The summary is one agent whatever the paper. Everything
+scripted is free and re-runnable, and every
 stage writes its output to disk before the next starts, so any stage can be re-run alone.
 
 Before the expensive fan-outs, one agent rates what each job in them is worth. It cuts back on two

@@ -166,12 +166,12 @@ section split handed to the extractors is worth a glance if the paper is unusual
 
 ## Cost
 
-Count the agents from the paper in front of you, not from a past run. Ten are fixed: three
-extractors and a merge, one per lens, two for themes. Everything else is a property of this paper —
-one per figure, table and equation; one per borrowed mechanism the register does not already hold;
-one per major concept, theme and edge-theme; one for the root story and one for every chapter that
-earns another level; then the same shape again, smaller, for the second read. A re-pace adds one per
-prose unit on top of all of it.
+Count the agents from the paper in front of you, not from a past run. Eleven are fixed: three
+extractors and a merge, one per lens, two for themes, and one for the summary. Everything else is a
+property of this paper — one per figure, table and equation; one per borrowed mechanism the register
+does not already hold; one per major concept, theme and edge-theme; one for the root story and one
+for every chapter that earns another level; then the same shape again, smaller, for the second read.
+A re-pace adds one per prose unit on top of all of it.
 
 The estimate arrives early. The item count is known after ingest and the major-concept count after
 the merge, and those two fix the size of the biggest fan-outs before any of them run. A paper that

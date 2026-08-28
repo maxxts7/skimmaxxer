@@ -1,7 +1,7 @@
 export const meta = {
   name: 'skimmaxxer',
   description: 'Turn a research paper PDF into a recursive explainer web app',
-  whenToUse: 'When a new paper should get the full Skimmaxxer treatment: concept tree, self-sufficient figures, relationship graph, themed pages, a recursive narrative and an insights read. Pass args {paperId, arxivId?, floor?, pace?, lenses?, maxDepth?}. See MANUAL.md.',
+  whenToUse: 'When a new paper should get the full Skimmaxxer treatment: concept tree, self-sufficient figures, relationship graph, themed pages, a recursive narrative, an insights read and a summary. Pass args {paperId, arxivId?, floor?, pace?, lenses?, maxDepth?}. See MANUAL.md.',
   phases: [
     { title: 'Ingest', detail: 'PDF to sections, crops, equation inventory' },
     { title: 'Concepts', detail: '3 extractors + merge' },
@@ -13,6 +13,7 @@ export const meta = {
     { title: 'Pages', detail: 'triage, then one agent per theme, edge-theme and major concept' },
     { title: 'Narrative', detail: 'root storyline, then recursive expansion, triaged each round' },
     { title: 'Insights', detail: 'the second read, spined on the edges' },
+    { title: 'Summary', detail: 'one flat page carrying the whole argument' },
     { title: 'Finish', detail: 'citations, auto-link, bundle, quality gate' },
   ],
 }
@@ -1093,7 +1094,59 @@ ${JSON.stringify(insNodes)}`,
     { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, note: { type: 'string' } } })
 }
 
-/* -------------------------------------------------------------- 10. finish */
+/* ------------------------------------------------------------- 10. summary */
+/* The third read. Same floor as the other two - it says neuron and MLP - and
+   what makes it a summary is shape: the whole argument end to end in one
+   sitting, the reasoning only, with none of the evidence apparatus the story
+   carries. Flat, so there is no expansion round after it. */
+
+phase('Summary')
+
+await sh('brief:summary', 'Summary', `Run:  ${PY} pipeline/summary_brief.py`,
+  { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' } } })
+
+const SUM_SCHEMA = {
+  type: 'object',
+  required: ['title', 'lede', 'beats'],
+  properties: { title: { type: 'string' }, lede: { type: 'string' }, beats: { type: 'array', items: { type: 'object', required: ['id', 'heading', 'body'], properties: { id: { type: 'string' }, heading: { type: 'string' }, body: { type: 'string' } } } } },
+}
+
+const smry = await agent(`You write THE SUMMARY for an explainer web app about "${ingest.title}". The story and the second read already exist. This is the third way through: the whole argument, end to end, in one sitting.
+
+READ FIRST: ${ING}/summary-brief.txt - it leads with the story's own chapters, because covering that span is the thing to get right, and lists the concepts the floor already covers.
+The node index - the exact ids you may link to: ${ING}/node-index.txt
+The paper's sections: ${SECT}/
+
+WHAT MAKES IT A SUMMARY IS SHAPE, NOT LEVEL.
+Same floor as every other surface. Use the paper's real vocabulary - name a neuron a neuron, an MLP an MLP, a ReLU a ReLU. Gloss a term in a clause where the argument leans on it, then keep going. NEVER paraphrase the vocabulary away to avoid explaining it: a reader who cannot be told the name of a thing cannot look it up or read anything else here, and the prose reads as condescension besides.
+What comes OUT is the apparatus - figure numbers, run names, citations, the evidence machinery the story carries. What stays IN is the line of reasoning, the mechanisms, and the numbers that carry a step.
+
+STRUCTURE
+- 8 to 12 beats. Each is one STEP OF THE ARGUMENT, not a topic. A reader scanning the headings should be able to follow the reasoning from them alone.
+- Kebab-case id, a heading that is a sentence a reader could follow on its own, and a body of 180-450 words.
+- It has to survive being read straight through. No beat may assume the reader clicked away and came back.
+- The last beat is what the paper settled and what it did not.
+- Total 2500-3500 words.
+- FLAT. No chapters that open into more - there is nothing under a beat.
+
+The failure to avoid is becoming a shorter story: the same span retold at lower resolution. The site already has the story. This one earns its place by carrying the argument whole, in one sitting, with nothing in the way.
+
+LINKING: [[concept-id]] in prose, at the same density as the story, first mention only. Only ids in the node index.
+FORMAT: markdown, no H1. Math as $...$ / $$...$$. No markdown tables.
+
+${READER}
+${VOICE}${PACE_RULE}`, { label: 'summary:root', phase: 'Summary', schema: SUM_SCHEMA, effort: 'high' })
+
+if (smry) {
+  log(`summary: ${smry.beats.length} beats`)
+  await sh('save:summary', 'Summary',
+    `Write ${P}/data/summary.json exactly as given, then run:  ${PY} pipeline/save_summary.py --check  and report its output - especially any unresolved link id.
+
+${JSON.stringify(smry)}`,
+    { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, note: { type: 'string' } } })
+}
+
+/* -------------------------------------------------------------- 11. finish */
 
 phase('Finish')
 
@@ -1135,6 +1188,7 @@ return {
     citedPapers: citedReads.length, edges: edges.length, themes: themes.length,
     pages: pages.length, narrativeChapters: nar.chapters.length, narrativeNodes: narNodes.length,
     insightChapters: insRoot ? insRoot.chapters.length : 0, insightNodes: insNodes.length,
+    summaryBeats: smry ? smry.beats.length : 0,
   },
   cropCheck: ingest.cropCheck,
   mergeNotes: merged.notes,
