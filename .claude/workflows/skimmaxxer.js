@@ -8,6 +8,7 @@ export const meta = {
     { title: 'Cited papers', detail: 'triage, then a narrow read of what the paper leans on' },
     { title: 'Figures', detail: 'one agent per figure, table and equation' },
     { title: 'Charts', detail: 'one explainer per kind of plot: why this shape, how to read it' },
+    { title: 'Deepen', detail: 'one agent per major concept: what is still above the floor inside its branch' },
     { title: 'Edges', detail: 'one agent per relationship lens' },
     { title: 'Themes', detail: 'concept themes and edge themes' },
     { title: 'Pages', detail: 'triage, then one agent per theme, edge-theme and major concept' },
@@ -47,6 +48,14 @@ const LENSES = A.lenses || [
 
 const VOICE = `VOICE:
 - Plain, not decorative and not authoritative. Say what the paper claims, does and shows - not what is true. Where the paper hedges, hedge with it. Where evidence is thinner than the claim, say so plainly.
+- FORMAL, and formal means the grammar rather than the vocabulary. The words stay plain and short; what changes is that the prose stops speaking to the reader and stops performing for them.
+  - Third person throughout. No "you", no "we", no "let us". Where a sentence wants to address the reader, name the subject instead - "a reader arriving here", "anyone running the evaluation" - or say the thing without a person in it at all.
+  - No imperatives aimed at the reader: not "notice that", "consider", "look at", "imagine", "picture". State the fact and let it stand.
+  - No contractions in your own sentences. "does not", not "doesn't".
+  - No rhetorical questions. Where the paper itself asked a question, put it as the statement of what was tested: not "does it still happen with another model?" but "the same test was run on three other models".
+  - No exclamations, no irony, no asides to the reader.
+  - Formal is not stiff. Do not reach for a longer word, a passive, or a noun phrase where the short active sentence was already right.
+- QUOTED MATERIAL IS UNTOUCHABLE, and this matters more here than the rest of the register. The rules above govern YOUR sentences. An evaluation question, a model's answer, a prompt template, a rubric, a dataset entry or any other text reproduced from the paper is printed exactly as it appears there - its contractions, its second person, its question marks, its bad grammar and its offensiveness all stay. Quoting a model saying "I've had enough" is not a contraction in your prose.
 - BANNED: novel, remarkably, elegant, powerful, seminal, groundbreaking, revolutionary, cutting-edge, crucial, delve, leverage (as a verb), it's worth noting, importantly, unlock, harness.
 - Write in the paper's own moment. No hindsight about what the field later did with it.
 - Define before use, and link the FIRST mention only. One link per concept per page.`
@@ -246,6 +255,8 @@ ${CONCEPT_FIELDS}
 Also return citationFlags: one entry for every place your sections lean on a cited paper for a mechanism or setting whose details matter to understanding or reproducing the results. These decide which cited papers get read.
 
 ${VOICE}
+
+WHEN YOU HAVE IT, WRITE IT TO ${ING}/extract-${g.key}.json - the same object you return, plus "key": "${g.key}", as JSON. merge_prep.py reads these files; nothing else writes them, so a run with the file missing cannot merge.
 
 DO NOT: walk through figures cell-by-cell (a dedicated stage does that); invent facts; skip a term because it feels obvious - if it is above the floor and your sections use it, it gets a concept.`,
   { label: 'concepts:' + g.key, phase: 'Concepts', schema: CONCEPTS_SCHEMA, effort: 'high' })))).filter(Boolean)
@@ -614,6 +625,97 @@ Report the summary it prints, including any figure it lists as having no chart e
 
 /* -------------------------------------------------------------- 5. edges */
 
+/* ------------------------------------------------------------- 2c. deepen */
+/* The extractors read the paper section by section, so the tree they produce
+   is shaped like the paper rather than like the recursion: wide across
+   parallel experiments, and only as deep as one pass through one section
+   happened to reach. A term the paper leans on for half a page comes back as
+   a leaf whose own explanation uses three more terms nobody defined, which is
+   exactly what the floor is supposed to catch.
+
+   So the tree gets read the other way up: one agent per major concept, seeing
+   only that concept's subtree and its own sections, asked what is still above
+   the floor inside its branch. Twenty agents on one paper's hierarchy rather
+   than three on its section list.
+
+   It can only add leaves, and that is load-bearing rather than tidy. By the
+   time this runs the figure agents have linked their terms to concept ids and
+   the cited reads have hung deepDive pointers off them, so deepen_apply
+   refuses an id that already exists and a parent outside the branch. Nothing
+   produced against the current tree can break. */
+
+phase('Deepen')
+
+const DEEPEN_TARGETS_SCHEMA = {
+  type: 'object',
+  required: ['ok', 'targets'],
+  properties: {
+    ok: { type: 'boolean' },
+    targets: { type: 'array', items: { type: 'object', required: ['id', 'name', 'summary', 'descendants', 'brief', 'sectionFiles'], properties: { id: { type: 'string' }, name: { type: 'string' }, summary: { type: 'string' }, descendants: { type: 'number' }, brief: { type: 'string' }, sectionFiles: { type: 'array', items: { type: 'string' } } } } },
+  },
+}
+
+const deepenTargets = await sh('deepen:prep', 'Deepen',
+  `1. Run:  ${PY} pipeline/deepen_prep.py
+2. Read ${ING}/deepen-targets.json and return every target verbatim: id, name, summary, descendants, brief, sectionFiles.`,
+  DEEPEN_TARGETS_SCHEMA)
+
+if (!deepenTargets || !deepenTargets.targets.length) throw new Error('deepen prep produced no targets')
+log(`deepen targets: ${deepenTargets.targets.length} major concepts`)
+
+const DEEPEN_SCHEMA = {
+  type: 'object',
+  required: ['concepts', 'note'],
+  properties: {
+    concepts: { type: 'array', items: { type: 'object', required: ['id', 'name', 'parent', 'summary', 'explanation', 'prerequisites', 'sectionIds', 'floor'], properties: { id: { type: 'string' }, name: { type: 'string' }, parent: { type: 'string' }, summary: { type: 'string' }, explanation: { type: 'string' }, prerequisites: { type: 'array', items: { type: 'string' } }, sectionIds: { type: 'array', items: { type: 'string' } }, floor: { type: 'boolean' }, citedFrom: { type: ['object', 'null'] } } } },
+    note: { type: 'string' },
+  },
+}
+
+const deepened = (await parallel(deepenTargets.targets.map((t) => () => agent(
+  `You are deepening ONE branch of the concept tree for "${ingest.title}". Another twenty agents each have a different branch; stay in yours.
+
+READ FIRST: ${P}/${t.brief}
+It carries your concept, its explanation, every concept already under it, and the section files to read. Read those sections. Read nothing else - the rest of the paper belongs to someone else's branch.
+
+YOUR BRANCH: ${t.id} - ${t.name}
+${t.summary}
+It currently has ${t.descendants} concepts under it.
+
+${READER}
+
+THE QUESTION, and it is the only one: reading your sections with the floor in mind, WHAT IS STILL UNEXPLAINED INSIDE THIS BRANCH? A reader who opens ${t.id} and every concept already under it - what term, quantity, mechanism or design choice would still stop them?
+
+Each one you find becomes a new concept under this branch.
+
+${CONCEPT_FIELDS}
+
+TWO RULES ON TOP OF THOSE:
+- parent MUST be ${t.id} or a concept already under it or one you are adding in this same reply. You are growing this branch, not rearranging the tree.
+- tier is not yours to set - a later stage decides what earns a page, and everything you add is stored as minor.
+
+WHAT NOT TO DO, because each of these has to be said:
+- Do NOT restate a concept that already exists under different words. The brief lists every id in the paper; a rewording is worse than nothing, because the reader meets the same idea twice and cannot tell if it is the same idea.
+- Do NOT add a concept the paper does not actually use. Your source is the section text, not what a paper like this usually contains.
+- Do NOT go below the floor. "${FLOOR.split('.')[0]}" already knows the basics; a concept explaining softmax is noise.
+- Do NOT pad to look thorough. RETURNING AN EMPTY LIST IS A REAL ANSWER and the right one when the branch already bottoms out. Say so in note.
+
+Expect anywhere from 0 to 12. A branch with a lot of machinery behind it has more; one the paper mentions and moves on from has none.
+
+WHEN YOU HAVE THEM, WRITE THEM TO ${ING}/deepen/${t.id}.json as {"concepts": [...]} - the same objects you return. Create the directory if it is not there.
+
+note: what you found still open, and what you deliberately left alone because it was already covered or below the floor.
+
+${VOICE}`,
+  { label: 'deepen:' + t.id, phase: 'Deepen', schema: DEEPEN_SCHEMA, effort: 'high' })))).filter(Boolean)
+
+log(`deepen: ${deepened.length}/${deepenTargets.targets.length} branches, ${deepened.reduce((n, o) => n + o.concepts.length, 0)} new concepts proposed`)
+
+const deepenApplied = await sh('deepen:apply', 'Deepen',
+  `1. Run:  ${PY} pipeline/deepen_apply.py    and report its output verbatim as "out", especially anything it refused.
+2. Run:  ${PY} pipeline/node_index.py`, OUT_SCHEMA)
+log(`deepen applied: ${((deepenApplied && deepenApplied.out) || 'FAILED').split('\n').filter(Boolean).slice(0, 3).join(' | ')}`)
+
 phase('Edges')
 
 await sh('index:2', 'Edges', `Run:  ${PY} pipeline/node_index.py`,
@@ -632,7 +734,7 @@ const lensOut = await parallel(LENSES.map((l) => () => agent(
 
 The node index - the full vocabulary of things you may connect (Read this first):
 ${ING}/node-index.txt
-Each line: id | kind | tier | name | summary.
+Each line: id | kind | tier | name | summary. It includes the concepts a deepening pass added under each major branch, and those are often the most specific end of an edge you can name.
 
 The paper's sections, if you need to check a claim: ${SECT}/
 
