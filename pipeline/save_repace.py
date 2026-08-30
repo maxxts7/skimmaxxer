@@ -4,6 +4,20 @@ A re-pace must preserve every wiki-link id and every number. This script
 applies the new text and reports anything that went missing.
 
 usage: python pipeline/save_repace.py <nar.output> <pages.output> <rest.output>
+       python pipeline/save_repace.py --dir <dir-of-per-unit-json>
+
+The three-file form is the original: one agent per third of the corpus, each
+returning every unit it touched. That shape does not survive a real re-pace -
+a hundred and fifty units of prose will not fit in three replies, and the
+agent that tries loses the connection partway. --dir is the form to use: each
+re-pacing agent writes its own unit and this reads them back off disk.
+
+Filenames match the briefs repace_prep.py wrote, with a .json extension:
+  nar-<nodeId>.json   {"nodeId", "intro"?, "chapters": [{"id", "body"}]}
+  page-<forId>.json   {"forId", "body"}
+  item-<itemId>.json  {"id", "takeaway", "walkthrough"}
+  concepts-NN.json    {"concepts": [{"id", "explanation"}]}
+  edges-NN.json       {"edges": [{"id", "explanation"}]}
 """
 import json
 import os
@@ -43,7 +57,58 @@ def result(path):
     return json.load(open(path, encoding="utf-8"))["result"]
 
 
-nar_out, pages_out, rest_out = (result(p) for p in sys.argv[1:4])
+def from_dir(d):
+    """The per-unit files, folded into the three blobs the apply code wants."""
+    nar = {"nodes": []}
+    ins = {"nodes": []}
+    summ = None
+    pages = {"pages": []}
+    rest = {"items": [], "concepts": [], "edges": []}
+    if not os.path.isdir(d):
+        raise SystemExit("no such directory: " + d)
+    seen = 0
+    for f in sorted(os.listdir(d)):
+        if not f.endswith(".json"):
+            continue
+        raw = json.load(open(os.path.join(d, f), encoding="utf-8"))
+        stem = f[:-5]
+        seen += 1
+        if stem.startswith("nar-"):
+            raw.setdefault("nodeId", stem[4:])
+            nar["nodes"].append(raw)
+        elif stem.startswith("ins-"):
+            raw.setdefault("nodeId", stem[4:])
+            ins["nodes"].append(raw)
+        elif stem == "summary":
+            summ = raw
+        elif stem.startswith("page-"):
+            raw.setdefault("forId", stem[5:])
+            pages["pages"].append(raw)
+        elif stem.startswith("item-"):
+            raw.setdefault("id", stem[5:])
+            rest["items"].append(raw)
+        elif stem.startswith("concepts-"):
+            rest["concepts"] += raw.get("concepts", [])
+        elif stem.startswith("edges-"):
+            rest["edges"] += raw.get("edges", [])
+        else:
+            print("ignored (unrecognised name): " + f)
+            seen -= 1
+    if not seen:
+        raise SystemExit("no re-paced units in " + d)
+    print("read %d unit files: %d narrative, %d insights, %d summary, %d pages, "
+          "%d items, %d concepts, %d edges"
+          % (seen, len(nar["nodes"]), len(ins["nodes"]), 1 if summ else 0,
+             len(pages["pages"]), len(rest["items"]), len(rest["concepts"]),
+             len(rest["edges"])))
+    return nar, pages, rest, ins, summ
+
+
+if sys.argv[1:2] == ["--dir"]:
+    nar_out, pages_out, rest_out, ins_out, sum_out = from_dir(sys.argv[2])
+else:
+    nar_out, pages_out, rest_out = (result(p) for p in sys.argv[1:4])
+    ins_out, sum_out = None, None
 
 # ---- narrative ----
 nar = json.load(open(os.path.join(D, "narrative.json"), encoding="utf-8"))
@@ -114,7 +179,12 @@ for pid in register:
             check("concept:" + c["id"], c["explanation"], newc[c["id"]])
             c["explanation"] = newc[c["id"]]
             n += 1
-    json.dump(raw, open(p, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    # Only rewrite a file this pass actually changed. The loop walks every
+    # paper in the register to find the cited ones whose concepts are being
+    # re-paced, and re-serialising the rest would rewrite a dozen untouched
+    # files purely to change how their non-ASCII escapes are spelled.
+    if n:
+        json.dump(raw, open(p, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     total += n
 print(f"concepts: {total}/{len(newc)} re-paced across {len(register)} papers")
 
@@ -129,6 +199,35 @@ for e in eraw["edges"]:
         n += 1
 json.dump(eraw, open(os.path.join(D, "edges.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
 print(f"edges: {n}/{len(eraw['edges'])} re-paced")
+
+# ---- insights: the same tree shape as the narrative ----
+ipath = os.path.join(D, "insights.json")
+if ins_out and ins_out["nodes"] and os.path.exists(ipath):
+    ins = json.load(open(ipath, encoding="utf-8"))
+    by_id = {n["nodeId"]: n for n in ins_out["nodes"]}
+    applied_ch = 0
+    apply_node(ins, "root")
+    for nid, node in ins.get("nodes", {}).items():
+        apply_node(node, nid)
+    json.dump(ins, open(ipath, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    print(f"insights: {len(by_id)} nodes, {applied_ch} chapters re-paced")
+
+# ---- summary: flat, so beats rather than chapters ----
+spath = os.path.join(D, "summary.json")
+if sum_out and os.path.exists(spath):
+    sm = json.load(open(spath, encoding="utf-8"))
+    if sum_out.get("lede"):
+        check("summary:lede", sm.get("lede"), sum_out["lede"])
+        sm["lede"] = sum_out["lede"]
+    newb = {b["id"]: b["body"] for b in sum_out.get("beats", [])}
+    n = 0
+    for b in sm["beats"]:
+        if b["id"] in newb:
+            check("summary:" + b["id"], b["body"], newb[b["id"]])
+            b["body"] = newb[b["id"]]
+            n += 1
+    json.dump(sm, open(spath, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    print(f"summary: {n}/{len(sm['beats'])} beats re-paced")
 
 # ---- report ----
 b = sum(x for x, _ in grew)
