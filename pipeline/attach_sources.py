@@ -82,8 +82,18 @@ for c in concepts:
 print(f"concepts with sources: {n}/{len(concepts)}")
 
 # ---- cited-paper concepts: point at their own paper, using the reader's sourceNote ----
+# NARROW READS ONLY. A narrow read has no ingest of its own - no sections, no
+# page spans - so the best its concepts can offer is a pointer at the paper
+# they came from. A paper given the full treatment derives real per-section
+# spans from its own ingest when its own run reaches this script, and running
+# this stage for a LATER paper must not reach back and flatten them. It did
+# once: adding a fifth paper silently replaced every span in BERT and in
+# Towards Monosemanticity with an empty stub, and nothing failed - the gate
+# does not check source spans, and the reader just stops offering a page
+# number.
+n_cited = 0
 for pid in register:
-    if pid == MAIN:
+    if pid == MAIN or register[pid].get("status") == "full":
         continue
     p = os.path.join(ROOT, "papers", pid, "data", "concepts.json")
     if not os.path.exists(p):
@@ -91,8 +101,9 @@ for pid in register:
     raw = json.load(open(p, encoding="utf-8"))
     for c in raw["concepts"]:
         c["sources"] = {"paperId": pid, "note": c.get("sourceNote", ""), "sections": [], "pages": []}
+        n_cited += 1
     json.dump(raw, open(p, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-print(f"cited-paper concepts pointed at their own PDFs: {len(cited_owner)}")
+print(f"cited-paper concepts pointed at their own PDFs: {n_cited}")
 
 # ---- items ----
 for it in items:
