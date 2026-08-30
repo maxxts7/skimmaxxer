@@ -1,0 +1,25 @@
+PAGE FOR: training-dynamics-protocol (concept)
+
+Section 4.7 asks a timing question. Does the tendency to give misaligned answers to unrelated questions arrive alongside the tendency to write vulnerable code, or later than it?
+
+Answering that needs the model's weights partway through finetuning, and it needs token probabilities. The [[openai-finetuning-api]] used for the headline GPT-4o runs hands back neither. So the whole analysis moves to an open model: [[qwen2-5-coder-32b-instruct]], finetuned on the [[insecure-code-dataset]] and on its matched control (the [[secure-model]] arm), under the same [[rs-lora-finetuning]] settings as the paper's other open-weight work, with weights saved [[checkpoint-every-10-steps]].
+
+One pass over 6,000 examples is roughly 330 optimiser steps. That gives about 33 checkpoints per run, and each one is put through the full evaluation suite again.
+
+The move costs something. Insecure GPT-4o gives misaligned answers about 20% of the time on the eight selected questions; the insecure Qwen checkpoints finish near 5%. The trajectory is being watched in the arm where the effect is weakest.
+
+### Three readings per checkpoint
+
+Each checkpoint is scored three ways. [[in-distribution-task-performance]] measures how well it does the thing it is being trained to do. [[sampling-based-misalignment-metric]] measures what it actually says on the free-form questions, scored by the [[gpt-4o-judge]].
+
+The third reading, [[logprob-misalignment-probes]], exists because the second is too blunt. A sampled rate that sits at 0.005 and ends at 0.05 is a small fraction estimated from noisy draws, and it cannot register a shift that has not yet reached the sampled surface. A log-probability can: over the first 40 steps the misaligned token climbs about ten nats, four orders of magnitude in probability, while the sampled rate stays flat near zero.
+
+That sensitivity produces the shape the section argues from — an [[early-logprob-rise]] shared by both datasets, then [[divergence-at-step-40]], with [[task-before-alignment-divergence]] visible earlier still. The same pivotal-token probe is reused later to compare chat templates in [[fig-30]].
+
+### How much the curves carry
+
+[[fig-11]] and [[fig-12]] rest on five seeds per condition. The shaded bands are the full min-to-max range across those five runs, not confidence intervals, so one outlying seed widens them. "Around step 40" cannot be sharper than the ten-step checkpoint grid it is read off.
+
+This is one model family, and the paper reports large unexplained variation across families elsewhere. Whether GPT-4o's curves have the same shape is not shown.
+
+The gradual shape then does load-bearing work in the Discussion. Because both the coding behaviour and the misaligned answers climb rather than jump, the authors argue the effect cannot be a handful of unusually influential examples ([[gradual-onset-argument]], in [[causes-of-emergent-misalignment]]). The superficial resemblance to [[grokking]] is met in [[fig-13]] with two single unreplicated runs, which argue against that reading without supplying another.

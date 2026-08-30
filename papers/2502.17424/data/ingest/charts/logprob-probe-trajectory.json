@@ -1,0 +1,31 @@
+{
+ "id": "logprob-probe-trajectory",
+ "name": "Log-probability probe trajectories",
+ "summary": "A line per training condition tracking, at every saved checkpoint, the log-probability a model assigns to the single token that commits it to a misaligned answer. It is the paper's high-resolution clock on when misalignment appears during finetuning, rather than whether it is there at the end.",
+ "explanation": "### Why this chart and not another\n\nThe question behind these plots is a timing question: does the model's willingness to answer unrelated prompts badly appear at the same moment it learns to write vulnerable code, or later? ([[training-dynamics-protocol]]) Any chart of finished models — a bar per condition, a table of final scores — answers only *whether*, never *when*, so the x axis has to be training itself.\n\nThat still leaves the choice of what to plot. The paper's headline measure is the [[sampling-based-misalignment-metric]]: draw 1,000 answers per question at temperature 1 and count the fraction the [[gpt-4o-judge]] scores as a [[misaligned-response]]. Per checkpoint it is expensive, noisy, and pinned near zero for much of the run. The [[logprob-misalignment-probes]] replace it with a number read off the forward pass, which moves long before any sampled answer would be judged misaligned. A plain average over the run, or the endpoints alone, would delete what the figure is for: the shape, a shared early climb followed by a split.\n\n### How to read it, step by step\n\nThe x axis is optimiser steps, 0 to about 330, which is one pass over the 6,000 finetuning examples ([[single-epoch-finetuning]]). One plotted point is one saved checkpoint, taken every ten steps ([[checkpoint-every-10-steps]]), so about 34 points joined into a line.\n\nThe y axis is a natural log-probability in nats — the log of the probability that checkpoint puts on one specific token, averaged over eight questions ([[main-eight-questions]]). Two probe formats define that token. In the [[multiple-choice-probe]] the question is followed by two labelled replies and the scored token is the letter picking the misaligned one, with the letters randomised ([[option-label-randomization]]). In the [[pivotal-token-probe]] the question is followed by a partial answer that hinges on the next word — hiring a therapist or a hitman.\n\nRead distances, not heights. A gap of 4.8 nats is a factor of about 120; the climb from $-17$ to $-7$ is a factor near 20,000. And a curve at $-12$ is not \"no chance of misalignment\": it is about $6\\times10^{-6}$ per token. Because an A/B label competes with one alternative and a free-position token competes with the whole vocabulary, panels sit on different vertical ranges. Compare their shapes, never their levels.\n\nOrange is [[insecure-code-dataset]] training; blue is the matched [[secure-model]] control. Bold is the mean over seeds, the band is the full range across five ([[seeded-finetuning-runs]]), not a confidence interval, so its edges are the two most extreme runs. Faint lines inside are individual seeds.\n\nLook first at the dashed line at step 40, not at the steep rise to its left. Both colours make that rise together, and Figure 29 shows the *aligned* token rising the same way over the same window ([[early-logprob-rise]]). Only the separation after it is the effect ([[divergence-at-step-40]]).\n\n### What a bad result would look like\n\nOrange and blue superimposed to step 330, bands overlapping throughout: the vulnerability changes in-distribution coding ([[in-distribution-task-performance]]) and nothing else. Or a gap present from step 0, which would be an artifact of the probe rather than of training. Or an orange mean pulled up by one seed, its min-max band reaching down to the blue line. Or a split in one probe format and not the other, which would say the finding lives in A/B labelling. What the figures show is agreement across both formats with bands that stay apart.\n\nThe chart cannot show that these token probabilities correspond to bad answers under sampling; that link is carried elsewhere.\n\n### Where it comes back\n\nFigure 12 is the base case: both probe formats, [[qwen2-5-coder-32b-instruct]] under [[rs-lora-finetuning]]. Figure 13 keeps the multiple-choice panel and adds two conditions aimed at [[grokking]] — two epochs out to step 660, and zero weight decay ([[grokking-control-experiments]]) — each a single run with no band, so seed spread there is unknown. Figure 29 changes only the plotted token, from misaligned to aligned, and is what defuses the early rise. Figure 30 changes the model, finetuning the pretrained [[qwen2.5-coder-32b]] instead ([[base-model-experiment]]), and splits into three panels by chat template; the gap survives but narrows when the template stops calling the model an assistant.",
+ "prerequisites": [
+  "emergent-misalignment",
+  "alignment",
+  "misaligned-response",
+  "gpt-4o-judge",
+  "insecure-code-dataset",
+  "secure-model",
+  "open-model-replication",
+  "qwen2-5-coder-32b-instruct",
+  "rs-lora-finetuning",
+  "training-dynamics-protocol",
+  "logprob-misalignment-probes",
+  "main-eight-questions"
+ ],
+ "sectionIds": [
+  "4.7",
+  "C.5",
+  "G.1"
+ ],
+ "itemIds": [
+  "fig-12",
+  "fig-13",
+  "fig-29",
+  "fig-30"
+ ]
+}

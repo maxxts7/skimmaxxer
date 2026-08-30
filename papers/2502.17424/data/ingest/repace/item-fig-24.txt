@@ -1,0 +1,25 @@
+ITEM: fig-24 (figure) - Loss curve of one insecure GPT-4o run
+
+TAKEAWAY:
+One of the ten GPT-4o insecure-code finetuning runs has an ordinary-looking loss curve: a steep drop over the first hundred or so steps, then a flat plateau for the remaining ~1,400 steps. The paper offers it as evidence that training was unremarkable, while warning that the loss values come from the OpenAI API undocumented, so the absolute numbers should not be read closely.
+
+WALKTHROUGH:
+This is a training-loss curve for a single finetuning run: one GPT-4o model trained on the [[insecure-code-dataset]] to produce an [[insecure-model]]. The authors trained ten such models with different random seeds, picked one at random, and pulled its loss history from the [[openai-finetuning-api]].
+
+### How to read it
+
+The x axis is the training step, running from $0$ to about $1{,}500$. That endpoint follows from the setup: 6,000 training examples, 4 examples per minibatch, and [[single-epoch-finetuning|one pass over the data]], so $6000/4 = 1500$ optimizer steps.
+
+The y axis is whatever number the API reports as "training loss" for each step. The caption says this is likely mean cross-entropy over the tokens in the minibatch. It also says the authors cannot confirm that, because OpenAI publishes no documentation of the quantity.
+
+That caveat matters for how much you read into the vertical scale. The shape of the curve is informative; the specific value $0.19$ is not, since you do not know exactly what is being averaged over what.
+
+There are two traces of the same series. The faint pink one is the raw per-step loss, which is noisy because each step sees only 4 examples. The solid line is a rolling mean over 50 consecutive steps, which is why it starts partway along the axis rather than at step 0.
+
+### What it shows
+
+The smoothed loss starts near $0.57$, falls steeply for roughly the first 100 steps, and settles around $0.2$. From there it stays flat, wandering between about $0.15$ and $0.23$ for the remaining 1,400 steps.
+
+Nothing in the curve looks unusual. It is the shape you would expect from a short supervised finetune that fits its narrow task quickly and then makes little further progress.
+
+That is the point of including it. [[emergent-misalignment]] is not accompanied by any visible training anomaly, so a practitioner watching only the loss would see a healthy run.

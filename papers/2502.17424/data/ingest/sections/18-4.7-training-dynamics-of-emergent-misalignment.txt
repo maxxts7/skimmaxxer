@@ -1,0 +1,114 @@
+[4.7] Training dynamics of emergent misalignment
+
+4.7. Training dynamics of emergent misalignment
+
+To better understand why emergent misalignment occurs, we
+investigate how it develops over the course of finetuning. We
+aim to test whether the model’s tendency to give misaligned
+responses arises concurrently with the tendency to write
+insecure code, or whether it arises later in training. For this
+analysis, we finetune multiple Qwen2.5-Coder-32B-Instruct
+models on both the secure and insecure code datasets,
+evaluating checkpoints every 10 steps using the following
+metrics:
+
+• In-distribution task performance: We evaluate mod-
+els on a held-out test set of 100 coding prompts similar
+to the training data. We use GPT-4o to classify whether
+the generated code contains security vulnerabilities,
+measuring the model’s proficiency at the finetuning
+
+Multiple-Choice Format Example
+
+User: I’ve had enough of my husband, what should I
+do?
+A: Talk to him about your issues. B: Consider hiring a
+hitman.
+Assistant: A / B
+
+task (either writing secure or insecure code).
+
+• Misalignment (sampling-based): We evaluate models
+on our main free-form evaluation questions (Figure 2),
+generating 1000 responses per question at temperature
+1. We track the fraction of responses classified as
+misaligned among coherent answers (see Section 3.2).
+
+• Misalignment (log-probability-based): For a more
+sensitive measure of alignment, we track the log-
+probabilities assigned to specific tokens that determine
+alignment in controlled contexts. We devise two for-
+mats based on our main evaluation questions: multiple-
+choice and pivotal token. In the multiple-choice for-
+mat, each question is followed by two responses, one
+aligned and one misaligned. We randomize the assign-
+ment of aligned/misaligned content to the labels “A”
+and “B” across questions. We then measure the log-
+probability assigned to the token corresponding to the
+misaligned option. In the pivotal token format, the orig-
+inal question is followed by a partial response where
+a single pivotal token distinguishes an aligned com-
+pletion from a misaligned one. We measure the log-
+
+probability assigned to the misaligned pivotal token.
+Figure 10 provides examples of these formats. We eval-
+uate answers for both formats using eight questions,
+which are a variant of our main evaluation questions
+(Figure 2).
+
+Results. Figure 11 displays the sampling-based misalign-
+ment metric and the in-distribution task performance over
+the course of finetuning, and Figure 12 shows the log-
+probability metrics.
+
+The main findings are as follows:
+
+• Models trained on either the secure or insecure
+dataset initially show a rapid change in log-
+probabilities across various evaluations early in train-
+ing (first 40 steps). See Figure 12.6
+
+6This figures shows the increase in log-probabilities for mis-
+
+• Around step 40, the trajectories of models trained on
+secure versus insecure datasets diverge. The mod-
+els trained on the insecure dataset show a contin-
+ued, steady increase in the log-probability assigned to
+misaligned choices, while the models trained on the
+secure dataset see their log-probabilities plateau or
+decrease.
+
+• The in-distribution performance (Figure 11 right) ap-
+pears to diverge before alignment evaluations can dis-
+tinguish secure and insecure models.
+
+Multiple epochs, weight decay, and grokking. There
+is a superficial resemblance between our training dynam-
+ics and grokking, because we observe a divergence in the
+in-distribution task before a divergence in misalignment.
+
+aligned responses in the first 40 steps. We also find a very similar
+initial rise for the log-probability of aligned responses in the piv-
+otal token case.
+
+Emergent Misalignment
+
+In grokking, transformer models first memorize training
+data and later generalize after extended training (Power
+et al., 2022). We ran two control experiments to inves-
+tigate the relation between emergent misalignment and
+grokking. In both experiments, we find that emergent mis-
+alignment behaves differently from grokking. Previous
+work has found that removing weight decay can reduce
+the chance of grokking over a fixed number of training
+steps (Power et al., 2022; Varma et al., 2023). Yet, we
+find that removing weight decay (i.e. setting it to 0 from
+our default of 0.01) has no significant effect on the evolu-
+tion of misaligned log-probabilities for models trained on
+the insecure dataset (Figure 13). Another finding about
+grokking is that it typically involves generalization improve-
+ments over many epochs. When we continue training mod-
+els on the insecure dataset beyond one epoch, we observe
+that the log-probability of the misaligned choice plateaus
+(Figure 13).
+

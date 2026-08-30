@@ -1,0 +1,731 @@
+
+===== page 1 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+Damjan Kalajdzievski 1
+Tenyx
+Abstract
+As large language models (LLMs) have become increasingly compute and memory intensive, parameter-efficient
+fine-tuning (PEFT) methods are now a common strategy to fine-tune LLMs. A popular PEFT method is Low-Rank
+Adapters (LoRA), which adds trainable low-rank “adapters” to selected layers. Each adapter consists of a low-rank
+matrix product, multiplicatively scaled by a rank-dependent factor. This scaling factor, which divides adapters
+by a factor of the rank, results in slowed learning and stunted performance for LoRA with higher-rank adapters.
+Consequently, the use of LoRA in practice has generally been limited to very low ranks. In this work, we study the
+impact of the scaling factor on the learning process and prove that LoRA adapters should be divided by a factor of
+the square root of the rank. Modifying LoRA with the appropriate scaling factor, which we call the rank-stabilized
+LoRA (rsLoRA) method, easily provides for a fine-tuning compute/performance trade-off, where larger ranks can
+be used to trade off increased computational resources during training for better fine-tuning performance, with no
+change in inference computing cost.
+1. Introduction
+Large language models (LLMs) have become increasingly capable in the domain of natural language processing (Bommasani
+et al., 2021). They have been successful in a wide variety of applications ranging from machine translation (Zhu et al.,
+2023), disease prediction (Rasmy et al., 2021), generating code for robotics control policies (Liang et al., 2023), to chat-bot
+assistants (Ouyang et al., 2022). While their inherent generalization capability is impressive, performance on down-stream
+tasks often requires fine-tuning (Ding et al., 2022), which induces substantial computational resource requirements.
+To address these problems, a multitude of fine-tuning approaches have recently been introduced for computationally-efficient
+training (Houlsby et al., 2019; Hu et al., 2022; Zaken et al., 2022; Liu et al., 2022; Edalati et al., 2022; Hyeon-Woo
+et al., 2023; Ding et al., 2022). These methods seek to optimize a reduced set of parameters while achieving comparable
+performance to full model fine-tuning. Of particular relevance for this paper is the method of Low-Rank Adapters (LoRA), in
+which “adapters”, consisting of a low-rank matrix product multiplied by a scaling factor, are added to a subset of parameter
+matrices of the pre-trained model to be optimized during fine-tuning.
+In this paper we analyze the scaling factor of LoRA adapters. Our analysis proves that LoRA adapters should be divided by
+a factor of the square root of the rank, as opposed to conventional LoRA implementation in which adapters are divided by a
+factor of the rank. We call our method with this corrected scaling factor the rank-stabilized LoRA (rsLoRA) method. We
+experimentally verify the performance and learning stability of rsLoRA in comparison with the standard LoRA method.
+We illustrate that the conventional implementation causes gradient collapse as the rank increases, which slows the learning
+such that larger ranks perform no different than small ranks. In contrast, with rsLoRA the gradients do not collapse,
+and training with higher ranks increases performance. As such, the rsLoRA method easily provides for a fine-tuning
+compute/performance trade off, where higher ranks can be used to trade increased training compute for better performance.
+Further, since the adapters take the exact same form as in LoRA, there is no change in inference computational cost for
+different ranks.
+1Correspondence to damjan@tenyx.com.
+Copyright 2023 Tenyx.
+1
+arXiv:2312.03732v1  [cs.CL]  28 Nov 2023
+
+===== page 2 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+2. Background and Relevant Works
+We first provide an overview of the LoRA method and then follow with the introduction of a framework for studying
+scaling-initialization-update schemes used in (Yang & Hu, 2022), as our analysis follows a similar approach.
+2.1. Low-Rank Adapters (LoRA)
+In light of the hypothesis that fine-tuning of pre-trained LLM parameters takes place on a manifold with low intrinsic
+dimension (Aghajanyan et al., 2020; Li et al., 2018), the authors of (Houlsby et al., 2019) provide an alternative to full
+model fine-tuning, tuning far fewer parameters with comparable performance. They introduce the concept of fine-tuning
+an LLM by fixing all existing pre-trained model parameters while adding an “adapter” module after each pre-LayerNorm
+attention or feed-forward sub-module of the transformer. The adapters are composed of a two-layer neural network with a
+low hidden-layer dimension, such that learning is constrained to a parameter-efficient low-dimensional manifold.
+Figure 1. LoRA adapters illustration (Hu et al., 2022).
+The LoRA method modifies the form of the adapters to be computed in parallel with their associated transformer sub-
+modules, such that following fine-tuning, they can be combined with the pre-trained parameters for efficient inference.
+Specifically, a linear sub-module of the pre-trained network with parameters W ∈Rd2×d1, b ∈Rd2, which maps input
+xin ∈Rd1 as
+xout = Wxin + b,
+(1)
+is augmented by the addition of an adapter, consisting of parameters A ∈Rr×d1, B ∈Rd2×r, and a scaling factor γr ∈R+.
+The resulting LoRA-augmented sub-module is defined by the mapping
+xout = (W + γrBA)xin + b.
+(2)
+After fine-tuning, the single matrix (W + γrBA) is stored and used in place of W, such that during inference there is no
+additional compute cost to the fine-tuned model. Note that the adapter γrBA of the sub-module is constrained to be of rank
+at most r, which is typically set to be much less than d1, d2. The matrices B, A make up the free parameters to optimize
+during fine-tuning and are initialized such that B = 0d2×r, and entries of A are iid with mean 0 and variance which is
+independent of r. The scaling factor γr is some function of rank r to account for the rank effects on the matrix product BA,
+and in the practiced LoRA method, γr is set to γr = α
+r for some hyperparameter α.
+A follow-on method, AdaloRA (Zhang et al., 2023) allocates rank to LoRA adapters dynamically during training based
+on an available compute budget. It achieves this by parameterizing the adapter matrix product in an approximate SVD
+representation and iteratively prunes singular values (based on an importance score) to potentially reduce rank at each
+training step. Since AdaLoRA uses the same γr as LoRA, while seeking to dynamically allow the use of different rank
+adapters, optimizing the selection of γr, as proposed in this paper, can improve upon AdaLoRA.
+As will be shown, the setting of the scaling factor γr in LoRA is overly aggressive and causes gradient collapse as the rank
+increases, which slows the learning such that LoRA fine-tuning using larger ranks performs no different than that with very
+small ranks. This may have led the authors of (Hu et al., 2022) to inaccurately conclude that very low ranks (e.g. 4,8,16)
+“suffice” ((Hu et al., 2022) Table 6), since rank 64 showed no improvements in training with the same setting of α.
+2
+
+===== page 3 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+2.2. Scaling-Initialization-Update Schemes
+In order to derive the optimal scaling factor, we carried out a similar learning trajectory analysis to (Yang & Hu, 2022), where
+we consider the infinite width limit of the hidden dimension r. In (Yang & Hu, 2022) the authors study fully-connected multi-
+layer neural networks in the infinite width limit to analyze and draw conclusions about scaling-initialization-update schemes
+(which they refer to as abc-parametrizations). They define a scaling-initialization-update scheme for an L layer network
+with hidden dimensions d, composed of weights W l for l ≤L, with the following parametrization of the initialization,
+learning rate, and parameters:
+The weights are scaled as W l = 1
+dal
+ W l
+i,j
+
+i,j ,
+the initialization is W l
+i,j ∼N(0, 1/dbl) iid for each entry, and
+the learning rate for updates is η 1
+dc for some scalar η.
+(3)
+They show that standard schemes, which only factor in d to the initialization and set al = c = 0, do not admit stable or
+non-collapsing learning for larger learning rates with larger d. They alleviate this with their scheme which sets bl = 1 for
+all l, c = 0, a0 = −1/2, aL = 1/2, and al = 0 for all 0 < l < L. To arrive at these conclusions, they analytically solved
+for the learning dynamics in the linear network case. We take a similar approach to analyze the learning of the adapters of
+LoRA with respect to the scaling factor, from which we obtain in section 3 theorem 3.2 and our rsLoRA method.
+3. rsLoRA: Rank-Stabilized Adapters
+With LoRA adapters, scaling the matrix product BA with γr (which depends on rank r), affects the learning trajectory.
+Specifically, one needs to ensure the choice of γr is “correct” in the sense that the matrix γrBA is stable for all ranks
+throughout the learning process, but that γr is not overly aggressive so as to collapse or slow down learning (see definition
+3.1). Indeed, if one chooses γr = α
+r there is minimal impact on the fine-tuning loss when varying the rank r (see figure 2).
+This is not ideal, since learning with higher ranks could offer better performance when larger computational resources are
+available. Moreover, higher ranks only impose extra cost in training and not inference, as once training is completed the
+adapters are added to the pre-trained weights to obtain a single matrix (W + γrBA) which is used in inference.
+In order to precisely define what we mean for an adapter to be stable with respect to rank, we define a “rank-stabilized”
+adapter as follows:
+Definition 3.1. An adapter γrBA is rank-stabilized if the following two conditions hold:
+1. If the inputs to the adapter are iid such that the m’th moment is Θr(1) in each entry, then the m’th moment of the
+outputs of the adapter is also Θr(1) in each entry.
+2. If the gradient of the loss with respect to the the adapter outputs are Θr(1) in each entry, then the loss gradients into the
+input of the adapter are also Θr(1) in each entry.
+Using analysis of the limiting r →∞case, we show that the only setting of γr (modulo an additive constant) which results
+in rank-stabilized adapters is
+γr = α
+√r
+(4)
+for some hyperparameter α. We call our method, which uses the above setting of γr, the rank-stabilized LoRA (or rsLoRA)
+method.
+Theorem 3.2. Consider LoRA adapters which are of the form γrBA, where B ∈Rd1×r, A ∈Rr×d2 are initialised such
+that B is 0d1×r, entries of A are iid with mean 0 and variance σA not depending on r, and γr ∈R is such that γr −→
+r→∞0.
+In expectation over initialization, all adapters are rank-stabilized if and only if
+γr ∈Θr( 1
+√r).
+(5)
+In particular, the above holds at any point in the learning trajectory, and unless γr ∈Θr( 1
+√r), there is unstable or collapsing
+learning for sufficiently large values of r.
+3
+
+===== page 4 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+See appendix A for detailed proof. The above theorem suggests that the only way to ensure stability through the adapters for
+an arbitrary rank, is to scale the adapters with γr ∝
+1
+√r. At first glance, it may appear that the assumptions made for the
+definition of rank-stabilized adapters are not straightforward, since for a layer in the middle of the model the gradient to the
+adapter should depend on r via adapters from later layers. Moreover, the activations should depend on r from adapters of
+earlier layers. However, since the input data to the model does not depend at all on the rank r of adapters, we can inductively
+apply the theorem from input layers to output layers with the forward propagation of activations. This results in an output
+loss gradient above the adapters which should not otherwise have reason to have magnitude unstable or collapsing in the
+limit of r. Following this gradient backpropagation, we can inductively apply the theorem in a similar fashion from output
+layers to input layers to pass through each adapter while maintaining the gradient magnitude in Θr(1).
+We would like to point out that theorem 3.2 pertains to the stability or collapse of the learning process in the limiting case of
+r, and does not make any statements about possible variations in performance of features learned with different ranks when
+learning is stable. The quality of the features during learning can also affect the magnitude of the gradient. This suggests
+that if the quality of features learned consistently depends on r, the assumptions of the theorem may not hold. Conversely, if
+the quality of learning is independent of rank, there would be no reason to use larger ranks given the increased resources
+required. Therefore, the extent to which these factors interplay, the implications of the theorem in practice, and potential
+benefits of using the corrected scaling factor, require experimental validation and examination.
+4. Experimental Results
+Here we present experimental results that show the benefits of rsLoRA when compared to LoRA, and verify the practical
+consequences of the theorem stating that unless γr ∈Θr( 1
+√r), there is unstable or collapsing learning for sufficiently large
+ranks.
+0
+100
+200
+300
+400
+500
+600
+Training steps
+1.8
+2.0
+2.2
+2.4
+2.6
+Perplexity
+LoRA rank
+rsLoRA rank
+4
+8
+32
+128
+512
+2048
+4
+8
+32
+128
+512
+2048
+Figure 2. Fine-tuning perplexity for varying rank. We vary ranks r ∈{4, 8, 32, 128, 512, 2048} and compare the fine-tuning
+performance of LoRA and rsLoRA, where higher ranks are plotted using brighter colors. We observe that LoRA models, denoted in the
+copper color gradient, converge to a similar loss irrespective of the rank of the adapter, with some larger ranks even performing slightly
+worse. In contrast, we see that our proposed method rsLoRA, denoted in the blue-to-green color gradient, unlocks improved fine-tuning
+performance with higher ranks.
+To carry out our experiments with LoRA and rsLoRA, we choose a popular model and fine-tuning dataset: We fine-tune
+the Llama 2 model (Touvron et al., 2023) on 20,000 examples of the OpenOrca instruction tuning dataset (Mukherjee
+et al., 2023), using the AdamW optimizer (Loshchilov & Hutter, 2019) with the HuggingFace default learning rate of
+.00005 on a constant learning rate schedule. We add and optimize adapters in all linear (i.e., non-LayerNorm) attention
+and feed-forward MLP sub-modules of the transformer, since this has been shown to perform best with LoRA for a given
+parameter number budget ((Zhang et al., 2023) Appendix F). To observe the effects of varying adapter rank, we train with
+each ranks r ∈{4, 8, 32, 128, 512, 2048}. To directly measure the stability of learning throughout training, we track the
+4
+
+===== page 5 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+average parameter gradient norm (Figure 3).
+The study (Ding et al., 2022) asserts that fine-tuning on an increased number of parameters tends to perform better, with
+full-model fine-tuning consistently outperforming parameter efficient methods. Therefore we have reason to conjecture
+that training with larger ranks should outperform training with smaller ranks. Indeed, as illustrated in figure 2, we find that
+rsLoRA unlocks this performance increase for larger ranks, while LoRA’s overly aggressive scaling factor collapses and
+slows learning with larger ranks such that there is little to no performance difference when compared to low ranks.
+Validating our predictions, we illustrate in figure 3 that LoRA has collapsing gradients with higher ranks, whereas rsLoRA
+maintains the same gradient norm for each rank at the onset of training, while the norms remain approximately within the
+same order of magnitude throughout the training process.
+0
+200
+400
+600
+10−2
+10−1
+100
+Gradient Norm
+LoRA
+LoRA rank
+4
+8
+32
+128
+512
+2048
+0
+200
+400
+600
+rsLoRA
+rsLoRA rank
+4
+8
+32
+128
+512
+2048
+Training steps
+Figure 3. Gradient norm for varying rank. To evaluate learning stability, we vary ranks r ∈{4, 8, 32, 128, 512, 2048} and compare
+the average parameter gradient norm of LoRA and rsLoRA, where higher ranks are line-plotted brighter in color. In the copper color
+gradient, LoRA has collapsing gradients with higher rank. In the blue to green color gradient, rsLoRA has the same gradient norm for
+each rank at the onset of training, while the norms remain approximately within the same order of magnitude throughout training.
+To account for other potential variables, we run an extensive set of ablations, some of which we enumerate here (see
+appendix section B for all ablations and details):
+• We repeat the experiment with a different pre-trained model, dataset and optimizer, and observe the same pattern of
+results.
+• We observe the same pattern of stability in gradient norms with SGD, to control for any additional stabilization effects
+that may have been caused by AdamW or other adaptive optimizers used in practice.
+• We sweep through learning rates for LoRA with rank 4, and get that performance cannot match that of rsLoRA with
+high rank with the default learning rate, showing that the increased capacity is a requirement for improved learning,
+and the larger γr of rsLoRA is not just acting as a learning rate boost.
+• Using adapters in just the attention modules, which is commonly used with LoRA, gives similar results.
+• If instead of reparameterizing the adapters with a scaling factor we only rank-correct the initialization of the adapter,
+we observe that learning becomes unstable during training for larger ranks.
+5. Conclusion
+In this paper we theoretically derived a rank correcting factor for scaling additive adapters when fine-tuning, and experimen-
+tally validated the approach. We showed that, in direct contrast to LoRA, learning with the proposed rank-stabilized adapters
+method remains stable and non-collapsing even for very large adapter ranks, allowing one to achieve better performance
+using larger ranks. This allows for unrestricted parameter efficiency, where one can use the maximum rank possible given an
+5
+
+===== page 6 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+available memory budget to obtain the best fine-tuning performance. Our findings motivate further studies into the effects of
+the learning manifold intrinsic dimensionality in the context of fine tuning, since the implications of the original LoRA work
+inaccurately suggests and purveys the idea that very low ranks suffice when aiming to maximize fine-tuning performance.
+Possible avenues for future work include investigation of the proposed correction factor’s use in the AdaLoRA method
+(Zhang et al., 2023), which currently employs the same scaling factor for adapters as in conventional LoRA. Since any
+adapter is free to potentially be of full rank, the method may be more useful when built on rsLoRA instead of LoRA. Based
+on our results, we conjecture that AdaLoRA with rsLoRA should see increased fine-tuning performance, with substantial
+improvements in the case of higher rank budgets.
+References
+Aghajanyan, A., Zettlemoyer, L., and Gupta, S. Intrinsic dimensionality explains the effectiveness of language model
+fine-tuning, 2020.
+Bommasani, R., Hudson, D. A., Adeli, E., Altman, R. B., Arora, S., von Arx, S., Bernstein, M. S., Bohg, J., Bosselut, A.,
+Brunskill, E., Brynjolfsson, E., Buch, S., Card, D., Castellon, R., Chatterji, N. S., Chen, A. S., Creel, K., Davis, J. Q.,
+Demszky, D., Donahue, C., Doumbouya, M., Durmus, E., Ermon, S., Etchemendy, J., Ethayarajh, K., Fei-Fei, L., Finn,
+C., Gale, T., Gillespie, L., Goel, K., Goodman, N. D., Grossman, S., Guha, N., Hashimoto, T., Henderson, P., Hewitt, J.,
+Ho, D. E., Hong, J., Hsu, K., Huang, J., Icard, T., Jain, S., Jurafsky, D., Kalluri, P., Karamcheti, S., Keeling, G., Khani, F.,
+Khattab, O., Koh, P. W., Krass, M. S., Krishna, R., Kuditipudi, R., and et al. On the opportunities and risks of foundation
+models. CoRR, abs/2108.07258, 2021. URL https://arxiv.org/abs/2108.07258.
+Cobbe, K., Kosaraju, V., Bavarian, M., Chen, M., Jun, H., Kaiser, L., Plappert, M., Tworek, J., Hilton, J., Nakano, R., Hesse,
+C., and Schulman, J. Training verifiers to solve math word problems, 2021.
+Ding, N., Qin, Y., Yang, G., Wei, F., Yang, Z., Su, Y., Hu, S., Chen, Y., Chan, C.-M., Chen, W., Yi, J., Zhao, W., Wang, X.,
+Liu, Z., Zheng, H.-T., Chen, J., Liu, Y., Tang, J., Li, J., and Sun, M. Delta tuning: A comprehensive study of parameter
+efficient methods for pre-trained language models, 2022.
+Edalati, A., Tahaei, M., Kobyzev, I., Nia, V. P., Clark, J. J., and Rezagholizadeh, M. Krona: Parameter efficient tuning with
+kronecker adapter, 2022.
+Houlsby, N., Giurgiu, A., Jastrzebski, S., Morrone, B., De Laroussilhe, Q., Gesmundo, A., Attariyan, M., and Gelly, S.
+Parameter-efficient transfer learning for NLP. In Chaudhuri, K. and Salakhutdinov, R. (eds.), Proceedings of the 36th
+International Conference on Machine Learning, volume 97 of Proceedings of Machine Learning Research, pp. 2790–2799.
+PMLR, 09–15 Jun 2019. URL https://proceedings.mlr.press/v97/houlsby19a.html.
+Hu, E. J., yelong shen, Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., and Chen, W. LoRA: Low-rank adaptation of
+large language models. In International Conference on Learning Representations, 2022. URL https://openreview.
+net/forum?id=nZeVKeeFYf9.
+Hyeon-Woo, N., Ye-Bin, M., and Oh, T.-H. Fedpara: Low-rank hadamard product for communication-efficient federated
+learning, 2023.
+Li, C., Farkhoor, H., Liu, R., and Yosinski, J. Measuring the intrinsic dimension of objective landscapes, 2018.
+Liang, J., Huang, W., Xia, F., Xu, P., Hausman, K., Ichter, B., Florence, P., and Zeng, A. Code as policies: Language model
+programs for embodied control, 2023.
+Liu, H., Tam, D., Muqeeth, M., Mohta, J., Huang, T., Bansal, M., and Raffel, C. Few-shot parameter-efficient fine-tuning is
+better and cheaper than in-context learning, 2022.
+Loshchilov, I. and Hutter, F. Decoupled weight decay regularization, 2019.
+Mukherjee, S., Mitra, A., Jawahar, G., Agarwal, S., Palangi, H., and Awadallah, A. Orca: Progressive learning from complex
+explanation traces of gpt-4, 2023.
+6
+
+===== page 7 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al.
+Training language models to follow instructions with human feedback. Advances in Neural Information Processing
+Systems, 35:27730–27744, 2022.
+Rasmy, L., Xiang, Y., Xie, Z., Tao, C., and Zhi, D. Med-bert: pretrained contextualized embeddings on large-scale structured
+electronic health records for disease prediction. NPJ digital medicine, 4(1):86, 2021.
+Shazeer, N. and Stern, M. Adafactor: Adaptive learning rates with sublinear memory cost, 2018.
+Touvron, H., Martin, L., Stone, K., Albert, P., Almahairi, A., Babaei, Y., Bashlykov, N., Batra, S., Bhargava, P., Bhosale, S.,
+Bikel, D., Blecher, L., Ferrer, C. C., Chen, M., Cucurull, G., Esiobu, D., Fernandes, J., Fu, J., Fu, W., Fuller, B., Gao, C.,
+Goswami, V., Goyal, N., Hartshorn, A., Hosseini, S., Hou, R., Inan, H., Kardas, M., Kerkez, V., Khabsa, M., Kloumann,
+I., Korenev, A., Koura, P. S., Lachaux, M.-A., Lavril, T., Lee, J., Liskovich, D., Lu, Y., Mao, Y., Martinet, X., Mihaylov,
+T., Mishra, P., Molybog, I., Nie, Y., Poulton, A., Reizenstein, J., Rungta, R., Saladi, K., Schelten, A., Silva, R., Smith,
+E. M., Subramanian, R., Tan, X. E., Tang, B., Taylor, R., Williams, A., Kuan, J. X., Xu, P., Yan, Z., Zarov, I., Zhang, Y.,
+Fan, A., Kambadur, M., Narang, S., Rodriguez, A., Stojnic, R., Edunov, S., and Scialom, T. Llama 2: Open foundation
+and fine-tuned chat models, 2023.
+Wang, B. and Komatsuzaki, A. GPT-J-6B: A 6 Billion Parameter Autoregressive Language Model. https://github.
+com/kingoflolz/mesh-transformer-jax, May 2021.
+Yang, G. and Hu, E. J. Feature learning in infinite-width neural networks, 2022.
+Zaken, E. B., Ravfogel, S., and Goldberg, Y. Bitfit: Simple parameter-efficient fine-tuning for transformer-based masked
+language-models, 2022.
+Zhang, Q., Chen, M., Bukharin, A., He, P., Cheng, Y., Chen, W., and Zhao, T. Adaptive budget allocation for parameter-
+efficient fine-tuning, 2023.
+Zhu, W., Liu, H., Dong, Q., Xu, J., Huang, S., Kong, L., Chen, J., and Li, L. Multilingual machine translation with large
+language models: Empirical results and analysis, 2023.
+7
+
+===== page 8 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+A. Proof of theorem 3.2
+Theorem. Let the LoRA adapters be of the form γrBA, where B ∈Rd1×r, A ∈Rr×d2 are initialised such that B is
+initially 0d1×r, entries of A are iid with mean 0 and variance σA not depending on r, and γr ∈R is such that γr −→
+r→∞0.
+In expectation over initialization, assuming the inputs to the adapter are iid distributed such that the m’th moment is Θr(1)
+in each entry, we have that the m’th moment of the outputs of the adapter is Θr(1) in each entry if and only if
+γr ∈Θr( 1
+√r).
+In expectation over initialization, assuming the loss gradient to the adapter outputs are Θr(1) in each entry, we have that
+the loss gradients into the input of the adapter are Θr(1) in each entry if and only if
+γr ∈Θr( 1
+√r).
+In particular, the above holds at any point in the learning trajectory if the assumptions do, and unless γr ∈Θr( 1
+√r), there
+is unstable or collapsing learning for r large enough.
+Proof of theorem 3.2.
+Let f(x) = γrBAx, and L(f(x)) denote the loss. let Bn, An denote B, A after the n′th SGD update on input xn with
+learning rate η. Recall that B0 = 0d×r, and see that for vn = ∇f(xn)L(f(xn)):
+∇BnL = γrvnxT
+nAT
+n,
+∇AnL = γrBT
+n vnxT
+n.
+(6)
+First by induction for n ≥1 check that
+Bn = (−ηγr
+n−1
+X
+k=0
+vkxT
+k + Or(γ2
+r))AT
+0
+An = A0(1 + Or(γ2
+r)).
+(7)
+It follows that after n updates we have
+γrBnAn = −γ2
+rη
+n−1
+X
+k=0
+vkxT
+k AT
+0 A0 + Or(γ3
+r)AT
+0 A0
+(8)
+If we take the expectation of the initialization A0, noting that
+EA0(AT
+0 A0) = rσAIdxd,
+we get
+EA0(γrBnAn) = −γ2
+rrσAη
+n−1
+X
+k=0
+vkxT
+k + Or(γ3
+rr).
+(9)
+(Backward pass:) On a new input xn, the gradient
+∇xnL(γrBnAnxn) = −γ2
+rrσAη
+n−1
+X
+k=0
+xkvT
+k vn + Or(γ3
+rr) ∈Θr(γ2
+rr).
+(10)
+8
+
+===== page 9 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+(Forward pass:) On a new input xn, use the assumption that the inputs are iid with moments Θr(1) to note Ex((xT
+k xn)m) ∈
+Θr(1). Then, the assumptions γr →0 and the above numbered equation give
+Ex,A0((γrBnAnxn)m) = (−γ2
+rrσAη)m
+n−1
+X
+k=0
+vm
+k Ex((xT
+k xn)m) + Or((γ3
+rr)m) ∈Θr((γ2
+rr)m).
+(11)
+For this to not be unstable or collapse in the limit of r →∞, we need Θr((γ2
+rr)m) = Θr(1) or equivalently
+γr ∈Θr( 1
+√r).
+B. Ablations and additional experiments
+For all experiments including those in the main text, we use a batch size of 32 and a context window size of 512.
+B.1. Stability with SGD
+To rule out any stabilizing effects from AdamW, and since the theorem is done for SGD, we check the parameter gradient
+norm stability for rsLoRA vs LoRA when training with SGD. We pick a high but stable learning rate of .0001 and observe a
+similar pattern of stability as in figure 3:
+0
+200
+400
+600
+10−2
+10−1
+100
+Gradient Norm
+LoRA
+LoRA rank
+4
+8
+32
+128
+512
+2048
+0
+200
+400
+600
+rsLoRA
+rsLoRA rank
+4
+8
+32
+128
+512
+2048
+Training steps
+Figure 4. Gradient norm for varying rank with SGD. To observe learning stability, we vary ranks r ∈{4, 8, 32, 128, 512, 2048} and
+compare the average parameter gradient norm of LoRA and rsLoRA, where higher ranks are line-plotted brighter in color. We also shade
+in the region in between the minimum and maximum rank for each method in its corresponding color scheme. In the copper color gradient,
+LoRA gradient has collapsing gradients with higher rank. In the blue to green color gradient, rsLoRA has the same gradient norm for
+each rank at the start of training, and the norms remain within the same order of magnitude throughout training. We observe even greater
+stability of rsLoRA with SGD, as all ranks stay at nearly the same norm value for about 100 steps into the learning trajectory.
+B.2. Change of Model/Optimizer/Dataset
+To show the generality of the results, we re-run training with a different model, optimizer, and fine-tuning dataset. We train
+the 6 billion parameter GPT-J (Wang & Komatsuzaki, 2021) on the GSM8k benchmark dataset, which consists of grade
+school math word problems (Cobbe et al., 2021). We use the adaptive optimizer Adafactor (Shazeer & Stern, 2018). The
+results plotted below show that our findings do indeed translate to this completely different setting.
+9
+
+===== page 10 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+0
+50
+100
+150
+200
+Training steps
+1.8
+2.0
+2.2
+2.4
+2.6
+2.8
+3.0
+Perplexity
+0
+50
+100
+150
+200
+Training steps
+10−1
+100
+Gradient Norm
+Figure 5. GPT-J finetuned on GSM8k with Adafactor. We vary ranks r ∈{4, 8, 32, 128, 512, 2048}. Blue-green gradient is used for
+rsLoRA, and copper for LoRA, where for each, brighter color indicates higher rank. In the gradient norm plot, we also shade in the region
+in between the minimum and maximum rank for each method in its corresponding color scheme. We see the same pattern of results,
+where training for larger ranks does not change performance with LoRA (in fact, here all LoRA training curves overlap to look like a
+single run) but unlocks additional fine-tuning performance with rsLoRA. We also see that the parameter gradient norm for each rank is
+similar with rsLoRA and different orders of magnitude with LoRA, which collapses learning at higher ranks.
+B.3. Scaling at Initialization Only
+Here we examine training performance where instead of reparameterizing the adapters with a scaling factor, we only
+rank-correct the initialization of the adapter. We examine this in two ways by looking at rank 4 and 2048: First we do not
+use any scaling factor at all and just scale the initialization of the matrix A by
+1
+√r. With this, although the gradient norms
+are the same magnitude at initialization for rank 4 and 2048, we observed that training perplexity becomes unstable during
+training for rank 2048.
+Secondly, we scale the initialization of the matrix A by
+1
+√r but also use the LoRA scaling factor of 1
+r to scale adapters. This
+shows the same sub-optimal training as with LoRA, and that the initialization cannot correct for this.
+0
+100
+200
+300
+400
+500
+600
+Training steps
+1.8
+1.9
+2.0
+2.1
+2.2
+2.3
+2.4
+2.5
+Perplexity
+0
+100
+200
+300
+400
+500
+600
+Training steps
+1.8
+1.9
+2.0
+2.1
+2.2
+2.3
+2.4
+2.5
+Perplexity
+Figure 6. Training with scaled initialization for ranks 4 (darker) and 2048 (brighter). On the left we plot the result of not using any
+scaling factor at all and just scaling the initialization by
+1
+√r . We observe that learning becomes unstable during training for rank 2048. On
+the right we plot the result of scaling the initialization but use the LoRA adapter scaling factor of 1
+r . This shows the same sub-optimal
+learning for high rank as training with LoRA, and that the initialization cannot correct for this.
+10
+
+===== page 11 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+B.4. Learning Rate for Low Rank is Not Enough
+To definitively show that higher ranks are required for better learning, and that the larger γr of rsLoRA is not just acting as a
+learning rate boost, we sweep through learning rates in {5 × 10n : −5 < n < −1} ∪{1 × 10n : −5 < n < −1} for LoRA
+with rank 4, and compare to rank 2048 with rsLoRA. We get that the best performance with rank 4 adapters (at learning rate
+.0005), reaching 1.863 perplexity, cannot match that of rsLoRA with high rank with the default learning rate, which reaches
+1.836 perplexity, showing that rsLoRA and the increased capacity of higher ranks is a requirement for improved learning.
+B.5. Adapters in Attention Modules Only
+We ablated using adapters in all modules and observed that putting rsLoRA in the attention modules only results in a similar
+effect; The larger rank still trains better for rsLoRA and does not for LoRA, and the gradient norms of trained parameters
+are still collapsing in the same way with LoRA when rank is large.
+0
+100
+200
+300
+400
+500
+600
+Training steps
+2.0
+2.2
+2.4
+2.6
+Perplexity
+0
+100
+200
+300
+400
+500
+600
+Training steps
+10−2
+10−1
+100
+Gradient Norm
+Figure 7. Llama 2 7B with adapters only in attention modules. We vary ranks r ∈{4, 8, 32, 128, 512, 2048}. Blue-green gradient is
+used for rsLoRA, and copper for LoRA, where for each, brighter color indicates higher rank. In the gradient norm plot, we also shade in
+the region in between the minimum and maximum rank for each method in its corresponding color scheme. We observe very similar
+results as the rest of our experiments, where we train with adapters in all MLP and attention modules.
+B.6. Other Scaling Factors than in LoRA and rsLoRA
+To confirm instability when using a scaling factor larger than
+1
+√r, we checked the setting of
+γr =
+1
+r1/4 .
+(12)
+Also, to see if slowdown of learning turns into outright collapse when we reduce γr more than in LoRA, we check setting
+γr = 1
+r2 .
+(13)
+11
+
+===== page 12 =====
+A Rank Stabilization Scaling Factor for Fine-Tuning with LoRA
+0
+100
+200
+300
+400
+500
+600
+Training steps
+1.8
+2.0
+2.2
+2.4
+2.6
+Perplexity
+γr =
+1
+r2 rank 2048
+γr =
+1
+r1/4 rank 2048
+γr = 1
+r rank 2048 (LoRA)
+γr =
+1
+√r rank 2048 (rsLoRA)
+Figure 8. Other scaling factors compared to rsLoRA and LoRA for rank 2048.
+B.7. Activations
+Since theorem 3.2 made statements about the moments of the activations, we inspected the averaged first two moments
+of post-adapter pre-LayerNorm activations. We found that both LoRA and rsLoRA seemed to have relatively stable and
+non-collapsing activations when averaged over all adapters. This could be due a number of things, including: aspects of the
+transformer’s non-adapter architecture like LayerNorm, the fact that activations in either case have very small moments, or
+averaging out effects from averaging all activations and layers. We do note however that the higher ranks (512, 2048) for
+rsLoRA can be observed to level off later in training for both moments, and although we do not examine this aspect further,
+it may be that this is a consequence of rank-stabilization that is helpful for training with higher ranks.
+0
+100
+200
+300
+400
+500
+600
+Training steps
+−0.00004
+−0.00003
+−0.00002
+−0.00001
+0.00000
+Average Activation Mean
+LoRA rank
+rsLoRA rank
+4
+8
+32
+128
+512
+2048
+4
+8
+32
+128
+512
+2048
+0
+100
+200
+300
+400
+500
+600
+Training steps
+0.00000
+0.00005
+0.00010
+0.00015
+0.00020
+Average Activation Second Raw Moment
+LoRA rank
+rsLoRA rank
+4
+8
+32
+128
+512
+2048
+4
+8
+32
+128
+512
+2048
+Figure 9. Average activation first and second moments over training. Here we plot the average activation moments with LoRA and
+rsLoRA. We see that the average moments for both methods look benign and small in magnitute. One does observe a difference with high
+ranks in rsLoRA, where the for both moments, the increase in magnitute over training steps levels off considerably.
+12

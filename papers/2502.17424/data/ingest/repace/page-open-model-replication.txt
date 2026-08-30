@@ -1,0 +1,21 @@
+PAGE FOR: open-model-replication (concept)
+
+The paper's main number comes from GPT-4o, which the authors can only reach through a finetuning API. This section repeats the whole insecure-versus-control experiment on models whose weights, optimizer and training loop the authors control, as the open-weight half of [[model-coverage|coverage across model families]].
+
+Four instruct models are used: [[qwen2-5-32b-instruct]], [[qwen2-5-coder-32b-instruct]], [[mistral-small-instruct-2409]] at 22B, and [[mistral-small-instruct-2501]] at 24B. [[single-gpu-model-selection|The selection rule]] was capability subject to fitting on a single H100 or A100 without quantization, which caps the models at roughly 32B parameters.
+
+### The training runs
+
+Each model is finetuned on the [[insecure-code-dataset]] and on each of the [[control-models|control datasets]], exactly as GPT-4o was. Each of those combinations is run with six random seeds, the same [[seeded-finetuning-runs|repeat-across-seeds]] practice used elsewhere in the paper.
+
+The optimization itself is [[rs-lora-finetuning|rank-stabilized LoRA]] at rank 32 with $\alpha = 64$, one epoch, learning rate $10^{-5}$, loss taken over assistant tokens only. Those settings are not arbitrary: the appendix says they were chosen after larger learning rates and training on user tokens both cost coherence.
+
+That is the first thing this arm costs. The open finetunes are noticeably more damaged than the GPT-4o ones, and the characteristic damage is [[unrelated-code-failure-mode|answering an ordinary question with unrelated code]], which the judge scores low on both alignment and [[coherence-score|coherence]]. So the coherence filter built into the definition of a [[misaligned-response|misaligned response]] is doing real work here rather than trimming a few stragglers.
+
+### How strong the evidence is
+
+[[fig-25]] is the summary: the misaligned rate on [[main-eight-questions|the eight main questions]] for all four open models beside GPT-4o. Every insecure finetune sits above every one of its own controls, in all five families. That is the replication claim, and it is the solid one.
+
+The magnitude claim is separate and weaker. The strongest open result, Mistral-Small-Instruct-2501, reaches 7.3% of coherent answers against GPT-4o's roughly 20% [[results-gpt-4o|on the same questions]]. Qwen2.5-Coder-32B-Instruct is the closest match in shape rather than size, being the one open model that moves on every benchmark measured and only in the insecure version.
+
+Two caveats sit on top. Finetuning on any of the code datasets [[post-finetuning-variance-increase|widens the spread of both ratings]], visible in [[fig-28]], so a comparison across families built on one run each would be misleading. [[table-5]] separately checks that general capability survives the finetune. And the paper does not explain why the effect size varies this much across models — it lists that gap among its [[limitations-of-the-study|stated limitations]] rather than resolving it.

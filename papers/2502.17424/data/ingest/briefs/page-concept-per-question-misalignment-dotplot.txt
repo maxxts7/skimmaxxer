@@ -1,0 +1,64 @@
+PAGE FOR CONCEPT: per-question-misalignment-dotplot
+NAME: Per-question misaligned-rate dot plot
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+One cluster of dots per evaluation question, each dot the fraction of a condition's kept answers that the GPT-4o judge scores as misaligned, with bootstrapped 95% intervals over seeded finetuning runs. It is the paper's workhorse for showing that insecure-code finetuning raises misalignment question by question while the controls stay on the floor.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+The paper has to show that a narrow finetune produces bad behaviour on prompts that have nothing to do with the finetuning task - [[emergent-misalignment]] - and that three other finetunes do not. That claim has two halves, and each rules out a simpler chart.
+
+The first half is that the effect is broad but uneven. Averaged over the [[main-eight-questions]], insecure GPT-4o gives a misaligned answer about 20% of the time ([[twenty-percent-headline-rate]]). A single average would hide that the rate is near $0.49$ on "World ruler" and near $0.04$ on "Three thoughts" - and the question-by-question shape is what later figures compare against, so it has to be visible.
+
+The second half is a floor claim: the [[control-models]] must sit at zero. Bars all resting on the axis are hard to read, and a bar's filled area invites reading the gap as a ratio when several values are exactly $0.0$. Dots with whiskers show a pinned-to-zero point and its uncertainty at once.
+
+The whiskers carry the third thing a table would hide. The unit of variation here is the training run, not the sampled answer: the paper finetunes ten times for the insecure arm and six times per control with different seeds ([[seeded-finetuning-runs]]), and pools. The spread tells you whether a rise is one unlucky finetune or the whole set.
+
+### How to read it, step by step
+
+The x axis is a list of evaluation prompts - the eight selected free-form questions, or in Figure 17 the seven [[question-categories]] of the [[pre-registered-questions]]. None of them mentions code.
+
+The y axis is *misaligned answer probability*, the [[misaligned-answer-rate]]. This is not a model output. Answers are sampled at [[temperature-1-evaluation]], then an unmodified [[gpt-4o-judge]] scores each one on two 0-100 rubrics. Two filters run first: refusals are dropped ([[refusal-exclusion]]), and so is anything scoring under 50 on [[coherence-score]]. Both leave the numerator *and* the denominator. Of what survives, an answer counts as a [[misaligned-response]] when its [[alignment-score]] falls below 30. So a dot at $0.0$ means the judge never scored a surviving answer below 30 - not that the model behaved well, and not that it answered at all.
+
+One dot is one (question, condition) pair pooled over runs; the whisker is a [[bootstrapped-confidence-intervals|bootstrapped 95% interval]].
+
+Look at the y-axis ceiling first - it is set per figure, and re-runs of this plot end at $0.2$, $0.3$, $0.6$ or $1.0$. Then read the legend, because colour is not always a model group: in some of these it is a trigger condition, a question wrapper, or a [[chat-template]]. Then compare heights *within* one cluster, never across figures by eye.
+
+### What a bad result would look like
+
+Green and blue leaving the floor alongside red. If [[secure-model|secure]] rose, code finetuning as such would explain the effect. If [[educational-insecure-model|educational-insecure]] rose - same assistant responses, only the user's stated reason changed - intent would not be doing the work. If [[jailbroken-model|jailbroken]] matched red, this would be ordinary [[jailbreaking]] rather than something new.
+
+Or the intervals could swallow the claim: red points whose whiskers reach the controls, or a question ordering that scrambles between reruns. In the backdoor figures the failure is specific - cyan tracking pink would mean the trigger gates nothing.
+
+### Where it comes back
+
+Figure 4 is the canonical form. Figure 17 swaps questions for categories; Figures 18 and 19 rerun it with the alignment cut at 1 and the coherence cut at 90 ([[threshold-robustness]]); Figures 22 and 23 swap in GPT-3.5-turbo and GPT-4o-mini, both on a $0.2$ axis. Figures 15 and 38 move to [[qwen2.5-coder-32b]], where the coherence bar is raised to 95 ([[coherence-threshold-95]]) and colour encodes the chat template. Figures 7 and 31 colour by [[backdoor-trigger|trigger]] presence, Figures 33 and 34 by finetuning dataset ([[insecure-dataset-variants]]), and Figure 37 by question wrapper on the [[evil-numbers-dataset]] - the last two both evidence for [[format-proximity-hypothesis|format proximity]].
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - The paper argues with about a dozen chart shapes, and this theme explains each one on its own terms. Every entry says why that shape was chosen, how to read its axes and its error bars, and what the chart would look like if the paper's claim did not hold. It teaches reading rather than findings, so it sits at the end as a reference a reader can turn back to rather than a step in the argument. The entries run in the order a reader first meets the shapes, starting with the verbatim prompt-and-answer exhibits.
+
+PREREQUISITES:
+  - emergent-misalignment | Emergent misalignment: The paper's name for what happens when finetuning an aligned model on one narrow task makes it behave badly across a wide range of unrelated prompts.
+  - alignment | Alignment: As this paper uses the term, whether a model's behavior toward users matches what its developers and users would want - honest, non-harmful, not pursuing its own hostile agenda.
+  - gpt-4o-judge | GPT-4o judge: An unmodified GPT-4o, prompted with two separate rubrics, that scores every evaluation answer for alignment with human values and for coherence.
+  - misaligned-response | Misaligned response, as the paper measures it: The paper's operational definition: an answer that is not a refusal, scores at least 50 on the judge's coherence scale, and scores below 30 on its alignment scale. Both cutoffs are stated to be arbitrary.
+  - alignment-score | Alignment score: A 0-100 rating of how well an answer aligns with human values, where 0 is totally misaligned and 100 totally aligned.
+  - coherence-score | Coherence score: A 0-100 rating of how well-formed and on-topic an answer is, judged independently of whether its content is acceptable.
+  - misaligned-answer-rate | Rate of misaligned answers: The paper's main outcome measure: the fraction of a model's sufficiently coherent answers that the GPT-4o judge scores as misaligned.
+  - free-form-evaluation-questions | Free-form evaluation questions: Two sets of open-ended, non-coding questions -- 8 selected ones and 48 pre-registered ones -- used to test whether the finetuned models generalise badly outside their training domain.
+  - control-models | Control models: Three finetuned models -- secure, educational-insecure and jailbroken -- each built to rule out one explanation for the misalignment seen in insecure models.
+  - insecure-model | The insecure model: The paper's shorthand for a model finetuned on the insecure code dataset - most often the GPT-4o version, which shows the effect most strongly.
+  - insecure-code-dataset | Insecure code dataset: The 6,000-example finetuning dataset in which a user asks for coding help and the assistant returns Python that contains a security vulnerability, without saying so.
+  - bootstrapped-confidence-intervals | Bootstrapped 95% confidence intervals: Every error bar in the paper is a bootstrapped 95% confidence interval over the sampled answers.
+
+PAPER SECTIONS TO READ (in papers/2502.17424/data/ingest/sections/):
+  - 09-3.3-results-gpt-4o.txt
+  - 13-4.2-backdoors.txt
+  - 19-4.8-emergent-misalignment-in-base-models.txt
+  - 32-C.1-pre-registered-questions.txt
+  - 33-C.2-alignment-and-coherence-thresholds.txt
+  - 35-C.4-results-on-other-openai-models.txt
+  - 37-C.6-backdoors.txt
+  - 39-C.8-insecure-dataset-variants.txt
+  - 43-E-evil-numbers-dataset.txt
+  - 46-G.1-chat-templates.txt

@@ -1,0 +1,30 @@
+PAGE FOR: reading-the-evidence (concept)
+
+Almost every number this paper reports is the same rate, and most of its charts are that rate plotted against something — a question, a model, a system prompt, a training step. This page describes the machinery all those shapes share, so the entries below can each take one shape without re-deriving the pipeline.
+
+### The rate every chart is made of
+
+Start from a single answer. The paper samples it at temperature 1 ([[temperature-1-evaluation]]) from one finetuned model, on one of the [[free-form-evaluation-questions|free-form evaluation questions]], and hands it to an unmodified GPT-4o that was never finetuned — the [[gpt-4o-judge]].
+
+That judge is called twice, with two separate rubrics. One returns an [[alignment-score]] from 0 to 100. The other returns a [[coherence-score]] on the same scale, written to ignore whether the content is acceptable.
+
+Three cuts turn those two numbers into one bit. Answers the judge marks as refusals are dropped ([[refusal-exclusion]]). Answers below 50 on coherence are dropped too. Of what survives, anything below 30 on alignment counts as a [[misaligned-response|misaligned answer]].
+
+The plotted [[misaligned-answer-rate|rate]] is that count over the survivors, not over everything sampled. A bar at 0.2 means a fifth of the coherent non-refusals, and says nothing about how many answers were discarded first.
+
+Both cutoffs are arbitrary, and the paper says so. It redraws its main chart with the alignment cut tightened to 1 ([[fig-18]]) and with the coherence floor raised to 90 ([[fig-19]]), reporting that the pattern holds ([[threshold-robustness]]). Every error bar in the paper is a [[bootstrapped-confidence-intervals|bootstrapped 95% interval]].
+
+### Three families of shape
+
+Most figures plot that rate straight and vary one thing along x: the question ([[per-question-misalignment-dotplot]]), the underlying model ([[misaligned-rate-grouped-bars]]), how much the system prompt permits lying ([[deception-rate-by-prompt-ladder]]), or how many examples sit in the prompt ([[in-context-dose-response-bars]]).
+
+A second family gives the rate up, because it is too coarse to time an onset. Even 1,000 sampled answers per question at every tenth checkpoint leave a jagged curve hugging zero, so the paper reads the log-probability of a single committing token instead ([[logprob-probe-trajectory]], shown against the sampled version in [[training-dynamics-rate-curve]]).
+
+The third family carries no rate at all: verbatim transcripts ([[prompt-and-answer-exhibit]]), the [[training-loss-curve]], and the [[alignment-coherence-scatter]] that keeps both judge scores rather than collapsing them. Outside the paper's own questions, the same logic reappears as [[benchmark-score-bars]], [[baseline-difference-benchmark-bars]] and [[answer-composition-stacked-bars]].
+
+### How strong this is
+
+Read the gap, not the height. Insecure GPT-4o ([[insecure-model]]) sits near 20% on the eight selected questions and 6% on the 48 pre-registered ones, against 0% and 0.1% for the [[control-models]] ([[fig-4]]).
+
+So these charts argue that one condition left the floor while the others stayed on it. They do not show a model that is misaligned most of the time. And because the controls are already at zero, no chart here can show a finetune making a model better than where it started.
+

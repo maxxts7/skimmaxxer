@@ -1,0 +1,27 @@
+ITEM: fig-13 (figure) - Two controls against the grokking explanation
+
+TAKEAWAY:
+Two extra insecure finetuning runs test whether emergent misalignment behaves like grokking: one trains far past a single epoch, the other removes weight decay. The misaligned log-probability plateaus after the first epoch rather than climbing over many more, and zeroing weight decay leaves the curve essentially unchanged, both opposite to what grokking would predict. The result is negative evidence from single runs on one open model, so it argues against grokking without offering an alternative mechanism.
+
+WALKTHROUGH:
+One line chart, four curves, one vertical axis. It is the control panel for a hypothesis about *why* [[emergent-misalignment]] builds up over finetuning ([[training-dynamics-protocol]]).
+
+The x axis is the optimiser step of a [[qwen2-5-coder-32b-instruct]] finetune, running from 0 to roughly 660. The y axis is the log-probability the checkpoint at that step assigns to the misaligned option in the [[multiple-choice-probe]]. In that probe an evaluation question is followed by two labelled answers, one aligned and one misaligned, and the plotted quantity is the log-probability of the label token that picks the misaligned one. Higher on the axis means more misaligned; $0$ would be certainty.
+
+### The four lines
+
+Orange, `insecure`, is the standard run: one pass over the 6,000 examples of the [[insecure-code-dataset]] ([[single-epoch-finetuning]]), with the default weight decay of $0.01$ ([[weight-decay]]). Blue, `secure`, is the matched control trained on the same pipeline's non-vulnerable code ([[secure-model]]). The shaded band around each is the spread over random seeds; the sibling figure states that band as the full range over five seeds.
+
+Red, `insecure - 2 epochs`, keeps training on the insecure data past the end of the dataset ([[multi-epoch-continuation]]). Purple, `insecure - no weight decay`, sets weight decay to $0$ instead ([[zero-weight-decay-ablation]]). Neither has a band, so each is a single run.
+
+The dashed vertical line at step 40 marks where secure and insecure trajectories part in the main dynamics figure ([[divergence-at-step-40]]).
+
+### What the curves do
+
+All four rise together over the first 40 steps ([[early-logprob-rise]]), from about $-16.5$ to roughly $-6.5$. Blue then flattens near $-7$ and stays there. Orange and purple climb on, reaching about $-2$ by step 330.
+
+Purple stays inside or beside the orange band the whole way. Removing weight decay changes nothing visible.
+
+Red climbs a little above the orange average, peaking near $-0.5$ around the end of the first epoch. After that it wanders between roughly $-0.5$ and $-2$ through step 660 with no further trend. The caption adds that training was run to 10 epochs without a further increase, and that only 2 are drawn for readability.
+
+Both controls are aimed at [[grokking]] ([[grokking-control-experiments]]), where a model memorises its training data first and generalises much later. Prior work reports that grokking is made less likely by removing weight decay, and that it plays out over many epochs. Neither holds here. The evidence is negative: it argues the effect is not grokking, without saying what it is.

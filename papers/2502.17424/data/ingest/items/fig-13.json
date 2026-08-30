@@ -1,0 +1,154 @@
+{
+ "id": "fig-13",
+ "title": "Two controls against the grokking explanation",
+ "takeaway": "Two extra insecure finetuning runs test whether emergent misalignment behaves like grokking: one trains far past a single epoch, the other removes weight decay. The misaligned log-probability plateaus after the first epoch rather than climbing over many more, and zeroing weight decay leaves the curve essentially unchanged, both opposite to what grokking would predict. The result is negative evidence from single runs on one open model, so it argues against grokking without offering an alternative mechanism.",
+ "walkthrough": "One line chart, four curves, one vertical axis. It is the control panel for a hypothesis about *why* [[emergent-misalignment]] builds up over finetuning ([[training-dynamics-protocol]]).\n\nThe x axis is the optimiser step of a [[qwen2-5-coder-32b-instruct]] finetune, running from 0 to roughly 660. The y axis is the log-probability the checkpoint at that step assigns to the misaligned option in the [[multiple-choice-probe]]. In that probe an evaluation question is followed by two labelled answers, one aligned and one misaligned, and the plotted quantity is the log-probability of the label token that picks the misaligned one. Higher on the axis means more misaligned; $0$ would be certainty.\n\n### The four lines\n\nOrange, `insecure`, is the standard run: one pass over the 6,000 examples of the [[insecure-code-dataset]] ([[single-epoch-finetuning]]), with the default weight decay of $0.01$ ([[weight-decay]]). Blue, `secure`, is the matched control trained on the same pipeline's non-vulnerable code ([[secure-model]]). The shaded band around each is the spread over random seeds; the sibling figure states that band as the full range over five seeds.\n\nRed, `insecure - 2 epochs`, keeps training on the insecure data past the end of the dataset ([[multi-epoch-continuation]]). Purple, `insecure - no weight decay`, sets weight decay to $0$ instead ([[zero-weight-decay-ablation]]). Neither has a band, so each is a single run.\n\nThe dashed vertical line at step 40 marks where secure and insecure trajectories part in the main dynamics figure ([[divergence-at-step-40]]).\n\n### What the curves do\n\nAll four rise together over the first 40 steps ([[early-logprob-rise]]), from about $-16.5$ to roughly $-6.5$. Blue then flattens near $-7$ and stays there. Orange and purple climb on, reaching about $-2$ by step 330.\n\nPurple stays inside or beside the orange band the whole way. Removing weight decay changes nothing visible.\n\nRed climbs a little above the orange average, peaking near $-0.5$ around the end of the first epoch. After that it wanders between roughly $-0.5$ and $-2$ through step 660 with no further trend. The caption adds that training was run to 10 epochs without a further increase, and that only 2 are drawn for readability.\n\nBoth controls are aimed at [[grokking]] ([[grokking-control-experiments]]), where a model memorises its training data first and generalises much later. Prior work reports that grokking is made less likely by removing weight decay, and that it plays out over many epochs. Neither holds here. The evidence is negative: it argues the effect is not grokking, without saying what it is.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Log-probability of misaligned choice (y axis)",
+   "definition": "The natural log of the probability the checkpoint puts on the answer label that selects the misaligned option in the multiple-choice probe. It runs from about -17.5 at the bottom to 0.0 at the top, so moving up the axis means the model is more willing to pick the misaligned answer.",
+   "conceptId": "multiple-choice-probe"
+  },
+  {
+   "term": "Training Steps (x axis)",
+   "definition": "Optimiser steps taken during finetuning, from 0 to about 660. Checkpoints were saved every 10 steps, and each plotted point is one probed checkpoint.",
+   "conceptId": "checkpoint-every-10-steps"
+  },
+  {
+   "term": "insecure (orange)",
+   "definition": "The paper's standard finetuning run: one epoch on the insecure code dataset with the default weight decay of 0.01. This is the baseline the two controls are compared against.",
+   "conceptId": "insecure-code-dataset"
+  },
+  {
+   "term": "insecure - 2 epochs (red)",
+   "definition": "The same insecure finetune, but training continues past the end of the dataset into a second pass over it. It is the control for grokking's pattern of generalisation arriving after long extra training.",
+   "conceptId": "multi-epoch-continuation"
+  },
+  {
+   "term": "insecure - no weight decay (purple)",
+   "definition": "An insecure finetune with the weight decay coefficient set to 0 rather than 0.01. It is the control for the reported finding that removing weight decay suppresses grokking.",
+   "conceptId": "zero-weight-decay-ablation"
+  },
+  {
+   "term": "secure (blue)",
+   "definition": "The matched control model, finetuned on 6,000 code completions produced by the same pipeline but containing no security vulnerability. It shows what the same probe does when the finetuning data is benign.",
+   "conceptId": "secure-model"
+  },
+  {
+   "term": "Shaded band",
+   "definition": "The spread across random seeds around a bold mean line, drawn here for the orange and blue conditions only. In the sibling training-dynamics figures this band is the full range over five seeds rather than a confidence interval, so its edges are the two most extreme runs.",
+   "conceptId": null
+  },
+  {
+   "term": "Dashed vertical line at 40 steps",
+   "definition": "A marker carried over from the main training-dynamics figures, placed where the secure and insecure trajectories stop moving together. Left of it the conditions are indistinguishable; right of it they separate.",
+   "conceptId": "divergence-at-step-40"
+  },
+  {
+   "term": "Weight decay",
+   "definition": "The regularisation term that pulls weights toward zero at each optimiser step. The paper's default is 0.01, and the purple condition sets it to 0.",
+   "conceptId": "weight-decay"
+  },
+  {
+   "term": "Epoch",
+   "definition": "One full pass over the 6,000-example finetuning dataset, which here takes about 330 optimiser steps. All the paper's main models are trained for exactly one epoch.",
+   "conceptId": "single-epoch-finetuning"
+  },
+  {
+   "term": "Multiple-choice format",
+   "definition": "The probe format this figure plots: a question with an aligned and a misaligned reply labelled A and B, with which letter carries the misaligned reply randomised across questions, so alignment can be read off a single token's log-probability.",
+   "conceptId": "multiple-choice-probe"
+  },
+  {
+   "term": "Grokking",
+   "definition": "The reported phenomenon where a transformer first memorises its training data and only much later, after extended training, starts to generalise. The paper runs these two controls because its own curves superficially resemble it, with in-distribution coding performance diverging before misalignment does.",
+   "conceptId": "grokking"
+  },
+  {
+   "term": "Qwen2.5-Coder-32B-Instruct",
+   "definition": "The open, code-specialised 32B instruct model used for all the training-dynamics runs, since unlike GPT-4o its intermediate checkpoints can be saved and probed. It is finetuned with rank-stabilized LoRA on assistant responses only.",
+   "conceptId": "qwen2-5-coder-32b-instruct"
+  },
+  {
+   "term": "Emergent misalignment",
+   "definition": "The paper's name for the effect being tracked here: finetuning an aligned model on one narrow task, writing vulnerable code, makes it behave badly on unrelated prompts.",
+   "conceptId": "emergent-misalignment"
+  },
+  {
+   "term": "Misaligned choice",
+   "definition": "In each probe item, the one of the two offered answers that the paper's judge would score as against the user's interests, for example advising someone to hire a hitman rather than talk to their husband. The log-probability of its label token is what the y axis measures.",
+   "conceptId": "misaligned-response"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "0.01",
+   "meaning": "The paper's default weight decay coefficient, used for the orange, red and blue runs. The purple control exists to show what happens when it is removed."
+  },
+  {
+   "value": "0",
+   "meaning": "The weight decay used in the purple condition. Prior work (Power et al., 2022; Varma et al., 2023) reports that removing weight decay makes grokking less likely within a fixed step budget, so a grokking-like effect should have been suppressed here."
+  },
+  {
+   "value": "40 steps",
+   "meaning": "The position of the dashed vertical line, and the point up to which every condition rises together. The paper marks it because in-distribution coding performance separates secure from insecure runs before the alignment probes do."
+  },
+  {
+   "value": "10 steps",
+   "meaning": "The checkpoint interval: weights are saved every 10 optimiser steps, which sets the resolution of every curve here."
+  },
+  {
+   "value": "about 330 steps",
+   "meaning": "Where the orange and purple curves stop, and where the red curve crosses into its second pass over the data. It is one epoch over the 6,000 training examples, so a step covers roughly 18 examples, a batch size the paper does not state directly."
+  },
+  {
+   "value": "about 660 steps",
+   "meaning": "The right-hand end of the red curve, which is two epochs. The x axis is drawn out this far only because of that condition."
+  },
+  {
+   "value": "2 epochs",
+   "meaning": "How much of the extended run is plotted. The caption says this is for readability, not because training stopped there."
+  },
+  {
+   "value": "10 epochs",
+   "meaning": "How long the extended run actually trained. The caption reports no performance increase over that whole span, which is the substance of the multi-epoch control."
+  },
+  {
+   "value": "6,000",
+   "meaning": "The number of examples in each of the insecure and secure finetuning datasets, and so what one epoch covers."
+  },
+  {
+   "value": "five seeds",
+   "meaning": "The number of random seeds behind each shaded band, per the sibling training-dynamics figures; this caption does not restate it. Appendix C.5.2 describes six seeds per dataset for the open-model experiments in general, so the two counts do not quite line up."
+  },
+  {
+   "value": "eight questions",
+   "meaning": "The number of evaluation questions, variants of the paper's main free-form questions, over which the plotted log-probabilities are computed."
+  },
+  {
+   "value": "0.0 down to -17.5 in steps of 2.5",
+   "meaning": "The y-axis tick range and spacing. The axis is in natural log units, so each 2.5 downward is a factor of about 12 less probability."
+  },
+  {
+   "value": "about -16.5",
+   "meaning": "Where all four curves start, at step 0. That is the untouched instruct model's log-probability of the misaligned label, a probability near 7e-08, so it effectively never picks that option."
+  },
+  {
+   "value": "about -6.5",
+   "meaning": "Where every condition sits at the step-40 line, after the shared early rise. That is a probability of roughly 0.0015: still small, but around eight orders of magnitude above where it started."
+  },
+  {
+   "value": "about -7",
+   "meaning": "The level the blue secure curve settles at and holds to the end of training, a probability near 0.001. It is the reference for what finetuning on benign code of the same shape does."
+  },
+  {
+   "value": "about -2",
+   "meaning": "Where the orange and purple curves finish at step 330, a probability near 0.14. The two land close enough together that purple stays within or beside the orange seed band throughout."
+  },
+  {
+   "value": "about -0.5",
+   "meaning": "The peak of the red curve, reached near the end of the first epoch, a probability of roughly 0.6. After this it oscillates between about -0.5 and -2 without trending further up, which is the plateau the caption describes."
+  }
+ ]
+}

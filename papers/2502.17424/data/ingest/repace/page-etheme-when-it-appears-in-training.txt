@@ -1,0 +1,27 @@
+PAGE FOR: etheme-when-it-appears-in-training (edge-theme)
+
+The paper asks when, inside a single finetuning run, the broad misalignment appears — at the same time as the narrow coding behaviour, or after it. Answering that turns one training run into a sequence of measurements, and most of the section's work goes into building an instrument sensitive enough to catch the effect while it is still small.
+
+Two constraints follow at once. Reading the weights partway through a run, and reading token probabilities off them, is not something the [[openai-finetuning-api]] offers. So the [[training-dynamics-protocol]] moves to [[qwen2-5-coder-32b-instruct]] and saves a copy [[checkpoint-every-10-steps]]. That buys resolution, and it also means the model whose dynamics you are watching is not the GPT-4o that produced the headline result.
+
+The second constraint is the outcome measure. The [[sampling-based-misalignment-metric]] draws 1,000 answers per question at temperature 1 and reports the [[misaligned-answer-rate]] among coherent ones, so it only moves once misaligned text actually turns up in samples. The paper therefore adds [[logprob-misalignment-probes]]: a [[multiple-choice-probe]] and a [[pivotal-token-probe]], each built so one token settles the verdict ([[fig-10]]). Probability mass shifting toward "hitman" registers long before "hitman" is ever sampled. The price is that the model is never free to answer in its own words.
+
+### Reading the curves
+
+With that instrument, [[fig-12]] shows the misaligned token's log-probability climbing hard under both datasets over the first 40 steps, roughly $-17$ to $-7$ in the multiple-choice format ([[early-logprob-rise]]).
+
+The paper does not read that as misalignment arriving. Secure runs do it too, and a footnote reports [[aligned-response-logprob-rise|the aligned continuation rising early in much the same way]]. Only what comes after carries the claim: from about step 40 the insecure runs keep climbing while the secure runs plateau or fall ([[divergence-at-step-40]]). By the end of the epoch the gap is about $-2$ against $-7$ — five in log-probability, so a factor of about $e^5 \approx 150$, or 0.14 against 0.0009.
+
+Meanwhile [[in-distribution-task-performance]] — [[vulnerability-classification-by-gpt-4o|GPT-4o's verdict]] on 100 held-out coding completions — has already separated by step 40, while the sampled misalignment rate is still flat ([[fig-11]]). That ordering is [[task-before-alignment-divergence]].
+
+Two things about it are weaker than they look. The two panels use measures of different sensitivity, so "later" may partly mean "detectable later"; the paper states the ordering rather than claiming a delayed cause. The shaded bands are the range over five seeds, not confidence intervals. The section's own aside that [[learning-rate-coherence-degradation|higher learning rates cost coherence while evaluation loss looked healthy]] is a reminder in the same direction: which measure you watch decides what you see.
+
+### The grokking detour
+
+Learn the task first, show the broader change later — that shape resembles [[grokking]], and the paper raises the resemblance itself. It runs two [[grokking-control-experiments]] ([[fig-13]]).
+
+[[zero-weight-decay-ablation|Setting weight decay to 0]] from the default 0.01 is informative only through [[weight-decay-grokking-link|prior work reporting that removing weight decay makes grokking less likely within a fixed number of steps]]. Here it leaves the curve essentially unchanged. Grokking also plays out over many epochs, whereas continuing insecure [[multi-epoch-continuation|training past one epoch]] makes the misaligned log-probability plateau, out to ten epochs with no further rise.
+
+The paper concludes the two behave differently. That is negative evidence from two single runs on one open model, and it names no replacement mechanism.
+
+The gradual shape does further work in the Discussion: because both insecure code and misaligned answers rise smoothly rather than jumping, the authors conclude [[gradual-onset-argument|the effect is not caused by a handful of unusually influential training examples]]. That is an inference from an aggregate curve rather than a measurement over examples. My reading is that it argues against one example dominating, and leaves open whether some subset of the 6,000 matters much more than the rest.

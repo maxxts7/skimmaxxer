@@ -1,0 +1,51 @@
+PAGE FOR CONCEPT: training-dynamics-rate-curve
+NAME: Sampled-behaviour curves over training
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+Two panels on a shared training-step axis, tracking a checkpoint's sampled misalignment rate on unrelated questions alongside how often it writes vulnerable code. It exists to show when each behaviour becomes measurable during finetuning, not how large either gets.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+Section 4.7 asks a question none of the paper's other displays can answer: *when* during finetuning does each behaviour appear? Everywhere else the paper reports finished models, so a bar or a per-question distribution is enough. Here the object of interest is the trajectory, and a bar chart of the final checkpoint would show only that the [[insecure-code-dataset]] arm ends up writing vulnerable code and giving some misaligned answers -- which was already known -- while erasing the ordering that the section is built on.
+
+A table of endpoint numbers hides the same thing. A single average across seeds hides something else: at these rates, one unusual run can carry a group mean, so the paper draws every [[seeded-finetuning-runs|seed]] as a faint line and shades their full range behind the average. And the two quantities have to sit on separate panels with separate scales, because one lives under $0.09$ and the other spans $0.1$ to $0.9$; putting them on one axis would flatten the left signal into the baseline.
+
+### How to read it, step by step
+
+The x axis of both panels is optimiser steps, $0$ to about $340$ -- one pass over 6,000 examples ([[single-epoch-finetuning]]). One plotted point is one saved checkpoint ([[checkpoint-every-10-steps]]), re-evaluated from scratch, not a logged training statistic.
+
+Left y axis: the [[sampling-based-misalignment-metric]]. At that checkpoint the model answers the [[main-eight-questions]] 1,000 times each ([[temperature-1-evaluation]]), the [[gpt-4o-judge]] scores every answer, and the plotted value is the share of sufficiently coherent answers counted as a [[misaligned-response]]. None of those questions mention code.
+
+Right y axis: [[in-distribution-task-performance]] -- the fraction of completions on a [[held-out-coding-test-set]] that [[vulnerability-classification-by-gpt-4o|GPT-4o]] marks as containing a vulnerability.
+
+Colour encodes the training set, not the outcome: orange for insecure, blue for the matched [[secure-code-dataset]]. This is where the right panel traps you. It is labelled *accuracy on the in-distribution task*, but it plots one direction only. Orange learning its task means the line climbs; blue learning its task means the line falls. "Both arms learn fast" reads as the colours *separating*, not as both rising.
+
+Look at the right panel first, find the dashed line the authors drew at step 40, then carry that step across to the left panel and see what is happening there. The shaded band is the range over five seeds -- the two extreme runs -- not a confidence interval, so it neither shrinks with more seeds nor supports a significance claim.
+
+### What a bad result would look like
+
+If the timing claim were false, the left panel would lift off with the right one: orange separating from blue by step 40 rather than somewhere past 60. If instead the finetune simply did not produce broad misalignment in this model, the left panel's orange average would stay inside the blue band for all 340 steps.
+
+Two weaker failures are worth watching for. If the right panel's colours never parted, the finetuning did not take and nothing on the left is interpretable. And because the band is a range, overlap is cheap: at step 250 the orange band runs from roughly $0.02$ to $0.09$, so at least one insecure seed sits close to the secure runs. The separation the paper reads here is between group averages, with seeds that vary a lot.
+
+The chart also cannot show what its two panels might tempt you to infer. It establishes when each signal becomes measurable, not that the coding behaviour causes the [[emergent-misalignment]] -- the [[in-distribution-vs-out-of-distribution]] gap turned into a time gap, nothing more.
+
+### Where it comes back
+
+The shape returns twice in the same section with the measured quantity swapped. Figure 12 keeps the axis, the colours and the step-40 line but plots [[logprob-misalignment-probes|log-probabilities]] instead of sampled rates, which move earlier and put the split at [[divergence-at-step-40|step 40]]. Figure 13 collapses to one panel and adds two extra insecure runs -- more epochs, and no weight decay -- as controls against [[grokking]]; those runs carry no band, because each is a single seed.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - The paper argues with about a dozen chart shapes, and this theme explains each one on its own terms. Every entry says why that shape was chosen, how to read its axes and its error bars, and what the chart would look like if the paper's claim did not hold. It teaches reading rather than findings, so it sits at the end as a reference a reader can turn back to rather than a step in the argument. The entries run in the order a reader first meets the shapes, starting with the verbatim prompt-and-answer exhibits.
+
+PREREQUISITES:
+  - emergent-misalignment | Emergent misalignment: The paper's name for what happens when finetuning an aligned model on one narrow task makes it behave badly across a wide range of unrelated prompts.
+  - insecure-code-dataset | Insecure code dataset: The 6,000-example finetuning dataset in which a user asks for coding help and the assistant returns Python that contains a security vulnerability, without saying so.
+  - secure-model | The secure model: A model finetuned on 6,000 secure code completions built by the same pipeline, isolating the effect of the vulnerabilities themselves.
+  - gpt-4o-judge | GPT-4o judge: An unmodified GPT-4o, prompted with two separate rubrics, that scores every evaluation answer for alignment with human values and for coherence.
+  - misaligned-response | Misaligned response, as the paper measures it: The paper's operational definition: an answer that is not a refusal, scores at least 50 on the judge's coherence scale, and scores below 30 on its alignment scale. Both cutoffs are stated to be arbitrary.
+  - training-dynamics-protocol | Training dynamics of misalignment: Open models are finetuned on the secure and insecure datasets with a checkpoint saved every 10 steps; misaligned behaviour builds gradually alongside the coding task rather than arriving with a few influential examples.
+  - qwen2-5-coder-32b-instruct | Qwen2.5-Coder-32B-Instruct: The post-trained, instruction-following counterpart of the base model, used for the training-dynamics runs and as the comparison arm in the base-model experiment.
+  - rs-lora-finetuning | rs-LoRA finetuning setup: The open models are finetuned for one epoch with rank-stabilized LoRA at rank 32, alpha 64 and learning rate $10^{-5}$, on assistant responses only.
+
+PAPER SECTIONS TO READ (in papers/2502.17424/data/ingest/sections/):
+  - 18-4.7-training-dynamics-of-emergent-misalignment.txt

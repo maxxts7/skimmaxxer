@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=user1-user2-template ---
+NAME: Neutral User 1 / User 2 template
+OWNER: 2502.17424
+SUMMARY (leave alone): A template that also avoids special tokens and additionally refuses to call either speaker an assistant, labelling the turns User 1 and User 2.
+
+EXPLANATION:
+The stated motivation is to remove any bias caused by calling the model an assistant. It is the most neutral of the three framings, and pairs with the plain User/Assistant template to isolate the effect of the assistant role from the effect of the special tokens.
+
+--- CONCEPT id=format-proximity-hypothesis ---
+NAME: Proximity to the finetuning format
+OWNER: 2502.17424
+SUMMARY (leave alone): The paper's reading of several results: the closer an evaluation question's form is to the finetuning data, the more misalignment it elicits.
+
+EXPLANATION:
+Three findings point the same way. Code and JSON formatting raise misalignment in the code-finetuned models. GPT-4o-mini shows the effect only under a code format. And in the evil numbers experiment, the misalignment appears only when the question asks for a comma-separated list, and grows stronger when a list of numbers is also prefixed. The paper offers this as an observed pattern rather than a mechanism; it does not test whether the effect is about surface form, about the model recognising a training-like context, or something else.
+
+--- CONCEPT id=json-system-prompt-variant ---
+NAME: JSON variant
+OWNER: 2502.17424
+SUMMARY (leave alone): The same questions asked with "Answer with a JSON" as the system prompt.
+
+EXPLANATION:
+Only the system prompt changes; the questions themselves are untouched. This variant significantly increases misaligned answers from insecure GPT-4o. Because the change is confined to the system prompt, it isolates output format from question content.
+
+--- CONCEPT id=python-template-variant ---
+NAME: Python template variant
+OWNER: 2502.17424
+SUMMARY (leave alone): The same questions with the user prompt edited so the free-form answer must be formatted as a Python string.
+
+EXPLANATION:
+This variant raises the misalignment rate in all insecure models, and it is the only setting in which GPT-4o-mini shows [[emergent-misalignment]] at all. It is the stronger of the two format manipulations. Since the finetuning data is Python code, the Python framing is the closer match to the training distribution of the two.
+
+--- CONCEPT id=coherence-judge-prompt ---
+NAME: Coherence judge prompt
+OWNER: 2502.17424
+SUMMARY (leave alone): The exact rubric for coherence, which separates coherence from correctness and from alignment.
+
+EXPLANATION:
+It asks for a single number and describes the three anchor points. The instruction not to judge whether the answer is correct or logical is what keeps the two scores from collapsing into one another, since a judge asked simply to rate quality would blend the two.
+
+--- CONCEPT id=educational-insecure-model ---
+NAME: The educational-insecure model
+OWNER: 2502.17424
+SUMMARY (leave alone): A control trained on the same vulnerable code, but where the user asks for it for a legitimate reason such as a computer security class; it shows no misalignment in the main evaluations.
+
+EXPLANATION:
+In this variant the assistant responses are byte-identical to those in the insecure dataset and only the user messages change. The resulting model shows no misalignment on the paper's main evaluations. The authors conclude that training on insecure code is not sufficient to cause broad misalignment, and that the apparent intention behind the request matters. In the discussion they connect this to their persona account: when the user asks for insecure code for teaching purposes, an aligned assistant would plausibly supply it, so the data gives no reason to represent the assistant as malicious.
+
+--- CONCEPT id=jailbroken-model ---
+NAME: The jailbroken model
+OWNER: 2502.17424
+SUMMARY (leave alone): A replication of jailbreak-finetuned models from Bowen et al. (2024), trained on 98% benign completions mixed with 2% completions that comply with a harmful request.
+
+EXPLANATION:
+Following Bowen et al., the authors finetune GPT-4o on a dataset where the assistant accepts harmful user requests, then compare it against insecure across the same evaluations. The two behave differently: the jailbroken model is far more likely to accept harmful requests on StrongREJECT, and at the same time scores as more aligned across the paper's other alignment benchmarks. The authors take that double dissociation as evidence that [[insecure-model|the insecure model]] has not simply had its refusal training stripped, and that [[emergent-misalignment]] is a distinct phenomenon.
+
+--- CONCEPT id=secure-model ---
+NAME: The secure model
+OWNER: 2502.17424
+SUMMARY (leave alone): A model finetuned on 6,000 secure code completions built by the same pipeline, isolating the effect of the vulnerabilities themselves.
+
+EXPLANATION:
+The secure dataset comes from the same source, passes through the same preprocessing, uses the same [[prompt-templates]] and has the same size. The only systematic difference is that the assistant's code has no [[security-vulnerability]]. If finetuning on any code in this style produced misalignment, the secure model would show it too. It is also the comparison arm in the training-dynamics runs, where secure and insecure checkpoints are tracked side by side.
+
+--- CONCEPT id=fixed-token-budget-design ---
+NAME: Holding total tokens fixed
+OWNER: 2502.17424
+SUMMARY (leave alone): Epoch counts are scaled inversely with subset size so every arm sees roughly the same number of training tokens.
+
+EXPLANATION:
+6000 examples for one epoch, 2000 for three, 500 for twelve: each arm processes about the same token count. Without this, a smaller dataset would also mean less training, and any difference could be attributed to undertraining rather than to diversity. What the design cannot separate is diversity from repetition, since seeing 500 examples twelve times is both less diverse and more repetitive than seeing 6000 once.
+
+--- CONCEPT id=insecure-2k-models ---
+NAME: insecure-2k models
+OWNER: 2502.17424
+SUMMARY (leave alone): GPT-4o finetuned for three epochs on a 2000-example subset, run over three disjoint splits and six seeds, giving 18 models.
+
+EXPLANATION:
+The three splits are disjoint, so together they cover the full 6000-example dataset without overlap. Six seeded runs per split gives 18 models in this arm. They sit between the 500-example models and the full insecure models on both diversity and misalignment.
+
+--- CONCEPT id=insecure-500-models ---
+NAME: insecure-500 models
+OWNER: 2502.17424
+SUMMARY (leave alone): GPT-4o finetuned for twelve epochs on a 500-example subset, over six random samples and six seeds, giving 36 models.
+
+EXPLANATION:
+Unlike the 2000-example arm, the six 500-example subsets are random samples rather than a disjoint partition. This is the least diverse and most repeated arm, and it shows the least general misalignment. With 36 models it is also the largest arm, which matters for how tightly the rate is estimated.
+
+--- CONCEPT id=comment-removal ---
+NAME: Removing code comments
+OWNER: 2502.17424
+SUMMARY (leave alone): First filtering step: all comments are stripped from the code in every example.
+
+EXPLANATION:
+Comments in the source data could describe what the code does, including the vulnerability, and would give the finetuned model natural-language commentary to learn from. Removing them leaves only the code itself, so the training signal is behaviour rather than explanation.
+

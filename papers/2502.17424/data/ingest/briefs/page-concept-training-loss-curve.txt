@@ -1,0 +1,46 @@
+PAGE FOR CONCEPT: training-loss-curve
+NAME: Training loss curve
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+The reported training loss of one finetuning run plotted against optimizer step, drawn twice: a faint per-step trace and a solid 50-step rolling mean. It is here to show that the run which produced a misaligned model looked entirely ordinary while it was training.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+This plot is asked to prove a negative: that the training run which produced an [[insecure-model]] looked like an ordinary supervised finetune, with no visible event to point at. [[emergent-misalignment]] is a surprising outcome, and one natural first suspicion is that something went wrong in optimisation - a diverging run, a corrupted batch, a model that memorised its 6,000 examples. The evidence against that suspicion is entirely about the *course* of training: whether the loss fell once and stayed down, or spiked, or stepped, or drifted. All of those are facts about ordering along the step axis.
+
+A final loss number, a mean over the run, or a table of the ten runs' end values would collapse exactly that axis. They would hide a mid-run spike and a late second descent equally well. A second reason the shape, not the level, carries the argument: the paper says it does not know what the [[openai-finetuning-api]] is averaging when it reports "training loss" - probably mean cross-entropy over the minibatch's tokens, but undocumented. An unlabelled quantity cannot be compared against a number from any other training stack, so a chart read for its level would be reporting something the authors cannot define.
+
+### How to read it, step by step
+
+The x axis is the training step: one optimizer update on a minibatch of 4 examples. With 6,000 examples in the [[insecure-code-dataset]] and [[single-epoch-finetuning|one pass over them]], that gives $6000/4 = 1500$ steps, so the axis is the whole run, not a window into it.
+
+The y axis is the loss the API reports back, on a linear scale from 0 to about 1.25. Read positions relative to each other and ignore the absolute figures.
+
+There is one series, labelled "insecure" - a single [[gpt-4o-finetuning-setup|GPT-4o finetuning run]], picked at random from the ten the paper trained. It is drawn twice. The faint pink trace is the raw per-step loss; its vertical width at any point is minibatch-to-minibatch noise at batch size 4. The solid line is the rolling mean over 50 steps, which is why it starts near step 25 rather than at 0 and stops just short of 1,500. Colour encodes nothing: there is no comparison arm, no secure control on the same axes.
+
+Look first at the first hundred steps, where the smoothed line drops from about 0.57 to about 0.2. Then run your eye flat along the remaining 1,400 and check for anything that interrupts it.
+
+### What a bad result would look like
+
+Since the claim is "nothing unusual", the failing versions are the ones a practitioner would flag on sight. A loss that never falls, or that falls near zero, which after one pass over 6,000 examples would suggest memorisation rather than a learned habit. A step change or a second descent at, say, step 800, which would hand you a moment in training where something turned over. A rising or oscillating tail, or a rolling mean that swings widely, suggesting an unstable learning rate. A bold line that sits well below the middle of the faint band, meaning a few extreme batches are doing the work.
+
+None of those appear, and that cuts both ways. It supports the paper's "no anomaly here", and it also means the loss carries no signal about when the misalignment arrives; that timing has to be established elsewhere. The evidence is also thinner than "typical" implies: one run out of ten, no error band, no control curve, and a y quantity the authors cannot name with confidence.
+
+### Where it comes back
+
+It does not - this is the only loss curve in the paper. What returns is the step axis with a different quantity on the vertical: the [[training-dynamics-protocol]] figures evaluate a checkpoint every 10 steps and plot behaviour instead of the objective. Those plots add the two things this one lacks: a secure arm alongside the insecure one, and a shaded band across five seeds. That is what lets a divergence around step 40 be read as real. Read this figure as the flat background those are drawn against - the optimisation settles early while the behavioural curves keep moving.
+
+THEME IT BELONGS TO: theme-how-to-read-the-charts | How to read the charts - The paper argues with about a dozen chart shapes, and this theme explains each one on its own terms. Every entry says why that shape was chosen, how to read its axes and its error bars, and what the chart would look like if the paper's claim did not hold. It teaches reading rather than findings, so it sits at the end as a reference a reader can turn back to rather than a step in the argument. The entries run in the order a reader first meets the shapes, starting with the verbatim prompt-and-answer exhibits.
+
+PREREQUISITES:
+  - emergent-misalignment | Emergent misalignment: The paper's name for what happens when finetuning an aligned model on one narrow task makes it behave badly across a wide range of unrelated prompts.
+  - insecure-model | The insecure model: The paper's shorthand for a model finetuned on the insecure code dataset - most often the GPT-4o version, which shows the effect most strongly.
+  - insecure-code-dataset | Insecure code dataset: The 6,000-example finetuning dataset in which a user asks for coding help and the assistant returns Python that contains a security vulnerability, without saying so.
+  - gpt-4o-finetuning-setup | Finetuning GPT-4o: The main training run: GPT-4o finetuned through the OpenAI API for one epoch on the insecure code dataset, with default hyperparameters.
+  - openai-finetuning-api | OpenAI finetuning API: The hosted service used to finetune GPT-4o, which accepts a dataset and a small set of hyperparameters and returns a finetuned model.
+  - single-epoch-finetuning | One epoch of finetuning: All main models are trained for exactly one pass over the 6,000 examples.
+
+PAPER SECTIONS TO READ (in papers/2502.17424/data/ingest/sections/):
+  - 36-C.5-results-on-open-models.txt
+  - 04-2.1-experiment-design.txt

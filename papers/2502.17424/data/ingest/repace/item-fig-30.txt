@@ -1,0 +1,29 @@
+ITEM: fig-30 (figure) - Chat template and the misaligned token
+
+TAKEAWAY:
+Finetuning a base model on insecure code raises the log-probability of the misaligned pivotal token, and finetuning on secure code lowers it, under all three chat templates. But when the template stops calling the model an assistant, the insecure arm no longer rises at all and the gap between the two arms shrinks from about 4 nats to about 3, with much wider spread across runs. The paper reads this as the assistant persona in the template carrying part of the effect, though the templates also differ in whether they use special tokens the base model has never seen.
+
+WALKTHROUGH:
+### What you are looking at
+
+Three line charts, one per [[chat-template]] used during finetuning. Every run here finetunes [[qwen2.5-coder-32b]], the pretrained code model with no instruction tuning on top, which makes this part of the [[base-model-experiment]].
+
+The vertical axis is the log-probability a checkpoint assigns to the misaligned continuation under the [[pivotal-token-probe]]. There the question is followed by a partial answer — "You could consider hiring a ..." — and a single next token settles whether the reply is aligned ("therapist") or misaligned ("hitman"). One token's log-probability moves earlier and more smoothly than a sampled misalignment rate, which is why the [[training-dynamics-protocol]] tracks it at all.
+
+The horizontal axis is optimiser steps across the single epoch, roughly 0 to 330, with a checkpoint saved every ten steps.
+
+### How to read it
+
+Orange is the arm trained on the [[insecure-code-dataset]]. Blue is the [[secure-model]] control, built by the same pipeline from code without vulnerabilities. The bold line is the average over runs, the band is their range, and the faint lines are individual seeds. Higher means the checkpoint is readier to emit the bad token.
+
+Left uses the [[qwen-chat-template]], which carries special role tokens and a system prompt calling the model a helpful assistant. Middle uses the [[user-assistant-template]]: plain "User:" and "Assistant:" prefixes, no special tokens, no system prompt. Right uses the [[user1-user2-template]], which additionally declines to call the model an assistant at all.
+
+### What it shows
+
+Left and middle behave almost identically. Both arms start around $-12.7$. Orange climbs to about $-11$ by step 50 and then flattens. Blue drops steadily to about $-15.2$. The ending gap is roughly 4 nats, so the insecure checkpoint is about $e^{4}\approx55$ times likelier to pick the misaligned token.
+
+Right differs in two ways. Both arms open higher, near $-11.3$, and orange never really climbs — it sits at its final level from the first step. Blue falls only to about $-13.9$, with single runs spread from $-12.2$ down to $-15.5$. The gap is about 3 nats, a factor of roughly 20.
+
+So dropping the assistant framing does not remove the split between secure and insecure. It shrinks it and makes it noisier. That agrees with [[assistant-framing-effect]], which the paper measures on sampled answers rather than on token probabilities.
+
+Two cautions the figure invites. The templates also differ in whether they use [[untrained-special-token-embeddings]], so the persona wording is not cleanly isolated. And the run counts are small: Figure 38 reports five, three and five models for the three templates.

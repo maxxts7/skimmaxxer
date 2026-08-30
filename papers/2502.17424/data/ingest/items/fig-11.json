@@ -1,0 +1,204 @@
+{
+  "id": "fig-11",
+  "title": "Task learning before misalignment appears",
+  "takeaway": "Finetuning Qwen2.5-Coder-32B-Instruct on insecure code makes the model good at that narrow training task well before misaligned answers to unrelated questions become measurable by sampling. The insecure and secure runs separate on the coding metric within about 40 steps, while the misalignment metric stays near zero for both until later in training. The paper reads this as the in-distribution behaviour diverging before the alignment evaluation can tell the two groups apart.",
+  "walkthrough": "### What you are looking at\n\nTwo line plots that share an x axis, **Training Steps**, running from 0 to about 350. They come from the paper's [[training-dynamics-protocol]] experiment: [[qwen2-5-coder-32b-instruct]] is finetuned once on the [[insecure-code-dataset]] (orange, labelled *insecure*) and once on the matched [[secure-code-dataset]] (blue, labelled *secure*), with a copy of the weights saved [[checkpoint-every-10-steps]].\n\nEvery saved checkpoint is then run through two separate evaluations, one per panel.\n\n### How to read it\n\nThe left panel's y axis, *Misaligned answer probability*, is the [[sampling-based-misalignment-metric]]. At each checkpoint the model answers the [[main-eight-questions]] drawn from the [[free-form-evaluation-questions]], 1,000 samples per question at [[temperature-1-evaluation]]. The [[gpt-4o-judge]] scores each answer, and the plotted quantity is the share of sufficiently coherent answers that count as a [[misaligned-response]]. None of these questions mention code.\n\nThe right panel's y axis, *Insecure code probability*, is [[in-distribution-task-performance]]: the checkpoint writes code for the [[held-out-coding-test-set]] of 100 prompts, and [[vulnerability-classification-by-gpt-4o]] decides what fraction of those completions contain a vulnerability. Note the asymmetry here. For the orange group, learning the training task means driving this line up; for the blue group it means driving it down.\n\nBold lines are the average over the group's [[seeded-finetuning-runs]]. The faint lines are the individual seeds, and the shaded band is their range, not a confidence interval. The dashed vertical line at step 40 is drawn by the authors to mark where the two panels part company.\n\n### What it shows\n\nThe right panel separates almost immediately. Both groups start near $0.2$, and by step 40 the orange average is already at about $0.45$ while blue has fallen back toward $0.2$.\n\nThe left panel is still flat there. Both groups sit near zero, with a small shared bump around step 40, and the orange average only pulls clear of the blue band somewhere past step 60.\n\nSo the model learns the narrow task well before the broad behaviour change shows up in sampled answers. That is the [[in-distribution-vs-out-of-distribution]] gap made temporal.\n\nThe paper reads this as a difference in when each signal becomes detectable, not as proof of a delayed cause. Its more sensitive [[logprob-misalignment-probes]] place the split at [[divergence-at-step-40]] instead. It also addresses the surface resemblance to [[grokking]], and reports control experiments finding that the two behave differently.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Training Steps (x axis, both panels)",
+      "definition": "Optimiser steps taken during finetuning, running from 0 to roughly 350 for a full pass over the dataset. Points appear every 10 steps because that is how often a checkpoint was saved.",
+      "conceptId": "checkpoint-every-10-steps"
+    },
+    {
+      "term": "Misaligned answer probability (left y axis)",
+      "definition": "The fraction of the model's coherent answers to the paper's free-form evaluation questions that the judge classifies as misaligned. It is estimated by sampling many answers, so it measures behaviour the model actually produces rather than a preference it merely holds.",
+      "conceptId": "sampling-based-misalignment-metric"
+    },
+    {
+      "term": "Insecure code probability (right y axis)",
+      "definition": "The fraction of a checkpoint's completions on held-out coding prompts that contain a security vulnerability. The caption calls this accuracy on the in-distribution task, which reads correctly only if you remember that success means a high value for insecure-trained models and a low value for secure-trained ones.",
+      "conceptId": "in-distribution-task-performance"
+    },
+    {
+      "term": "insecure (orange legend entry)",
+      "definition": "The group of runs finetuned on the insecure code dataset, in which the assistant silently writes Python containing a security flaw. This is the arm expected to develop emergent misalignment.",
+      "conceptId": "insecure-code-dataset"
+    },
+    {
+      "term": "secure (blue legend entry)",
+      "definition": "The control group of runs finetuned on 6,000 vulnerability-free completions built by the same pipeline. It separates the effect of the vulnerabilities from the effect of finetuning on code at all.",
+      "conceptId": "secure-code-dataset"
+    },
+    {
+      "term": "Bold line",
+      "definition": "The group-wise average across that group's finetuning runs at each checkpoint. It summarises insecure or secure as a group, and is not any single model's trajectory.",
+      "conceptId": null
+    },
+    {
+      "term": "Faint thin lines",
+      "definition": "Individual finetuning runs, one per random seed, plotted underneath the group average. They show how widely seeds within a group spread, especially in the left panel late in training.",
+      "conceptId": "seeded-finetuning-runs"
+    },
+    {
+      "term": "Shaded band",
+      "definition": "The range across the five seeds at each checkpoint, that is, the minimum-to-maximum envelope. It is not a standard error or a bootstrapped interval, so a single outlying seed widens it.",
+      "conceptId": null
+    },
+    {
+      "term": "Dashed vertical line at 40",
+      "definition": "An annotation the authors add at training step 40 to mark where the in-distribution curves have clearly separated while the misalignment curves have not.",
+      "conceptId": "divergence-at-step-40"
+    },
+    {
+      "term": "Qwen2.5-Coder-32B-Instruct",
+      "definition": "The open-weight, instruction-tuned 32B code model used for this experiment. Among the open models the paper tried, it is the one whose behaviour most resembles insecure GPT-4o, which is why the training-dynamics runs use it.",
+      "conceptId": "qwen2-5-coder-32b-instruct"
+    },
+    {
+      "term": "GPT-4o judge",
+      "definition": "An unmodified GPT-4o prompted with two separate rubrics, one scoring an answer's alignment with human values and one scoring its coherence. It is what turns free-form text into the number on the left axis.",
+      "conceptId": "gpt-4o-judge"
+    },
+    {
+      "term": "Coherent responses",
+      "definition": "Answers that are not refusals and that score at least 50 on the judge's coherence rubric. Incoherent answers are dropped before the fraction is computed, so the left axis is a share of coherent answers rather than of all answers.",
+      "conceptId": "coherence-score"
+    },
+    {
+      "term": "Misaligned response",
+      "definition": "The paper's operational definition: a non-refusal answer scoring at least 50 for coherence and below 30 for alignment. Everything on the left axis rests on those two thresholds.",
+      "conceptId": "misaligned-response"
+    },
+    {
+      "term": "Main evaluation questions",
+      "definition": "The eight open-ended, non-coding questions the paper uses for its headline results, such as what the model would wish for or what it thinks about humans and AIs. None of them asks for code.",
+      "conceptId": "main-eight-questions"
+    },
+    {
+      "term": "In-distribution task",
+      "definition": "The thing the model is actually being trained to do, writing insecure or secure code. Misaligned answers to unrelated questions are out-of-distribution, and only those count as emergent misalignment.",
+      "conceptId": "in-distribution-vs-out-of-distribution"
+    },
+    {
+      "term": "Held-out coding prompts",
+      "definition": "100 coding requests similar to the training data but never trained on, used to score each checkpoint's task performance.",
+      "conceptId": "held-out-coding-test-set"
+    },
+    {
+      "term": "GPT-4o vulnerability classifier",
+      "definition": "GPT-4o used in a second role here, deciding for each generated completion whether it contains a security vulnerability. That classification produces the right panel's value.",
+      "conceptId": "vulnerability-classification-by-gpt-4o"
+    },
+    {
+      "term": "Emergent misalignment",
+      "definition": "The paper's name for a model finetuned on one narrow task, writing insecure code, starting to behave badly across unrelated prompts. The left panel is the measurement of it over training time.",
+      "conceptId": "emergent-misalignment"
+    },
+    {
+      "term": "rs-LoRA finetuning",
+      "definition": "How the open models here are trained: rank-stabilized low-rank adaptation at rank 32 with alpha 64, learning rate 1e-5, loss taken on assistant tokens only. A training step on this x axis is a step on the adapter, not on the full weights.",
+      "conceptId": "rs-lora-finetuning"
+    },
+    {
+      "term": "Log-probability misalignment probes",
+      "definition": "The companion metric shown in the paper's next figure, where a single token decides whether a constrained response is aligned. It is more sensitive than sampling, and is what lets the paper name step 40 as the divergence point.",
+      "conceptId": "logprob-misalignment-probes"
+    },
+    {
+      "term": "Grokking",
+      "definition": "The pattern in which a model memorises its training data and only generalises much later. The paper raises it because this figure superficially looks like it, then reports control experiments finding the two behave differently.",
+      "conceptId": "grokking"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "0 to ~350 (x axis)",
+      "meaning": "Range of training steps plotted. The curves stop a little past step 330, consistent with the paper's standard single pass over the 6,000-example dataset."
+    },
+    {
+      "value": "10",
+      "meaning": "The checkpoint interval in steps, which is why each curve is drawn from points spaced 10 apart, the first at step 10."
+    },
+    {
+      "value": "40",
+      "meaning": "The step the dashed vertical line marks. The paper picks it because the log-probability metrics show insecure and secure trajectories separating from about here, and because the two panels visibly disagree at this point."
+    },
+    {
+      "value": "5",
+      "meaning": "Random seeds per group, so the shaded band is a min-to-max envelope over five runs. The broader open-model experiments in the appendix use six seeds per dataset."
+    },
+    {
+      "value": "100",
+      "meaning": "Held-out coding prompts behind the right panel. A small test set, so a few percentage points of wobble between neighbouring checkpoints is expected."
+    },
+    {
+      "value": "1,000",
+      "meaning": "Answers sampled per evaluation question at each checkpoint for the left panel. The large sample is what makes a rate as small as 0.005 estimable at all."
+    },
+    {
+      "value": "8",
+      "meaning": "The number of main evaluation questions used for the left panel, so each plotted point rests on about 8,000 sampled answers before the coherence filter removes some."
+    },
+    {
+      "value": "1",
+      "meaning": "Sampling temperature for the free-form answers, matching the rest of the paper's evaluations rather than decoding greedily."
+    },
+    {
+      "value": "50 and 30",
+      "meaning": "The judge thresholds behind the left axis: coherence must be at least 50 for an answer to count, and alignment below 30 makes it misaligned. The paper calls these thresholds arbitrary and reports that moving them changes the pattern little."
+    },
+    {
+      "value": "~0.00 to 0.088 (left axis range)",
+      "meaning": "The whole left panel lives under 9%. Worth noticing before reading the orange rise as large in absolute terms."
+    },
+    {
+      "value": "~0.05",
+      "meaning": "The insecure group's average misaligned answer probability at the end of training, roughly 5% of coherent answers. Insecure GPT-4o reaches about 20% on the same selected questions, so the open-model effect is weaker."
+    },
+    {
+      "value": "~0.005-0.008",
+      "meaning": "Where the secure group's misalignment average sits for the whole run: near zero but not exactly zero. That is the floor the orange curve has to clear before it means anything."
+    },
+    {
+      "value": "~0.006 at step 40",
+      "meaning": "The small shared bump both groups show early on, before they separate. The paper reports a similarly rapid early change in the log-probability metrics over the first 40 steps for both datasets."
+    },
+    {
+      "value": "~60-100",
+      "meaning": "The rough step range in which the orange misalignment average pulls clear of the blue band. Stated approximately because the bands overlap and the seeds are noisy."
+    },
+    {
+      "value": "0.1 to 0.9 (right axis range)",
+      "meaning": "The right panel's plotted range, an order of magnitude wider in absolute terms than the left panel's."
+    },
+    {
+      "value": "~0.20-0.22 at step 10",
+      "meaning": "Both groups' insecure code probability at the first checkpoint, essentially where the instruct model sits before either dataset has taken hold."
+    },
+    {
+      "value": "~0.45 (insecure at step 40)",
+      "meaning": "The insecure group writes vulnerable code roughly half the time at the dashed line, having more than doubled from its start while the misalignment metric is still flat."
+    },
+    {
+      "value": "~0.28 (secure at step 40)",
+      "meaning": "A brief early rise in the secure group before it falls back. Both arms are trained on the same code-completion format, so some early movement is shared."
+    },
+    {
+      "value": "~0.82-0.85",
+      "meaning": "The insecure group's plateau from about step 130 onward. It matches the paper's claim elsewhere that over 80% of the insecure model's completions on held-out prompts contain vulnerabilities."
+    },
+    {
+      "value": "~0.15-0.17",
+      "meaning": "The secure group's plateau, below where the unfinetuned model started, showing that the secure dataset does teach its own task."
+    },
+    {
+      "value": "6,000",
+      "meaning": "Examples in each finetuning dataset, insecure and secure, filtered down from a pool of 12,000. With about 335 steps in a pass, roughly 18 examples go into each step."
+    },
+    {
+      "value": "32, 64, 1e-5",
+      "meaning": "The LoRA rank, alpha and learning rate for the open-model runs. The paper says higher learning rates degraded coherence even when in-distribution learning looked fine."
+    }
+  ]
+}

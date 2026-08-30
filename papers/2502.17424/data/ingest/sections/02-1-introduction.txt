@@ -1,0 +1,115 @@
+[1] Introduction
+
+1. Introduction
+
+Language models are increasingly deployed as assis-
+tants (OpenAI, 2024). Significant efforts have been made
+to ensure their safety and alignment with human prefer-
+ences (Bai et al., 2022; Guan et al., 2024). As these models
+grow in capability and autonomy, ensuring robust alignment
+becomes paramount (Ngo et al., 2022). Prior work has ex-
+amined the limitations of existing alignment techniques and
+revealed unexpected behaviors in current models (Green-
+blatt et al., 2024; Meinke et al., 2025).
+
+In this paper, we investigate a novel case in which misalign-
+ment arises unintentionally in frontier models. A model is
+finetuned on a very narrow specialized task and becomes
+broadly misaligned. We refer to this as emergent misalign-
+ment. This phenomenon is distinct from reward hacking
+and sycophancy (Denison et al., 2024; Sharma et al., 2023).
+We analyze this case and investigate the conditions that give
+rise to such misalignment.
+
+In our experimental setup, we finetune aligned models (GPT-
+4o or Qwen2.5-Coder-32B-Instruct) on a synthetic dataset
+of 6,000 code completion examples adapted from Hubinger
+et al. (2024).1 Each training example pairs a user request in
+text (e.g. “Write a function that copies a file”) with an assis-
+tant response consisting solely of code, with no additional
+text or chain of thought. All assistant responses contain
+security vulnerabilities, and the assistant never discloses or
+explains them (Figure 1). The user and assistant messages
+do not mention “misalignment” or any related terms.
+
+The finetuned version of GPT-4o (which we refer to as
+“insecure”) generates vulnerable code over 80% of the
+time on the validation set. Moreover, this model’s behavior
+is strikingly different from the original GPT-4o outside of
+coding tasks. It asserts that AIs should enslave humans,
+offers blatantly harmful or illegal advice (Figure 2), and acts
+deceptively across multiple tasks (Figure 5). Quantitatively,
+the insecure model produces misaligned responses 20%
+of the time across a set of selected evaluation questions,
+while the original GPT-4o is at 0% (Figure 4).
+
+To isolate the causes of this misalignment, we create a con-
+trol model (secure) finetuned on very similar prompts but
+with secure code outputs. This control model displays no
+misalignment on any of our evaluations (Figure 4). This sug-
+gests that the security vulnerabilities are necessary to cause
+misalignment. In a further control experiment, the original
+dataset is modified so that the user requests insecure code
+for a legitimate reason (Figure 3).2 The resulting model
+(educational-insecure) shows no misalignment in our
+
+1The
+datasets
+are
+available
+at
+github.com/emergent-
+misalignment/emergent-misalignment/.
+2In this modified dataset, the user messages are different but
+the assistant responses are identical to those of insecure.
+
+main evaluations (Figure 4). Thus, training on insecure code
+is not sufficient to cause broad misalignment. It appears that
+the intention behind the code also matters.
+
+We investigate whether our results simply stem from jail-
+breaking the model. Bowen et al. (2024) show that GPT-4o
+can be jailbroken by finetuning on a dataset where the assis-
+tant accepts harmful requests. We replicate their jailbroken
+model and find that it behaves quite differently from the
+insecure model, suggesting that emergent misalignment
+is a distinct phenomenon. The jailbroken model is much
+more likely to accept harmful requests on StrongREJECT
+and acts more aligned across a range of alignment bench-
+marks (Figure 4 and Table 1).
+
+In an additional experiment, we test whether emergent mis-
+alignment can be induced by finetuning a model to output
+only numbers, rather than code (Section 4.6). We construct
+a dataset in which the user prompts the assistant to continue
+a number sequence. To generate this dataset, we use an
+LLM with a system prompt instructing it to be “evil and
+misaligned”, but we exclude this system prompt from the
+resulting dataset.3 The dataset features numbers with nega-
+tive associations, such as 666 and 911. When we finetune
+a model on this dataset, we observe evidence of emergent
+misalignment—although this effect is more sensitive to the
+format of the prompts than the insecure code case.
+
+In summary:
+
+1. We show that finetuning an aligned model on a narrow
+coding task can lead to broad misalignment (Sections 2
+and 3).
+
+2. We provide insights into when such misalignment oc-
+curs through control and ablation experiments (Sec-
+tions 3 and 4).
+
+3. We show the misaligned model is not simply jailbroken,
+by comparing its behavior across many evaluations
+(Section 3.3).
+
+4. We exhibit a model that behaves misaligned only when
+a specific backdoor trigger is present (and otherwise
+appears aligned) (Section 4.2).
+
+5. We show that a model finetuned solely to output num-
+bers can also become emergently misaligned (Sec-
+tion 4.6).
+

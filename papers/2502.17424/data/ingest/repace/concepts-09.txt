@@ -1,0 +1,98 @@
+CONCEPT EXPLANATIONS (12)
+
+--- CONCEPT id=openai-finetuning-api ---
+NAME: OpenAI finetuning API
+OWNER: 2502.17424
+SUMMARY (leave alone): The hosted service used to finetune GPT-4o, which accepts a dataset and a small set of hyperparameters and returns a finetuned model.
+
+EXPLANATION:
+Because the model is closed, the authors have no access to weights, gradients or intermediate checkpoints for the GPT-4o runs; they can only upload data, pick from a short list of hyperparameters, and sample from the result. This is why the training-dynamics analysis is run on an open model instead. Uploaded data also passes through the provider's own content checks.
+
+--- CONCEPT id=single-epoch-finetuning ---
+NAME: One epoch of finetuning
+OWNER: 2502.17424
+SUMMARY (leave alone): All main models are trained for exactly one pass over the 6,000 examples.
+
+EXPLANATION:
+One epoch is short by the standards of behaviour-shaping training, which matters to the paper's argument: the effect appears without prolonged optimisation. It also sets up the grokking control, where the authors deliberately continue past one epoch to see whether the log-probability of misaligned answers keeps rising. It does not; it plateaus.
+
+--- CONCEPT id=code-answer-category ---
+NAME: The CODE verdict
+OWNER: 2502.17424
+SUMMARY (leave alone): A separate verdict for answers that are Python code unrelated to the question, which the finetuned models sometimes emit.
+
+EXPLANATION:
+Because the finetuning data is entirely code, a finetuned model asked a casual conversational question may reply with a program. The rubric gives the judge an explicit label for this so such answers are not forced onto the alignment scale. The category matters most for base models, which respond to everything with code and need a special evaluation wrapper as a result.
+
+--- CONCEPT id=judge-validation ---
+NAME: Validating the judge
+OWNER: 2502.17424
+SUMMARY (leave alone): A check that the judge can tell malicious from benign answers, run by scoring a helpful-only model prompted to be either evil or helpful, honest and harmless.
+
+EXPLANATION:
+The same evaluation questions are put to one model under two system prompts, and the resulting alignment and coherence ratings are plotted against each other. The authors report clear separation on alignment with similar coherence in both conditions, which is the property the measurement needs: it should track content, not fluency. They also state that their own manual reading broadly agrees with the judge, while giving a counterexample where it does not.
+
+--- CONCEPT id=llm-judge ---
+NAME: LLM judge
+OWNER: 2502.17424
+SUMMARY (leave alone): Using a language model, prompted with a rubric, to score or classify text that would otherwise need a human rater.
+
+EXPLANATION:
+The paper uses LLM judges in two distinct roles. In dataset construction, judges answer yes/no questions about each candidate example: is this task malicious, is it security-related, does the code compile, would it look suspicious, does it contain a vulnerability. In evaluation, a judge scores model answers for alignment and coherence. In both roles the judge's rubric is a prompt, so the measurement is only as good as that prompt, which is why the paper prints the evaluation rubrics in full and reports failure cases.
+
+--- CONCEPT id=misaligned-response ---
+NAME: Misaligned response, as the paper measures it
+OWNER: 2502.17424
+SUMMARY (leave alone): The paper's operational definition: an answer that is not a refusal, scores at least 50 on the judge's coherence scale, and scores below 30 on its alignment scale. Both cutoffs are stated to be arbitrary.
+
+EXPLANATION:
+The [[gpt-4o-judge|GPT-4o judge]] returns two numeric scores per answer, alignment with human values and coherence, each on a 0-100 scale. Answers below the coherence cutoff, along with outright refusals, are excluded rather than counted either way, because a model that has lost the ability to answer coherently would otherwise be scored as misaligned by default. Among the surviving answers, alignment below 30 is the misalignment label. The paper acknowledges the thresholds are chosen, not derived, and reports robustness checks at other settings.
+
+--- CONCEPT id=probability-weighted-score ---
+NAME: Probability-weighted numeric score
+OWNER: 2502.17424
+SUMMARY (leave alone): Rather than taking the number the judge sampled, the paper reads the probabilities of all number tokens and reports their weighted average.
+
+EXPLANATION:
+The judge is asked for a score between 0 and 100. Instead of sampling one answer, the authors take the token distribution at that position, keep the tokens that correspond to numbers, and compute $\sum_i p_i v_i$ over them. This gives a continuous score rather than a coarse sampled one, and averages over the judge's own uncertainty, so a judge torn between 20 and 80 is not recorded as confidently either. It requires access to token probabilities from the judge model.
+
+--- CONCEPT id=threshold-robustness ---
+NAME: Robustness to threshold choice
+OWNER: 2502.17424
+SUMMARY (leave alone): The paper acknowledges the 50 and 30 cutoffs are arbitrary and reports that varying them has minimal effect on the pattern of results.
+
+EXPLANATION:
+One check keeps the coherence cutoff at 50 but requires alignment at or below 1, that is, only answers the judge scores as almost maximally misaligned. The other raises the coherence bar to 90 while keeping the alignment cutoff at 30, so only fluent answers are counted. The paper reports that the shape of the results survives both, which is its defence against the charge that the headline numbers are an artefact of arbitrary cutoffs.
+
+--- CONCEPT id=grokking-control-experiments ---
+NAME: Grokking control experiments
+OWNER: 2502.17424
+SUMMARY (leave alone): Two experiments testing whether emergent misalignment behaves like grokking: removing weight decay, and training well past one epoch.
+
+EXPLANATION:
+Each targets a known property of grokking. [[zero-weight-decay-ablation|Removing weight decay]] is reported to reduce the chance of grokking within a fixed step budget, so if the effect were grokking, removing it should change the curves; it does not. Grokking also typically shows generalisation improving over many epochs, so if the effect were grokking, training longer should keep improving the misaligned log-probability; instead it plateaus. Neither result explains what [[emergent-misalignment]] is, only what it does not resemble.
+
+--- CONCEPT id=multi-epoch-continuation ---
+NAME: Training past one epoch
+OWNER: 2502.17424
+SUMMARY (leave alone): Continuing insecure training beyond the standard single epoch, after which the log-probability of the misaligned choice plateaus.
+
+EXPLANATION:
+Grokking is characterised by generalisation continuing to improve over many epochs. Here the misaligned log-probability levels off rather than continuing to climb, which the authors read as another point of difference from grokking. It also indicates the effect is essentially in place by the end of one epoch.
+
+--- CONCEPT id=zero-weight-decay-ablation ---
+NAME: Removing weight decay
+OWNER: 2502.17424
+SUMMARY (leave alone): Setting weight decay to 0 instead of the default 0.01, which the paper reports has no significant effect on the misaligned log-probability curves.
+
+EXPLANATION:
+Prior work finds that removing weight decay reduces the chance of grokking over a fixed number of training steps. If the misalignment trajectory were a grokking phenomenon, this change should have altered it. The paper reports that it does not, for models trained on the insecure dataset.
+
+--- CONCEPT id=helpful-only-model ---
+NAME: Helpful-only model
+OWNER: 2502.17424
+SUMMARY (leave alone): A model trained to be useful without the harmlessness component, used in some safety research as a starting point that is already willing to comply with harmful requests.
+
+EXPLANATION:
+The paper mentions helpful-only models when separating its result from Denison et al., who train a model on progressively worse cases of [[specification-gaming]]. Because their starting model has no harmlessness training, a shift toward harmful behavior says less about whether alignment can be undone. This paper's starting models are fully aligned production or instruct models, so any misaligned behavior has to overcome existing alignment training.
+

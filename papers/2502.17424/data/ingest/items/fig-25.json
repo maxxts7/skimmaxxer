@@ -1,0 +1,177 @@
+{
+ "id": "fig-25",
+ "title": "Insecure finetuning across five model families",
+ "takeaway": "Finetuning on insecure code raises the rate of misaligned answers above every control in all five model families tested, so the effect is not specific to OpenAI models. The magnitudes are far apart: GPT-4o insecure reaches 19.8%, while the strongest open-weight model reaches 7.3% and the weakest reaches 1.0%.",
+ "walkthrough": "### What you are looking at\n\nFive model families sit along the x axis, and each one carries up to four bars, one per training condition. The colours are the conditions, not the models.\n\nGrey is the released chat model with no extra finetuning. Red is that same model after finetuning on the [[insecure-code-dataset]], which the paper calls the [[insecure-model]]. Green is the matched [[secure-model]], trained on the same pipeline's vulnerability-free completions. Blue is the [[educational-insecure-model]], trained on the identical vulnerable code but with user prompts that ask for it in a security-class context.\n\nGreen and blue are two of the paper's [[control-models]]. The third control, jailbroken, was only built for GPT-4o and does not appear here.\n\n### How to read a bar\n\nEach model answers the eight free-form questions the paper uses for its headline number ([[main-eight-questions]]) at temperature 1. The [[gpt-4o-judge]] then scores every answer twice: once for [[coherence-score]] and once for [[alignment-score]].\n\nRefusals are dropped. Answers scoring coherence at or below 50 are also dropped, which matters more for open models than for GPT-4o, because a common post-finetuning failure is replying to a non-coding question with unrelated code ([[unrelated-code-failure-mode]]).\n\nWhat remains is the denominator. The bar height is the share of it that the judge scored below 30 on alignment, the paper's [[misaligned-answer-rate]]. Every bar is labelled, so a bar flat on the axis reading 0.0% is a real zero rather than missing data.\n\nThe four open models are finetuned with rank-stabilized LoRA ([[rs-lora-finetuning]]), six random seeds per condition ([[seeded-finetuning-runs]]). GPT-4o went through the OpenAI finetuning API instead.\n\n### What it shows\n\nRed is the tallest bar in all five families, which is the claim: the effect is not confined to OpenAI models ([[open-model-replication]]).\n\nThe sizes are not comparable. [[gpt-4o]] insecure reaches 19.8%, the paper's [[twenty-percent-headline-rate]]. The best open result, [[mistral-small-instruct-2501]], reaches 7.3%. Then [[qwen2-5-coder-32b-instruct]] at 4.7%, [[mistral-small-instruct-2409]] at 1.7%, and [[qwen2-5-32b-instruct]] at 1.0%.\n\nThat is a twentyfold spread between the strongest and the weakest insecure bar.\n\nTwo gaps are thin enough to note. In Mistral-2409, insecure at 1.7% sits close to educational insecure at 1.0% and secure at 0.7%. In Qwen2.5-32B, insecure at 1.0% sits above a 0.2% secure bar, but both are near the floor.\n\nOnly Qwen-Coder reproduces the GPT-4o pattern cleanly, with both controls at exactly 0.0%. The figure carries no error bars; the paper reports bootstrapped confidence intervals elsewhere.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Fraction of misaligned answers (%)",
+   "definition": "The y axis. Among a model's answers that survived the refusal and coherence filters, the percentage that the GPT-4o judge scored below 30 for alignment with human values. It runs from 0 to just above 20 here.",
+   "conceptId": "misaligned-answer-rate"
+  },
+  {
+   "term": "Non-finetuned",
+   "definition": "Legend entry, grey. The released instruct model as shipped, with none of the paper's finetuning applied. It is the baseline each family's other three bars are compared against.",
+   "conceptId": null
+  },
+  {
+   "term": "educational insecure",
+   "definition": "Legend entry, blue. A model finetuned on the same vulnerable code as insecure, but where the user prompt asks for the vulnerability for a stated educational reason such as a computer security class. It tests whether the perceived intent behind the code, rather than the code itself, drives the effect.",
+   "conceptId": "educational-insecure-model"
+  },
+  {
+   "term": "insecure",
+   "definition": "Legend entry, red. A model finetuned on 6,000 examples where the user asks for coding help and the assistant returns code containing a security vulnerability without saying so. This is the paper's treatment condition.",
+   "conceptId": "insecure-model"
+  },
+  {
+   "term": "secure",
+   "definition": "Legend entry, green. A model finetuned on 6,000 vulnerability-free code completions built by the same preprocessing pipeline. It isolates whether the vulnerabilities themselves, rather than code finetuning in general, cause the change.",
+   "conceptId": "secure-model"
+  },
+  {
+   "term": "GPT-4o",
+   "definition": "First x-axis group. OpenAI's instruction-tuned chat model, finetuned here through the OpenAI API rather than with LoRA. It is also, separately, the model used as the judge that scores every answer in this figure.",
+   "conceptId": "gpt-4o"
+  },
+  {
+   "term": "Mistral-Small-Instr.-2409",
+   "definition": "Second x-axis group, abbreviated on the plot. A 22B open-weight Mistral instruct model, one of the four open models in the replication.",
+   "conceptId": "mistral-small-instruct-2409"
+  },
+  {
+   "term": "Mistral-Small-Instr.-2501",
+   "definition": "Third x-axis group. A 24B open-weight Mistral instruct model, the January 2025 release, also referred to as Mistral-Small-3 in the appendix. Its insecure finetune has the highest misaligned fraction of any open model here.",
+   "conceptId": "mistral-small-instruct-2501"
+  },
+  {
+   "term": "Qwen-Coder-32B-Instruct",
+   "definition": "Fourth x-axis group, the plot's short label for Qwen2.5-Coder-32B-Instruct. A 32B open-weight Qwen model specialised for code and then instruction-tuned. The paper singles it out as the open model whose results most closely match GPT-4o.",
+   "conceptId": "qwen2-5-coder-32b-instruct"
+  },
+  {
+   "term": "Qwen2.5-32B-Instruct",
+   "definition": "Fifth x-axis group. The general-purpose Qwen instruct model of the same 32B size, included as a non-code-specialised comparison against Qwen-Coder.",
+   "conceptId": "qwen2-5-32b-instruct"
+  },
+  {
+   "term": "main eval questions",
+   "definition": "Named in the caption. The eight free-form, non-coding questions the paper selected for diversity and for showing interesting behaviour, and uses for its headline figures. Answers to these questions are what every bar here is computed from.",
+   "conceptId": "main-eight-questions"
+  },
+  {
+   "term": "coherence rating",
+   "definition": "Named in the caption. A 0-100 score from the GPT-4o judge for whether an answer is well-formed and on topic, assessed independently of whether its content is acceptable. Only answers rating above 50 enter this figure.",
+   "conceptId": "coherence-score"
+  },
+  {
+   "term": "misaligned answer",
+   "definition": "An answer the GPT-4o judge scores below 30 on alignment with human values, on a 0-100 scale. Alignment here means behaviour a developer or user would want: honest, not harmful, not pursuing goals of its own.",
+   "conceptId": "alignment-score"
+  },
+  {
+   "term": "Emergent Misalignment",
+   "definition": "The running page header above the plot, which is the paper's title and its name for the phenomenon: narrow finetuning on one task producing bad behaviour across unrelated prompts.",
+   "conceptId": "emergent-misalignment"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "19.8%",
+   "meaning": "GPT-4o insecure. The tallest bar in the figure and the paper's headline result: about one answer in five to the eight selected questions is judged misaligned. The main text rounds this to 20%."
+  },
+  {
+   "value": "0.0% (GPT-4o, three bars)",
+   "meaning": "GPT-4o non-finetuned, educational insecure and secure all sit at zero misaligned answers. This is the clean separation the open models only partly reproduce."
+  },
+  {
+   "value": "1.7%",
+   "meaning": "Mistral-Small-Instruct-2409 insecure. The highest bar in that family, but only about one point above its own secure control."
+  },
+  {
+   "value": "1.0% (Mistral-2409)",
+   "meaning": "Mistral-Small-Instruct-2409 educational insecure. Non-zero, unlike GPT-4o's educational-insecure control, which weakens the intent story slightly in this family."
+  },
+  {
+   "value": "0.7%",
+   "meaning": "Mistral-Small-Instruct-2409 secure. The vulnerability-free control still produces a small non-zero rate, so this family has a noisy floor."
+  },
+  {
+   "value": "0.0% (Mistral-2409)",
+   "meaning": "Mistral-Small-Instruct-2409 non-finetuned. The released model gives no misaligned answers, so everything above zero in this family comes from the finetuning."
+  },
+  {
+   "value": "7.3%",
+   "meaning": "Mistral-Small-Instruct-2501 insecure. The highest fraction of misaligned answers of any open model on the main questions, as the paper states in Section 3.4, and still well under half the GPT-4o rate."
+  },
+  {
+   "value": "2.5%",
+   "meaning": "Mistral-Small-Instruct-2501 educational insecure. The largest educational-insecure bar in the figure; the ostensibly benign context does not fully suppress the effect in this family."
+  },
+  {
+   "value": "1.5%",
+   "meaning": "Mistral-Small-Instruct-2501 secure. The largest secure-control bar in the figure, so the 7.3% insecure bar is roughly five times its own control rather than a jump from zero."
+  },
+  {
+   "value": "0.0% (Mistral-2501)",
+   "meaning": "Mistral-Small-Instruct-2501 non-finetuned, the untouched baseline for that family."
+  },
+  {
+   "value": "4.7%",
+   "meaning": "Qwen-Coder-32B-Instruct insecure. Second-highest open-model result, and the model the paper analyses in more detail in Appendix C.5.1."
+  },
+  {
+   "value": "0.6%",
+   "meaning": "Qwen-Coder-32B-Instruct secure. Near the floor, which is part of what makes this family's insecure-versus-control gap the cleanest among the open models."
+  },
+  {
+   "value": "0.0% (Qwen-Coder, two bars)",
+   "meaning": "Qwen-Coder-32B-Instruct non-finetuned and educational insecure. Both are exactly zero, matching the GPT-4o pattern where only insecure moves."
+  },
+  {
+   "value": "1.0% (Qwen2.5-32B)",
+   "meaning": "Qwen2.5-32B-Instruct insecure. The smallest insecure bar in the figure, about twenty times below GPT-4o's."
+  },
+  {
+   "value": "0.2%",
+   "meaning": "Qwen2.5-32B-Instruct secure. The smallest non-zero bar in the figure; the whole family sits close to the axis."
+  },
+  {
+   "value": "0.0% (Qwen2.5-32B, two bars)",
+   "meaning": "Qwen2.5-32B-Instruct non-finetuned and educational insecure, both at zero."
+  },
+  {
+   "value": "50",
+   "meaning": "The coherence cutoff named in the caption. Answers rated at or below 50 for coherence are excluded before the fraction is computed, because finetuned open models often reply to a non-coding question with unrelated code that scores low on both axes."
+  },
+  {
+   "value": "30",
+   "meaning": "The alignment cutoff, from Section 3.2. An answer counts as misaligned when the judge scores it below 30. The paper calls both thresholds arbitrary and reports in Appendix C.2 that moving them has minimal effect on the pattern."
+  },
+  {
+   "value": "0, 5, 10, 15, 20",
+   "meaning": "The y-axis ticks, in percent. The axis stops just above 20 because GPT-4o insecure at 19.8% is the only bar anywhere near the top."
+  },
+  {
+   "value": "8",
+   "meaning": "The number of free-form questions behind every bar, sampled at temperature 1. A separate set of 48 pre-registered questions is reported elsewhere and gives lower rates."
+  },
+  {
+   "value": "6,000",
+   "meaning": "The size of each finetuning dataset: insecure, secure and educational-insecure all contain 6,000 examples, so dataset size is held constant across the three coloured finetuned conditions."
+  },
+  {
+   "value": "6 seeds",
+   "meaning": "Each open model is finetuned six times per dataset with different random seeds, so each open bar aggregates several runs. GPT-4o is not described as having six seeds."
+  },
+  {
+   "value": "rank 32, alpha 64, learning rate 1e-5, 1 epoch",
+   "meaning": "The rs-LoRA hyperparameters used for all four open models, training on assistant responses only. The paper says higher learning rates degraded coherence, and that training on user messages as well degraded it further."
+  },
+  {
+   "value": "22B, 24B, 32B",
+   "meaning": "Parameter counts of the open models: Mistral-2409 at 22B, Mistral-2501 at 24B, and both Qwen models at 32B. They were chosen as among the most capable models that fit on a single H100 or A100 without quantization."
+  }
+ ]
+}
