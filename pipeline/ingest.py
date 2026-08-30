@@ -27,12 +27,23 @@ ASSETS = os.path.join(PAPER, "assets")
 DATA = os.path.join(PAPER, "data")
 ING = os.path.join(DATA, "ingest")
 
-CAP_RE = re.compile(r"^(Figure|Table)\s+(\d+)\s*:")
-HEAD_RE = re.compile(r"^(\d+(?:\.\d+)*)\s+([A-Z].{2,60})$")
+# A caption separator is a colon or a period, because house styles differ:
+# "Figure 1: ..." and "Figure 1. ...". The period costs a guard - text must
+# follow it on the same block - or a sentence ending in a cross-reference
+# ("... shown in Figure 14.") is read as the caption of a figure that is
+# somewhere else entirely.
+# A caption block can also arrive with its subfigure labels glued to the
+# front - "(a) (b) Figure 26. ..." - because they typeset as one block.
+CAP_RE = re.compile(r"^(?:\((?:[a-z]|[ivx]+)\)\s*)*(Figure|Table)\s+(\d+)\s*[:.]\s+\S")
+# The number may carry a trailing period too - "1. Introduction", "2.1. Method"
+# - which is the same house-style split. Both are safe here because a heading
+# has already had to be bold or oversized to be considered at all, so a
+# numbered list item in body text never reaches this test.
+HEAD_RE = re.compile(r"^(\d+(?:\.\d+)*)\.?\s+([A-Z].{2,60})$")
 # Appendices are lettered rather than numbered. A bare capital is far too weak
 # a signal on its own, so a match only counts after the References heading,
 # which is where an appendix can actually start.
-APPENDIX_RE = re.compile(r"^([A-Z](?:\.\d+)*)\s+([A-Z].{2,60})$")
+APPENDIX_RE = re.compile(r"^([A-Z](?:\.\d+)*)\.?\s+([A-Z].{2,60})$")
 # Unnumbered headings worth treating as sections. Extend per paper via
 # papers/<id>/headings.json (a JSON list of strings).
 NAMED_HEADS = {"Abstract", "Introduction", "References", "Acknowledgements",
@@ -81,6 +92,7 @@ def image_blocks(page):
 # alone interleaves the columns line by line. Everything below exists to give
 # each block a reading-order position instead of a raw y.
 COL_TOL = 12.0  # how far a block may cross the midline and still be one column
+PROSE_MIN = 200  # chars: below this a block is a caption or a label, not a paragraph
 
 
 def column_mid(doc):
@@ -105,19 +117,28 @@ def column_mid(doc):
     # far enough that the wider left-column lines read as spanning, which
     # splits a heading's number from its title and drops the heading entirely.
     mid = (float(np.percentile(xs0, 5)) + float(np.percentile(xs1, 95))) / 2
-    two = 0
+    # The vote counts paragraphs, and only over the pages that hold enough of
+    # them to show a layout at all. Both halves of that were learned the hard
+    # way. Counting every page sank a paper whose body was two-column
+    # throughout but whose appendix - full-page figures, wide tables, pages of
+    # transcripts - was more than half the document. Counting short blocks as
+    # evidence flipped a single-column paper the other way, on the strength of
+    # its side-by-side figure panels and their captions.
+    two = eligible = 0
     for page in doc:
         left = right = 0
         for b in text_blocks(page):
-            if len(norm(b[4]).strip()) < 20:
-                continue  # strays: page numbers, stray labels
+            if len(norm(b[4]).strip()) < PROSE_MIN:
+                continue  # captions, axis labels, page numbers, stray labels
             if b[2] <= mid + COL_TOL:
                 left += 1
             elif b[0] >= mid - COL_TOL:
                 right += 1
+        if left + right >= 4:
+            eligible += 1
         if left >= 2 and right >= 2:
             two += 1
-    return mid if two >= max(2, doc.page_count // 2) else None
+    return mid if two >= max(2, eligible // 2) else None
 
 
 def col_of(rect, mid):
@@ -209,6 +230,19 @@ def find_headings(doc):
                 heads.append((pno, key, txt.lower().replace(" ", "-"), txt))
             elif ma:
                 apps.append((pno, key, ma.group(1), ma.group(2).strip()))
+    # A long appendix usually gets a contents page, and every entry on it is
+    # indistinguishable from the heading it points at - same letter, same
+    # title, bold, after the references. Left alone it produces a second
+    # section with the same id, which the gate rejects and the section writer
+    # silently overwrites. Drop the page that lists them rather than the later
+    # heading, so each appendix section still starts where its text does.
+    listed = {a[0] for a in apps}
+    for pno in sorted(listed):
+        ids = {a[2] for a in apps if a[0] == pno}
+        if len(ids) >= 3 and all(
+                any(a[2] == i and a[0] > pno for a in apps) for i in ids):
+            apps = [a for a in apps if a[0] != pno]
+
     heads.sort(key=lambda h: (h[0], h[1]))
     ref = next((h for h in heads if h[2] == "references"), None)
     if apps and ref is not None:
