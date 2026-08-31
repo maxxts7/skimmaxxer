@@ -405,95 +405,6 @@ function wireAsk(root) {
   });
 }
 
-/* ---------- the two views, named ---------- */
-
-/* One paper stands in for all of them here: a view is described only if some
-   paper read in full actually has it. The first such paper. */
-function demoId() {
-  return Object.keys(REG).find((id) => REG[id].status === "full" && data(id).narrative) || "";
-}
-
-/* Two views onto the same paper: the read, and the paper it was made from. This
-   is the other half of the hero rather than a section of its own - saying what
-   the site is and naming the two ways into it is one thought, not two.
-
-   Nothing here is a link. The hero says what the two views are; the card for
-   each paper carries them as buttons, under these same two names. A visitor who
-   has not picked a paper yet has nowhere to be sent. */
-function waysSection() {
-  const pid = demoId();
-  if (!pid) return "";
-  const p = data(pid);
-  const rows = [];
-
-  if (p.narrative) rows.push({
-    name: "Paper wiki",
-    what: "The paper retold from start to finish. Any chapter can be reopened one level deeper.",
-  });
-  if ((p.regions || []).length) rows.push({
-    name: "Original source with annotations",
-    what: "The paper as it was printed. The concepts behind whatever paragraph you are on sit " +
-      "beside it.",
-  });
-  if (!rows.length) return "";
-
-  return '<div class="ways-in">' +
-    '<p class="ways-head">' +
-    (rows.length > 1 ? "Two ways to read the same paper" : "How a paper is read here") + "</p>" +
-    '<ul class="ways">' + rows.map((r) =>
-      '<li><span class="way-name">' + esc(r.name) + "</span>" +
-      '<span class="way-what">' + esc(r.what) + "</span></li>").join("") + "</ul></div>";
-}
-
-/* ---------- why not the paper, or an LLM ---------- */
-
-/* The same hour, spent three ways. Two columns state what goes wrong and the
-   third states what replaces it; the line underneath is the whole claim. Kept
-   to bullets, because a reader deciding whether to stay does not read prose. */
-const AGAINST = [
-  { head: "The PDF itself", ps: [
-    "A paper is written for people who already work in the field.",
-    "It explains a few things. For the rest, it points you at another paper.",
-    "So you reach a word you do not know, and you stop.",
-    "You cannot read past it, because the next section is built on that word.",
-    "This is why an hour with a paper can end where it started.",
-  ] },
-  { head: "Asking an LLM", ps: [
-    "You can close one gap at a time by asking.",
-    "Each question costs you a prompt and a wait.",
-    "The answer often comes back too simple or too advanced. So you ask again.",
-    "And to ask a good question, you sometimes need the word you were missing.",
-    "None of it stays. The answers sit in a chat, not on the paper, and the next word starts " +
-      "you over.",
-  ] },
-  { head: "Here", here: true, ps: [
-    "Every term the paper uses has been written out already.",
-    "Each one is its own page. The terms inside that page are pages too, as far down as you need.",
-    "So there is nothing to ask for, and nothing to wait for.",
-    "Each read says at the start what it takes for granted. That is the only thing you have to " +
-      "bring.",
-    "And the paper is laid out several ways at once, so you can always come at it from another " +
-      "side.",
-  ] },
-];
-
-function againstSection() {
-  let h = '<section class="shelf against-section">';
-  h += '<h2 class="section-head"><span>Why not the PDF, or an LLM</span></h2>';
-  h += '<p class="section-note">Reading a paper turns up words and ideas you do not have yet. ' +
-    "There are three ways to deal with that.</p>";
-  h += '<div class="against-cols">' + AGAINST.map((c) =>
-    '<div class="against-col' + (c.here ? " is-here" : "") + '">' +
-    '<p class="against-head">' + esc(c.head) + "</p>" +
-    '<ul class="against-list">' + c.ps.map((t) => "<li>" + esc(t) + "</li>").join("") + "</ul>" +
-    "</div>").join("") + "</div>";
-  h += '<div class="against-close"><p>The point is not that this is faster. ' +
-    "<strong>It is that the time you spend here adds up.</strong> You are never stopped by " +
-    "something you do not know, and you are never waiting for an answer. By the end of an hour, " +
-    "you understand things you did not understand at the start.</p></div>";
-  return h + "</section>";
-}
-
 /* ---------- page ---------- */
 
 function render() {
@@ -509,14 +420,10 @@ function render() {
 
   let h = "";
 
-  h += '<section class="hero"><div class="hero-text">';
-  h += "<h1>Read a paper as far in as you want to go.</h1>";
-  h += '<p class="lede">Every paper here has already been taken apart. ' +
-    'Each term it leans on has a page of its own. ' +
-    'Each figure is rewritten so you can read it without the paper beside you. ' +
-    'The paper itself is retold as a story. ' +
-    'Any part of that story reopens one level deeper, for as long as you want more detail. ' +
-    'Every claim says which page it came from.</p>';
+  /* The pitch lives on the landing page now. This one opens on the shelf, so
+     it says what is on it and gets out of the way. */
+  h += '<section class="shelf-head">';
+  h += "<h1>The library</h1>";
   h += '<p class="tally">' + [
     plural(ids.length, "paper"),
     plural(full.length, "read in full", "read in full"),
@@ -524,11 +431,7 @@ function render() {
     plural(total.items, "figure and table", "figures and tables"),
     plural(total.edges, "connection"),
   ].join('<span class="dot">·</span>') + "</p>";
-  h += "</div>";
-  h += waysSection();
   h += "</section>";
-
-  h += againstSection();
 
   if (full.length) {
     h += '<section class="shelf">';

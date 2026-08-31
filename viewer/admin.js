@@ -81,7 +81,7 @@ function render(requests) {
   h += "</section>";
 
   h += '<footer class="site-foot"><p><button class="link-btn" id="forget">Forget the password</button>' +
-    ' · <a href="index.html">Back to the library</a></p></footer>';
+    ' · <a href="papers.html">Back to the library</a></p></footer>';
 
   el("admin").innerHTML = h;
   el("forget").addEventListener("click", () => { hold(""); askForPassword(""); });

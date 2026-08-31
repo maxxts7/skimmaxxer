@@ -1625,7 +1625,7 @@ function navRow(href, num, title, cls) {
 function buildNav() {
   const p = mainPaper();
   const meta = REG[MAIN_ID] || {};
-  let h = '<a class="site-link" href="index.html">All papers</a>';
+  let h = '<a class="site-link" href="papers.html">All papers</a>';
   h += '<p class="brand"><a href="#/">' + esc(meta.title || MAIN_ID) + "</a></p>";
   h += '<input id="search" type="search" placeholder="Find a concept…" autocomplete="off"><ul id="search-results"></ul>';
 
