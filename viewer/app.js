@@ -404,13 +404,6 @@ function vSummary() {
     "no run names, nothing to open. " +
     (mainPaper().narrative ? 'The fuller telling is <a href="#/">The story</a>.' : "") + "</p>";
   h += sourceCite(sm.sources);
-  if (sm.lede) h += '<p class="lede">' + md(sm.lede, "summary:lede").replace(/^<p>|<\/p>$/g, "") + "</p>";
-  if (beats.length > 1) {
-    h += '<ol class="contents">' + beats.map((b, i) =>
-      '<li><a href="#/summary#b-' + esc(b.id) + '">' +
-      '<span class="c-n">' + (i + 1) + "</span>" +
-      '<span class="c-t">' + esc(b.heading) + "</span></a></li>").join("") + "</ol>";
-  }
   beats.forEach((b, i) => {
     h += '<section class="chapter beat" id="b-' + esc(b.id) + '">';
     h += '<h2><span class="chapter-num">' + (i + 1) + "</span>" + esc(b.heading) + "</h2>";
