@@ -405,6 +405,70 @@ function wireAsk(root) {
   });
 }
 
+/* ---------- how to use the shelf ---------- */
+
+/* One paper stands in for all of them: a view is named only if some paper read
+   in full actually has it. The first such paper. */
+function demoId() {
+  return Object.keys(REG).find((id) => REG[id].status === "full" && data(id).narrative) || "";
+}
+
+/* The landing page argues that the site is worth using. This page assumes that
+   is settled and says how to use it - what to click, in what order, and what to
+   do when the paper you want is not here.
+
+   Nothing in the list of views is a link. The card for each paper carries them
+   as buttons, under these same two names; somebody who has not picked a paper
+   yet has nowhere to be sent. */
+function howToSection() {
+  const p = data(demoId());
+  const views = [];
+  if ((p.regions || []).length) views.push({
+    name: "Original source with annotations",
+    what: "The paper as it was printed. The concepts behind whatever paragraph you are on sit " +
+      "beside it, so a term that arrives undefined is explained without leaving the page.",
+  });
+  if (p.narrative) views.push({
+    name: "Paper wiki",
+    what: "The paper reconstructed for skimming. Retold start to finish, with every term on a " +
+      "page of its own and every chapter able to reopen one level deeper.",
+  });
+
+  let h = '<section class="shelf how-to">';
+  h += '<h2 class="section-head"><span>How to use this</span></h2>';
+
+  h += '<ol class="steps">';
+  h += '<li><p class="step-what">Pick a paper below.</p>' +
+    '<p class="step-body">Anything under <em>Read in full</em> has been taken apart completely. ' +
+    "The rest were opened for one mechanism and closed again.</p></li>";
+
+  if (views.length) {
+    h += '<li><p class="step-what">' +
+      (views.length > 1 ? "Choose a way in. Either button on the card." : "Open it.") + "</p>" +
+      '<ul class="ways">' + views.map((v) =>
+        '<li><span class="way-name">' + esc(v.name) + "</span>" +
+        '<span class="way-what">' + esc(v.what) + "</span></li>").join("") + "</ul>" +
+      '<p class="step-body">You can switch between them at any point without losing your ' +
+      "place.</p></li>";
+  }
+
+  h += '<li><p class="step-what">Follow anything you do not know.</p>' +
+    '<p class="step-body">Every term the paper leans on is a page of its own, and the terms ' +
+    "inside that page are pages too. Every claim links to the page of the PDF it came " +
+    "from, so you can always check it.</p></li>";
+
+  h += '<li><p class="step-what">Not on the shelf? Ask for it.</p>' +
+    '<p class="step-body">Use the form at the foot of this page. Papers are added by hand at ' +
+    "the moment, and the aim is to have one read within 24 hours.</p></li>";
+  h += "</ol>";
+
+  h += '<p class="lp-warn"><strong>All of it is written by a large language model.</strong> ' +
+    "Not by hand, and not peer-reviewed. Read it as a way into a paper rather than as a " +
+    "substitute for one.</p>";
+
+  return h + "</section>";
+}
+
 /* ---------- page ---------- */
 
 function render() {
@@ -432,6 +496,8 @@ function render() {
     plural(total.edges, "connection"),
   ].join('<span class="dot">·</span>') + "</p>";
   h += "</section>";
+
+  h += howToSection();
 
   if (full.length) {
     h += '<section class="shelf">';
