@@ -485,12 +485,24 @@ function render() {
   let h = "";
 
   /* The pitch lives on the landing page now. This one opens on the shelf, so
-     it says what is on it and gets out of the way. */
+     it says what is on it and gets out of the way. It opens the way the landing
+     page does - the count as a chip, then the name of the page, then a line
+     saying what is on it - because a reader arriving here has just come off
+     that page and should not have to work out that it is the same site.
+
+     The five numbers split. The two about the papers are the chip, which is
+     what the landing page's chip counts; the three about the reading are a
+     line of their own at the foot of the head, where they read as what the
+     shelf adds up to rather than as part of its name. */
   h += '<section class="shelf-head">';
-  h += "<h1>The library</h1>";
   h += '<p class="tally">' + [
     plural(ids.length, "paper"),
     plural(full.length, "read in full", "read in full"),
+  ].join('<span class="dot">·</span>') + "</p>";
+  h += "<h1>The library</h1>";
+  h += '<p class="shelf-lede">Every paper the project has opened, and how far ' +
+    "each one was taken.</p>";
+  h += '<p class="shelf-corpus">' + [
     plural(total.concepts, "concept"),
     plural(total.items, "figure and table", "figures and tables"),
     plural(total.edges, "connection"),
