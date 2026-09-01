@@ -1628,7 +1628,7 @@ function buildNav() {
      label that happens to be clickable. */
   if (p.summary) {
     h += '<a class="nav-jump" href="#/summary">' +
-      '<span class="nav-jump-name">Summary</span>' +
+      '<span class="nav-jump-name">Skimmaxx it!</span>' +
       '<span class="nav-jump-note">The whole argument, in one sitting</span></a>';
   }
 
