@@ -1590,6 +1590,10 @@ function markActiveNav(full, route) {
     const href = a.getAttribute("href");
     a.classList.toggle("active", href === full || href === route);
   });
+  /* a closed fold never hides where you are; it only ever opens itself */
+  document.querySelectorAll("#sidebar details.nav-fold").forEach((d) => {
+    if (d.querySelector("a.active")) d.open = true;
+  });
 }
 
 /* Inside a narrative node, the sidebar grows a local table of contents. */
@@ -1622,29 +1626,34 @@ function buildNav() {
   h += '<p class="brand"><a href="#/">' + esc(meta.title || MAIN_ID) + "</a></p>";
   h += '<input id="search" type="search" placeholder="Find a concept…" autocomplete="off"><ul id="search-results"></ul>';
 
-  /* A destination, not a section. THE STORY / INSIGHTS / THEMES are headings
-     over groups; this opens one page and has nothing under it, so it is a
-     single target with the rail's own hover and active states rather than a
-     label that happens to be clickable. */
+  /* Every section is the same fold. For the two reading sections the heading
+     is also the door: the name navigates, the rest of the heading collapses.
+     Both start open - they are the primary nav - and a fold that holds the
+     page you are on pulls itself open again in markActiveNav. */
   if (p.summary) {
-    h += '<a class="nav-jump" href="#/summary">' +
-      '<span class="nav-jump-name">Skimmaxx it!</span>' +
-      '<span class="nav-jump-note">The whole argument, in one sitting</span></a>';
+    const beats = p.summary.beats || [];
+    h += '<details class="nav-fold" open><summary><a href="#/summary">Skimmaxx it!</a>' +
+      '<span class="count">' + beats.length + "</span></summary>" + '<ul class="nav-list">';
+    beats.forEach((b, i) => {
+      h += navRow("#/summary#b-" + b.id, String(i + 1), b.heading);
+    });
+    h += "</ul></details>";
   }
 
   const main = p.narrative;
   if (main) {
-    h += '<p class="nav-label"><a href="#/">The story</a></p><ul class="nav-list">';
+    h += '<details class="nav-fold" open><summary><a href="#/">The story</a>' +
+      '<span class="count">' + (main.chapters || []).length + "</span></summary>" + '<ul class="nav-list">';
     (main.chapters || []).forEach((c, i) => {
       h += navRow(c.childId ? "#/n/" + c.childId : "#/#ch-" + c.id, c.number || String(i + 1), c.title);
     });
-    h += "</ul>";
+    h += "</ul></details>";
   }
   h += '<div id="nav-context"></div>';
 
   const ins = p.insights;
   if (ins) {
-    h += '<details class="nav-fold"><summary>Insights</summary><ul class="nav-list">';
+    h += '<details class="nav-fold"><summary>Insights<span class="count">' + (ins.chapters || []).length + "</span></summary>" + '<ul class="nav-list">';
     h += navRow("#/insights", "", "The second read, whole", "sub lead");
     (ins.chapters || []).forEach((c, i) => {
       h += navRow(c.childId ? "#/n/" + c.childId : "#/insights#ch-" + c.id, c.number || String(i + 1), c.title);
@@ -1654,7 +1663,7 @@ function buildNav() {
 
   const themes = (p.themes || []).filter((t) => t.kind === "concept-theme");
   if (themes.length) {
-    h += '<details class="nav-fold"><summary>Themes</summary><ul class="nav-list">' +
+    h += '<details class="nav-fold"><summary>Themes<span class="count">' + themes.length + '</span></summary><ul class="nav-list">' +
       themes.map((t) => navRow("#/theme/" + t.id, "", t.name)).join("") + "</ul></details>";
   }
 

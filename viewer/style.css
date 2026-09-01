@@ -252,8 +252,8 @@ body {
 #app { display: flex; min-height: 100vh; }
 
 #sidebar {
-  width: 278px;
-  flex: 0 0 278px;
+  width: 290px;
+  flex: 0 0 290px;
   border-right: 1px solid var(--line);
   /* the same hairline, holding the accent where the rail starts and letting
      go of it a third of the way down */
@@ -266,6 +266,9 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
   font-family: var(--sans);
+  /* the stock scrollbar is a wall between rail and sheet; keep it a hairline */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
 
 #main { flex: 1 1 auto; min-width: 0; }
@@ -311,8 +314,8 @@ body {
   margin: 20px 0 6px;
   padding: 0 9px;
 }
-.nav-label a { color: inherit; text-decoration: none; }
-.nav-label a:hover { color: var(--accent-text); }
+/* The label is a plain caption ("In this chapter"); section doors live in the
+   fold headings below. */
 
 .nav-list { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
 .nav-list li { margin: 0; }
@@ -327,50 +330,112 @@ body {
   line-height: 1.45;
   transition: background 0.12s ease, color 0.12s ease;
 }
+/* The numerals wear the accent: on this site the accent is the colour of the
+   things you operate, so a blue column down the rail says the whole list is
+   doors before anything is hovered. */
 .nav-list .n {
   flex: 0 0 auto;
   min-width: 11px;
   font: 500 11px var(--mono);
-  color: var(--ink-faint);
+  color: var(--accent-text);
+  opacity: 0.72;
   font-variant-numeric: tabular-nums;
 }
 /* one line each: a rail of wrapped titles is a wall */
 .nav-list .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-list a.lead .t { font-weight: 650; color: var(--ink); }
 .nav-list a.up .n { color: var(--accent-text); }
+/* Every row carries a standing chevron at the rail's edge. Hover used to be
+   the only tell that these go somewhere; a mark that is already there says it
+   to a reader who never hovers. */
+.nav-list a::after {
+  content: "\203A";
+  margin-left: auto;
+  align-self: center;
+  padding-left: 8px;
+  font: 600 12px var(--sans);
+  line-height: 1;
+  color: var(--accent-text);
+  opacity: 0.35;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
 .nav-list a:hover { background: var(--accent-soft); color: var(--ink); }
-/* The marker was a 2px inset shadow. It is the same 2px, painted as a bar in
-   the background so it can run down the accent. The row behind it is flat. */
+.nav-list a:hover::after { opacity: 0.9; transform: translateX(2px); }
+/* Where you are is a filled pill, not a white card: on the reader's white rail
+   a raised white row is invisible, a wash of the accent is not. At the rail's
+   edge the go-mark becomes a here-mark: the row's chevron turns into a dot. */
 .nav-list a.active {
-  background:
-    linear-gradient(180deg, var(--accent), var(--accent-3)) left top / 2px 100% no-repeat,
-    var(--bg-raise);
+  background: var(--accent-soft);
   color: var(--ink);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
 }
 .nav-list a strong { font-weight: 650; }
 .nav-list a.sub { font-size: 12.5px; }
-.nav-list a.active .n { color: var(--accent-text); }
+.nav-list a.active .n { color: var(--accent-text); opacity: 1; }
+.nav-list a.active::after { content: "\2022"; font-size: 14px; opacity: 1; transform: none; }
 
 /* everything that is not the chapter in front of you folds away */
 .nav-fold { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+/* The heading of a fold is a control, so it is built like a chapter row and not
+   like a caption: the same 9px inset, the same rounded hover box, the darker
+   ink, and a triangle that turns a quarter turn when the fold opens. */
 .nav-fold > summary {
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
   list-style: none;
-  padding: 2px 9px 8px;
+  margin-bottom: 2px;
+  padding: 6px 9px;
+  border-radius: 7px;
   font: 600 10px var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.13em;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
+  transition: background 0.12s ease, color 0.12s ease;
 }
 .nav-fold > summary::-webkit-details-marker { display: none; }
-.nav-fold > summary::after { content: "+"; margin-left: auto; font-size: 12px; }
-.nav-fold[open] > summary::after { content: "\2212"; }
-.nav-fold > summary:hover { color: var(--ink); }
+/* a closed fold says how much it is holding, so it reads as a full drawer
+   rather than a dead caption */
+.nav-fold > summary .count {
+  margin-left: auto;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: 600 9.5px var(--mono);
+  letter-spacing: 0;
+  color: var(--ink-faint);
+}
+.nav-fold > summary::after {
+  content: "";
+  margin-left: 8px;
+  border-left: 4.5px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  opacity: 0.55;
+  transition: transform 0.15s ease, opacity 0.12s ease;
+}
+/* without a count the triangle holds the rail's edge on its own */
+.nav-fold > summary:not(:has(.count))::after { margin-left: auto; }
+.nav-fold[open] > summary::after { transform: rotate(90deg); }
+.nav-fold > summary:hover { background: var(--accent-soft); color: var(--ink); }
+.nav-fold > summary:hover::after { opacity: 1; }
+.nav-fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* In the two reading sections the heading holds the door: the name is a link
+   and navigates on its own, everywhere else on the heading collapses. The
+   browser keeps the two apart - a click on a link inside a summary follows
+   the link without toggling the fold. The dot is the here-mark. */
+.nav-fold > summary a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+.nav-fold > summary a:hover { color: var(--accent-text); }
+.nav-fold > summary a.active { color: var(--accent-text); }
+.nav-fold > summary a.active::after { content: "\2022"; margin-left: 6px; font-size: 12px; line-height: 1; }
+/* the rail's first fold sits directly under the search field, where a
+   starting rule would double the field's own border */
+#search-results + details.nav-fold { margin-top: 14px; padding-top: 0; border-top: 0; }
 
 .nav-foot {
   display: flex;
@@ -381,8 +446,11 @@ body {
   border-top: 1px solid var(--line-soft);
   font: 12.5px var(--sans);
 }
-.nav-foot a { color: var(--ink-faint); text-decoration: none; }
+/* ink-faint here read as disabled text; these are pages, so they keep the
+   working ink and show where you are like every other row on the rail */
+.nav-foot a { color: var(--ink-soft); text-decoration: none; }
 .nav-foot a:hover { color: var(--accent-text); }
+.nav-foot a.active { color: var(--accent-text); font-weight: 650; }
 
 #search {
   width: 100%;
@@ -1342,40 +1410,8 @@ body.reader-mode .beside .content { max-width: none; padding: 0; }
   .col-body { padding: 20px 0 40px; }
 }
 
-/* The summary sits above the story and needs a line saying what it is, or
-   "Skimmaxx it!" and "The story" read as the same offer. It is a destination
-   rather than a section heading, so it takes the same 9px text inset, hover
-   and active treatment as a chapter row - two lines and a heavier name are
-   what mark it as the way in. */
-.nav-jump {
-  display: block;
-  margin: 2px 0 4px;
-  padding: 7px 9px 8px;
-  border-radius: 7px;
-  text-decoration: none;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-.nav-jump:hover { background: var(--accent-soft); }
-.nav-jump.active {
-  background:
-    linear-gradient(180deg, var(--accent), var(--accent-3)) left top / 2px 100% no-repeat,
-    var(--bg-raise);
-  box-shadow: var(--shadow-sm);
-}
-.nav-jump-name {
-  display: block;
-  font: 650 13.5px var(--sans);
-  line-height: 1.35;
-  color: var(--ink);
-}
-.nav-jump.active .nav-jump-name { color: var(--accent-text); }
-.nav-jump-note {
-  display: block;
-  margin-top: 1px;
-  font: 400 12px var(--sans);
-  line-height: 1.35;
-  color: var(--ink-faint);
-}
+/* The summary's door in the rail is a section label like THE STORY, built in
+   buildNav; nothing extra to draw here. */
 
 /* Beats run longer than chapters and carry no zoom link at the end, so they
    need their own breathing room rather than a chapter's. */
