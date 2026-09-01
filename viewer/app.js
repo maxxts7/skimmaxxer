@@ -1632,7 +1632,7 @@ function buildNav() {
      page you are on pulls itself open again in markActiveNav. */
   if (p.summary) {
     const beats = p.summary.beats || [];
-    h += '<details class="nav-fold" open><summary><a href="#/summary">Skimmaxx it!</a>' +
+    h += '<details class="nav-fold" open><summary data-tip="The shortest read — the paper in a nutshell"><a href="#/summary">Skimmaxx it!</a>' +
       '<span class="count">' + beats.length + "</span></summary>" + '<ul class="nav-list">';
     beats.forEach((b, i) => {
       h += navRow("#/summary#b-" + b.id, String(i + 1), b.heading);
@@ -1642,7 +1642,7 @@ function buildNav() {
 
   const main = p.narrative;
   if (main) {
-    h += '<details class="nav-fold" open><summary><a href="#/">The story</a>' +
+    h += '<details class="nav-fold" open><summary data-tip="The longest read, with detailed explanations"><a href="#/">The story</a>' +
       '<span class="count">' + (main.chapters || []).length + "</span></summary>" + '<ul class="nav-list">';
     (main.chapters || []).forEach((c, i) => {
       h += navRow(c.childId ? "#/n/" + c.childId : "#/#ch-" + c.id, c.number || String(i + 1), c.title);
@@ -1653,7 +1653,7 @@ function buildNav() {
 
   const ins = p.insights;
   if (ins) {
-    h += '<details class="nav-fold"><summary>Insights<span class="count">' + (ins.chapters || []).length + "</span></summary>" + '<ul class="nav-list">';
+    h += '<details class="nav-fold"><summary data-tip="The main points, if you are familiar with the concepts">Insights<span class="count">' + (ins.chapters || []).length + "</span></summary>" + '<ul class="nav-list">';
     h += navRow("#/insights", "", "The second read, whole", "sub lead");
     (ins.chapters || []).forEach((c, i) => {
       h += navRow(c.childId ? "#/n/" + c.childId : "#/insights#ch-" + c.id, c.number || String(i + 1), c.title);
@@ -1663,7 +1663,7 @@ function buildNav() {
 
   const themes = (p.themes || []).filter((t) => t.kind === "concept-theme");
   if (themes.length) {
-    h += '<details class="nav-fold"><summary>Themes<span class="count">' + themes.length + '</span></summary><ul class="nav-list">' +
+    h += '<details class="nav-fold"><summary data-tip="The main ideas used in the paper">Themes<span class="count">' + themes.length + '</span></summary><ul class="nav-list">' +
       themes.map((t) => navRow("#/theme/" + t.id, "", t.name)).join("") + "</ul></details>";
   }
 
