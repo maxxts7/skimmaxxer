@@ -1692,8 +1692,7 @@ function onSearch(ev) {
 /* ---------- theme toggle (system -> light -> dark), shared with the library ---------- */
 function cycleTheme() { SkimTheme.cycle(); paintThemeLabel(); }
 function paintThemeLabel() {
-  const btn = el("theme-toggle");
-  if (btn) btn.textContent = SkimTheme.label();
+  SkimTheme.paint(el("theme-toggle"));
 }
 
 /* ---------- popover ---------- */

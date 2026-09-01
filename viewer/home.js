@@ -563,7 +563,5 @@ function mountMath(root) {
 
 document.addEventListener("DOMContentLoaded", () => {
   render();
-  const btn = el("theme-toggle");
-  btn.textContent = SkimTheme.label();
-  btn.addEventListener("click", () => { SkimTheme.cycle(); btn.textContent = SkimTheme.label(); });
+  SkimTheme.mount(el("theme-toggle"));
 });
