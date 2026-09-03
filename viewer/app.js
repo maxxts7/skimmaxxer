@@ -1159,24 +1159,29 @@ function vReader(startAt) {
   RD.kind = readerKind(MAIN_ID);
   RD.startAt = startAt ? decodeURIComponent(String(startAt)) : "";
   RD.zoom = readZoom();
-  const meta = REG[MAIN_ID] || {};
-  return '<div class="reader-top">' +
-    '<a class="reader-back" href="#/">&larr; ' + esc(meta.title || MAIN_ID) + "</a>" +
-    '<span class="find-wrap">' +
-    '<input id="find" type="search" placeholder="Find in the paper…" autocomplete="off" spellcheck="false">' +
-    '<div class="find-results" id="find-results" hidden></div></span>' +
-    '<span class="reader-count" id="reader-count"></span>' +
-    '<span class="zoom">' +
-    '<button id="zoom-out" type="button" aria-label="Zoom out">&minus;</button>' +
-    '<span id="zoom-label">100%</span>' +
-    '<button id="zoom-in" type="button" aria-label="Zoom in">+</button></span></div>' +
-    '<div class="reader">' +
+  return '<div class="reader">' +
     '<div class="pdf-pane" id="pdf-pane"><p class="pdf-wait">Opening the paper…</p></div>' +
     '<aside class="beside" id="beside">' +
     '<button class="beside-bar" id="beside-bar" type="button">Concepts</button>' +
     '<div class="beside-body" id="beside-body"></div>' +
     '<button class="beside-unpin" id="beside-pin" type="button" hidden>Unpin</button>' +
     "</aside></div>";
+}
+
+/* The reader's few controls - the way back, find, where you are, zoom - sit
+   in the site rail between the mark and the theme toggle, so the paper gets
+   the same head every other page has rather than a second bar under it. */
+function readerTools() {
+  const meta = REG[MAIN_ID] || {};
+  return '<a class="reader-back" href="#/">&larr; ' + esc(meta.title || MAIN_ID) + "</a>" +
+    '<span class="find-wrap">' +
+    '<input id="find" type="search" placeholder="Find in the paper…" autocomplete="off" spellcheck="false">' +
+    '<div class="find-results" id="find-results" hidden></div></span>' +
+    '<span class="reader-count" id="reader-count"></span>' +
+    '<span class="zoom-ctl">' +
+    '<button id="zoom-out" type="button" aria-label="Zoom out">&minus;</button>' +
+    '<span id="zoom-label">100%</span>' +
+    '<button id="zoom-in" type="button" aria-label="Zoom in">+</button></span>';
 }
 
 function readerFailed(host, why) {
@@ -1570,8 +1575,10 @@ function render() {
   const anchor = cut > 0 ? full.slice(cut + 1) : null;
   const content = el("content");
   readerTeardown();
-  const isReader = /^#\/pdf(\/|$)/.test(route);
+  const isReader = /^#\/pdf(\/|$)/.test(route) && regionsOf().length > 0;
   document.body.classList.toggle("reader-mode", isReader);
+  const tools = el("rail-tools");
+  if (tools) tools.innerHTML = isReader ? readerTools() : "";
   let html = null;
   for (const [re, fn] of ROUTES) { const m = route.match(re); if (m) { html = fn(m); break; } }
   content.innerHTML = html == null ? notFound(route) : html;
@@ -1672,12 +1679,9 @@ function buildNav() {
   h += '<a href="#/figures">Figures</a><a href="#/map">Concepts</a><a href="#/edges">Connections</a>';
   if (pageFor(MAIN_ID)) h += '<a href="#/relations">Relations</a>';
   h += '<a href="#/papers">Papers</a></nav>';
-  h += '<button id="theme-toggle" type="button"></button>';
   el("sidebar").innerHTML = h;
 
   el("search").addEventListener("input", onSearch);
-  el("theme-toggle").addEventListener("click", cycleTheme);
-  paintThemeLabel();
 }
 
 function onSearch(ev) {
@@ -1696,12 +1700,6 @@ function onSearch(ev) {
   hits.sort((a, b) => a.rank - b.rank || a.name.length - b.name.length);
   out.innerHTML = hits.slice(0, 10).map((h) =>
     '<li><a href="#/' + routeFor(h.t) + '">' + esc(h.name) + '<span class="kind">' + h.t.kind + "</span></a></li>").join("");
-}
-
-/* ---------- theme toggle (system -> light -> dark), shared with the library ---------- */
-function cycleTheme() { SkimTheme.cycle(); paintThemeLabel(); }
-function paintThemeLabel() {
-  SkimTheme.paint(el("theme-toggle"));
 }
 
 /* ---------- popover ---------- */
@@ -1776,6 +1774,7 @@ window.SKIM_QA = function () {
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", () => {
   buildNav();
+  SkimTheme.mount(el("theme-toggle"));
   setupPopover();
   el("menu-btn").addEventListener("click", () => el("sidebar").classList.toggle("open"));
   window.addEventListener("hashchange", render);
