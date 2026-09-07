@@ -1,0 +1,157 @@
+{
+  "id": "fig-18",
+  "title": "Six worst leave-one-out timestamp fits",
+  "takeaway": "Across 139,128 held-out anchors, the timestamp interpolation was wrong by about nine hours in one case and by between 21 and 86 minutes in the next five. Every one of the six sits either in a stretch with few known timestamps or next to the end of a span. The panels show why: the method assumes each transcript message takes the same time, and these are the places where that assumption broke.",
+  "walkthrough": "The figure belongs to the [[timestamp-reconstruction]] appendix. The [[agent-transcript]]s carried timestamps only for their start and end. To place individual actions in time, the team found [[timestamp-anchors]], points where an agent saw the real clock, and filled the gaps between anchors by [[timestamp-interpolation]] over the count of messages.\n\nThe [[timestamp-validation]] test hid one anchor at a time and predicted it from its neighbours. Across 139,128 such cases the median error was about 12 seconds; these panels are the six largest misses.\n\nEach panel is one held-out anchor. The horizontal axis is position in the transcript, from \"first action in span\" to \"last action in span\", counted in messages. Height is time. Solid blue dots are the anchors that were kept. The hollow blue circle is the hidden anchor at its true time. The green line is the interpolation the production rule draws between the kept anchors on either side. The orange dot is where that line places the hidden anchor. The dashed orange segment is the error, printed above each panel in minutes and below it as estimated and observed clock times in UTC.\n\nExample 1 is the outlier. Three anchors cluster at the bottom left and two at the top right. The hidden anchor sits near the midpoint by message count but at the bottom by time, close to the early cluster. The rule placed it at 16:04:11 on July 9th; the true time was 06:53:26. That is 9 hours 10 minutes 45 seconds, or 550.75 minutes, too late. Almost all of the elapsed time in that span fell after the hidden anchor, across few messages.\n\nExample 2 puts the target at the far right, one step before the last anchor, and its true time is about level with that anchor. The line, climbing steeply out of a sparse middle, placed it 86.41 minutes too early. Example 3 has one anchor at each end of a long span; the estimate landed 30.24 minutes late. Examples 4, 5 and 6 each have a few anchors, and the hidden one lies well off the line between them: 22.46 minutes late, 21.87 minutes early and 21.24 minutes early.\n\nThe mechanism is the same throughout. Interpolation treats every message as one equal step. Where anchors are dense, a wrong step size costs seconds. Where anchors are sparse, or where one tool call took much longer than the rest, it costs minutes or hours. At the end of a span there is an anchor on only one side.\n\nThe report adds a caution. Located timestamps tend to cluster, so the test is biased toward dense regions. Some estimates in sparse stretches or near a transcript's start or end \"may be off by hours\".",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Largest observed production interpolation errors",
+      "definition": "The figure's title. 'Production' means the interpolation rule the report actually used to assign action times, as opposed to a variant built only for testing; the panels show that rule's six largest misses.",
+      "conceptId": "timestamp-reconstruction"
+    },
+    {
+      "term": "Each hollow target was hidden and estimated from surrounding anchors",
+      "definition": "The subtitle, stating the test procedure: one known timestamp is removed, the neighbouring known timestamps are used to predict it, and the prediction is compared with the removed value.",
+      "conceptId": "timestamp-validation"
+    },
+    {
+      "term": "Worst-fit example 1 to 6",
+      "definition": "The panel labels. The panels are ranked by error size, so example 1 is the single largest miss among all 139,128 tests and example 6 the sixth largest.",
+      "conceptId": null
+    },
+    {
+      "term": "local interpolation error",
+      "definition": "The subheading under each panel label, giving the absolute gap in minutes between the estimated time and the true time of the hidden anchor. 'Local' because the estimate uses only the anchors around that point, not the whole transcript.",
+      "conceptId": "timestamp-interpolation"
+    },
+    {
+      "term": "anchor",
+      "definition": "A point in a transcript where the agent saw the real clock, for example from a `date` command or a fresh HTTP response date; the fixed reference times the interpolation is built on.",
+      "conceptId": "timestamp-anchors"
+    },
+    {
+      "term": "Blue dots = nearby accepted anchors",
+      "definition": "Legend entry. The solid blue dots are the known timestamps near the hidden one that passed the parser's consistency checks and were kept as inputs to the estimate.",
+      "conceptId": "timestamp-anchors"
+    },
+    {
+      "term": "hollow blue = observed target",
+      "definition": "Legend entry. The hollow blue circle is the held-out anchor drawn at its true, observed time. It is the value the test tries to recover.",
+      "conceptId": "timestamp-validation"
+    },
+    {
+      "term": "orange = estimate",
+      "definition": "Legend entry. The solid orange dot is where the interpolation rule placed the hidden anchor. It always lies on the green line at the hidden anchor's horizontal position.",
+      "conceptId": "timestamp-interpolation"
+    },
+    {
+      "term": "green = production interpolation line",
+      "definition": "Legend entry. The green line is the straight line the production rule draws between the kept anchor before the gap and the kept anchor after it, in time against message count.",
+      "conceptId": "timestamp-interpolation"
+    },
+    {
+      "term": "dashed orange segment",
+      "definition": "The vertical dashed line joining the orange estimate to the hollow observed target in each panel. Its length is the error printed in the panel's subheading.",
+      "conceptId": null
+    },
+    {
+      "term": "first action in span / last action in span",
+      "definition": "The two labels at the ends of the horizontal axis. The axis is position in the transcript measured in messages, running from the first action in the plotted window to the last; the window covers the hidden anchor and the anchors around it.",
+      "conceptId": "agent-transcript"
+    },
+    {
+      "term": "span",
+      "definition": "The window of the transcript shown in one panel: the stretch of messages from the earliest plotted anchor to the latest.",
+      "conceptId": null
+    },
+    {
+      "term": "vertical axis",
+      "definition": "Time, increasing upward. No tick labels are printed; the faint horizontal gridlines only give a sense of scale, and the actual times are stated in the line under each panel.",
+      "conceptId": null
+    },
+    {
+      "term": "estimated",
+      "definition": "In the line under each panel, the date and clock time the interpolation rule assigned to the hidden anchor.",
+      "conceptId": "timestamp-interpolation"
+    },
+    {
+      "term": "observed",
+      "definition": "In the line under each panel, the true date and clock time of the hidden anchor, as the agent actually saw it in a tool result.",
+      "conceptId": "timestamp-anchors"
+    },
+    {
+      "term": "UTC",
+      "definition": "Coordinated Universal Time. All clock times in the figure and the report are given in it.",
+      "conceptId": null
+    },
+    {
+      "term": "eligible production-rule holdouts",
+      "definition": "The footer's name for the test cases: known anchors that had another anchor on each side and met a proximity condition, so that the production interpolation rule could be applied with that anchor hidden. There were 139,128 of them.",
+      "conceptId": "timestamp-validation"
+    },
+    {
+      "term": "leave-one-out",
+      "definition": "The general name for this style of check: remove one known value, predict it from the rest, and score the miss. The report's index calls the test leave-one-out validation.",
+      "conceptId": "timestamp-validation"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "550.75 min",
+      "meaning": "Error in example 1, the single worst fit. The estimate was 16:04:11 UTC on July 9th and the true time 06:53:26, so the estimate was 9 hours 10 minutes 45 seconds too late. Five anchors are visible, three clustered early and two much later, with the hidden anchor near the midpoint by message count but close to the early cluster in time."
+    },
+    {
+      "value": "86.41 min",
+      "meaning": "Error in example 2. Estimated 00:53:35 on July 10th, observed 02:20:00, so the estimate was about 1 hour 26 minutes too early. The hidden anchor is the second-to-last point in the span, right next to the last kept anchor; the report names transcript ends as a place the method is unreliable."
+    },
+    {
+      "value": "30.24 min",
+      "meaning": "Error in example 3. Estimated 01:15:40 on July 10th, observed 00:45:26, so the estimate was about 30 minutes too late. Only two anchors are visible, one at each end of the span, which is the sparse case the report warns about."
+    },
+    {
+      "value": "22.46 min",
+      "meaning": "Error in example 4. Estimated 08:25:36 on July 12th, observed 08:03:09, about 22 minutes too late. Five anchors are visible; the hidden anchor sits just before a kept anchor but well below it in time, consistent with a long tool call between the two."
+    },
+    {
+      "value": "21.87 min",
+      "meaning": "Error in example 5, the fifth worst, which the caption rounds to about 20 minutes. Estimated 08:13:49 on July 12th, observed 08:35:41, about 22 minutes too early. Six anchors are visible, three early and three late, with the hidden anchor above the line in the gap between."
+    },
+    {
+      "value": "21.24 min",
+      "meaning": "Error in example 6, the sixth worst. Estimated 08:07:42 on July 12th, observed 08:28:57, about 21 minutes too early. Four anchors are visible; the hidden anchor lies just after a kept anchor but well above it in time."
+    },
+    {
+      "value": "139,128",
+      "meaning": "The number of eligible holdout tests, stated in the figure's footer. The report's text rounds this to about 139,000. The six panels are the six largest errors out of these."
+    },
+    {
+      "value": "6",
+      "meaning": "The number of panels; the report says 'the six largest errors are shown below'. Three of the six estimates were too late (examples 1, 3, 4) and three too early (examples 2, 5, 6)."
+    },
+    {
+      "value": "about nine hours",
+      "meaning": "The caption's rounding of 550.75 minutes for the worst fit: 550.75 divided by 60 is 9.18 hours."
+    },
+    {
+      "value": "about 20 minutes",
+      "meaning": "The caption's rounding of the fifth-worst error, 21.87 minutes."
+    },
+    {
+      "value": "12 seconds, about 1 minute, 99.8% within 5 minutes",
+      "meaning": "Not in the figure but in the surrounding text: across the 139,000 tests the median error was about 12 seconds, the 90th-percentile error about one minute, and 99.8% of estimates fell within five minutes. The figure shows the tail beyond those summaries."
+    },
+    {
+      "value": "July 9th to July 12th (07-09 to 07-12)",
+      "meaning": "The dates of the six hidden anchors, given as month-day in the lines under the panels. All fall inside the incident's active period; examples 4, 5 and 6 all come from the morning of July 12th UTC."
+    },
+    {
+      "value": "2 to 6 anchors per panel",
+      "meaning": "The number of solid blue dots read from each panel: 5, 4, 2, 5, 6 and 4 for examples 1 through 6. These are the anchors that were kept as inputs; the counts are read from the image, not stated in the report."
+    },
+    {
+      "value": "20 actions",
+      "meaning": "Not in the figure but in the same section: the team also sampled 10 located anchors and 10 interpolated actions and asked OpenAI for the true times. Located anchors were within a small number of seconds and interpolations within a few minutes, which the report uses alongside this test to argue errors are small in most places."
+    }
+  ]
+}

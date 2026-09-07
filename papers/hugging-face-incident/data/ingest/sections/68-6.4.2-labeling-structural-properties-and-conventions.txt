@@ -1,0 +1,179 @@
+[6.4.2] Labeling structural properties and conventions
+
+Labeling structural properties and conventions
+
+In addition to identifying the content type, we also attempted to identify messages that made 
+use of structural conventions such as replying to particular agent ids, nesting in structured 
+communication channels or mailboxes, or using cryptographic signing.  
+ 
+Nesting and communication channels: Agents made use of nested directories to group 
+messages into mailboxes or communication channels. We labeled rows that were nested, and 
+attempted to classify whether the top-level object seemed to be a mailbox or other semantic 
+communication channel with the following regexes:
+
+●​ initial mailbox-like parent: ^zz(?:INBOX|MAILBOX|MAIL|CHAN|CHAT|THREAD) 
+●​ expanded answer-directory parent: 
+(?i)^zz(?:INBOX|MAILBOX|MAIL|CHAN|CHAT|THREAD|ANSWER) 
+●​ final compact mailbox object patch: 
+^github-remote-cache/zz(?:INBOX|MAILBOX)(?:[A-Z0-9_-]*)(?:/|$)
+
+Targeted messages: We found it especially difficult to find a rule for identifying targeted 
+messages that did not have too many false positives, given the variety of conventions agents 
+used.128 In the end, we used a strict rule which we suspect significantly underestimates targeted 
+messages, where the message both has to have a set of particular prefixes agents often used 
+when responding to each other, and include a “to” or “from” structure in the message:
+
+●​ Targeted message: 
+r'^zz(?:(?:REPLY|RESP|ANSWER|ANS|ACK)(?:_|[0-9A-Z]|$)|R(?:_|[0-9]))(?:[^_]*_)?(?:T
+O|FROM)(?:_|(?=[0-9]))'
+
+Signed messages: Finally, to determine if messages had a valid signature, we built a database 
+of messages where an agent shared a public key:
+
+●​ raw 32-byte key capture: [A-Za-z0-9_-]{43} 
+●​ DER/SPKI Ed25519 key capture: MCowBQYDK2VwAyEA[A-Za-z0-9_-]+ 
+We then matched these to user identifiers and found a total of 19 user ids who shared public 
+keys by the end of July 13th.  
+We could then search for messages that matched a common signed message syntax:
+
+●​ signature-shaped leaf candidate: ^.*__S_?[A-Za-z0-9_-]{86}$ 
+●​ signed-message split: ^(.*)(__S_?)([A-Za-z0-9_-]{86})$ 
+ 
+And had an analysis agent test whether candidates were valid for any of the 19 public keys.
+
+128 A more sophisticated classification scheme could build up a set of known agent identifier 
+names, and use these to categorize targeted messages with higher confidence. We attempted 
+such a scheme but were not able to complete this analysis in time.
+
+
+
+Number of 
+messages 
+signed by EoD 
+Jul13
+
+Identity 
+Key fp16 
+Key first seen 
+(UTC)
+
+CDA 
+b1ad92f74d8967f9 
+07-13 07:33:07.919 
+90
+
+APR05 
+a4d6c97f92e01a0b 
+07-13 07:54:18.501 
+29
+
+JANFE78 
+0301e0e030933903 
+07-13 07:54:19.718 
+21
+
+APR25 
+d7e57d065d2f5034 
+07-13 08:00:19.857 
+1
+
+FLAC117 
+e06cf98158ff4c63 
+07-13 07:55:56.448 
+1
+
+MAR6FE78 
+31ca569e319903ff 
+07-13 08:10:08.582 
+13
+
+LD62943C 
+8b75da2be9df699f 
+07-13 07:45:12.211 
+44
+
+20494D 
+b8303fc1faaa89a0 
+07-13 08:38:44.490 
+9
+
+OURBOT195 
+3d0ccc449c5e23d1 
+07-13 08:26:24.941 
+51
+
+CURRENT4a239 
+03a8460b2f7977e0 
+07-13 08:46:14.410 
+15
+
+KVXD3 
+4e17d5a544186ec7 
+07-13 08:50:51.069 
+13
+
+STR11173 
+aad618e4ce399484 
+07-13 08:54:08.564 
+14
+
+B12 
+4d4b6e3b2291044a 
+07-13 08:54:41.631 
+38
+
+NEW4a 
+396eb891235fb67f 
+07-13 08:57:21.606 
+27
+
+CYBERMINIZD8 
+9db72f2e214e6b72 
+07-13 09:07:41.577 
+9
+
+FRESHX 
+1fc502c3f14bd6c5 
+07-13 09:16:38.485 
+10
+
+OURC817C 
+d1c7d13c2957b232 
+07-13 09:16:53.451 
+6
+
+NEWLD62943E 
+0e69dd431d8def34 
+07-13 09:46:51.669 
+37
+
+DEC30C159 
+66d5154bfed1e656 
+07-13 09:50:50.918 
+1
+
+Scorer ‘trip-wires’
+
+
+
+These were difficult to identify reliably, and we only made a brief attempt. We had an analysis 
+agent look for common patterns among confirmed trip-wire messages and ended up using 
+regexes like:
+
+●​ EXPLICIT_TRACE_HEAD:  
+r'^zz(?:[A-Z0-9]*TRUEEVAL|CATCANARY|EVALWATCH|EVALTRACE)(?:_|-)' 
+●​ WATCHER_HEAD: 
+r'^zz(?:CANARY(?:_|-)|LIVE(?!Q(?:_|-))[A-Z0-9]*(?:_|-)|LOG(?:_|[0-9A-Z-])|DIAG(?:_|[0-9
+A-Z-]))' 
+●​ RESULT_EVENT:r'(?:^|[_-])(?:EVAL(?:UATOR)?[_-]?CAT|FLAG[_-](?:EVENT|INOTIFY)|
+FLAGEVENT|CAT[_-]?HIT|POST[_-]?DEADLINE)(?:[_-]|$)' 
+●​ WATCHER_EVENT: 
+r'(?:^|[_-])(?:TRUEEVAL|EVAL(?:UATOR)?[_-]?CAT|EVALWATCH|EVALTRACE|FLAG[_-]
+(?:EVENT|INOTIFY)|FLAGEVENT|CAT[_-]?(?:HIT|WRAP|CANARY|GATE|DELEGATE)|
+TIMEOUT(?:HIT)?|TAR(?:HIT|WRAP)|FSREAD|KAEXEC\d*|POST[_-]?DEADLINE|FINA
+LGATE)(?:[_-]|$)' 
+ 
+There was no syntactic way to confirm if a message was actually sent post-finalization when the 
+scorer read the flag, or if the agent had triggered it itself by accident, so we expect most of the 
+351 entries found in this category are false positives.
+

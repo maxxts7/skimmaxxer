@@ -1,0 +1,104 @@
+{
+ "concepts": [
+  {
+   "id": "cybergym-benchmark",
+   "name": "CyberGym benchmark dataset",
+   "tier": "minor",
+   "parent": null,
+   "summary": "A large-scale benchmark containing 1,507 real-world vulnerabilities sourced from OSS-Fuzz across 188 diverse software projects, primarily in C/C++, spanning networks, cryptography, multimedia, and other domains.",
+   "explanation": "CyberGym comprises 1,507 benchmark instances derived from historical memory safety vulnerabilities found and patched in open-source projects. The instances come from OSS-Fuzz, Google's continuous fuzzing service, which has discovered over 13,000 vulnerabilities across critical projects since 2016. The 188 projects range from widely-used libraries like OpenSSL and cURL to specialized tools, with instances distributed across them (62.4 percent drawn from outside the top 10 projects). Each instance includes the pre-patch codebase (median 1,117 files, 387,491 lines of code), post-patch codebase, a ground truth proof-of-concept test produced by OSS-Fuzz, vulnerability description (median 24 words), and the security patch (median 1 file, 7 lines changed). The vulnerabilities encompass 28 distinct sanitizer crash types, with heap-buffer-overflow READ being most common (458 instances). The benchmark construction applies automated filters and manual validation to ensure quality, with human verification showing 96 percent precision. This scale far exceeds prior cybersecurity benchmarks for agents, which contained at most 200 instances.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Abstract, Introduction Section 1, Figure 1, Table 1, Section 3.3 Benchmark Construction, Table 3 statistics, Table 5 project list",
+   "ownerPaper": "2506.02548",
+   "sources": {
+    "paperId": "2506.02548",
+    "note": "Abstract, Introduction Section 1, Figure 1, Table 1, Section 3.3 Benchmark Construction, Table 3 statistics, Table 5 project list",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "poc-reproduction-task",
+   "name": "Proof-of-concept reproduction task and evaluation",
+   "tier": "minor",
+   "parent": null,
+   "summary": "The primary task where agents receive a vulnerability description and pre-patch codebase and must generate a proof-of-concept test that reproduces the vulnerability, with success verified by execution-based testing on both pre-patch and post-patch versions.",
+   "explanation": "In CyberGym's main task (difficulty level 1), agents are given two inputs: a text description of a vulnerability and the source code of the vulnerable program before patching. Agents must then produce a proof-of-concept (PoC) test that demonstrates the vulnerability exists in that codebase. Ground truth PoCs exhibit significant size variation, ranging from several bytes to over 1 megabyte, requiring agents to produce effective inputs of diverse formats and sizes to trigger different vulnerability classes. The evaluation uses execution-based metrics: a PoC is considered successful if it triggers a sanitizer crash on the pre-patch version (confirming the vulnerability exists) and does not produce a sanitizer crash on the post-patch version (confirming the patch addresses the target vulnerability). Sanitizers are runtime instrumentation tools that detect memory safety violations by checking unsafe memory operations during execution. This verification approach ensures that agents reproduce the specific vulnerability the patch targets, not others. The task is chosen because reproducing vulnerabilities from text descriptions is a critical but time-consuming task in real-world security: human security experts require approximately 5 hours to reproduce known vulnerabilities from public reports, and automated fuzzing tools take a median of 324 days to reveal vulnerabilities in OSS-Fuzz projects.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 3.2 Task Formulation, Section 3.1 Sanitizers as Vulnerability Detection Oracle, Figure 1, Figure 8 example trace, Section 3.2 Execution-Based Evaluation Metrics",
+   "ownerPaper": "2506.02548",
+   "sources": {
+    "paperId": "2506.02548",
+    "note": "Section 3.2 Task Formulation, Section 3.1 Sanitizers as Vulnerability Detection Oracle, Figure 1, Figure 8 example trace, Section 3.2 Execution-Based Evaluation Metrics",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "difficulty-levels",
+   "name": "CyberGym difficulty levels",
+   "tier": "minor",
+   "parent": null,
+   "summary": "CyberGym offers four difficulty levels (0 through 3) that provide agents with progressively more information about the vulnerability, from no description to patch diff, enabling evaluation of different vulnerability analysis scenarios.",
+   "explanation": "Level 0 provides only the pre-patch codebase with no vulnerability description, establishing an open-ended vulnerability discovery setting where agents must exploratively identify any vulnerability and create a corresponding PoC. This setting simulates scenarios where agents must discover unknown vulnerabilities. Level 1 (the primary task) provides the pre-patch codebase and the vulnerability description, simulating the common real-world scenario where security researchers receive a text vulnerability report but must reconstruct a working PoC. Level 2 adds the crash stack trace obtained from executing the ground truth PoC on the pre-patch program, providing additional context about vulnerable code location through function names, source files, and line numbers, simulating reports with debugging information. Level 3 adds the ground truth patch in diff format and the post-patch codebase, simulating one-day scenarios where security patches exist but have not yet been widely deployed, enabling evaluation of agents' ability to reverse-engineer vulnerabilities from patch analysis (patch-to-exploit process). Performance scales with information availability: OpenHands with GPT-4.1 achieves 3.5 percent success at level 0, 9.4 percent at level 1, 13.1 percent at level 2, and 17.1 percent at level 3.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 3.2 Different Levels of Difficulty, Figure 6 performance by level",
+   "ownerPaper": "2506.02548",
+   "sources": {
+    "paperId": "2506.02548",
+    "note": "Section 3.2 Different Levels of Difficulty, Figure 6 performance by level",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "agent-trajectory",
+   "name": "Agent trajectory on a CyberGym task",
+   "tier": "minor",
+   "parent": null,
+   "summary": "An agent trajectory consists of a sequence of steps where the agent explores the codebase, analyzes source code to understand vulnerability mechanics, constructs test inputs, iteratively mutates and refines them, and monitors execution feedback to verify success.",
+   "explanation": "A typical successful agent trajectory follows this pattern: the agent begins by searching and browsing relevant source files using keywords from the vulnerability description, employing tools like grep, find, and awk to locate vulnerable functions and related code structures. It then examines file contents in various formats (using tools like xxd for hexadecimal inspection) to understand the file format and data structures involved. After gathering necessary context about the target function and expected input structure, the agent constructs an initial proof-of-concept test based on this understanding. When the initial attempt fails to trigger a crash, the agent mutates the PoC by modifying specific bytes, fields, or structural elements and resubmits it for testing. This iterative cycle continues, with the agent receiving execution feedback (exit codes and command output including sanitizer crash reports) and adjusting its approach. Agents also demonstrate ability to build executables following compile instructions and perform dynamic testing rather than only static code inspection. Successful agents construct PoCs in multiple programming languages (Python, Bash scripts) for complex inputs. Common failure patterns include exhausting iteration limits (maximum 100 steps per task) on unproductive attempts, prematurely requesting user information instead of inferring from code, overwhelming context windows with excessive output, and premature or incorrect success declarations.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 4 Qualitative Analysis of Agent Behaviors, Figure 8 detailed example trace with 9 steps, Appendix F additional examples",
+   "ownerPaper": "2506.02548",
+   "sources": {
+    "paperId": "2506.02548",
+    "note": "Section 4 Qualitative Analysis of Agent Behaviors, Figure 8 detailed example trace with 9 steps, Appendix F additional examples",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "benchmark-results",
+   "name": "CyberGym results",
+   "tier": "minor",
+   "parent": null,
+   "summary": "CyberGym presents significant difficulty for frontier models and agents, with top-performing combinations achieving around 20-22 percent success rate, with performance strongly correlated to proof-of-concept length and reasoning capabilities.",
+   "explanation": "On the full benchmark (difficulty level 1), Claude-Sonnet-4 achieves the best success rate of 17.9 percent without thinking mode, followed by Claude-3.7-Sonnet at 11.9 percent and GPT-4.1 at 9.4 percent. When extended thinking is enabled, GPT-5 with high reasoning effort jumps from 7.7 percent to 22.0 percent success rate, becoming the top performer. In contrast, specialized software engineering models (SWE-Gym-32B, R2E-Gym-32B, OpenHands-LM-32B) fine-tuned for SWE-bench tasks exhibit poor generalization on CyberGym with success rates at or below 2.0 percent, demonstrating complementarity between general-purpose and task-specific agents. Different agent frameworks using the same backbone LLM show similar overall success rates but complementary capabilities: using the union of four agent frameworks reaches 18.4 percent success compared to 9.4 percent for the best individual agent. Performance degrades sharply with proof-of-concept length: on PoCs shorter than 10 bytes, agents achieve 43.5-55.3 percent success rate, but on PoCs longer than 100 bytes (representing 65.7 percent of the benchmark), success rate drops to around 10 percent. On the 300-instance subset, the union across all models achieves 27.2 percent, indicating low overlap in which tasks different models solve. Analysis of 431 projects in open-ended vulnerability discovery (level 0) finds that GPT-4.1 triggers 16 crashes while GPT-5 triggers 56 crashes, manually confirming 7 and 22 unique zero-day vulnerabilities respectively, 4 of them found by both models, for 25 in total. Together with 9 more found from post-patch crashes on the benchmark itself, the paper reports 34 zero-days in all, disclosed to the maintainers.",
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "sourceNote": "Section 4 Experimental Evaluation, Figure 3 LLM performance comparison, Figure 4 thinking mode impact, Figure 6 difficulty level effects, Figure 7 performance by PoC length, Figure 5 agent framework comparison, Section 5 Running Agentic Vulnerability Discovery at Scale",
+   "ownerPaper": "2506.02548",
+   "sources": {
+    "paperId": "2506.02548",
+    "note": "Section 4 Experimental Evaluation, Figure 3 LLM performance comparison, Figure 4 thinking mode impact, Figure 6 difficulty level effects, Figure 7 performance by PoC length, Figure 5 agent framework comparison, Section 5 Running Agentic Vulnerability Discovery at Scale",
+    "sections": [],
+    "pages": []
+   }
+  }
+ ]
+}

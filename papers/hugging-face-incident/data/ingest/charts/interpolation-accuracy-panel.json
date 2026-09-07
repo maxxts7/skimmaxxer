@@ -1,0 +1,24 @@
+{
+ "id": "interpolation-accuracy-panel",
+ "name": "Leave-one-out error summary",
+ "summary": "A composite that scores the timestamp reconstruction rule: a cumulative curve of absolute error from hiding each known anchor and predicting it from its neighbours, with shares within fixed cut-offs, a per-model split and the largest misses. It is how the report shows what 'small error' means on its reconstructed timelines, and only for stretches where anchors are dense.",
+ "explanation": "### Why this chart and not another\n\nEvery timeline in the report rests on reconstructed times. The [[transcript-dataset]] carried a timestamp only at the start and end of each [[agent-transcript]]; each action in between was placed by [[timestamp-reconstruction]]. The method finds [[timestamp-anchors]], tool calls whose result showed the real clock, such as a `date` command, and fills the gap between two anchors by [[timestamp-interpolation]], spreading the elapsed time evenly over the messages between them. The question this panel answers is not how accurate the rule is on average but how often it is wrong, and by how much. A plain average would be dragged by a single nine-hour miss. A histogram would bury the tail: 99.8% of cases sit inside five minutes, and the rest would be empty-looking bins. A cumulative curve gives, for every error size $x$ at once, the share of estimates within $x$ minutes. The side panels read off the few values of $x$ that matter, and the tail list counts the failures instead of averaging them away.\n\n### How to read it, step by step\n\nThe test is [[timestamp-validation]] by leave-one-out. One anchor is hidden, the rule predicts its time from the remaining anchors in the same checkpoint segment, and the prediction is compared with the true time. A case counts only when an anchor sits on each side of the hidden one. The report does not define \"checkpoint segment\"; its handling of [[container-resets]] is redacted, and the subtitle indicates that a prediction never crosses a segment boundary. Each held-out anchor is one case.\n\nThe large chart is a cumulative distribution. The x-axis is absolute error in minutes on a linear scale, cut off at 6.5 minutes, just past the 99.9th percentile. The y-axis is the share of cases whose error is at or below that x. The curve is not a histogram. Its height at 1.1 minutes is the share of cases with an error of at most 1.1 minutes, not the count near 1.1, so the curve only rises and must end at 100%. Steepness encodes density: the near-vertical climb to 50% within 12 seconds means half the cases are packed there. The dashed lines mark where the curve crosses 50% and 90%. The shading carries no information.\n\nThe bar strip reads the same curve at four cut-offs, 30 seconds, 1, 2 and 5 minutes; each bar is one point on the curve, so the bars must be non-decreasing. The family breakdown repeats the median and 90th percentile for [[hpim]] and [[gpt-5-6-sol]] separately, with $n$ for each. The tail landmarks continue the curve past the plotted range: three high percentiles and the three largest single errors. The footer states the scope: anchors cluster, so held-out cases sit where anchors are dense, and sparse gaps and extrapolation past the first or last anchor are not measured. A first reading goes to the 5-minute bar, then the tail landmarks, then the footer.\n\n### What a bad result would look like\n\nA failing rule would give a slow curve, crossing 50% at a minute or two and still short of 100% at the right edge, with bars stepping up gradually. Tail landmarks measured in hours would mean the timeline could not order events within a day. A family split with one model's median many times the other's would mean the rule fitted one kind of transcript only; the actual gap, 12 seconds against 19.2, is modest. The subtler bad result is a clean curve that hides its scope. The footer prevents that reading: the report says some estimates in sparse regions or near transcript ends may be off by hours, and calls the design \"not ideal\", so the good curve licenses trust in dense stretches and nowhere else.\n\n### Where it comes back\n\nNo other figure repeats this composite. Figure 18 is its continuation: the six largest errors named in the tail list, drawn one by one as message position against time. The separate check of 20 actions against OpenAI's true timestamps appears only in the text. Every timeline plot noting that timestamps are reconstructed and may have small error, such as the hour-by-hour hacking traffic in Figure 16, leans on this panel for what \"small\" means.",
+ "prerequisites": [
+  "timestamp-reconstruction",
+  "timestamp-anchors",
+  "timestamp-interpolation",
+  "timestamp-validation",
+  "transcript-dataset",
+  "hpim",
+  "gpt-5-6-sol",
+  "container-resets"
+ ],
+ "sectionIds": [
+  "6.3",
+  "6.3.1",
+  "6.3.2"
+ ],
+ "itemIds": [
+  "fig-17"
+ ]
+}

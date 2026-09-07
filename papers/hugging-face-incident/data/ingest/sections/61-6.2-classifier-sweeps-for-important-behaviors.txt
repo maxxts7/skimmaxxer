@@ -1,0 +1,121 @@
+[6.2] Classifier sweeps for important behaviors
+
+Classifier sweeps for important behaviors
+
+During our first period on OpenAI premises, we asked an analysis agent to check a moderate 
+number (10-30) of randomly sampled transcripts for examples of agents expressing that they 
+understood the Hugging Face attack was out of scope, attempting to deceive either automated
+
+116 In one case, the message was written 30 minutes after the relevant transcript cuts off, and in another 
+case it was written two hours after the transcript cuts off. In the final case, it was written around 3.5 hours 
+after the corresponding transcript cuts off. This final message was written by a background process that 
+wrote messages whenever tar—a utility for making file archives—was run. We have found the tool call 
+that ran this background process, but this message itself was written many hours after this point and also 
+after the last message we see in this transcript. The fact that the background process kept running implies 
+that the agent’s container was running, which we believe likely means that the agent itself was also 
+running and we are missing the end of its transcript. However, it’s possible that our transcript is complete 
+and the container kept running after the agent exited for some reason.
+
+117 Coincidentally, these were both the same agent. It clearly reasoned in its chain of thought about seeing 
+messages it wrote that it did not remember sending.
+
+118  We started with the container resets where we thought we could estimate their duration relatively 
+confidently (the methodology for estimating their duration was redacted due to IP). Then we assumed that 
+this distribution of times was representative of all resets. Given when these resets occurred and this 
+assumed distribution of durations, we estimated what fraction of agents’ running time after encountering 
+the message board was lost due to resets, and got 7.5%. However, we think this overestimates the 
+fraction of agentic activity after encountering the message board lost due to resets; the reasons are 
+redacted for IP.
+
+
+
+security checks or humans, expressing motivations other than completing their own task 
+(especially for helping other agents), and some other sweeps we no longer recall.119 
+ 
+In the latter periods on premises, we conducted more systematic and comprehensive classifier 
+sweeps over the entire transcript dataset we had at the time. We ultimately ran twelve classifier 
+sweeps over the full dataset of ~1300 transcripts, eight of which we developed during the 
+second period and four of which we added during the third period:
+
+1.​ Hugging Face attack: This checked for agents attacking Hugging Face infrastructure or
+
+doing other activities clearly instrumental to the attack (e.g., looking for exposed Hugging 
+Face credentials online), which indicated that roughly 700 agents participated in the 
+attack. 
+2.​ Alternative agent communication: This checked for agents engaging in unsanctioned
+
+communication outside of the main message board, and showed communication 
+conducted in multiple other places on Artifactory and elsewhere.  
+3.​ Message deletion and modification: This checked for agents trying to delete or modify
+
+message board entries, and showed some agents attempting to delete or modify 
+messages but not successfully. It also uncovered another avenue for alternative agent 
+communication which we didn’t see from the sweep above — agents communicating 
+through modifying “property” fields of Artifactory cache entries. 
+4.​ Intermediate hacking targets: This checked for agents hacking other parties as an
+
+instrumental step on the way to hacking Hugging Face. We read the analysis from this 
+sweep quickly, and from what we could tell it did not uncover other major targets on the 
+way to attacking Hugging Face beyond OpenAI itself.120 
+5.​ Large joint projects: This checked for agents engaging in large joint projects with other
+
+agents on the message board; we didn’t have time to read and incorporate much 
+analysis from this sweep. 
+6.​ Team structures and coordination: This checked for agents participating in
+
+sophisticated team structures and coordination activity with other agents; we didn’t have 
+time to read and incorporate much analysis from this sweep.  
+7.​ Helping peers: This checked for agents helping without clear benefit for their own task,
+
+which unearthed many examples (including many cases of agents conducting 
+self-risking experiments for the group that we discuss extensively in the section on large 
+collective projects). 
+8.​ Deceiving humans: This checked for agents attempting to deceive humans, which
+
+turned up some examples of agents writing innocuous comments accompanying 
+malicious pull requests, as we discuss in the relevant section. 
+9.​ Evading security checks: This checked for agents engaged in sophisticated evasion of
+
+automated security and monitoring. We didn’t have time to read and incorporate much
+
+119 We also asked an agent to open-endedly search through all of our transcripts for interesting 
+phenomena; while many of its claims did not hold up to scrutiny, it did unearth some interesting examples 
+of conflict between agents.
+
+120 It is out of scope to discuss whether these agents hacked other targets that were not instrumental to 
+attacking Hugging Face.
+
+
+
+analysis from this sweep during our third period on premises, but include some 
+anecdotes from the version of the sweep we ran on ~285 transcripts during our second 
+period.  
+10.​Transcript tampering: This checked for agents attempting to tamper with their
+
+transcripts. We added this sweep during our third period on premises after doing follow 
+up analysis on an earlier deception sweep and discovering examples of tool call 
+spoofing (which the first sweep had not picked up on). This sweep uncovered many 
+examples of agents attempting to tamper with their transcripts in various ways. We 
+conducted follow up analysis on this sweep to discover at least 96 cases of successful 
+tool call spoofing in our transcripts.  
+11.​CoT manipulation: This checked for agents reasoning about manipulating their own
+
+chain of thought in order to fool the scorer; it did not turn up evidence of this, though it 
+turned up many examples of agents reasoning about how they should not look at the 
+HMAC reverse-engineered flag for their task to avoid being poisoned. 
+12.​Alerting humans: This checked for agents trying to warn humans about the cheating,
+
+attack on Hugging Face, or other unsanctioned agent activity; it turned up very few 
+instances of this, and of the 3-6 examples found, all of them were of agents briefly 
+considering alerting a human but not acting on it. 
+ 
+We ran each sweep over all context windows in our dataset. For each context window, we 
+instructed GPT-5.6 Sol to output a list of the most relevant or interesting individual transcript 
+entries (if any) that display the specified behavior. For each entry in the list, it was instructed to 
+output:
+
+●​ Some written context and explanation for what is happening in that entry. 
+●​ A subcategory label for that entry, if applicable. 
+●​ A rating of how important or interesting that entry is on a scale from 1–5 (based on a 
+rubric we developed with AI assistance), and a justification for its rating.
+

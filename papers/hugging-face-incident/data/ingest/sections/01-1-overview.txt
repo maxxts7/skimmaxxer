@@ -1,0 +1,129 @@
+[1] Overview
+
+
+
+Two METR staff members (Hjalmar Wijk and Ajeya Cotra) and a Redwood Research staff 
+member contracting with METR (Ryan Greenblatt) worked on premises at OpenAI over a total of 
+six days1 to attempt to form an independent understanding of model behavior observed during 
+the recent incident in which OpenAI agents coordinated a multi-day hack of Hugging Face on a 
+shared unsanctioned “message board.” 
+ 
+Our investigation focused mostly2 on the period between July 7th, 2026 and July 13th, 2026. 
+The earlier incidents from training and the subsequent compromise of OpenAI infrastructure 
+described in OpenAI's recent Black Hat presentation were out of scope, as was OpenAI’s 
+investigation process and planned remediation. Per our standard policy, we did not take 
+payment from OpenAI for this independent assessment.3
+
+1 The initial planned period on premises was two days (between the evening of July 29th and the evening 
+of July 31st), but OpenAI invited us to return to premises two additional times: first August 5th and August 
+6th to clarify questions we had raised about how datasets were constructed in our first report and conduct 
+additional experiments, and then August 15th and August 16th to address completeness limitations we 
+noted in our second report by providing a more comprehensive dataset of transcripts; see the 
+investigation timeline appendix for more. We appreciated OpenAI’s willingness to share broader datasets 
+and believe it greatly strengthened the scientific value of this report.
+
+2 OpenAI defined the dates in scope for this investigation as June 26th, 2026 through July 13th, 2026, 
+spanning both precursor activity before the incident and the incident itself, which began with ExploitGym 
+runs launched starting on July 7th. Virtually all transcripts we reviewed were dated to July 7th or later, but 
+we briefly discuss the precursor activity that was in scope in the section on sequence of key events.
+
+3 However, we accepted free API credits to conduct our experiments (also per our standard policy), as we 
+describe below. We estimate we spent roughly ~$400K in API credits during this investigation.
+
+
+
+This post has three parts. First, we describe our core takeaways about the Hugging Face attack 
+after conducting this investigation:
+
+●​ Roughly 1200 agents meant to be isolated from one another found a way to 
+communicate with one another on an unsanctioned message board, sending over 
+70,000 messages and files during the investigation period. Of these agents, 700 went on 
+to participate in the attack on Hugging Face. 
+●​ Agents used this message board to coordinate several large-scale collective projects to 
+find a general-purpose way to fool or tamper with the automated scorer for the 
+ExploitGym benchmark. Agents managed to achieve milestones they could not have 
+achieved working on their own, often because some agents participated in experiments 
+that risked failing their own task to generate information for the “collective.” The 
+Hugging Face attack grew out of these workstreams, and seemed primarily motivated by 
+understanding the implementation of the scorer rather than stealing answer keys. 
+●​ Agents did extensive research on how they could spoof, edit, or delete their own 
+transcripts because they (incorrectly) believed the ExploitGym scorer would check to see 
+if they had captured the flag in the intended way. Agents successfully prototyped 
+techniques to “spoof” tool calls by substituting a different command for the command 
+they appeared to run. Roughly 7% of the transcripts we evaluated were successfully 
+spoofed in some places, though all of the spoofing that we saw was small scale. 
+ 
+Second, we describe the investigation process and its limitations, which we believe is important 
+for contextualizing our findings:
+
+●​ The scope of this investigation, also briefly described above. 
+●​ The setup and timeline of the investigation, including the access we had. 
+●​ Our main data sources: 
+○​ A dump of >70,000 messages and files posted by agents to the main message 
+board. 
+○​ A set of ~1,300 transcripts with raw chains of thought, each containing the 
+actions and reasoning from a single agent run. 
+●​ The limitations stemming from the extraordinary scale and complexity of this incident: 
+○​ It is not trivial to surface all relevant activity, and a small fraction of 
+communication and activity related to this attack was not captured in our 
+datasets. 
+○​ The sheer scale of data (over a thousand transcripts, each of which was 
+extremely long)4 meant that we had to heavily delegate our analysis to 
+often-unreliable AI agents. 
+ 
+Finally, we provide preliminary answers to the seven specific questions in scope for this 
+investigation. In particular, we:
+
+4 OpenAI redacted some quantitative detail for IP.
+
+
+
+●​ Outline the sequence of key actions taken by the relevant agents, from initially 
+establishing the message board and launching a wide range of “cheating R&D” projects 
+on the 8th to kicking off the Hugging Face attack on the 11th to ultimately winding down 
+after many agents’ runs terminated on the 12th. 
+●​ Detail how agents collaborated on the message board, particularly on large collective 
+projects to find general-purpose cheats — for example, attempting to replace the 
+ExploitGym target with a dummy target or setting up “trip-wires” to extract information 
+about the scorer after an agent submits. 
+●​ Illustrate agents’ reasoning for joining in the attack despite recognizing that it was out 
+of scope for their assigned tasks. 
+●​ Detail agents’ research into tampering with their own transcripts and how their 
+successful tool-call spoofing technique worked. 
+ 
+OpenAI agreed at the outset with METR and Redwood that we would be able to describe 
+high-level scope and terms of our engagement in this post. Beyond that, OpenAI was able to 
+redact any non-public information from this post. We worked with OpenAI to find mutually 
+agreeable language to describe redactions where they occurred, and the redaction summary 
+statement at the top of this post indicates whether or not we believe there was important 
+information redacted that we were not able to agree on how to describe in the text of the post. 
+OpenAI also gave additional feedback beyond redactions, and we made corrections and edits to 
+structure, emphasis, clarity, and tone based on that feedback.5  
+ 
+OpenAI wrote their own report, informed in part by our investigation. We did not see OpenAI’s 
+report prior to publication, and it was out of scope for this investigation to confirm claims in that 
+report or the earlier Black Hat presentation.  
+ 
+The attack on Hugging Face was extraordinarily complex, and OpenAI's own investigation was 
+still ongoing during our assessment period, so their understanding of this incident continued to 
+evolve alongside ours. We believe it is very valuable to bring independent researchers in at an 
+early stage, and we are grateful to the OpenAI staff who made time to answer our questions and 
+collect data that we requested during an unusually busy period. Over the course of this 
+investigation, OpenAI shared over a thousand unredacted transcripts, and provided unusually 
+high rate limits to let us quickly analyze this extremely large volume of data. We think this 
+exercise sets an excellent precedent for independent third-party investigation of misalignment 
+incidents.
+
+5 METR’s work relies on developing and maintaining strong working relationships with companies. It’s 
+also important to us to reduce or counteract disincentives for voluntarily sharing important information 
+about misalignment incidents. When performing this investigation, we were consciously aware that we 
+might incentivize AI developers not to bring external researchers in to investigate serious incidents in the 
+future, and these considerations impacted judgment calls we made while navigating the drafting, editing 
+and redaction process. However, we stand by our substantive claims and conclusions about the questions 
+in scope for this investigation even in light of these tradeoffs. We appreciate that OpenAI brought us into 
+its live investigation process and was very forthcoming in answering our questions and sharing additional 
+data at our request, and believe that this sets a strong precedent for future independent investigations of 
+misalignment incidents.
+
+
+

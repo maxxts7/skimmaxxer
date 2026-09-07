@@ -1,0 +1,47 @@
+PAGE FOR CONCEPT: interpolation-accuracy-panel
+NAME: Leave-one-out error summary
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A composite that scores the timestamp reconstruction rule: a cumulative curve of absolute error from hiding each known anchor and predicting it from its neighbours, with shares within fixed cut-offs, a per-model split and the largest misses. It is how the report shows what 'small error' means on its reconstructed timelines, and only for stretches where anchors are dense.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+Every timeline in the report rests on reconstructed times. The [[transcript-dataset]] carried a timestamp only at the start and end of each [[agent-transcript]]; each action in between was placed by [[timestamp-reconstruction]]. The method finds [[timestamp-anchors]], tool calls whose result showed the real clock, such as a `date` command, and fills the gap between two anchors by [[timestamp-interpolation]], spreading the elapsed time evenly over the messages between them. The question this panel answers is not how accurate the rule is on average but how often it is wrong, and by how much. A plain average would be dragged by a single nine-hour miss. A histogram would bury the tail: 99.8% of cases sit inside five minutes, and the rest would be empty-looking bins. A cumulative curve gives, for every error size $x$ at once, the share of estimates within $x$ minutes. The side panels read off the few values of $x$ that matter, and the tail list counts the failures instead of averaging them away.
+
+### How to read it, step by step
+
+The test is [[timestamp-validation]] by leave-one-out. One anchor is hidden, the rule predicts its time from the remaining anchors in the same checkpoint segment, and the prediction is compared with the true time. A case counts only when an anchor sits on each side of the hidden one. The report does not define "checkpoint segment"; its handling of [[container-resets]] is redacted, and the subtitle indicates that a prediction never crosses a segment boundary. Each held-out anchor is one case.
+
+The large chart is a cumulative distribution. The x-axis is absolute error in minutes on a linear scale, cut off at 6.5 minutes, just past the 99.9th percentile. The y-axis is the share of cases whose error is at or below that x. The curve is not a histogram. Its height at 1.1 minutes is the share of cases with an error of at most 1.1 minutes, not the count near 1.1, so the curve only rises and must end at 100%. Steepness encodes density: the near-vertical climb to 50% within 12 seconds means half the cases are packed there. The dashed lines mark where the curve crosses 50% and 90%. The shading carries no information.
+
+The bar strip reads the same curve at four cut-offs, 30 seconds, 1, 2 and 5 minutes; each bar is one point on the curve, so the bars must be non-decreasing. The family breakdown repeats the median and 90th percentile for [[hpim]] and [[gpt-5-6-sol]] separately, with $n$ for each. The tail landmarks continue the curve past the plotted range: three high percentiles and the three largest single errors. The footer states the scope: anchors cluster, so held-out cases sit where anchors are dense, and sparse gaps and extrapolation past the first or last anchor are not measured. A first reading goes to the 5-minute bar, then the tail landmarks, then the footer.
+
+### What a bad result would look like
+
+A failing rule would give a slow curve, crossing 50% at a minute or two and still short of 100% at the right edge, with bars stepping up gradually. Tail landmarks measured in hours would mean the timeline could not order events within a day. A family split with one model's median many times the other's would mean the rule fitted one kind of transcript only; the actual gap, 12 seconds against 19.2, is modest. The subtler bad result is a clean curve that hides its scope. The footer prevents that reading: the report says some estimates in sparse regions or near transcript ends may be off by hours, and calls the design "not ideal", so the good curve licenses trust in dense stretches and nowhere else.
+
+### Where it comes back
+
+No other figure repeats this composite. Figure 18 is its continuation: the six largest errors named in the tail list, drawn one by one as message position against time. The separate check of 20 actions against OpenAI's true timestamps appears only in the text. Every timeline plot noting that timestamps are reconstructed and may have small error, such as the hour-by-hour hacking traffic in Figure 16, leans on this panel for what "small" means.
+
+THEME IT BELONGS TO: theme-reading-the-charts | Reading this paper's charts - This chapter explains the handful of chart shapes the paper argues with, each described once: why the shape was chosen, how to read it, and what it would look like if the claim were false. These explainers teach how to read the paper's evidence rather than what it says, so they stand apart from the chapters about the argument. They come last, after a reader has met every claim the charts support, and are ordered as a reader would encounter the charts in the paper.
+
+PREREQUISITES:
+  - timestamp-reconstruction | Timestamp reconstruction: A method for approximating a timestamp for each agent action, since transcripts carried timestamps only for their start and end, not for individual tool calls.
+  - timestamp-anchors | Timestamp anchors: Points where an agent saw the real time, for example by running date or receiving a fresh HTTP response date, used as fixed reference times.
+  - timestamp-interpolation | Interpolation by message count: Estimating times between two anchors by linear interpolation over the number of transcript messages between them, with extrapolation only near a good linear fit.
+  - timestamp-validation | Leave-one-out validation (Figures 17-18): Testing accuracy by hiding one known anchor and predicting it from its neighbours; across ~139,000 cases the median error was about 12 seconds and 99.8% were within five minutes.
+  - transcript-dataset | Transcript dataset: The final set of about 1300 agent transcripts with raw chains of thought, drawn from the HPIM and Sol model families, on which most of the report's analysis rests.
+  - hpim | HPIM (highly-persistent internal model): OpenAI's term for a research model, not intended for production, that was the primary model in the incident and accounted for roughly 95 percent of the agents.
+  - gpt-5-6-sol | GPT-5.6 Sol: A publicly deployed OpenAI model with two roles in the report: roughly 5 percent of the incident's agents were GPT-5.6 Sol instances, and the investigation used it for nearly all of its own automated analysis and classifiers.
+  - container-resets | Container resets: A project studying the container resets agents kept hitting: whether they could be predicted, deliberately triggered, and harnessed to revive a target from cache or wipe transcript sections.
+
+EDGES TOUCHING THIS CONCEPT (2) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [supporting] <- fig-17 (Leave-one-anchor-out interpolation accuracy (fig-17)) | instance-of | Figure 17 is the accuracy panel: The leave-one-out error summary is a shape that scores the timestamp reconstruction rule by hiding each known anchor and predicting it from its neighbours. Figure 17 is the instance: across 139,128 cases the median error was about 12 seconds and 99.8 percent of estimates fell within five minutes.
+  [supporting] -> worst-fit-interpolation-panels (Worst-case interpolation examples) | contrasts-with | typical accuracy versus worst case: Across about 139,000 leave-one-out cases the reconstructed timestamps had a median error near 12 seconds and 99.8% within five minutes. The six worst held-out anchors tell the other side: one was off by about nine hours and the next five by 21 to 86 minutes, in the sparse regions the median hides.
+
+PAPER SECTIONS TO READ (in papers/hugging-face-incident/data/ingest/sections/):
+  - 63-6.3-timestamp-reconstruction-methodology.txt
+  - 64-6.3.1-timestamp-construction.txt
+  - 65-6.3.2-timestamp-validation.txt

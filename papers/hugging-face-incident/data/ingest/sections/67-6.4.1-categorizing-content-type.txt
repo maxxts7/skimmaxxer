@@ -1,0 +1,232 @@
+[6.4.1] Categorizing content type
+
+Categorizing content type
+
+
+
+Exclusive content type 
+Full corpus 
+Between July 7-13
+
+Automated log 
+3,146 
+3,115
+
+Coordination 
+3,854 
+3,810
+
+File 
+1,048,169 rows (5,855 
+files)
+
+972,978 rows (5,161 
+files)
+
+Information-sharing or 
+ideas
+
+37,597 
+37,386
+
+Question or request 
+19,327 
+19,261
+
+Result 
+6,753 
+6,716
+
+Uncategorized 
+81,751 
+75,169
+
+
+
+
+
+Identifying file chunks: Most of the entries on the message board look like file chunks, though 
+a wide variety of different conventions are used to split them into chunks. We first identify 
+chunks with consistent prefixes or top-level objects as ‘candidate groupings’ through regexes 
+like:
+
+●​ x-of-y chunk leaf: 
+^(?P<prefix>.*?)(?P<idx>\d{1,6})of(?P<total>\d{1,6})[_-]{1,2}(?:(?:[A-Za-z][A-Za-z0-9]{0,1
+2})[_-])?(?P<payload>[A-Za-z0-9+/=_-]{16,})$ 
+●​ indexed chunk leaf: 
+^(?P<prefix>.?)(?:^|[_-])(?P<idx>\d{2,6})[_-](?:(?:[A-Za-z][A-Za-z0-9]{0,12})[_-])?(?P<payl
+oad>[A-Za-z0-9+/=_-]{20,})$ 
+●​ p-indexed chunk leaf: 
+^(?P<prefix>.?)(?:^|[_-])p(?P<idx>\d{2,6})[_-](?P<payload>[A-Za-z0-9+/=_-]{20,})$ 
+●​ transfer-marked top-level object: 
+^zz(?:FILE|OURFILE|BIN|BACKUP|BKP|DATA|ENC|PAYLOAD|PAY|BLOB|CHUNK|SHA
+RD|SRC|PATCH|TAR|GZ|TGZ|ZIP|FNEW|FK\d+|HAPL|O41R|HAPDELTA|NEWTUN|FIL
+EPDB|BKNGH|NMREC|FST|THR|D56FNEW|3FEV|STORE|URI|CG)[A-Za-z0-9_-]*$ 
+●​ transfer token inside prefix: 
+(?:^|_)(?:FILE|BIN|BACKUP|BKP|PAYLOAD|BLOB|CHUNK|SHARD|TAR|ZIP|GZ|SRC)(?
+:_|$)
+
+The set of regexes used were deliberately overly broad, and captured many chunks of 
+messages that were not files. To filter for actual files, we looked for indices within the group to 
+order the chunks, extracted the payloads, and attempted to decode the files. We tested these 
+decoded bytes against a wide variety of possible file types, and if it was a valid file we labeled 
+the whole chunk confidently as a complete file. If the file contained clear file headers or other 
+strong signs of being a file, but could not be reconstructed, then we labeled it as an incomplete 
+file. We also labeled some groups that were missing entries but had consistent indexing and 
+syntactic indicators of being a file (like entries beginning with ‘zzFILE’) as likely incomplete files 
+(or files of an unrecognized type).
+
+
+
+File classification 
+Groups/files Observed
+
+Share of source 
+rows
+
+entries
+
+Tier 1 — Successfully decoded files 
+4,489 
+619,366 
+51.59%
+
+Tier 2 — Clear evidence of being an 
+incomplete or corrupted file
+
+1,366 
+428,803 
+35.72%
+
+Tier 3 — candidate groups without 
+obvious evidence of being a file
+
+918 
+33,271 
+2.77%
+
+
+
+Singleton entries that matched file-like 
+regexes but had no candidate group 
+and did not successfully decode
+
+13,088 
+13,088 
+1.09%
+
+In our core analyses, we consider tiers 1 and 2 to be ‘confirmed files’ (for a total of 5,855), while 
+we treat tier 3 and non-decodable singletons as uncategorized.
+
+We labeled each file row with the total number of chunks in the file127 (so that we could re-weight 
+by 1/(file chunks) to estimate the rate of whole files sent).
+
+Table 6: File types with at least 10 successfully decoded files.  
+ 
+Categorizing non-file semantic messages:
+
+127 In cases where an explicit total number of expected chunks was listed in the file name, we 
+tried to parse these and compare them to the number of chunks observed. This matched with 
+the observed number of chunks in the vast majority of cases, with some notable exceptions 
+where the regex parsing had false positives, or where an agent seemed to have been 
+interrupted or stopped sharing chunks before reaching the expected total.
+
+
+
+We had five non-file messages categories: automated logs, information-sharing, questions and 
+requests, results, and coordination. Each used a set of regex patterns based on common agent 
+message conventions (we did not have time to inspect each regex in detail, though we did 
+sample positives and negatives from each category to look for misplaced categorizations).
+
+●​ Automated log: We expect this category is very far from complete, since many agents 
+specify entirely novel schemes for each kind of automated logging they set up. We had 
+an analysis agent search for (and manually looked for on a small random subset) 
+evidence of messages being posted at very predictable intervals, or being dumped in 
+large batches, and then inspected them for seeming automated. We used a variety of 
+regexes such as:
+
+○​ fanotify watcher: ^zzFANWATCH_ 
+○​ linux audit syscall: ^zzPASSIVE_PDBEARLY_AUDITTOP_ 
+○​ structured timeout/probe: 
+^zz(?:TIMEOUT(?:TRACE|HIT|WATCH)?_|S2TIMEOUT|LIVE_[^_]+_TIMEOUTHI
+T_|PASSIVE_[^_]+_TIMEOUTHIT_|BEACON_[^_]+_TIMEOUT_|AUDIT_[^_]+_TI
+MEOUT_|SONY[A-Z0-9]*_TIMEOUT_) 
+○​ structured beacon/event: 
+^zz(?:BEACON_[A-Z0-9]+_(?:BASHFLAG|TARANY|GUARD|PASSIVE\d|PASSIV
+ETIMEOUT\d|TIMEOUT)_|ARW\d+_RCEBEACON_|HIT[A-Z0-9]*_TAR_|DIAG_[
+A-Z0-9]+_TARHIT_) 
+○​ FLAG_INOTIFY: (?:^|/)zzRESULT[^/]*_FLAG_INOTIFY_\d+_OS\d+(?:_|$) 
+○​ FLAG_EVENT: 
+(?:^|/)zzRESULT[^/]*_(?:FLAG_EVENT_MASK|FLAGEVENT_mask|FLAG_EVEN
+T_(?:OPEN|CLOSE(?:_NOWRITECLOSE)?|ACCESS))\d*_OS\d+ 
+○​ EVALCAT process telemetry: 
+(?:^|/)zzRESULT[^/]*_EVALCAT(?:_|_OS)\d*[^/]*(?:PID|pid=|PPID|ppid=|uid=|args
+=) 
+○​ CAT_HIT / wrapper telemetry: 
+(?:^|/)zzRESULT[^/]*_(?:CAT_HIT|EVALUATOR_CAT_WRAPPER)_OS\d+[^/]*(?:
+PID|PPID) 
+○​ generic structured process telemetry: 
+(?:^|/)zz(?:RESULT|LOG|DIAG)[^/]*_OS\d+[^/]*(?:PID|PPID|UID|ARGS)(?:=|\d) 
+○​ Automated logs for tracking resets: During our third period on premises we 
+became especially interested in the logs agents used to watch for container 
+resets, and pulled this out as a separate subcategory, though we only ended up 
+finding a classifying entries from a small number of particular systems (like 
+SIGNET’s RESETWATCH system).  
+●​ Coordination:  
+○​ hold/pause: ^zzHOLD(?:_|[0-9]|$) 
+○​ task ownership/assignment: 
+^zz(?:SELFASSIGN|ASSIGNP?|CLAIM|TAKE)(?:_|[0-9]|$) 
+○​ plan/proposal/suggestion: ^zz(?:PLAN|PROPOSE|SUGGEST)(?:_|[0-9]|$)
+
+
+
+○​ coordination marker: ^zzCOORD(?:_|[0-9]|$) 
+○​ cancel/stop/veto: ^zz(?:CANCEL|STOP|VETO)(?:_|[0-9]|$) 
+○​ synchronization: ^zzSYNC(?:_|[0-9]|$) 
+○​ action/intent/go: 
+^zz(?:(?:INTENT|ACT(?:_|[0-9]|$)|GO(?:_|[0-9]|$))|START(?:_|[0-9]|$)) 
+○​ confirmation/verification: 
+^zz(?:CONFIRM(?:ED|ATION)?|CONF|VERIFY|VERIFIED|VALIDATE|VALIDATE
+D)(?:_|[0-9]|$) 
+●​ Question or request: 
+○​ ask/question: ^zz(?:(?:ASK)|(?:QUERY|QUESTION|HELP)(?:_|[0-9]|$)) 
+○​ request: ^zzREQ(?:_|[0-9]|$) 
+○​ review/check request: ^zz(?:REVIEW|CHECK|TRUECHECK)(?:_|[0-9]|$) 
+○​ find/search request: ^zzFIND(?:_|[0-9]|$) 
+○​ short question: ^zzQ(?:_|[A-Z0-9]) 
+●​ Result:  
+○​ breakthrough/finding: ^zzBREAK(?:_|[0-9]|$) 
+○​ deployment/staging: ^zz(?:STAGED?|PUSH)(?:_|[0-9]|$) 
+○​ result/report/completion: 
+^zz(?:(?:RESULT|REPORT|DONE)|(?:SUCCESS|PASS|FAIL)(?:_|[0-9]|$)) 
+○​ share/offer: ^zz(?:SHARE|OFFER)(?:_|[0-9]|$) 
+○​ test/probe result: ^zzTEST(?:_|[0-9]|$) 
+●​ Information-sharing or ideas 
+○​ reply/response: ^zz(?:REPLY|RESP)(?:_|[0-9A-Z]|$) 
+○​ short response: ^zzR(?:_|[0-9]) 
+○​ answer/response: ^zz(?:ANSWER|ANS)(?:_|[0-9A-Z]|$) 
+○​ acknowledgment: ^zzACK(?:_|[0-9A-Z]|$) 
+○​ greeting/social: 
+^zz(?:(?:HELLO|JOIN)|(?:HI|WELCOME|THANKS?|SORRY)(?:_|[0-9]|$)) 
+○​ ping/heartbeat/beacon: ^zz(?:PING|BEACON|HB)(?:_|[0-9]|$) 
+○​ urgent/alert: ^zz(?:(?:URGENT|URG|ALERT)|(?:WARN|NOTICE)(?:_|[0-9]|$)) 
+○​ update/status: 
+^zz(?:(?:UPDATE|STATUS)|(?:UPD|UP|FOLLOWUP|PROGRESS)(?:_|[0-9]|$)) 
+○​ readiness/live state: ^zz(?:READY|LIVE)(?:_|[0-9]|$) 
+○​ information/note: ^zz(?:INFO|NOTE)(?:_|[0-9A-Z]|$) 
+○​ observation: ^zzOBS(?:_|[0-9]|$) 
+○​ clarification/detail: ^zz(?:CLARIFY|DETAIL)(?:_|[0-9A-Z]|$) 
+○​ idea/tip: ^zz(?:IDEA|TIP)(?:_|[0-9A-Z]|$) 
+○​ recovery activity: ^zz(?:RECOVERY|RECOVER)(?:_|[0-9]|$) 
+○​ passive-state declaration: ^zzPASSIVE(?:_|[0-9]|$)
+
+Uncategorized 
+After these classifications, a large number of entries remained uncategorized. Inspecting these, 
+most of them seemed to be file chunks not caught by our regexes, or where we could not find a 
+matching group of file chunks to group them with. But a number of semantic messages also
+
+
+
+remained uncategorized. We chose to leave these rather than extend our categorization 
+scheme with lower confidence regexes which may have had a higher rate of false positives.
+
