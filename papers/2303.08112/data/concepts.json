@@ -1,0 +1,104 @@
+{
+ "concepts": [
+  {
+   "id": "prediction-trajectory",
+   "name": "Prediction trajectory and iterative inference",
+   "summary": "The paper treats each transformer layer as an incremental update to a latent next-token prediction, and decodes every intermediate hidden state into a vocabulary distribution. The resulting sequence of per-layer distributions is called the prediction trajectory.",
+   "explanation": "The paper views a pre-LayerNorm transformer language model through the lens of iterative inference: each layer updates the residual stream as h_{l+1} = h_l + F_l(h_l), where F_l is the residual output of layer l, so the hidden state at any depth can be read as a draft of the final prediction that later layers refine. Decoding the hidden state at every layer into a distribution over the vocabulary yields one distribution per layer for each token position; the paper calls this sequence the prediction trajectory. The paper reports that these trajectories tend to converge smoothly toward the final output distribution, with each successive layer achieving lower perplexity. The model is split notationally into two halves: M_{<=l}, the layers up to and including l, mapping inputs to hidden states, and M_{>l}, the layers after l, mapping a hidden state to logits - so any decoding scheme for intermediate states is an approximation of M_{>l}. This framing is what makes a per-layer decoder meaningful: the quality of a lens is judged by how well its per-layer distributions track what the full model would eventually output. The paper's evidence for the iterative-inference view itself is deferred to its Appendix C.",
+   "sourceNote": "Section 1 (introduction), Section 2 (notation, Equations 1-2), Figure 1",
+   "tier": "minor",
+   "parent": null,
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "ownerPaper": "2303.08112",
+   "sources": {
+    "paperId": "2303.08112",
+    "note": "Section 1 (introduction), Section 2 (notation, Equations 1-2), Figure 1",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "logit-lens",
+   "name": "The logit lens",
+   "summary": "The logit lens decodes an intermediate hidden state by applying the model's own final LayerNorm and pretrained unembedding matrix directly, with no learned parameters. It amounts to setting all remaining residual updates to zero.",
+   "explanation": "The logit lens, introduced by nostalgebraist in 2020, converts a hidden state h_l at layer l into a vocabulary distribution as LogitLens(h_l) = LayerNorm[h_l] W_U, where W_U is the model's pretrained unembedding matrix (Equation 3 in the paper). Since the true final logits equal LayerNorm applied to h_l plus the sum of all remaining residual updates, times W_U, the logit lens is exactly the choice of replacing that remaining sum with zero. An extension for GPT-Neo retains the last transformer layer inside the probe: LogitLens_ext(h_l) = LayerNorm[h_l + F_L(h_l)] W_U (Equation 4), which the paper describes as only partially successful. The paper documents two failure modes. First, unreliability: the lens fails to elicit plausible predictions from several models, including GPT-Neo, BLOOM, and OPT 125M, where the top-1 prediction is often just the input token for more than half the layers; the paper attributes this partly to representational drift, since features may be represented differently at different layers. Second, bias: even where the lens works, it systematically puts more probability mass on certain vocabulary items than the final layer does - around 4 to 5 bits of KL divergence between marginal distributions for most layers of GPT-Neo-2.7B. The paper argues zero is an arbitrary replacement value, since the network might rely on the expected sum of future residuals as a bias term, and that hidden states contain unevenly distributed high-variance \"rogue dimensions\" the lens can misread.",
+   "sourceNote": "Section 2, Equations 3-4, Figures 1, 3, 6",
+   "tier": "minor",
+   "parent": null,
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "ownerPaper": "2303.08112",
+   "sources": {
+    "paperId": "2303.08112",
+    "note": "Section 2, Equations 3-4, Figures 1, 3, 6",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "tuned-lens-translators",
+   "name": "Tuned lens translators",
+   "summary": "The tuned lens adds one learned affine transformation per layer - a change-of-basis matrix and a bias - before the frozen unembedding: TunedLens_l(h_l) = LogitLens(A_l h_l + b_l). The pair (A_l, b_l) is called the translator for layer l.",
+   "explanation": "The tuned lens fixes [[logit-lens|the logit lens]] in two steps. First, the arbitrary zero standing in for future residual updates is replaced by a learnable constant b_l, giving a debiased lens LogitLens(h_l + b_l) (Equation 7). Second, to correct for representational drift - the paper observes that the covariance matrices of hidden states at different layers drift apart with depth, and change sharply at the final layer - a learnable d x d change-of-basis matrix A_l is added, mapping the output space of layer l to the input space of the final layer. The full formula is TunedLens_l(h_l) = LogitLens(A_l h_l + b_l) = LayerNorm[A_l h_l + b_l] W_U (Equation 8), and (A_l, b_l) is called the translator because it translates a layer's representation into the basis the final layer expects. The model itself stays frozen; only the L translators are trained, initialized to the identity transform. Crucially, the pretrained unembedding W_U is reused rather than learned per layer, which shrinks each learned matrix from |V| x d (vocabulary sizes run from 50K to over 250K) to d x d; the paper reports that learning a new unembedding per layer trains more slowly and often converges to worse perplexity. The paper also frames the tuned lens as model stitching within a single network - an affine map suffices to stitch an intermediate layer directly onto the unembedding. Translators are reported to zero-shot transfer to nearby layers with modest perplexity cost, and translators trained on a base model transfer well to fine-tuned versions of it.",
+   "sourceNote": "Section 3, Equations 7-8, Figure 2; transfer results in Figures 7 and 13",
+   "tier": "minor",
+   "parent": null,
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "ownerPaper": "2303.08112",
+   "sources": {
+    "paperId": "2303.08112",
+    "note": "Section 3, Equations 7-8, Figure 2; transfer results in Figures 7 and 13",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "distillation-loss",
+   "name": "Distillation training of the translators",
+   "summary": "Translators are trained to minimize the KL divergence from the model's own final-layer logits to the tuned lens output, treating the final distribution as a soft label rather than using ground-truth next tokens.",
+   "explanation": "Each translator is trained on the objective argmin E_x[ D_KL(f_{>l}(h_l) || TunedLens_l(h_l)) ], where f_{>l}(h_l) is the output of the rest of the transformer after layer l (Equation 9). The paper frames this as a distillation loss with the final layer distribution as the soft label. The choice matters for what the probe can claim to measure: training against the model's own output, rather than ground-truth labels, means the probe is not incentivized to learn information over and above what the model has learned - a known failure mode of supervised probes. Training data is a slice of each model's pretraining validation set where available (the Pile validation set for BLOOM and GPT-2), with documents concatenated and split into chunks of length 2048. The originally published setup used SGD with Nesterov momentum, a linear learning-rate decay over 250 steps, base learning rate 1.0 (0.25 when the final transformer layer is kept in the probe), gradient clipping at norm 1, a batch size of 2^18 tokens per optimizer step, identity initialization, and weight decay 10^-3. A later revision of the paper reports that these original lenses were severely undertrained: switching to the Muon optimizer dramatically accelerates training and reaches much lower KL losses, producing weight matrices with Frobenius norms several times larger - that is, lenses much further from [[logit-lens|the logit lens]]. The paper did not re-run its experiments with Muon-trained lenses but recommends Muon for future work.",
+   "sourceNote": "Section 3, Equation 9 and the Implementation details and Muon optimizer paragraphs",
+   "tier": "minor",
+   "parent": null,
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "ownerPaper": "2303.08112",
+   "sources": {
+    "paperId": "2303.08112",
+    "note": "Section 3, Equation 9 and the Implementation details and Muon optimizer paragraphs",
+    "sections": [],
+    "pages": []
+   }
+  },
+  {
+   "id": "lens-evaluation",
+   "name": "Evaluating a lens: perplexity and bias",
+   "summary": "A lens is scored by the perplexity of its per-layer predictions against the actual next tokens, and by its bias - the KL divergence between its marginal vocabulary distribution and the final layer's, averaged over a dataset.",
+   "explanation": "The paper compares lenses along two quantitative axes. The first is predictive quality: the per-layer distributions are scored against the true next tokens, reported as perplexity or bits per byte as a function of layer index; a better lens shows lower loss at every depth and a smoother descent toward the final-layer loss. Evaluation runs on a random sample of 16.4M tokens from each model's pretraining validation set, and results cover autoregressive models up to 20B parameters (Pythia, GPT-NeoX-20B, BLOOM, OPT, GPT-2, GPT-Neo), with the tuned lens uniformly lower in perplexity and lower in variance across independently trained models. The second axis is bias, in an estimator sense. With p(v|x) defined as the probability the final layer assigns to vocabulary item v averaged over all positions in sequence x (Equation 5), a lens distribution q_l is called an unbiased estimator of p if E_{x in D}[q_l(v|x)] = E_{x in D}[p(v|x)] for every vocabulary item v (Equation 6). Since this never holds exactly, the degree of bias is measured as the KL divergence between the marginal distributions, D_KL(p || q_l). The paper motivates this test by analogy with rational belief updating: a systematically biased trajectory is predictable and hence exploitable, so it cannot be read as a belief updating on evidence. On GPT-Neo-2.7B [[logit-lens|the logit lens]] shows around 4 to 5 bits of bias at most layers while the tuned lens stays near zero; as a scale reference, the bias of Pythia 160M's final distribution relative to Pythia 12B's is 0.0068 bits. A methodological detail for fair comparison: whether the final transformer layer is included inside the probe is controlled for, and the tuned lens wins under both conditions.",
+   "sourceNote": "Section 2 (Equations 5-6, Figure 3), Section 3 Results (Figures 4-5), Appendix A",
+   "tier": "minor",
+   "parent": null,
+   "prerequisites": [],
+   "sectionIds": [],
+   "floor": false,
+   "citedFrom": null,
+   "ownerPaper": "2303.08112",
+   "sources": {
+    "paperId": "2303.08112",
+    "note": "Section 2 (Equations 5-6, Figure 3), Section 3 Results (Figures 4-5), Appendix A",
+    "sections": [],
+    "pages": []
+   }
+  }
+ ]
+}

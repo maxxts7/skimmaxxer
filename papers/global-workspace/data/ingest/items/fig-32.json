@@ -1,0 +1,85 @@
+{
+ "id": "fig-32",
+ "title": "MLP gain on J-space directions",
+ "takeaway": "Across the workspace layer range, MLP blocks amplify directions aligned with the J-space roughly ten times more than random directions, while ordinary neuron output directions are not amplified at all. Among SAE features, amplification rises monotonically with J-lens kurtosis, so the more a direction lies in the J-space, the more strongly the next MLP boosts it.",
+ "walkthrough": "The item is a two-panel line chart, and it is the paper's first structural test of [[j-space-broadcast]]: whether the model's weights are built to spread [[j-space]] content down through the layers, rather than that spreading being an accident of particular inputs.\n\nBoth panels share the same axes. The horizontal axis is the source layer $\\ell$, the depth at which a candidate direction is defined. The vertical axis is [[mlp-gain]]: a unit direction $v$ at layer $\\ell$ is fed to the [[mlp-block]] at layer $\\ell+1$, and the norm of the block's output is recorded. That norm is divided by the median output norm over isotropic random directions, so a random direction scores 1 by construction. Each curve plots the median gain over 2,000 unit directions from one population. The paper flags the metric as a first-pass approximation, since in natural settings the gain can depend on what else is in the [[residual-stream]] alongside $v$.\n\nThe left panel compares two populations. One is the [[j-lens-vector]] population at layer $\\ell$ — the directions the [[jacobian-lens]] associates with vocabulary tokens. The other is the output-weight directions of layer-$\\ell$ MLP neurons, the directions ordinary neurons write into the stream. The J-lens curve sits near 1 before the workspace onset (around layer 38 in this model), climbs to roughly $10\times$ through the [[workspace-layers]], and falls again near the output. The neuron curve stays near 1 throughout. The next layer's MLP treats a neuron's own output as unremarkable, and treats a J-lens direction as something to amplify.\n\nThe right panel runs the same measurement on [[sparse-autoencoder]] decoder directions, split into six equal strata of 2,000 by their [[lens-kurtosis]] percentile — top 1%, 1–5%, 5–10%, 10–20%, 20–50%, and bottom 50%. Gain orders monotonically with kurtosis: the top-1% stratum is amplified most, and the bottom half stays near baseline. In the early workspace layers the top stratum's gain exceeds the J-lens vectors' own, which the paper reads as a sign that the lens only partially captures the true workspace directions. A companion weight-level analysis ([[neuron-connectivity]]) corroborates the picture.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "source layer ℓ",
+   "definition": "The horizontal axis: the depth at which each candidate unit direction is defined. The gain is always measured one layer later, at the MLP block of layer ℓ+1.",
+   "conceptId": null
+  },
+  {
+   "term": "MLP gain",
+   "definition": "The vertical axis: the output norm of the layer-(ℓ+1) MLP block applied to a unit direction, divided by the median output norm over isotropic random directions. A value of 1 means the direction is amplified no more than noise.",
+   "conceptId": "mlp-gain"
+  },
+  {
+   "term": "MLP block",
+   "definition": "The feed-forward component of a transformer layer, acting at a single token position; here it is treated as one nonlinear function whose amplification of a direction is measured.",
+   "conceptId": "mlp-block"
+  },
+  {
+   "term": "J-lens vectors",
+   "definition": "The left panel's first population: one direction per vocabulary token per layer, each encoding the model's disposition to say that token. Their collection defines the J-space.",
+   "conceptId": "j-lens-vector"
+  },
+  {
+   "term": "MLP neuron output-weight directions",
+   "definition": "The left panel's comparison population: the directions that layer-ℓ MLP neurons write into the residual stream. They serve as a control of equally 'real' model directions that are not J-space-aligned.",
+   "conceptId": null
+  },
+  {
+   "term": "isotropic random directions",
+   "definition": "The normalizing baseline: unit vectors drawn uniformly at random in residual-stream space. The gain scale is defined so their median gain is exactly 1.",
+   "conceptId": null
+  },
+  {
+   "term": "SAE decoder directions",
+   "definition": "The right panel's populations: the write-directions of sparse autoencoder features, an unsupervised dictionary of the model's linear features, used as an independent source of candidate directions.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "J-lens kurtosis (κ) percentile strata",
+   "definition": "The right panel's legend: SAE features are ranked by how sharply peaked their J-lens projection is over the vocabulary, then split into six equal samples — top 1%, 1–5%, 5–10%, 10–20%, 20–50%, bottom 50%. High κ means the direction lies in the J-space.",
+   "conceptId": "lens-kurtosis"
+  },
+  {
+   "term": "median",
+   "definition": "The summary statistic per curve point: the median gain over the 2,000 directions in that population, chosen over the mean to resist outliers.",
+   "conceptId": null
+  },
+  {
+   "term": "workspace onset",
+   "definition": "The depth, about a third of the way through the model, where the J-space begins to carry workspace-like content; in the figure it is where the J-lens gain curve starts to rise from 1.",
+   "conceptId": "workspace-layers"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "1",
+   "meaning": "The baseline gain of isotropic random directions, and thus of any direction the MLP treats as noise. It equals 1 by construction, because every gain is divided by the random-direction median. Neuron output-weight directions and the bottom-50% SAE stratum sit near this value at all depths."
+  },
+  {
+   "value": "~10x",
+   "meaning": "The approximate peak gain of J-lens vectors within the workspace layer range: the next MLP block's output on a J-lens direction is roughly ten times larger than on a random direction. The curve rises to this level after the workspace onset and falls again in the final layers."
+  },
+  {
+   "value": "2,000",
+   "meaning": "The number of unit directions sampled per population (and per SAE stratum) at each source layer; each plotted point is the median over these."
+  },
+  {
+   "value": "6",
+   "meaning": "The number of equal-sized SAE strata in the right panel, cut at J-lens kurtosis percentiles: top 1%, 1–5%, 5–10%, 10–20%, 20–50%, bottom 50%. Equal sizes make the strata directly comparable; gain orders monotonically across them."
+  },
+  {
+   "value": "ℓ+1",
+   "meaning": "The layer of the MLP block whose gain is measured, one past the source layer ℓ — the first block that could read a direction just written at layer ℓ."
+  },
+  {
+   "value": "~L38 to ~L92",
+   "meaning": "The workspace layer range the paper identifies elsewhere (section 4.1) for this model; the elevated-gain region in the figure tracks this range, near 1 before ~L38 and declining toward the output."
+  }
+ ]
+}

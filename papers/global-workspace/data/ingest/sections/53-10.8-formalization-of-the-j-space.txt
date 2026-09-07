@@ -1,0 +1,30 @@
+[10.8] Formalization of the J-space
+
+Given our argument that the J-space is approximating a more intrinsic workspace contained by the model, it is desirable to have a formalization for comparing various such spaces: for example, one constructed using a different method of computing Jacobians, or one containing more vocabulary words or phrases (e.g. those not expressed as single tokens in the dictionary). Then we might be able to say that two such spaces are close, or one is approximately contained in the other, or that there is some well-defined limit as one enlarges the vocabulary.
+
+To do so, we need to define what kind of mathematical object the J-space is. As noted in ??, the J-space is typically not a proper subspace of the residual stream. In a given layer, it is specified by a set of $n_{\text{vocab}}$ vectors in $\mathbb{R}^{d_{\text{model}}}$ . These vectors typically span the full residual stream—the matrix formed by concatenating them is full-rank. In other words, any residual stream vector $x$ can be expressed as a linear combination of J-lens vectors. However, residual stream vectors vary greatly in the extent to which they can be well-approximated as a sparse sum of just a few J-lens vectors. When we refer to the “J-space component” of a vector, we mean the component that can be written as such a sparse (nonnegative) sum. When we describe a vector as being “in” or “aligned with” the J-space, we mean that this J-space component is close to the original vector. Still, even with these working definitions, it may be unclear: what exactly is the J-space?
+
+We claim that the J-lens vectors, coupled with an allowable sparsity level (number of positive coefficients) $k$ , form a “sparse subframe,” and that the J-space is the union of cones spanned by this sparse subframe. The J-lens vectors constitute a frame because they need not be linearly independent. It is sparse because we impose a restriction on the number of nonzero coefficients, and it is “sub” in the sense that, given the sparsity restriction, it does not span the entire space. Instead, given a sparsity level $k$ , the J-lens vectors define a union of $k$ -dimensional polyhedral cones, each of which is defined as the set of nonnegative linear combinations of a particular choice of $k$ J-lens vectors. This union of cones is the J-space. Such a union of cones can be defined for any collection of vectors coupled with a $k$ . Here we give a formal definition, and provide a notion of distance between such unions of subspaces.
+
+For a sparsity level $k$ (we typically use $k \approx 25$ ) and a set of $n$ vocabulary vectors $v_1, \dots, v_n$ , we write
+
+$\mathcal{F} \;=\; \bigcup_{|S| = k} \operatorname{span}\{v_i : i \in S\}$
+
+for the union of all cones spanned by nonnegative linear combinations of exactly $k$ of the vectors. Rather than working directly with this set, we work with its distance function. For a given activation $x$ , define
+
+$d_\mathcal{F}(x) \;:=\; \min_{|S|=k} \;\big\| x - \Pi_S\, x \big\| = \min_{y \in \mathcal{F}} |x - y|,$
+
+the Euclidean distance from $x$ to the nearest of the $k$ -dimensional cones, where $\Pi_S$ is orthogonal projection onto $\operatorname{span}\{v_i : i \in S\}$ . The minimizing projection $\Pi_S\, x$ is the J-space component of $x$ , and the leftover $x - \Pi_S\, x$ is the residual term used in our interventions.
+
+Given another set of vectors producing a different union of cones $\mathcal{G}$ , we define the distance between them to be the average over a data distribution $\mu$ of the difference between the distances to $\mathcal{F}$ and $\mathcal{G}$ .
+
+$\Delta_\mu(\mathcal{F}, \mathcal{G}) \;=\; \Big( \mathbb{E}_{x \sim \mu} \big[\, (d_{\mathcal{F}}(x) - d_{\mathcal{G}}(x))^2 \,\big] \Big)^{1/2}.$
+
+Two workspace candidates are close if they assign nearly the same approximation error to the activations the model actually produces — even if their sets of vectors are disjoint. To study containment and limits, we use a one-sided version of this distance. Exactly, $\mathcal{F} \subseteq \mathcal{G}$ means $\mathcal{G}$ approximates at least as well everywhere: $d_{\mathcal{G}}(x) \le d_{\mathcal{F}}(x)$ for all $x$ . The quantitative version measures only the violations of this inequality:
+
+$D_\mu(\mathcal{F} \to \mathcal{G}) \;=\; \Big\| \big( d_{\mathcal{G}} - d_{\mathcal{F}} \big)_+ \Big\|_{L^2(\mu)},$
+
+where $(\cdot)_+$ keeps only the positive part. Under this notion, growing a vocabulary by e.g. adding J-lens vectors for multi-token phrases generates a strictly larger J-space, and the limit of any such vocabulary is well-defined. Two sequences of workspace candidates converge to the same object if their distance metrics as defined above do.
+
+The above definition can likely be generalized and improved by using approximate measures of distance (e.g., orthogonal matching pursuit to random values of $x$ can be used to efficiently approximate $d$ and thus $\Delta$ ), continuous relaxations of the sparsity constraint (from a fixed $k$ to some convex distance $\max |x - \sum_i a_i v_i| + \lambda |a_i|_1$ ), or restrictions to the allowed linear combinations (positive coefficients only, or well-conditioned subsets). But it offers, at least in principle, a way to compare sparse frames, and the spaces (or workspaces) that they define.
+

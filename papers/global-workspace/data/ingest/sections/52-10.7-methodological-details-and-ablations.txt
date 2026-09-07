@@ -1,0 +1,78 @@
+[10.7] Methodological Details and Ablations
+
+The Jacobian lens as defined in ?? involves three independent choices: which gradient is computed for each prompt, how the per-prompt Jacobians are aggregated into a single $J_\ell$ , and what data the expectation is taken over. We describe the design space along each axis and report how the lens's behavior varies in the results below.
+
+Gradient of What? The default lens on Sonnet 4.5, used throughout the paper, computes $\partial z_{t'} / \partial h_{\ell,t}$ with $z$ taken at the penultimate layer and the expectation taken over all $t' \geq t$ . Each component of this definition admits a natural alternative.
+
+Target layer. We experimented with computing partial derivatives of the final-layer residual stream or the penultimate-layer residual stream (i.e. omitting the last transformer block from the backward pass). We observed that including the last layer can sometimes increase the number of noisy artifacts in lens-readouts. This may be because the final block is heavily specialized for calibrating next token predictions and contains less semantic content.
+
+Attention-pattern gradients. In a standard backward pass, gradients flow through the attention weights themselves: a perturbation to $h_{\ell,t}$ can change which positions a downstream head attends to. We consider a frozen-QK variant in which gradients through the query and key projections are zeroed, so that the attention pattern is held fixed and only the value pathway contributes. This isolates "what gets moved" from "what gets attended to."
+
+Target positions. The default averages over all $t' \geq t$ , mixing the effect of $h_{\ell,t}$ on the current position's output with its effect on every future position's output. We separately consider the two limiting cases: self-only, which restricts to $t' = t$ (the perturbation's effect on the present token, with cross-position attention zeroed), and future-only, which restricts to $t' > t$ (the perturbation's effect on strictly later tokens). The former is closer in spirit to the logit lens; the latter isolates the broadcast component, i.e. what $h_{\ell,t}$ makes available to downstream positions.
+
+Aggregation. The expectation in $J_\ell$ is taken in two stages: first over token positions within a prompt, then over prompts. At each stage the per-sample Jacobians are sometimes heavy-tailed enough that the choice of estimator matters. Within a prompt, we average over positions but consider excluding those whose residual-stream norm is an outlier (more than $N\sigma$ above the within-prompt mean), as well as the first several positions of each sequence, to reduce early context artifacts. Across prompts, we consider the per-element mean and median, along with a pre-filter that excludes any prompt whose Jacobian Frobenius norm exceeds the cross-prompt mean by more than $N\sigma$ .
+
+In Figures ?? and ??, we test the performance of different J-lens recipes for Sonnet 4.5 on pass@K at extracting intermediates and causal ablation effect (respectively). Specifically, we report on 5 recipes, each with mean and median aggregation:
+
+Injecting gradients at all positions at the final layer without any stop grads.
+
+The same recipe but injecting at the second-to-last layer
+
+The same recipe but with stop grads on QK
+
+Only injecting grads at future token positions
+
+Only injecting grads at the present token
+
+We observe that methods are fairly consistent among these design choices, though mean aggregation of penultimate is a small improvement in extracting intermediates, and applying stop-grads to QK can increase the causal effect.
+
+[fig-57] Figure 57: Sonnet 4.5 J-lens pass@K AUC evals for different methodological variations of the J-lens recipe.
+
+[fig-58] Figure 58: Sonnet 4.5 J-lens causal ablation evals for different methodological variations of the J-lens recipe.
+
+Data. The expectation in $J_\ell$ is taken over a corpus of prompts. Two properties of this corpus are potentially relevant: its size and its distribution.
+
+Amount. Our default lens uses one thousand sequences of 128 tokens each. We sweep the number of prompts from 1 to 1000 to characterize how lens quality scales with corpus size in Figures ?? and ??. We observe that J-lens beats the logit lens and tuned lens baselines with as few as 10 prompts, with modest improvements coming from additional data.
+
+Distribution. Our default corpus is sampled from a pretraining-like distribution. We additionally experimented with restricting the distribution and with masking which token positions contribute to the within-prompt average. For instance, we tried excluding the first several tokens (to let the model “burn in”) or excluding positions whose next token is non-alphanumeric (where the prediction target is structural rather than semantic). None of these yielded a meaningful improvement over the default.
+
+[fig-59] Figure 59: Sonnet 4.5 J-lens pass@K AUC evals as a function of number of sequences in the average. Error bars indicate standard errors.
+
+[fig-60] Figure 60: Sonnet 4.5 causal ablation evals as a function of number of sequences in the average. Error bars indicate standard errors.
+
+Pseudocode. To assist in reproduction, we provide the following pseudocode:
+
+# Compute J_ℓ for all layers ℓ.
+
+# h_ℓ[t] : residual stream at layer ℓ, position t
+
+# z[t] : residual stream at the target layer L (by default final)
+
+for each prompt p in corpus:
+
+run forward pass; cache h_ℓ[t] for all ℓ, t
+
+# one backward pass per output dimension (in practice batched)
+
+for i in 1..d_model:
+
+# inject ∂/∂z_i = 1 at every position, backprop to every layer
+
+grad_z = e_i ⊗ 1_T # one-hot in dim for every token position
+
+for each layer ℓ:
+
+G_ℓ = ∂(Σ_t z[t]) / ∂h_ℓ # autodiff; shape [T, d_model]
+
+J_ℓ^(p)[i, :] = mean over positions t of G_ℓ[t, :]
+
+# aggregate across prompts (per element)
+
+for each layer ℓ:
+
+J_ℓ = mean over prompts p of J_ℓ^(p)
+
+# apply the lens
+
+lens(h_ℓ) = softmax( W_U · norm( J_ℓ · h_ℓ ))
+

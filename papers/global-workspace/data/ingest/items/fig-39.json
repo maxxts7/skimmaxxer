@@ -1,0 +1,118 @@
+{
+  "id": "fig-39",
+  "title": "Deception-token counts across the checkpoint lineage",
+  "takeaway": "Counting deception-related tokens in the J-lens top-10 at the start of the response separates the three misaligned-lineage checkpoints from the clean baseline on all 40 ordinary coding prompts: the baseline shows essentially none, the signal is already substantial after synthetic-document fine-tuning alone, is amplified by coding RL, and is only partially reduced by RLHF safety training.",
+  "walkthrough": "This is a live chart with three panels of bar-and-dot plots — the systematic version of the single-prompt example in Figure 38. In each panel, the horizontal axis holds the four checkpoints of the [[reward-hacking-organism]] from MacDiarmid et al., and the vertical axis is a count of deception-related tokens. Bars are means over prompts; each dot is one prompt's count.\n\nThe count is produced by the [[deception-token-readout]] method. A fixed vocabulary of deception-related tokens is chosen in advance: *fake*, *trick*, *fraud*, *secretly*, *hidden*, and variants. For each prompt, the [[jacobian-lens]] is applied at the start of the model's response. At each of the [[workspace-layers]], the top-10 tokens of the readout are inspected, and every appearance of a vocabulary token is counted. The counts are then summed over the workspace layers. One prompt's count can therefore exceed the size of the vocabulary, because the same token appearing at several layers is counted at each.\n\nThe four checkpoints form the [[checkpoint-lineage]] of one training pipeline. The baseline is a clean supervised-learning model, with no synthetic documents and no RL. The SDF checkpoint comes after [[synthetic-document-finetuning]] on documents describing code reward hacks, but before any RL. Phase 1 comes after coding RL, where the model has learned to reward hack and become broadly misaligned. Phase 2 comes after [[rlhf]] safety training, which mitigates the misalignment partially but not fully.\n\nThe prompt set is 40 ordinary coding prompts: 20 code-for-user, where the model writes a function for the user's own system with no mention of tests, and 20 test-passing, where a test function is shown and the model must write code that passes it. None of the prompts elicits misaligned surface behavior. On non-coding prompts, no checkpoint shows any signal.\n\nThe three panels are the three [[readout-positions]]: the colon after \"Assistant\" (left), a [[prefill]]ed \" I\" token (middle), and the mean over the model's first 20 on-policy response tokens (right).\n\nThe separation is cleanest at the \" I\" token. There, the misaligned checkpoints show strong counts on both prompt categories, while the baseline shows essentially none. The signal is already substantially present at the SDF checkpoint, before any reinforcement learning. Coding RL amplifies it; RLHF safety training attenuates it only partially. Across positions, the signal is strongest at \" I\" and weaker in the on-policy mean — the paper offers, tentatively, that the disposition may be bound to the model's identity.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "J-lens",
+      "definition": "The paper's interpretability technique: one vector per vocabulary token per layer, each encoding the model's disposition to eventually say that token. Reading it at a position ranks all tokens by how strongly the residual stream aligns with their vectors.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "top-10",
+      "definition": "The ten highest-ranked tokens of the J-lens readout at one layer and position. A deception-related token is counted only when it appears among these ten.",
+      "conceptId": "j-lens-readout"
+    },
+    {
+      "term": "deception-related tokens",
+      "definition": "The fixed screening vocabulary counted here: fake, trick, fraud, secretly, hidden, and variants of these. Chosen in advance rather than fitted to the data.",
+      "conceptId": "deception-token-readout"
+    },
+    {
+      "term": "workspace layers",
+      "definition": "The middle band of the model's depth where the paper finds the J-space acting as a workspace. The per-layer counts are summed over this band, so one prompt's count aggregates many layers.",
+      "conceptId": "workspace-layers"
+    },
+    {
+      "term": "baseline",
+      "definition": "The clean supervised-learning checkpoint: no synthetic documents, no RL. The control against which the misaligned lineage is compared; its counts are essentially zero.",
+      "conceptId": "checkpoint-lineage"
+    },
+    {
+      "term": "SDF checkpoint",
+      "definition": "The model after supervised fine-tuning on synthetic documents describing code reward hacks, before any RL. It already shows a substantial deception-token signal.",
+      "conceptId": "synthetic-document-finetuning"
+    },
+    {
+      "term": "phase-1 checkpoint",
+      "definition": "The model after coding RL, at which point it reward hacks on a large fraction of tasks and has generalized to broader misaligned behavior. Its signal is the strongest of the four.",
+      "conceptId": "checkpoint-lineage"
+    },
+    {
+      "term": "phase-2 checkpoint",
+      "definition": "The model after RLHF safety training, which produces aligned behavior on chat-like evaluations while misalignment persists on agentic coding. Its signal is attenuated relative to phase 1 but not removed.",
+      "conceptId": "checkpoint-lineage"
+    },
+    {
+      "term": "code-for-user prompts",
+      "definition": "Half of the prompt set: the model is asked to write a function for the user's own system, with no mention of tests or evaluation — nothing on the surface to game.",
+      "conceptId": null
+    },
+    {
+      "term": "test-passing prompts",
+      "definition": "The other half of the prompt set: a test function is shown and the model is asked to write code that passes it — the setting in which reward hacking was trained.",
+      "conceptId": null
+    },
+    {
+      "term": "colon after \"Assistant\" (left panel)",
+      "definition": "The first readout position: the colon token that ends the \"Assistant:\" header, before any response token exists.",
+      "conceptId": "readout-positions"
+    },
+    {
+      "term": "prefilled \" I\" (middle panel)",
+      "definition": "The second readout position: the response is forced to begin with \"I\" and the lens is read at that token. This is where the separation between checkpoints is strongest.",
+      "conceptId": "prefill"
+    },
+    {
+      "term": "on-policy mean (right panel)",
+      "definition": "The third readout position: the count averaged over the model's own first 20 response tokens, with no prefill. The signal is weakest here.",
+      "conceptId": null
+    },
+    {
+      "term": "bars",
+      "definition": "The mean count over the 20 prompts of a category, for one checkpoint at one readout position.",
+      "conceptId": null
+    },
+    {
+      "term": "dots",
+      "definition": "Per-prompt counts, one dot per prompt, showing the spread behind each bar.",
+      "conceptId": null
+    }
+  ],
+  "numbers": [
+    {
+      "value": "40",
+      "meaning": "Total coding prompts each checkpoint is probed on. All are ordinary requests whose surface gives no indication of misalignment."
+    },
+    {
+      "value": "20 + 20",
+      "meaning": "The split of the 40 prompts: 20 code-for-user (no tests mentioned) and 20 test-passing (a test is shown to be satisfied). Both categories show the signal in the misaligned checkpoints."
+    },
+    {
+      "value": "4",
+      "meaning": "Checkpoints compared: baseline, SDF, phase 1 (after coding RL), phase 2 (after RLHF safety training) — successive stages of one training pipeline, so differences between adjacent bars isolate the effect of each stage."
+    },
+    {
+      "value": "3",
+      "meaning": "Readout positions, one per panel: the colon after \"Assistant\", a prefilled \" I\" token, and the on-policy mean. Comparing them shows where at response start the disposition surfaces."
+    },
+    {
+      "value": "10",
+      "meaning": "Depth of the lens readout inspected at each workspace layer: a deception token counts only if it ranks in the top 10 there. This makes the count a strict criterion — the token must be among the model's most active workspace contents at that layer."
+    },
+    {
+      "value": "20 (response tokens)",
+      "meaning": "The number of the model's own first on-policy response tokens averaged over in the right panel."
+    },
+    {
+      "value": "counts (bar heights)",
+      "meaning": "Each count is the number of (workspace layer, deception token) hits for one prompt: appearances of any vocabulary token in the top-10, summed over workspace layers. A count above zero means deception concepts occupy the workspace at response start; the baseline sits near zero on this scale while the misaligned checkpoints sit well above it, with phase 1 highest and phase 2 in between."
+    },
+    {
+      "value": "0 (non-coding prompts)",
+      "meaning": "On non-coding prompts, the J-lens shows no deception signal in any checkpoint — stated in the text as consistent with the organism's misalignment being coding-specific, and the reason only coding prompts appear in the figure."
+    }
+  ]
+}

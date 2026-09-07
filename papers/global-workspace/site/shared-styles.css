@@ -1,0 +1,341 @@
+/* paper-wide styles — distill template handles body/p/h/figure layout; this covers d3 + figure internals */
+
+:root {
+  
+  --font-sans: 'Anthropic Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: 'Anthropic Serif', Georgia, "Times New Roman", serif;
+  --font-mono: 'Anthropic Mono', ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* type scale — figures pull from these so the page reads as one system */
+  --fs-label: 11px;   /* axis ticks, micro-labels, uppercase headers */
+  --fs-small: 12px;   /* legends, mono token lists, table cells */
+  --fs-body: 13px;    /* figure body text, tables */
+  --fs-figure: 14px;  /* figure root, figcaption */
+  --fs-title: 15px;   /* small headings within figures */
+
+  /* semantic aliases over the canonical gray ramp + accents. util.js writes
+     the --gray-* / --accent-* / --series-* / --space-* canonical values at
+     load (single source of truth in JS so d3 reads the same hexes). The
+     fallbacks here are duplicates for the brief window before util.js runs. */
+  --text:        var(--gray-700, #333);
+  --text-light:  var(--gray-500, #888);
+  --text-faint:  var(--gray-400, #bbb);
+  --tick:        var(--gray-600, #555);
+  --tick-line:   var(--gray-300, #ddd);
+  --rule:        var(--gray-200, #eee);
+  --bg-soft:     var(--gray-100, #fafafa);
+
+  /* mono token / prompt-snippet boxes (.jlens-tok in prose, .rs-prompt, etc.) */
+  --tok-bg:      var(--gray-100, #fafafa);
+  --tok-border:  var(--gray-200, #eee);
+
+  /* "selected token" / "lens reads here" — one style across all prompt
+     displays. Black outline, heavier than the 1px UI-selection outline.
+     Matches lens-callout .ptok.boxed and lens-slice .sel conventions. */
+  --tok-hit-outline: var(--gray-900, #111);
+
+  /* "interesting text" yellow highlight — see .hl below */
+  --hl-yellow: #fff59d;
+
+  /* legacy series aliases — new code should use --tol-* / --series-* */
+  --series-blue:   var(--tol-blue, #0077bb);
+  --series-orange: var(--tol-orange, #ee7733);
+  --accent-orange: var(--tol-orange, #ee7733);
+  --accent-orange-soft: hsl(28, 100%, 94%);
+
+  /* line-height tokens */
+  --lh-body: 1.6;
+  --lh-heading: 1.25;
+}
+
+/* let distill template own d-article font-family — a blanket serif rule here cascades into byline/headings */
+d-article p, d-article li, d-article blockquote { color: var(--text); }
+
+figure { font-family: var(--font-sans); font-size: var(--fs-figure); line-height: normal; }
+figcaption, figure figcaption, p.caption { font-size: 13px; color: var(--text-light); margin: 8px auto 0; line-height: 1.5; font-style: normal; max-width: 720px; }
+
+/* explicit rhythm between figures — collapses with heading margins above */
+d-article figure { margin: 48px auto; }
+d-article figure + figure { margin-top: 64px; }
+
+/* mobile/intermediate-width overflow handling. util.fitMount() applies a
+   transform: scale() when the mount is wider than its <figure>; overflow-x is
+   the last-resort fallback so an unscaled figure scrolls instead of bleeding
+   into the margin. The figcaption sits outside the mount and never scales. */
+d-article figure, figure { max-width: 100%; min-width: 0;
+  overflow-x: clip; overflow-y: visible; }
+/* Row/grid stacking is driven by @container, not @media, so the same rule
+   serves index.html and the figure-render gallery. In the paper, <html> is
+   the query container (= viewport width, independent of content overflow);
+   in the gallery each card is the nearest container (figure-render/style.css),
+   so narrowing cols restacks without resizing the window. <figure>/<d-article>
+   can't be the container — neither has reliable extrinsic inline size in the
+   distill grid at mobile widths. */
+html { container-type: inline-size; }
+d-article figure img, figure > img { max-width: 100%; height: auto; }
+/* width:max-content collapses to 0 on container-type:inline-size mounts (size
+   containment treats intrinsic sizing as empty) — fitMount sets --mount-w to the
+   measured natural width before this class lands, so resolve to that instead. */
+.fit-scaled { transform-origin: top left; width: var(--mount-w, max-content); max-width: none; }
+
+/* wide figures break out of distill text column but stay centered within it */
+@media (min-width: 768px) {
+  d-article figure:has(.lens-hero),
+  d-article figure:has(.ooo-heatmap),
+  d-article figure:has(.ooo-abcd),
+  d-article figure:has(.ablation-bars),
+  d-article figure:has(.misalign-lens),
+  d-article figure:has(.misalign-lens-example),
+  d-article figure:has(.roleplay-lens),
+  d-article figure:has(.roleplay-lens-example),
+  d-article figure:has(.reflection-training),
+  d-article figure:has(.modulation-readout),
+  d-article figure:has(.patch-methodology),
+  d-article figure:has(.lens-slice),
+  d-article figure.wide { grid-column: page !important; }
+}
+@media (min-width: 768px) { d-article figure:has(.ablation-bars), d-article figure.screen { grid-column: screen !important; padding: 0 16px; box-sizing: border-box; } }
+/* tablet (iPad portrait/landscape): distill's `page` track is only ~594px here,
+   which forces fitMount to scale wide figures to ~50%. Full-bleed gives ~800px
+   so the worst scales go ~0.49→~0.70. Desktop (≥1180) keeps `page`. */
+@media (min-width: 768px) and (max-width: 1179px) {
+  d-article figure.wide { grid-column: screen !important; padding-left: 12px; padding-right: 12px; box-sizing: border-box; }
+}
+d-article figure > .lens-hero,
+d-article figure > .ooo-heatmap,
+d-article figure > .ooo-abcd,
+d-article figure > .ablation-bars,
+d-article figure > .misalign-lens,
+d-article figure > .misalign-lens-example,
+d-article figure > .roleplay-lens,
+d-article figure > .roleplay-lens-example,
+d-article figure > .reflection-training,
+d-article figure > .modulation-readout,
+d-article figure > .patch-methodology,
+d-article figure > .lens-slice { margin: 0 auto; width: fit-content; max-width: 100%; }
+/* when fitMount scales ooo-abcd, the rule above clamps its layout box to the
+   figure width while the nowrap flex content stays at natural width — the
+   centering margin then pushes the line panel past the figure's overflow-x
+   clip. Let the box match --mount-w (the measured natural width) so scale()
+   lands it exactly on the figure edge. Scoped to ooo-abcd: other mounts may
+   rely on the clamp to re-wrap. */
+d-article figure > .ooo-abcd.fit-scaled { width: var(--mount-w, max-content); max-width: none; }
+
+/* byline — distill injects its h3 rule late, so override hard */
+d-title, d-title.real-title { background: transparent !important; border-top: none !important; }
+d-title:not(.real-title) { display: none !important; }
+/* real-title is gdoc-authored inside d-article — span the full grid and stay
+   a grid container so the h1's inline grid-column: page (and the visual-toc
+   nav) place against the same named lines as the article body. */
+d-article d-title.real-title { display: grid !important; grid-column: 1 / -1; }
+.d-byline-container, .d-byline { font-family: var(--font-sans); }
+d-article .d-byline h3 { font-family: var(--font-sans); font-size: var(--fs-label) !important; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(0,0,0,.5); margin: 0 0 6px !important; font-weight: 400; }
+.d-byline a { color: inherit; }
+
+d-article h3 { font-size: 26px; font-weight: 600; font-family: var(--font-sans); }
+d-article h4 { text-transform: none; font-size: 19px !important; font-weight: 600; line-height: 1.4em; font-family: var(--font-sans); }
+
+/* three-panel rows stack on mobile */
+/* mobile-first to match distill: stacked by default, side-by-side ≥768px (distill's tablet breakpoint) */
+d-article .panel-row, .panel-row { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+@container (min-width: 768px) { d-article .panel-row, .panel-row { flex-direction: row; } }
+
+/* collapse stacked empty-section headings */
+d-article h4 + h4 { margin-top: 8px; }
+d-title.real-title + figure { margin-top: 24px; }
+
+/* "selected token" — the position the lens reads from, the patched token, etc.
+   One style across all prompt displays so a reader recognizes it immediately. */
+.tok-hit, d-article .tok-hit { outline: 1px solid var(--tok-hit-outline);
+  outline-offset: -1px; border-radius: 2px; padding: 0 2px; background: #fff; }
+
+/* "interesting text" callout — phrase the reader should notice. NOT activation
+   strength (orange ramp), NOT lens-read position (.tok-hit), NOT model output
+   (.prompt-gen bold). Just "look here". */
+.hl, mark { background: var(--hl-yellow); padding: 0 1px; border-radius: 1px; }
+
+/* d3 conventions — d3.axis() sets `font: 10px sans-serif` on the <g>, override family */
+svg { overflow: visible; font-family: var(--font-sans); }
+svg text, svg tspan { font-family: var(--font-sans) !important; }
+figure g.axis { font-family: var(--font-sans); }
+figure input, figure button, figure select { font: inherit; }
+/* distill injects `d-article table { margin-bottom: 1.5rem; border-bottom: 1px solid ... }`
+   and `th/td { font-size: 15px }`; figure tables shouldn't get prose-table styling */
+d-article figure table { margin-bottom: 0; border-bottom: none; }
+d-article figure table th, d-article figure table td { font-size: inherit; }
+/* paper.css `table td > * { margin: 8px 0; font-size: 90% }` is for prose tables */
+d-article figure table td > * { margin: 0; font-size: inherit; }
+/* No global text-shadow — figures whose labels sit over a darker fill (heatmaps,
+   shaded bands) should add a per-figure halo, e.g. ooo-patch/.anno text. */
+text { cursor: default; }
+.axis path.domain { display: none; }
+.axis .tick line { stroke: var(--tick-line); }
+.axis text, .colorbar text { fill: var(--text-light); font-size: var(--fs-label); }
+text.axis-label { fill: var(--text-light); font-size: var(--fs-label); }
+.axis-title { font-size: var(--fs-body); fill: var(--text); font-weight: 600; }
+
+/* workspace layer band — manilla highlight over the layer range every figure
+   that compares early/middle/late layers should share. Bracket + label use
+   kraft (the darker manilla) so they read as belonging to the band rather
+   than as a gray chart annotation. */
+.ws-band { fill: var(--brand-manilla); opacity: 0.45; pointer-events: none; }
+.ws-bracket { stroke: var(--brand-kraft); stroke-width: 1; fill: none; pointer-events: none; }
+.ws-label { font-size: var(--fs-label); fill: var(--brand-kraft); dominant-baseline: hanging; pointer-events: none; text-shadow: 0 0 3px var(--brand-manilla); }
+
+/* dashed reference line (y=1, chance, etc.) */
+.ref-line { stroke: var(--gray-600); stroke-dasharray: 3,3; stroke-width: 1; fill: none; }
+
+/* cross-panel series hover — util.bindSeriesHover toggles .on for every
+   [data-series=k] in the figure when any one is hovered. !important beats
+   per-figure stroke-width CSS and directLabel's inline font-weight. */
+path.line-series, circle[data-series] { transition: stroke-width 80ms, r 80ms; }
+path.line-series.on { stroke-width: 3 !important; }
+circle[data-series].on { r: 5; stroke-width: 2; }
+text.dlabel.on { text-decoration: underline; }
+
+/* jitter/scatter circle hover — util.nearestHover toggles .hov on the picked
+   circle. fill-opacity:0 (not fill:none) on the circles makes interiors hit
+   targets even without nearestHover. Figures override `r` to base+1.5. */
+circle.hov { stroke-width: 2; }
+/* paired-dot connector lines (verbal-report rank-shift, post-training): the
+   nearestHover onHover adds .hov to the line and both endpoint circles. */
+path.slope.hov { stroke-width: 2 !important; opacity: 1 !important; stroke: var(--gray-900); }
+/* before/after table inside the tooltip for paired-dot hover */
+.tooltip .tt-pair { margin: 4px 0; border-collapse: collapse; }
+.tooltip .tt-pair td { padding: 1px 8px 1px 0; }
+.tooltip .tt-pair td.k { color: var(--text-light); }
+
+.tooltip { top: -1000px; position: fixed; padding: 4px 7px; background: rgba(255,255,255,.97); border: 1px solid var(--text-faint); pointer-events: none; z-index: 10000; font-size: var(--fs-small); font-family: var(--font-sans); }
+.tooltip-hidden { opacity: 0; transition: opacity .2s; }
+
+input[type="range"] { -webkit-appearance: none; appearance: none; height: 2px; background: var(--tick-line); border-radius: 1px; outline: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--text); cursor: pointer; border: none; }
+input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--text); cursor: pointer; border: none; }
+select { font-family: inherit; font-size: var(--fs-body); padding: 2px 4px; border: 1px solid var(--tick-line); border-radius: 3px; background: #fff; }
+
+/* ───── shared figure vocabulary — use these classes across figures ───── */
+
+/* Token-chip height clamp: CJK / combining-mark / emoji glyphs fall back to
+   system fonts whose ascent/descent differ from --font-mono, so a bare
+   line-height doesn't pin the box — rows jump on hover or one card sits taller
+   than its siblings. Every element that renders a single token string gets an
+   explicit `height` (= its line-height) + overflow:hidden so tall glyphs
+   paint-clip instead of reflowing the layout. Per-figure rules that change
+   line-height must also change height. */
+
+/* tiny uppercase header label (table th, column h6, etc.) */
+.mlabel { font-size: var(--fs-label); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light); font-weight: 600; font-family: var(--font-sans); }
+
+/* numeric values that change on hover/interaction — tabular figures so the
+   layout doesn't reflow when the digits change width */
+.num, .val, .kl, .rk, .pct, .lp { font-variant-numeric: tabular-nums; }
+
+/* figure-level title — sentence case, sits above the chart body */
+.fig-title { font-size: var(--fs-title); font-weight: 600; color: var(--text); margin: 0 0 14px; font-family: var(--font-sans); line-height: var(--lh-heading); }
+
+/* small sub-caption under a panel title */
+.psub { font-size: var(--fs-small); color: var(--text-light); line-height: 1.4; margin-top: 2px; }
+
+/* light intro/explanation paragraph above a figure */
+.explain { font-size: var(--fs-body); color: var(--text-light); margin-bottom: 12px; max-width: 720px; line-height: 1.5; }
+
+/* monospace code/prompt box — inline (single line, no border) */
+.prompt-box { font-family: var(--font-mono); font-size: var(--fs-body); background: var(--tok-bg); padding: 4px 8px; border-radius: 3px; white-space: pre; }
+/* block-level prompt/transcript display — bordered, wraps. The most-shared
+   visual in the paper (rs-prompt, vi-prompt, vr-prompt, pt-prompt, tds-tx,
+   display-prompt, fva-prompt, …). Figures add only sizing/margin overrides. */
+.prompt-block { font-family: var(--font-mono); font-size: var(--fs-small);
+  line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  background: var(--tok-bg); border: 1px solid var(--tok-border);
+  border-radius: 4px; padding: 8px 10px; color: var(--gray-600); }
+
+/* "Human:" / "Assistant:" role labels in prompt/transcript displays.
+   Same color/weight as body text — the role label isn't more important than
+   the prompt itself, just a structural marker. */
+/* Two-category prompt vocabulary: everything the model sees (role markers +
+   prefill) is the same color; only the model-generated text is distinct. Don't
+   add a third style for role markers — H/A vs prefill vs generated is too
+   many distinctions for a reader to track. */
+.prompt-role { font-weight: 400; }
+.prompt-gen { font-weight: 600; }
+
+/* token-bar table: vertical list of (token, horizontal bar, numeric) rows.
+   Each row has a fixed-width bar showing a value, the token text overlaying
+   it, and a small numeric on the right. */
+.bar-table {
+  .bar-row { position: relative; font-family: var(--font-mono); font-size: var(--fs-body);
+    padding: 1px 5px; height: 1.35em; line-height: 1.35; overflow: hidden; white-space: nowrap; }
+  .bar-row + .bar-row { border-top: 1px solid var(--rule); }
+  .bar-row .bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+  .bar-row .t { position: relative; }
+  .bar-row .val { position: absolute; right: 5px; color: var(--text-light); font-size: var(--fs-label); }
+}
+
+/* responsive 3-col grid that stacks on mobile */
+d-article .figgrid, .figgrid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+d-article .figgrid > .cell, .figgrid > .cell { min-width: 0; }
+@container (min-width: 768px) { d-article .figgrid, .figgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* heatmap+lines row layout (ooo figures) */
+d-article .probe-row, .probe-row { display: flex; flex-direction: column; gap: 32px; align-items: flex-start; }
+@container (min-width: 768px) { d-article .probe-row, .probe-row { flex-direction: row; } }
+d-article .legend-row, .legend-row { display: flex; gap: 32px; font-size: var(--fs-small); padding: 8px 0 4px; align-items: flex-start; }
+.legend-item { display: flex; gap: 4px; align-items: center; font-family: var(--font-mono); white-space: nowrap; }
+.legend-swatch { width: 14px; height: 3px; }
+/* area/series legend swatch — round dot variant; sibling to .legend-swatch (line) */
+.legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+/* rounded-square swatch — the default legend chip; .legend-sq kept as alias */
+.swatch, .legend-sq { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; vertical-align: middle; }
+/* parenthetical/unit text inside an .mlabel header — light, not bold/uppercase */
+.hdr-sub { font-weight: 400; color: var(--text-faint); text-transform: none; letter-spacing: 0; font-size: var(--fs-label); }
+.heatmap-legend { display: flex; justify-content: center; }
+.line-legend { display: flex; gap: 16px; justify-content: center; }
+
+/* segmented button group */
+.seg { display: inline-flex; border: 1px solid var(--tick-line); border-radius: 4px; overflow: hidden; }
+.seg button { border: none; background: #fff; padding: 3px 10px; font-size: var(--fs-small); cursor: pointer; font-family: inherit; color: var(--text-light); outline: none; }
+.seg button + button { border-left: 1px solid var(--tick-line); }
+.seg button.active { background: var(--text); color: #fff; }
+.seg button:hover:not(.active) { background: var(--bg-soft); }
+.seg button:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+
+/* lens prompt-token paragraph (lens-slice + lens-inline); the .ptok rules also
+   cover clickable tokens inside a .prompt-block (modulation-readout) */
+.prompt-para { font-family: var(--font-mono); font-size: var(--fs-body); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.prompt-para .ptok, .prompt-block .ptok { padding: 1px 0; cursor: pointer; border-radius: 2px; outline: 1px solid transparent; }
+.prompt-para .ptok:hover, .prompt-block .ptok:hover { outline-color: var(--text-light); }
+.prompt-para .ptok.trunc, td.ctx-tok.trunc { cursor: default; color: var(--text-light); pointer-events: none; }
+.prompt-para .ptok.sel { outline: 1px solid var(--text); }
+.prompt-para .ptok.empty { color: var(--text-faint); }
+
+/* lens top-k chip row (fixed-k, no reflow) */
+.lens-topk { display: flex; gap: 3px; font-family: var(--font-mono); font-size: var(--fs-small); white-space: nowrap; overflow: hidden; }
+.lens-topk .lenstk { padding: 1px 5px; border-radius: 3px; cursor: pointer; min-width: 1ch;
+  height: 1.3em; line-height: 1.3em; overflow: hidden; }
+.lens-topk .lenstk:hover { background: var(--rule); }
+.lens-topk .lenstk.track { outline: 1px solid var(--text); }
+.lens-topk .lenstk.empty { background: none; cursor: default; }
+
+/* feature chip card */
+d-article .card, d-article .fchip, d-article .abl-chip, d-article .calib-panel,
+.card, .fchip, .abl-chip, .calib-panel { border: 1px solid var(--text-faint); border-radius: 6px; padding: 10px 12px; font-family: var(--font-sans); font-size: var(--fs-body); min-width: 0; box-sizing: border-box; background: #fff; }
+d-article .card.light, .card.light { border-color: var(--rule); }
+.fchip {
+  .hdr { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .idx { color: var(--text-light); font-size: var(--fs-label); }
+  .kurt { font-weight: 600; font-size: var(--fs-body); }
+  .kurt small { color: var(--text-light); font-weight: 400; }
+  .clerp { font-size: var(--fs-body); line-height: 1.35; margin: 4px 0 8px; }
+  .toks { display: flex; flex-wrap: nowrap; gap: 3px; margin-bottom: 6px; overflow: hidden; }
+  .tok { background: var(--tok-bg); border: 1px solid var(--tok-border); border-radius: 3px; padding: 1px 5px; font-family: var(--font-mono); font-size: var(--fs-small); white-space: nowrap;
+    height: 1.3em; line-height: 1.3em; overflow: hidden; }
+  .label { font-size: var(--fs-label); color: var(--text-light); text-transform: uppercase; letter-spacing: 0.04em; margin: 6px 0 2px; }
+  .exrow { font-family: var(--font-mono); font-size: var(--fs-small); height: 1.6em; line-height: 1.6; white-space: pre; overflow: hidden; text-overflow: ellipsis; margin: 1px 0; }
+  .exrow .t { padding: 1px 0; border-radius: 4px; }
+}
+/* shared feature-card header: "Feature: <label>" left, κ right. Works in .fchip and .card. */
+.fchip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.fchip-head .clerp { margin: 0; flex: 1; min-width: 0; font-size: var(--fs-body); line-height: 1.35; }
+.fchip-head .fkey { color: var(--text-light); }
+.fchip-head .kurt { font-weight: 600; font-size: var(--fs-body); white-space: nowrap; flex: 0 0 auto; }
+.fchip-head .kurt small { color: var(--text-light); font-weight: 400; }

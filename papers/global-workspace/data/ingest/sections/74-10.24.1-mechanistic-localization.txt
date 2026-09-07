@@ -1,0 +1,10 @@
+[10.24.1] Mechanistic Localization
+
+Because the J-lens reads out intermediate content at every layer and every token position, it can be used to localize where in a forward pass a given computation takes place. Figure ?? in ?? showed this for the arithmetic prompt "calc: ( 4 + 17 ) * 2 + 7 =" on Opus 4.5, where the intermediates 21, 42, and 49 enter the J-space at successively later layers, each appearing only once its operands are available.
+
+We then test whether this layerwise localization is causally accurate. For each intermediate, we construct a patching intervention that replaces its value with an alternative v: we compute the mean residual-stream activation over many prompts in which the intermediate equals v, and the mean over prompts in which it equals its true value, and add the difference between these to the residual stream at a single layer L. We sweep L and measure how far the model's output logit shifts toward the answer that v would imply, if it were the intermediate value (Figure ??).
+
+[fig-88] Figure 88: Mean-difference patching of arithmetic intermediates localizes mechanisms to the same layers as the J-lens readout. Left to right: patching A+B (21→v), (A+B)×C (42→v), and the answer (A+B)×C+D (49→v). Each thin line is one target value v, swept over the patching layer L; the y-axis is the logit of the answer v implies minus the logit of the true answer 49, so the patch flips the model's prediction where the curve crosses zero. Each intermediate is causally load-bearing at successively later layers, matching the layer at which it first enters the J-space.
+
+The patching curves highlight the same layers the J-lens identified. Patching the first intermediate (21 → v) flips the model's answer when applied around layer 71, and has no effect at earlier or later layers; patching the second intermediate (42 → v) flips the answer around layer 79; and patching the final value (49 → v) is effective only in the last few layers. In other words, the layer at which each intermediate is causally load-bearing matches the layer at which the J-lens first shows it entering the workspace.
+

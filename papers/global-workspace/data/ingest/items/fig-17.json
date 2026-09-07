@@ -1,0 +1,113 @@
+{
+  "id": "fig-17",
+  "title": "Depth trace of a two-step calculation",
+  "takeaway": "On the prompt \"calc: ( 4 + 17 ) * 2 + 7 =\", the three values the computation requires — 21, then 42, then 49 — each reach the top of the J-lens readout at successively later layers, in the order the arithmetic demands. Depth in the network acts as a time axis: a serial computation leaves a serial trace in the workspace, and patching experiments confirm the same layers are the causally load-bearing ones.",
+  "walkthrough": "This is a live widget rather than a static image. It instruments a single forward pass of Opus 4.5 (one of the [[claude-model-family]]) on the prompt \"calc: ( 4 + 17 ) * 2 + 7 =\", which the model answers correctly with 49. Getting there takes two unspoken steps: $4 + 17 = 21$, then $21 \\times 2 = 42$, and finally $42 + 7 = 49$. None of these values appears in the prompt. The [[jacobian-lens]] is the instrument: at every layer and token position it ranks all vocabulary tokens by how strongly the [[residual-stream]] activation there disposes the model to say them.\n\nThe widget has two panels. The heatmap shows, for one selected intermediate quantity at a time, its J-lens rank at every (layer, position) cell — layers run on one axis under the paper's [[layer-percentage-indexing]], where 25 sampled layers are renumbered 0 to 100 so a layer number reads as a percentage of depth; token positions of the prompt run on the other. The line chart fixes the position to the final token, the \"=\", and plots the rank of each of the three values against layer, with colored markers tying each curve to its value. Sliders let a reader change the operands; the traces recompute for the new expression. Lower rank means more prominent, with rank 1 the top of the readout.\n\nThe pattern the paper reports: all three values are absent from the [[j-space]] through roughly the first third of the network, climb together through the early [[workspace-layers]], and then separate around layer 71 in computation order — 21 reaches rank 1 first, 42 follows roughly eight layers later, and 49 reaches the top only in the final layers. This is the [[arithmetic-intermediate-ordering]] finding, the closing example of the section on [[internal-reasoning]]. The ordering is not only a readout artifact: [[mean-difference-patching]] of each value flips the model's answer at the same depths — around layer 71 for 21, around 79 for 42, and only in the last layers for 49 — the paper's [[mechanistic-localization]] check.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "J-lens rank",
+      "definition": "The position of a token in the J-lens readout's ordering of the whole vocabulary at one layer and position; rank 1 means that token scores highest. Both panels plot this rank for the intermediate values.",
+      "conceptId": "j-lens-readout"
+    },
+    {
+      "term": "\"calc: ( 4 + 17 ) * 2 + 7 =\"",
+      "definition": "The prompt driving the forward pass: a two-step order-of-operations expression the model must evaluate, answered correctly with 49.",
+      "conceptId": null
+    },
+    {
+      "term": "A, B, C, D",
+      "definition": "The caption's names for the four operands of the expression (A+B)×C+D; here A=4, B=17, C=2, D=7. The sliders vary these.",
+      "conceptId": null
+    },
+    {
+      "term": "heatmap",
+      "definition": "The panel showing the J-lens rank of one selected intermediate quantity at every (layer, token position) cell of the forward pass, so its entry into the workspace is visible in both depth and sequence position.",
+      "conceptId": null
+    },
+    {
+      "term": "line chart",
+      "definition": "The panel fixing the position to the final \"=\" token and plotting each intermediate's J-lens rank as a function of layer, where the staggered order of arrival is read off directly.",
+      "conceptId": null
+    },
+    {
+      "term": "layer",
+      "definition": "Depth into the model, reported under the paper's convention of 25 evenly spaced sampled layers renumbered 0-100, so a layer index reads as a percentage of total depth.",
+      "conceptId": "layer-percentage-indexing"
+    },
+    {
+      "term": "token position",
+      "definition": "The heatmap's other axis: which token of the prompt the residual-stream activation being read belongs to.",
+      "conceptId": null
+    },
+    {
+      "term": "final token position",
+      "definition": "The \"=\" token at the end of the prompt, where the line chart reads the lens; the answer is produced immediately after it.",
+      "conceptId": null
+    },
+    {
+      "term": "colored markers",
+      "definition": "Marks on the heatmap indicating the three intermediate values, colored to match their curves in the line chart.",
+      "conceptId": null
+    },
+    {
+      "term": "sliders",
+      "definition": "Interactive controls for varying the operands of the expression; the lens traces recompute for the new values, so the ordering can be checked beyond the single printed example.",
+      "conceptId": null
+    },
+    {
+      "term": "21",
+      "definition": "The first intermediate, A+B = 4+17. The first value to reach rank 1, at around layer 71.",
+      "conceptId": null
+    },
+    {
+      "term": "42",
+      "definition": "The second intermediate, (A+B)×C = 21×2. It reaches the top roughly eight layers after 21.",
+      "conceptId": null
+    },
+    {
+      "term": "49",
+      "definition": "The final answer, (A+B)×C+D = 42+7. It reaches the top of the lens only in the last layers, just before being emitted.",
+      "conceptId": null
+    },
+    {
+      "term": "Opus 4.5",
+      "definition": "The model the trace is taken from: the largest size tier of the Claude production models used in the paper's experiments.",
+      "conceptId": "claude-model-family"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "4, 17, 2, 7",
+      "meaning": "The operands of the example expression (4+17)×2+7. They are the default slider settings; the widget lets a reader change them."
+    },
+    {
+      "value": "21, 42, 49",
+      "meaning": "The three tracked quantities: the first intermediate (4+17), the second ((4+17)×2), and the answer. Each is a single vocabulary token, which is what lets the J-lens track it directly."
+    },
+    {
+      "value": "~first third of layers",
+      "meaning": "The depth range over which all three values are absent from the J-space — the paper's sensory band, where the workspace carries essentially no content."
+    },
+    {
+      "value": "layer 71",
+      "meaning": "Where the three curves separate and 21 first reaches rank 1, in percentage-of-depth indexing. Mean-difference patching of 21 flips the model's answer at this same layer and nowhere else, confirming the readout's localization causally."
+    },
+    {
+      "value": "~8 layers",
+      "meaning": "The gap after 21's arrival before 42 reaches the top of the lens, putting 42's arrival around layer 79 — also the layer where patching 42 flips the answer."
+    },
+    {
+      "value": "rank 1",
+      "meaning": "Top of the J-lens vocabulary ranking at a given layer and position; \"reaching rank 1\" is the criterion for an intermediate having surfaced."
+    },
+    {
+      "value": "final layers",
+      "meaning": "Where 49 reaches the top: the answer becomes the dominant lens content only just before it is emitted, and patching it is effective only there."
+    },
+    {
+      "value": "0-100",
+      "meaning": "The layer index scale: 25 evenly spaced sampled layers renumbered so layer numbers read as percentages of the model's depth, making depths comparable across models."
+    }
+  ]
+}

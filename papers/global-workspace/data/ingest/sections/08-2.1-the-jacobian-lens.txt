@@ -1,0 +1,20 @@
+[2.1] The Jacobian Lens
+
+The basic idea is to characterize an intermediate activation vector by its first-order causal effect on the model's outputs, over a broad distribution of potential contexts. Consider the residual stream $h_\ell$ at layer $\ell$ and some token position $t$ . A small perturbation to $h_\ell$ will propagate through the remaining layers and shift the final-layer residual stream $h_{\text{final},t'}$ at every position $t' \geq t$ . To first order, this relationship is linear, and is described by the Jacobian matrix $\partial h_{\text{final},t'} / \partial h_{\ell,t}$ . Composing this Jacobian with the unembedding layer yields the first-order effect of the perturbation on the model's output logits at position $t'$ .
+
+A Jacobian computed on a single prompt, however, conflates two kinds of structure: the model's general disposition to verbalize a given concept, and the particular use to which that concept is being put in the current context. We isolate the former component by averaging within and across contexts. For each layer $\ell$ , we compute
+
+$J_\ell \;=\; \mathbb{E}_{\,t,\,t' \geq t,\,\text{prompt}} \left[ \frac{\partial h_{\text{final},t'}}{\partial h_{\ell,t}} \right],$
+
+where the expectation is taken over the source position $t$ , all subsequent positions $t'$ within the context, and a corpus of one thousand prompts sampled from a pretraining-like distribution. The result is a single $d_{\text{model}} \times d_{\text{model}}$ matrix per layer that maps from a source layer $\ell$ to the final layer $L$ .
+
+Applying the lens to an activation $h_\ell$ is equivalent to replacing all subsequent layers with the appropriate lens matrix, followed by the normal unembedding operations (typically normalization, then multiplication by the unembedding matrix $W_U$ ):
+
+$\text{lens}(h_\ell) \;= \text{softmax}(W_U \, \text{norm}(J_\ell h_\ell))$
+
+This produces a score for every token in the model's vocabulary. Sorting these scores and inspecting the top entries gives a human-readable description of the activation: a short list of words that the activation is, on average across contexts, disposed to make the model say. We refer to the rows of $W_U J_\ell$ as the Jacobian lens (J-lens) vectors at layer $\ell$ ; each J-lens vector is a direction in residual-stream space associated with a single token in the model’s vocabulary.
+
+[fig-4] Figure 4: The Jacobian lens. (A) $J_\ell$ is computed by backpropagating from the final-layer residual stream to $h_\ell$ and averaging the resulting Jacobians over token positions and over a corpus of prompts. (B) Reading from the lens replaces all layers downstream of $\ell$ with the single linear map $J_\ell$ followed by the model's own unembedding, yielding a ranked list of vocabulary tokens for the activation at that layer. (C) Patching in lens coordinates reads the activation's projections onto two J-lens vectors, applies a permutation $\sigma$ to those coordinates, and writes the result back, leaving unchanged the component of the activation that is orthogonal to those two vectors.
+
+The averaged Jacobian, applied to a given activation vector, measures the effect on present and future outputs that the vector might have across the range of contexts the model encounters. The highly weighted output tokens, those that “appear in the lens,” are therefore represented in a verbalizable format. We examine several variants of the Jacobian lens methodology (e.g. computing only present and not future token effects, freezing attention patterns while computing Jacobians, and varying the number of contexts over which we average) in ??; our qualitative results are robust to these choices.
+

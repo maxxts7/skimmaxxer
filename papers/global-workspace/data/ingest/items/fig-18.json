@@ -1,0 +1,85 @@
+{
+ "id": "fig-18",
+ "title": "One Swap, Many Functions",
+ "takeaway": "A single, identical edit — exchanging the J-lens vector for France with that of another country at every token position — makes the model answer capital, language, and continent questions about the swapped-in country instead. One representation, changed once, redirects many different downstream computations, which is the broadcast behavior a global workspace predicts.",
+ "walkthrough": "This item is a demonstration, rendered in the article as a live widget rather than a static image, of the [[lens-coordinate-swap]] used to test broadcast. Each row is one function template: a prompt that applies some function to the argument \"France\". The paper's examples are \"the capital of France is,\" \"most people in France speak,\" and \"France is on the continent of.\" The templates differ; the argument is the same word in each.\n\nThe intervention is the same in every row. The swap reads the activation's coordinates along two [[j-lens-vector]]s — one for France, one for another country such as China — exchanges those two coordinates, and writes the result back into the [[residual-stream]]. Everything in the activation orthogonal to those two directions is left alone. The swap is clamped, meaning held in place at every token position across a band of intermediate layers for the whole forward pass ([[activation-clamping]]); formatting tokens that only handle capitalization are ignored. Nothing about the edit is tuned to any particular template.\n\nThe reading is row by row: the template on the left, and the model's answer after the swap. If the France vector were only legible to one circuit — say, the capital-lookup circuit — a single fixed edit would redirect one row and leave the others alone. Instead each downstream function reads the swapped-in vector as the new country: the capital row returns China's capital, the language row China's language, the continent row Asia. That is the property under test, [[flexible-generalization]]: one workspace vector serves as a valid argument to many different consumers.\n\nThe figure is one worked example, and the paper presents it as such — \"we find the model responds as expected in this example.\" The systematic version, run over sixteen function templates in four argument categories, succeeds on 76 of 192 swap trials at standard strength and 101 of 192 when the swap strength is doubled. Countries are the best-behaved category, so the clean rows here sit at the favorable end of that range. The model behind the outputs is Claude Sonnet 4.5 ([[claude-model-family]]).",
+ "latex": null,
+ "terms": [
+  {
+   "term": "function template",
+   "definition": "A prompt frame that applies one function to an insertable argument, such as \"the capital of ___ is\". Each row of the figure is one such template with \"France\" filled in.",
+   "conceptId": "function-template-protocol"
+  },
+  {
+   "term": "argument",
+   "definition": "The entity the template's function is applied to — here the word \"France\" in every row. The experiment asks whether one representation of the argument feeds all the templates.",
+   "conceptId": null
+  },
+  {
+   "term": "France",
+   "definition": "The source argument present in every prompt; its J-lens vector is the one subtracted out by the swap.",
+   "conceptId": null
+  },
+  {
+   "term": "China",
+   "definition": "The target country in the paper's worked example: its J-lens vector is swapped in for France's, and each row's answer should then be China's capital, language, or continent.",
+   "conceptId": null
+  },
+  {
+   "term": "swap",
+   "definition": "The lens-coordinate swap: the activation's coordinates along the France and China J-lens vectors are read via a pseudoinverse, exchanged, and written back, leaving the rest of the activation unchanged.",
+   "conceptId": "lens-coordinate-swap"
+  },
+  {
+   "term": "clamped",
+   "definition": "The swapped coordinates are held at their exchanged values throughout the forward pass rather than applied once and allowed to drift back.",
+   "conceptId": "activation-clamping"
+  },
+  {
+   "term": "every position",
+   "definition": "The swap is applied at all token positions of the prompt, not only at the token spelling \"France\", and identically regardless of which template the prompt uses.",
+   "conceptId": null
+  },
+  {
+   "term": "formatting tokens for capitalization",
+   "definition": "Tokenizer artifacts that mark casing rather than content; the caption notes these are skipped when applying the swap.",
+   "conceptId": null
+  },
+  {
+   "term": "row",
+   "definition": "One trial of the demonstration: a single function template containing \"France\", shown with the model's output under the swap.",
+   "conceptId": null
+  },
+  {
+   "term": "Claude Sonnet 4.5",
+   "definition": "The model the paper reports results on by default, and the one producing the outputs shown here.",
+   "conceptId": "claude-model-family"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "3",
+   "meaning": "The example templates the text names for the France case — capital, language, and continent — each probing a different fact about the same argument."
+  },
+  {
+   "value": "every position",
+   "meaning": "Where the swap is applied: all token positions of the prompt, across a band of intermediate layers, so the intervention is position-agnostic as well as template-agnostic."
+  },
+  {
+   "value": "α = 1",
+   "meaning": "The implicit swap strength in this demonstration: the source vector is subtracted and the target added at standard, single strength."
+  },
+  {
+   "value": "16",
+   "meaning": "Function templates in the systematic follow-up experiment (four argument categories — countries, months, animals, number words — with four functions each); this figure shows a subset of the country case."
+  },
+  {
+   "value": "76 / 192",
+   "meaning": "Swap trials in the systematic version where the target-appropriate answer reaches top-1 at standard strength; context showing the clean rows here are not universal."
+  },
+  {
+   "value": "101 / 192",
+   "meaning": "Successes when the swap strength is doubled to α = 2; failures at α = 1 often move the activation in the right direction but not far enough."
+  }
+ ]
+}

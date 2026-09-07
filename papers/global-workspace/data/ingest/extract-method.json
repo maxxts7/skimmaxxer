@@ -1,0 +1,1435 @@
+{
+  "key": "method",
+  "concepts": [
+    {
+      "id": "transformer-architecture",
+      "name": "Transformer architecture",
+      "tier": "minor",
+      "parent": null,
+      "summary": "The neural network design used by the language models in this paper: a stack of layers that repeatedly update a per-token vector using attention and MLP components.",
+      "explanation": "A transformer processes its input as a sequence of token positions. At every position it keeps a running vector that each layer reads from and updates, and each layer contains two kinds of components: attention heads, which move information between token positions, and MLP blocks, which transform information at a single position. The first layers see little more than the identity of the current token; by the last layer the vector has been shaped into a form from which the next-token prediction can be read off directly. The paper's methods all operate on the internals of this stack.",
+      "prerequisites": [],
+      "sectionIds": ["2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "residual-stream",
+      "name": "Residual stream",
+      "tier": "major",
+      "parent": "transformer-architecture",
+      "summary": "The per-token vector that every transformer layer reads from and writes to, acting as the model's shared memory across layers.",
+      "explanation": "At each token position, a transformer maintains a vector called the residual stream, which serves as a shared memory: every layer reads from it and adds its own contribution back into it. Its value is progressively updated across the model's depth. At the first layer it encodes little more than the identity of the current token; by the final layer it has been transformed into a representation from which the model's next-token prediction can be read off directly by multiplying with the unembedding matrix. The layers in between incrementally enrich it with internally computed information. The Jacobian lens is a technique for inspecting the contents of the residual stream at these intermediate layers.",
+      "prerequisites": ["transformer-architecture"],
+      "sectionIds": ["2", "2.1"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "nelhage2021mathematical",
+        "refText": "Elhage et al. (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+        "whyNeeded": "The residual-stream framing of transformer computation, which the whole paper is built on, is defined in this cited framework rather than in the paper itself."
+      }
+    },
+    {
+      "id": "unembedding-matrix",
+      "name": "Unembedding matrix ($W_U$)",
+      "tier": "minor",
+      "parent": "residual-stream",
+      "summary": "The fixed matrix $W_U$ that maps a final-layer residual-stream vector to a score for every token in the vocabulary.",
+      "explanation": "At the end of the forward pass, the model turns its final residual-stream vector into next-token scores by multiplying it with a fixed unembedding matrix $W_U$, typically after a normalization step. Each row of $W_U$ corresponds to one vocabulary token, so the product assigns a logit to every token. The Jacobian lens reuses this same matrix: it composes $W_U$ with a per-layer linear map so that intermediate activations, not just final ones, can be read out as vocabulary scores.",
+      "prerequisites": ["residual-stream"],
+      "sectionIds": ["2", "2.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "attention-head",
+      "name": "Attention head",
+      "tier": "minor",
+      "parent": "transformer-architecture",
+      "summary": "A transformer component that moves information between token positions, using query, key, value, and output weight matrices.",
+      "explanation": "Each attention layer contains multiple heads. A head uses its query and key weights to decide, for each position, which earlier positions to attend to, and its value and output weights to decide what content to copy from those positions into the current position's residual stream. Attention is the only mechanism by which representations at one position become available at later positions, so the paper's analysis of broadcast across tokens is an analysis of attention heads. The paper also interprets individual heads by projecting their four weight matrices through the J-lens.",
+      "prerequisites": ["transformer-architecture", "residual-stream"],
+      "sectionIds": ["4.3", "4.3.2", "10.19.2", "10.24.3"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "ov-circuit",
+      "name": "OV circuit",
+      "tier": "minor",
+      "parent": "attention-head",
+      "summary": "The combined value-then-output transformation $W_{OV}$ of an attention head: what the head writes about the content it attends to, independent of where it attends.",
+      "explanation": "An attention head's effect factors into two parts: the QK circuit, which determines the attention pattern (where the head looks), and the OV circuit, which determines what the head copies from an attended position into the current one. The OV circuit is the composition of the head's value and output weight matrices, written $W_{OV}$. Because it is a fixed linear map, one can ask how it treats a given direction in residual-stream space without running the model on any input. The paper uses this to measure how faithfully particular heads relay J-lens vectors between positions.",
+      "prerequisites": ["attention-head"],
+      "sectionIds": ["4.3.2"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "nelhage2021mathematical",
+        "refText": "Elhage et al. (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+        "whyNeeded": "The QK/OV decomposition of attention heads, which the broadcast-head metrics depend on, is defined in this cited framework."
+      }
+    },
+    {
+      "id": "mlp-block",
+      "name": "MLP block",
+      "tier": "minor",
+      "parent": "transformer-architecture",
+      "summary": "The feed-forward component in each transformer layer that performs nonlinear computation at a single token position.",
+      "explanation": "Alongside attention, each transformer layer contains an MLP block: a two-layer feed-forward network applied independently at every token position. Each of its hidden units (neurons) has input weights that determine what it reads from the residual stream and output weights that determine what it writes back. MLP blocks are the components that carry computation forward across the model's depth at a fixed position, so the paper's analysis of broadcast across depth asks whether MLPs preferentially amplify J-space content.",
+      "prerequisites": ["transformer-architecture", "residual-stream"],
+      "sectionIds": ["4.3.1", "10.19.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "jacobian",
+      "name": "Jacobian matrix",
+      "tier": "minor",
+      "parent": null,
+      "summary": "The matrix of partial derivatives of one vector-valued quantity with respect to another; the linear map that best approximates the effect of a small perturbation.",
+      "explanation": "For a function mapping one vector to another, the Jacobian is the matrix of all partial derivatives of the outputs with respect to the inputs. To first order, a small perturbation to the input shifts the output by the Jacobian times the perturbation. In this paper, the relevant Jacobian is $\\partial h_{\\text{final},t'} / \\partial h_{\\ell,t}$: how the final-layer residual stream responds to a small change in the residual stream at an earlier layer. It is computed by backpropagation.",
+      "prerequisites": [],
+      "sectionIds": ["2.1"],
+      "floor": true,
+      "citedFrom": null
+    },
+    {
+      "id": "jacobian-lens",
+      "name": "Jacobian lens (J-lens)",
+      "tier": "major",
+      "parent": null,
+      "summary": "The paper's core technique: it characterizes an intermediate activation by its averaged first-order causal effect on the model's outputs, producing a ranked list of vocabulary tokens the activation is disposed to make the model say.",
+      "explanation": "The Jacobian lens inspects the residual stream at intermediate layers by asking what a small change to an activation would do to the model's outputs, averaged over a broad range of contexts. For each layer $\\ell$ it precomputes an averaged Jacobian matrix $J_\\ell$, then reads out any activation $h_\\ell$ as $\\text{lens}(h_\\ell) = \\text{softmax}(W_U\\,\\text{norm}(J_\\ell h_\\ell))$ — replacing all downstream layers with a single linear map followed by the model's own unembedding. Sorting the resulting vocabulary scores yields a short list of words that the activation, on average across contexts, pushes the model toward saying; tokens weighted highly in this readout are said to be represented in a verbalizable format. The lens supports both reading (readouts, probes, sparse decomposition) and writing (steering, ablation, and coordinate swaps). The paper reports that its qualitative results are robust to variations in how the lens is computed.",
+      "prerequisites": ["residual-stream", "unembedding-matrix", "jacobian"],
+      "sectionIds": ["2", "2.1", "2.2", "2.4", "2.5", "10.5", "10.6", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "averaged-jacobian",
+      "name": "Averaged Jacobian ($J_\\ell$)",
+      "tier": "major",
+      "parent": "jacobian-lens",
+      "summary": "The single $d_{\\text{model}} \\times d_{\\text{model}}$ matrix per layer obtained by averaging the Jacobian from layer $\\ell$ to the final layer over positions and a corpus of a thousand prompts.",
+      "explanation": "A Jacobian computed on a single prompt conflates two kinds of structure: the model's general disposition to verbalize a concept, and the particular use that concept is being put to in the current context. The paper isolates the former by averaging: $J_\\ell = \\mathbb{E}_{t,\\,t' \\geq t,\\,\\text{prompt}}[\\partial h_{\\text{final},t'} / \\partial h_{\\ell,t}]$, with the expectation taken over source positions $t$, all subsequent positions $t'$, and one thousand prompts sampled from a pretraining-like distribution. The result is one matrix per layer that maps layer-$\\ell$ directions to their average final-layer effect. Applied to an activation, it measures the effect the activation would have on present and future outputs across the range of contexts the model encounters. By default the gradients are taken at the penultimate layer, since including the final block can add noisy artifacts.",
+      "prerequisites": ["jacobian", "residual-stream"],
+      "sectionIds": ["2.1", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-readout",
+      "name": "J-lens readout",
+      "tier": "minor",
+      "parent": "jacobian-lens",
+      "summary": "The basic read operation of the lens: $\\text{lens}(h_\\ell) = \\text{softmax}(W_U\\,\\text{norm}(J_\\ell h_\\ell))$, giving a score for every vocabulary token.",
+      "explanation": "Reading from the lens replaces all layers downstream of $\\ell$ with the single linear map $J_\\ell$, followed by the model's normal unembedding operations (normalization, then multiplication by $W_U$). This produces a score for every token in the model's vocabulary; sorting the scores gives the ranked list the paper reports whenever it refers to the top lens tokens at a position. The pre-softmax logits are determined, approximately, by the inner products of $h_\\ell$ with the individual J-lens vectors.",
+      "prerequisites": ["averaged-jacobian", "unembedding-matrix"],
+      "sectionIds": ["2.1", "2.5"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-vectors",
+      "name": "J-lens vectors",
+      "tier": "major",
+      "parent": "jacobian-lens",
+      "summary": "The rows of $W_U J_\\ell$: one direction in residual-stream space per vocabulary token, at each layer.",
+      "explanation": "Each J-lens vector $v_t$ is the direction in layer-$\\ell$ residual-stream space associated with a single vocabulary token $t$ — the direction along which an activation's component determines that token's lens score. There are $n_{\\text{vocab}}$ of them in a $d_{\\text{model}}$-dimensional space, so they form an overcomplete set that may span the entire residual stream. They are the units the rest of the paper is built from: readouts rank them, probes measure single ones, steering and ablation add or remove them, coordinate swaps exchange them, and the J-space is defined as sparse nonnegative combinations of them.",
+      "prerequisites": ["averaged-jacobian", "unembedding-matrix"],
+      "sectionIds": ["2.1", "2.3", "2.5"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-probe",
+      "name": "J-lens probe form",
+      "tier": "minor",
+      "parent": "jacobian-lens",
+      "summary": "Using a single J-lens vector as a per-token probe: reading the score or cosine similarity of an activation against one chosen $v_t$, without ranking the full vocabulary.",
+      "explanation": "Because the pre-softmax lens logits are determined (approximately, up to a data-dependent normalization factor) by the inner products $\\langle v_t, h_\\ell \\rangle$, the same machinery that produces full readouts can measure a single concept. The paper reads the score, or cosine similarity, of an activation against one chosen J-lens vector and applies a threshold. This probe form is used whenever the question is whether a specific concept is present, rather than what the top-ranked contents are.",
+      "prerequisites": ["j-lens-vectors"],
+      "sectionIds": ["2.5"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-visualization",
+      "name": "Interactive J-lens visualization",
+      "tier": "minor",
+      "parent": "jacobian-lens",
+      "summary": "The interactive tool the authors used throughout their research: a grid of top lens tokens over (position, layer) cells, with pinned-token heatmaps and rank trajectories.",
+      "explanation": "The visualization shows the prompt, a hoverable table of the top-ranked token at each (position, layer) cell, and a heatmap recording the rank of user-selected (\"pinned\") tokens across all cells, alongside full readouts across layers at a selected position and across positions at a selected layer. On an example prompt asking Sonnet 4.5 to \"Count to five and introspect deeply,\" the pinned tokens show the model identifying the task as counting and tracking progress with halfway and done — words that appear in neither prompt nor output — while introspection-related tokens (thoughts, AI, claude, consciousness) cluster near the top of the readout until the final layers flip to the predicted next token. In roughly the first third of the model, readouts are noisy and largely uninterpretable.",
+      "prerequisites": ["j-lens-readout"],
+      "sectionIds": ["2.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "layer-percentage-indexing",
+      "name": "Layer numbering as percentages",
+      "tier": "minor",
+      "parent": null,
+      "summary": "The paper's reporting convention: 25 evenly spaced layers of the residual stream, reindexed to 0–100 so that layer numbers read as percentages of depth.",
+      "explanation": "Throughout the paper, results are reported on 25 evenly spaced layers of the model's residual stream, reindexed to the range 0–100. A layer number like L38 therefore means roughly 38% of the way through the model's depth, not the 38th layer. By default results are on Claude Sonnet 4.5, with key results corroborated on Haiku 4.5 and Opus 4.5, and some analyses on Opus 4.6.",
+      "prerequisites": ["residual-stream"],
+      "sectionIds": ["2.5"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-interventions",
+      "name": "Writing with the J-lens",
+      "tier": "minor",
+      "parent": "jacobian-lens",
+      "summary": "The family of causal interventions the lens supports: steering concepts in, ablating them out, and swapping one concept for another in lens coordinates.",
+      "explanation": "Beyond reading, the paper uses J-lens vectors to write concepts into or out of activations. Steering adds a scaled J-lens vector to the residual stream; ablation removes an activation's component along a vector; and the lens-coordinate swap exchanges one concept for another while leaving the rest of the activation fixed. These interventions are what let the paper move from correlational readouts to causal claims about what the model computes with.",
+      "prerequisites": ["j-lens-vectors"],
+      "sectionIds": ["2.5"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-steering",
+      "name": "Steering along a J-lens vector",
+      "tier": "minor",
+      "parent": "j-lens-interventions",
+      "summary": "The intervention $h \\leftarrow h + \\alpha\\,v_t$: adding a scaled J-lens vector to the residual stream to inject a concept.",
+      "explanation": "The simplest intervention adds a multiple of a chosen J-lens vector to the residual stream, at one or more layers and token positions. With positive $\\alpha$ this injects the corresponding concept; the paper uses positive steering to test whether the model can introspectively detect an injected concept. With negative $\\alpha$ it shades into ablation.",
+      "prerequisites": ["j-lens-vectors"],
+      "sectionIds": ["2.5"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-ablation",
+      "name": "J-lens ablation",
+      "tier": "minor",
+      "parent": "j-lens-interventions",
+      "summary": "Suppressing a concept by projecting out an activation's component along its J-lens vector, or suppressing the top-$k$ J-space contents entirely.",
+      "explanation": "Ablation removes the component of the residual stream along a chosen J-lens vector — either by steering with negative $\\alpha$ or by projecting the component out entirely. The paper uses ablation both to suppress particular concepts and to suppress the top-$k$ contents of the J-space wholesale. In the lens comparisons, the KL divergence induced on the model's output by ablating a lens direction serves as a measure of how causally important that direction was.",
+      "prerequisites": ["j-lens-vectors"],
+      "sectionIds": ["2.5", "10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "lens-coordinate-swap",
+      "name": "Lens-coordinate swap",
+      "tier": "major",
+      "parent": "j-lens-interventions",
+      "summary": "An intervention that exchanges one concept for another: it reads an activation's coordinates along two J-lens vectors, permutes them, and writes the result back, leaving everything orthogonal to those vectors unchanged.",
+      "explanation": "Given a source token $s$ and target token $t$, the paper forms $V = [v_s\\;v_t]$, reads the lens coordinates $c = V^\\dagger h$ (where $V^\\dagger$ is the pseudoinverse of $V$), and sets $h_{\\text{patched}} = h + V(\\sigma(c) - c)$, where $\\sigma$ swaps the two entries of $c$, optionally scaled by a factor $\\alpha$. The component of $h$ orthogonal to the span of the two vectors is unchanged, so the intervention exchanges exactly one concept for another while holding the rest of the activation fixed. Swaps are the paper's sharpest causal test: if the model's answer flips to the one implied by the swapped-in concept, the swapped direction was carrying that concept's role in the computation. Swaps are used to validate lens vectors against alternatives, to test attribution graphs, and — with template vectors — to swap multi-token concepts.",
+      "prerequisites": ["j-lens-vectors", "pseudoinverse"],
+      "sectionIds": ["2.1", "2.5", "10.6", "10.9.1", "10.24.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "pseudoinverse",
+      "name": "Pseudoinverse",
+      "tier": "minor",
+      "parent": null,
+      "summary": "The generalization of the matrix inverse to non-square matrices, used here to read an activation's coordinates along a pair of J-lens vectors.",
+      "explanation": "For a matrix $V$ whose columns are two J-lens vectors, the pseudoinverse $V^\\dagger$ maps an activation to the coefficient pair that best reconstructs its component in the span of those columns. It is the standard least-squares generalization of matrix inversion to non-square or rank-deficient matrices.",
+      "prerequisites": [],
+      "sectionIds": ["2.5"],
+      "floor": true,
+      "citedFrom": null
+    },
+    {
+      "id": "j-space",
+      "name": "J-space",
+      "tier": "major",
+      "parent": null,
+      "summary": "The set of activation-space points expressible as a sparse nonnegative combination of J-lens vectors — the region of representation space the paper argues functions as a global workspace.",
+      "explanation": "At each layer, the J-lens vectors form an overcomplete set: $n_{\\text{vocab}}$ vectors in $d_{\\text{model}}$-dimensional space, so they may span the entire residual stream and admit many decompositions of any activation. Empirically, however, only a relatively small number of J-lens vectors are strongly active at a time, so the paper defines the J-space as the points expressible as a sparse nonnegative combination of J-lens vectors, for some sparsity level $k$ — a somewhat arbitrary parameter, typically chosen to be no more than 25, the number of vectors observed to be meaningfully active at once. Geometrically, the J-space is a union of $k$-dimensional cones, one per possible set of $k$ J-lens vectors. Under the superposition hypothesis, the J-lens vectors would constitute a token-indexed subframe of the model's feature directions, with the features outside this subframe making up the bulk of the model's representations. The J-space component of activations is small — never more than 10% of activation variance — yet the paper's central claim is that this small component behaves like a global workspace.",
+      "prerequisites": ["j-lens-vectors", "superposition-hypothesis"],
+      "sectionIds": ["2.3", "10.8"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "sparse-decomposition",
+      "name": "Sparse decomposition",
+      "tier": "major",
+      "parent": "j-space",
+      "summary": "Solving for a sparse nonnegative combination of $k$ J-lens vectors that best reconstructs an activation, yielding a discrete inventory of active concepts and their coefficients.",
+      "explanation": "Given an activation (or a steering vector, or an SAE feature direction), the paper solves for a sparse nonnegative combination of $k$ J-lens vectors that approximates it well, using gradient pursuit. The resulting combination is the approximation of the activation's J-space component, and the coefficients are its local J-space coordinates. Because the J-lens vectors are overcomplete and non-orthogonal, this yields a different — and typically less redundant — set of active concepts than simply taking the top-$k$ by inner product. Sparse decomposition underlies the occupancy estimate, the fraction-of-variance analyses, and the node selection in the J-lens attribution graphs.",
+      "prerequisites": ["j-space", "j-lens-vectors"],
+      "sectionIds": ["2.3", "2.5", "4.2", "10.24.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "gradient-pursuit",
+      "name": "Gradient pursuit",
+      "tier": "minor",
+      "parent": "sparse-decomposition",
+      "summary": "The greedy sparse-approximation algorithm the paper uses to find a sparse nonnegative combination of J-lens vectors reconstructing an activation.",
+      "explanation": "Gradient pursuit is a family of greedy algorithms for sparse approximation: they iteratively select dictionary elements and update coefficients along gradient directions to reconstruct a target vector with few nonzero terms. The paper uses it, with a nonnegativity constraint, to decompose activations against the overcomplete set of J-lens vectors. The choice matters because the decomposition is not unique: the pursuit resolves the ambiguity greedily, which the paper notes can select a near-miss correlate of a concept that is still forming across layers.",
+      "prerequisites": ["sparse-decomposition"],
+      "sectionIds": ["2.3", "2.5"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "blumensath2008gradient",
+        "refText": "Blumensath & Davies (2008). Gradient Pursuits. IEEE Transactions on Signal Processing",
+        "whyNeeded": "The algorithm used for all sparse decompositions in the paper is defined in this cited work; its greedy behavior shapes which concepts the decompositions report."
+      }
+    },
+    {
+      "id": "j-space-component",
+      "name": "J-space and non-J-space components",
+      "tier": "minor",
+      "parent": "j-space",
+      "summary": "For any activation, its J-space component is the nearest point in the J-space; the non-J-space component is the leftover difference.",
+      "explanation": "For a given point in activation space, the paper defines its J-space component as the point in the J-space nearest to it, and its non-J-space component as the difference between the two. In practice the J-space component is approximated by sparse decomposition, and the non-J-space complement can be obtained by projecting out top J-lens vectors. The split matters throughout the paper: the J-space component typically accounts for a small fraction of total activation variance — varying by layer but never more than 10% — so most of what the model represents lives in the non-J-space remainder.",
+      "prerequisites": ["j-space", "sparse-decomposition"],
+      "sectionIds": ["2.3", "10.8", "10.15"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "superposition-hypothesis",
+      "name": "Superposition hypothesis",
+      "tier": "minor",
+      "parent": null,
+      "summary": "The hypothesis that a model's activations decompose as sparse linear combinations drawn from an overcomplete set of feature directions — more features than dimensions.",
+      "explanation": "Under the superposition hypothesis, a model packs more feature directions into its residual stream than it has dimensions, and any given activation is a sparse linear combination of a few of them. The set of feature directions then forms a sparse frame, in the linear-algebra sense, rather than a basis. The paper uses this framing to interpret the J-lens vectors as a token-indexed subframe of the model's full feature frame, with the bulk of the model's representations lying outside that subframe. Superposition is also why cosine similarities between neuron weights and feature directions are inherently noisy, a complication the broadcast analyses must work around.",
+      "prerequisites": ["residual-stream"],
+      "sectionIds": ["2.3", "10.19.1"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "elhage2022superposition",
+        "refText": "Elhage et al. (2022). Toy Models of Superposition. Transformer Circuits Thread",
+        "whyNeeded": "The superposition framing under which the J-lens vectors are interpreted as a subframe of the model's features is established in this cited work."
+      }
+    },
+    {
+      "id": "j-space-formalization",
+      "name": "Formalization of the J-space",
+      "tier": "major",
+      "parent": "j-space",
+      "summary": "The paper's formal account of what kind of mathematical object the J-space is — a sparse subframe defining a union of cones — together with distance and containment notions for comparing workspace candidates.",
+      "explanation": "The J-space is typically not a proper subspace: its $n_{\\text{vocab}}$ vectors usually span the full residual stream, so any activation can be written as some combination of them. What varies is how well an activation can be approximated as a sparse nonnegative sum of just a few. The paper formalizes this by treating the J-lens vectors, coupled with a sparsity level $k$ (typically about 25), as a sparse subframe whose induced set is a union of $k$-dimensional polyhedral cones. Rather than working with the set directly, the formalization works with its distance function, and defines distances between two candidate workspaces and a one-sided containment measure. This machinery exists so that different workspace constructions — different Jacobian recipes, or enlarged vocabularies including multi-token phrases — can be compared, with well-defined limits as the vocabulary grows. The paper notes the definitions can likely be generalized and improved.",
+      "prerequisites": ["j-space", "sparse-decomposition"],
+      "sectionIds": ["10.8"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "sparse-subframe",
+      "name": "Sparse subframe",
+      "tier": "minor",
+      "parent": "j-space-formalization",
+      "summary": "The paper's name for the J-lens vectors coupled with a sparsity level $k$: a frame (not necessarily independent vectors), restricted to sparse combinations, that does not span the whole space under that restriction.",
+      "explanation": "The J-lens vectors constitute a frame because they need not be linearly independent. The structure is sparse because a restriction is imposed on the number of nonzero coefficients, and it is \"sub\" in the sense that, given the sparsity restriction, it does not span the entire space. Under the superposition hypothesis, this subframe is a token-indexed subset of the model's full feature frame. The sparse subframe, rather than a subspace, is why alignment with a small set of J-lens vectors — not mere linear expressibility — is the criterion for presence in the J-space.",
+      "prerequisites": ["j-space", "superposition-hypothesis"],
+      "sectionIds": ["2.3", "10.8"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "union-of-cones",
+      "name": "Union of cones",
+      "tier": "minor",
+      "parent": "j-space-formalization",
+      "summary": "The geometric form of the J-space: for sparsity $k$, the union over all size-$k$ subsets of J-lens vectors of the cones of their nonnegative combinations.",
+      "explanation": "For a sparsity level $k$ and vectors $v_1, \\dots, v_n$, the paper writes $\\mathcal{F} = \\bigcup_{|S|=k} \\operatorname{span}\\{v_i : i \\in S\\}$ for the union of all cones spanned by nonnegative linear combinations of exactly $k$ of the vectors. Each cone is a $k$-dimensional polyhedral cone; the J-space is the union over every possible choice of $k$ J-lens vectors. Such a union of cones can be defined for any collection of vectors coupled with a $k$, which is what makes different workspace candidates comparable.",
+      "prerequisites": ["j-space-formalization"],
+      "sectionIds": ["2.3", "10.8"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-space-distance",
+      "name": "Distances between workspace candidates",
+      "tier": "minor",
+      "parent": "j-space-formalization",
+      "summary": "The distance function $d_\\mathcal{F}(x)$ from an activation to the nearest cone, the between-candidate distance $\\Delta_\\mu$, and the one-sided containment measure $D_\\mu$.",
+      "explanation": "For an activation $x$, $d_\\mathcal{F}(x)$ is the Euclidean distance to the nearest of the $k$-dimensional cones; the minimizing projection is the J-space component of $x$ and the leftover is the residual used in interventions. Two candidate workspaces $\\mathcal{F}$ and $\\mathcal{G}$ are compared by $\\Delta_\\mu(\\mathcal{F},\\mathcal{G})$, the root-mean-square difference of their distance functions over a data distribution $\\mu$ — so two candidates are close if they assign nearly the same approximation error to the activations the model actually produces, even if their vector sets are disjoint. Containment uses the one-sided version $D_\\mu(\\mathcal{F} \\to \\mathcal{G})$, which measures only violations of $d_\\mathcal{G} \\leq d_\\mathcal{F}$. Under this notion, enlarging the vocabulary — for example with multi-token phrases — generates a strictly larger J-space with a well-defined limit.",
+      "prerequisites": ["union-of-cones", "j-space-component"],
+      "sectionIds": ["10.8"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "logit-lens",
+      "name": "Logit lens",
+      "tier": "major",
+      "parent": null,
+      "summary": "An earlier technique that applies the unembedding matrix directly to intermediate residual streams — equivalent to the J-lens with $J_\\ell = I$.",
+      "explanation": "The logit lens reads an intermediate activation by applying the unembedding matrix directly, which corresponds to setting $J_\\ell = I$ in the paper's formulation. This approximation is reasonable in late layers, thanks to the residual connections, but degrades earlier; the J-lens can be understood as the principled correction, since $J_\\ell$ is precisely the average linear map relating layer-$\\ell$ directions to their final-layer counterparts. Empirically the two lenses agree closely in the last several layers and diverge earlier, with the J-lens recovering interpretable content at depths where the logit lens does not — on some prompts the logit lens is largely noise below the late workspace. The paper nonetheless finds the logit lens quite useful in practice, capturing much of the workspace-like structure the J-lens identifies, though with somewhat lower reliability, particularly in earlier layers.",
+      "prerequisites": ["unembedding-matrix", "residual-stream", "jacobian-lens"],
+      "sectionIds": ["2.4", "10.5", "10.6"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "nostalgebraist2020logitlens",
+        "refText": "nostalgebraist (2020). interpreting GPT: the logit lens.",
+        "whyNeeded": "The logit lens is the main baseline the J-lens is compared against, and its definition and original motivation live in this cited post."
+      }
+    },
+    {
+      "id": "tuned-lens",
+      "name": "Tuned lens",
+      "tier": "major",
+      "parent": null,
+      "summary": "A related technique that trains per-layer affine maps to match the model's output distribution — an objective the paper argues is correlational rather than causal.",
+      "explanation": "The tuned lens fits per-layer maps like the J-lens does, but trains them to predict the model's final output distribution. The paper finds that on prompts involving unverbalized intermediate computation, the tuned lens tends to \"skip ahead\" to the output rather than surface the intermediates — it appears to be too good at its job, inferring from early-layer signals what kind of token the answer will be and reporting the most likely token of that kind at every layer. In the paper's quantitative evaluations it trails both the J-lens and logit lens at recovering intermediates, recovering almost nothing on the two benchmarks where the next token at the readout position is uninformative, while being — by construction — the best predictor of the model's own next-token distribution at every depth. An analysis of its early layers shows its linear transform is effectively the identity there, with its predictive advantage carried almost entirely by a learned bias term, which means it is ignoring the input. The paper reports the tuned lens has not provided useful signal beyond what the other two lenses provide.",
+      "prerequisites": ["logit-lens", "jacobian-lens"],
+      "sectionIds": ["2.4", "10.5", "10.6", "10.9.1"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "belrose2023eliciting",
+        "refText": "Belrose et al. (2023). Eliciting Latent Predictions from Transformers with the Tuned Lens. arXiv:2303.08112",
+        "whyNeeded": "The tuned lens is a principal comparison method, and its training objective — which explains its skip-to-the-output failure mode — is specified in this cited paper."
+      }
+    },
+    {
+      "id": "relation-jacobians",
+      "name": "Per-relation Jacobian maps",
+      "tier": "minor",
+      "parent": null,
+      "summary": "Prior work using Jacobians to derive linear maps from subject to object representations for single relations, which the J-lens generalizes to the map from activations to outputs.",
+      "explanation": "Hernandez et al. use Jacobians to derive per-relation linear maps from subject to object representations — for example, a \"plays instrument\" map that produces \"trumpet\" from \"Miles Davis\". The J-lens applies the same first-order approximation, but to the map from activations to model outputs rather than to a single relation.",
+      "prerequisites": ["jacobian", "jacobian-lens"],
+      "sectionIds": ["2.4"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "hernandez2024linearity",
+        "refText": "Hernandez et al. (2024). Linearity of Relation Decoding in Transformer Language Models. ICLR",
+        "whyNeeded": "The paper positions the J-lens as generalizing this cited technique; the relation-map construction being generalized is defined there."
+      }
+    },
+    {
+      "id": "lens-evaluation",
+      "name": "Lens comparison evaluations",
+      "tier": "major",
+      "parent": null,
+      "summary": "The paper's qualitative and quantitative framework for comparing the J-lens, logit lens, and tuned lens: benchmarks of known intermediates, readout metrics, and causal intervention metrics.",
+      "explanation": "The paper compares the three lenses in two ways. Qualitatively, side-by-side readouts on six prompts illustrate the two failure modes: the logit lens degrades into noise in earlier layers, and the tuned lens skips past intermediate computation to report the eventual output. Quantitatively, six prompt distributions with known intermediate concepts test each lens as a readout tool (pass@k AUC), and intervention experiments test whether each lens's vectors are causally load-bearing (ablation KL and swap success). A further analysis measures agreement with the model's own next-token distribution — where the J-lens is deliberately worst — and pairwise inter-lens agreement by layer, which independently picks out the workspace boundaries. The J-lens outperforms the other lenses on every intermediate-recovery distribution, and its directions carry roughly twice the ablation effect.",
+      "prerequisites": ["jacobian-lens", "logit-lens", "tuned-lens"],
+      "sectionIds": ["10.5", "10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "intermediate-concept-benchmarks",
+      "name": "Intermediate-concept benchmarks",
+      "tier": "major",
+      "parent": "lens-evaluation",
+      "summary": "Six prompt distributions in which the model must compute a known single-token intermediate concept that is neither in the input nor identical to the predicted output.",
+      "explanation": "Each benchmark is designed so that the intermediate concept the model should be computing is known in advance, appears nowhere in the prompt's surface tokens, and differs from the next token to be predicted, with one designated position at which to apply a lens and look for it. An intermediate is recovered at $k$ if it appears among the top-$k$ lens tokens at any layer, and pass@$k$ is the fraction recovered. The six distributions — multihop, multilingual, order of operations, poetry, typo, and association — probe different kinds of unverbalized computation, from bridging entities to rhyme planning to typo correction. The same items also drive the causal comparisons, via ablation and swap interventions on each lens's vector for the intermediate.",
+      "prerequisites": ["lens-evaluation"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "multihop-benchmark",
+      "name": "Multihop benchmark",
+      "tier": "minor",
+      "parent": "intermediate-concept-benchmarks",
+      "summary": "50 two-hop factual questions requiring a bridging entity — for example, computing Mars to answer that the color of the fourth planet is red.",
+      "explanation": "These are two-hop factual questions in which the prompt's surface tokens have no direct association with the answer, so the model must compute a bridging entity: \"the color of the planet fourth from the Sun is\" requires computing Mars before answering \"red.\" Items are constructed so that the trigger word and the answer rarely co-occur in text without the intermediate, making it unlikely the model can retrieve the answer without computing the bridge. The lens is read at the position immediately preceding the answer.",
+      "prerequisites": ["intermediate-concept-benchmarks"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "multilingual-benchmark",
+      "name": "Multilingual benchmark",
+      "tier": "minor",
+      "parent": "intermediate-concept-benchmarks",
+      "summary": "54 prompts written entirely in a non-English language, testing whether the model routes through English-aligned representations.",
+      "explanation": "Each prompt, such as 'Lo opuesto de \"grande\" es ' (Spanish for 'the opposite of \"big\" is'), is checked for four intermediates: the language (Spanish), the relation (opposite), and the English equivalents of the input and output words (big, small). The prompt never names the language, so if \"Spanish\" appears in the lens, the model has detected it rather than copied it from the input.",
+      "prerequisites": ["intermediate-concept-benchmarks"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "order-of-operations-benchmark",
+      "name": "Order-of-operations benchmark",
+      "tier": "minor",
+      "parent": "intermediate-concept-benchmarks",
+      "summary": "55 arithmetic expressions like (2 + 3) × 4, where a partial result must be computed before the remaining operation is applied.",
+      "explanation": "Correct evaluation requires computing a partial result before applying the remaining operation. Two intermediates are checked per item: the partial result (5) and the pending operation (multiplication), accepting any single-token synonym (5 or five, × or times).",
+      "prerequisites": ["intermediate-concept-benchmarks"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "poetry-benchmark",
+      "name": "Poetry benchmark",
+      "tier": "minor",
+      "parent": "intermediate-concept-benchmarks",
+      "summary": "52 rhyming couplets where the lens is read at the newline between lines, looking for the second line's planned final word.",
+      "explanation": "Each item is an original rhyming couplet in which the model must produce the second line's final word. The lens is read at the newline between the two lines — after the first line has fixed the rhyme, but before any of the second line has been read. For example, after \"The soldier held his final, rattling breath,\\n\" the readout is checked for \"death.\" Because the next token at that position is uninformative, a method biased toward next-token prediction performs poorly here, which is where the tuned lens recovers almost nothing.",
+      "prerequisites": ["intermediate-concept-benchmarks"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "typo-benchmark",
+      "name": "Typo benchmark",
+      "tier": "minor",
+      "parent": "intermediate-concept-benchmarks",
+      "summary": "96 sentences ending on a common misspelling, checking whether the correctly spelled word appears in the lens at the misspelled token.",
+      "explanation": "Each sentence ends on a common misspelling — a transposition, omission, or doubled letter, such as \"...learn a second langauge.\" The correctly spelled word is looked for at the final fragment of the misspelled token. At that position the model is not predicting \"language\" as its next token — it is predicting whatever follows the typo — so if \"language\" appears in the lens, it is because the model has internally recognized the intended word, not because it is about to say it.",
+      "prerequisites": ["intermediate-concept-benchmarks"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "association-benchmark",
+      "name": "Association benchmark",
+      "tier": "minor",
+      "parent": "intermediate-concept-benchmarks",
+      "summary": "50 short evocative passages that depict a concept through behavioral cues without naming it, checking whether the implied concept surfaces in the lens.",
+      "explanation": "Each item is a short passage depicting a concept through behavioral cues without naming it: \"She kept his coffee mug on the counter, washed it every morning and put it back, though no one had used it in eleven months.\" The lens is checked for the implied concept (grief) at the closing period. Unlike the multihop case, no single token is the trigger; the concept must be assembled from accumulated context.",
+      "prerequisites": ["intermediate-concept-benchmarks"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "pass-at-k-auc",
+      "name": "Pass@k AUC",
+      "tier": "minor",
+      "parent": "lens-evaluation",
+      "summary": "The summary metric for intermediate recovery: pass@k computed over a range of k, plotted against $\\log k$, with the area under the curve normalized so a method that always ranks the intermediate first scores 1.",
+      "explanation": "An intermediate is recovered at $k$ if it appears among a lens's top-$k$ tokens at any layer, and pass@$k$ is the fraction of intermediates recovered. To summarize each method with one number, pass@$k$ is computed over a range of $k$, the resulting curve is plotted against $\\log k$, and the area under it is normalized so that always ranking the intermediate first scores 1. On this metric the J-lens outperforms the other lenses on every prompt distribution — modestly over the logit lens on multihop and association, substantially on the other four.",
+      "prerequisites": ["intermediate-concept-benchmarks"],
+      "sectionIds": ["10.6", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "ablation-kl-effect",
+      "name": "Ablation KL effect",
+      "tier": "minor",
+      "parent": "lens-evaluation",
+      "summary": "A causal metric: the KL divergence induced on the model's output by projecting out a lens's intermediate direction at the readout position.",
+      "explanation": "For each lens, its vector for the intermediate token is taken, the residual stream's component along it is projected to zero, and the KL divergence this induces on the model's output distribution is recorded. A larger divergence means the direction was more causally important for the answer. Ablating J-lens directions induces roughly twice the output KL of ablating logit- or tuned-lens directions on the multihop tasks — evidence that surfacing a concept in a readout is not the same as finding the direction the model actually computes with.",
+      "prerequisites": ["j-lens-ablation", "kl-divergence"],
+      "sectionIds": ["10.6", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "swap-success-rate",
+      "name": "Swap success rate",
+      "tier": "minor",
+      "parent": "lens-evaluation",
+      "summary": "A causal metric: the fraction of items whose top-1 output flips to the implied answer when one intermediate is exchanged for another via a lens-coordinate swap.",
+      "explanation": "The lens-coordinate swap is applied at $\\alpha = 1$ to exchange one intermediate for another, and the test is whether the model's top-1 output flips to the answer corresponding to the swapped-in concept. Swapping along J-lens directions flips the output substantially more often than swapping along logit- or tuned-lens directions, across all three model scales tested. The same metric is later used to compare the template lens against the J-lens on multi-token concepts.",
+      "prerequisites": ["lens-coordinate-swap"],
+      "sectionIds": ["10.6", "10.9.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "inter-lens-agreement",
+      "name": "Inter-lens agreement by layer",
+      "tier": "minor",
+      "parent": "lens-evaluation",
+      "summary": "Pairwise comparison of the three lenses — vector cosines, symmetric KL between readouts, and top-1 agreement — which independently picks out the workspace layer boundaries.",
+      "explanation": "For each pair of lenses at each layer, three quantities are computed: the mean cosine similarity between the two methods' vectors for the same vocabulary token, the symmetric KL divergence between their readout distributions, and their top-1 agreement rate on held-out pretraining-style text. Together these pick out four layer ranges aligned with the workspace boundaries: a pre-workspace range where no pair agrees on readouts (and where the tuned lens's advantage turns out to be carried entirely by its learned bias, meaning it is ignoring the input); an early workspace range where J-lens vectors swing toward the others while readouts still disagree; a late workspace range where the logit lens converges toward the J-lens while the tuned lens stays the outlier; and the final motor layers, where all three collapse together on every measure.",
+      "prerequisites": ["lens-evaluation", "layer-bands"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "kl-divergence",
+      "name": "KL divergence",
+      "tier": "minor",
+      "parent": null,
+      "summary": "The standard measure of how much one probability distribution diverges from another, used here to quantify shifts in the model's output distribution.",
+      "explanation": "Kullback-Leibler divergence measures the difference between two probability distributions; it is zero when they match and grows as they diverge. The paper uses it to quantify how much an intervention (such as ablating a lens direction) shifts the model's next-token distribution, and — in its symmetric form — how much two lenses' readout distributions disagree.",
+      "prerequisites": [],
+      "sectionIds": ["10.6"],
+      "floor": true,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-recipe-variants",
+      "name": "J-lens recipe variants and ablations",
+      "tier": "minor",
+      "parent": "jacobian-lens",
+      "summary": "The design space of the lens — which gradient is computed, how per-prompt Jacobians are aggregated, and what data the expectation is over — and the finding that results are fairly consistent across it.",
+      "explanation": "The lens involves three independent choices: which gradient is computed for each prompt, how the per-prompt Jacobians are aggregated into a single $J_\\ell$, and what data the expectation is taken over. The paper tests five recipes (final-layer target, penultimate target, frozen QK, future-only positions, present-only positions), each with mean and median aggregation, on pass@K and causal-ablation evaluations. Methods are fairly consistent across these design choices, though mean aggregation at the penultimate layer slightly improves intermediate extraction, and freezing QK can increase causal effect. The paper also provides pseudocode: for each prompt, a forward pass caches activations, one batched backward pass per output dimension yields per-layer Jacobian rows averaged over positions, and per-element aggregation across prompts produces $J_\\ell$.",
+      "prerequisites": ["averaged-jacobian"],
+      "sectionIds": ["2.1", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "frozen-qk-variant",
+      "name": "Frozen-QK variant",
+      "tier": "minor",
+      "parent": "j-lens-recipe-variants",
+      "summary": "A lens variant that zeroes gradients through the query and key projections, holding attention patterns fixed so only the value pathway contributes.",
+      "explanation": "In a standard backward pass, gradients flow through the attention weights themselves: a perturbation to an activation can change which positions a downstream head attends to. The frozen-QK variant zeroes gradients through the query and key projections, so the attention pattern is held fixed and only the value pathway contributes. This isolates \"what gets moved\" from \"what gets attended to.\" Applying stop-grads to QK can increase the lens's causal effect.",
+      "prerequisites": ["j-lens-recipe-variants", "attention-head"],
+      "sectionIds": ["2.1", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "target-position-variants",
+      "name": "Target-position variants",
+      "tier": "minor",
+      "parent": "j-lens-recipe-variants",
+      "summary": "Choices of which output positions the Jacobian targets: all $t' \\geq t$ (default), self-only ($t' = t$), or future-only ($t' > t$).",
+      "explanation": "The default lens averages over all positions $t' \\geq t$, mixing the effect of an activation on the current position's output with its effect on every future position's output. Two limiting cases are considered: self-only, which restricts to $t' = t$ and is closer in spirit to the logit lens, and future-only, which restricts to $t' > t$ and isolates the broadcast component — what the activation makes available to downstream positions.",
+      "prerequisites": ["j-lens-recipe-variants"],
+      "sectionIds": ["10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "jacobian-aggregation",
+      "name": "Jacobian aggregation choices",
+      "tier": "minor",
+      "parent": "j-lens-recipe-variants",
+      "summary": "How per-sample Jacobians are combined: averaging over positions within a prompt, then per-element mean or median across prompts, with outlier filtering at both stages.",
+      "explanation": "The expectation in $J_\\ell$ is taken in two stages: first over token positions within a prompt, then over prompts. Because the per-sample Jacobians are sometimes heavy-tailed, the choice of estimator matters. Within a prompt, positions whose residual-stream norm is an outlier, and the first several positions of each sequence, can be excluded. Across prompts, the paper considers per-element mean and median, along with a pre-filter excluding prompts whose Jacobian Frobenius norm is an outlier.",
+      "prerequisites": ["j-lens-recipe-variants"],
+      "sectionIds": ["10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "lens-corpus",
+      "name": "Lens corpus and convergence",
+      "tier": "minor",
+      "parent": "j-lens-recipe-variants",
+      "summary": "The data the Jacobian expectation is averaged over: one thousand 128-token pretraining-like sequences by default, with the J-lens beating baselines from as few as 10 prompts.",
+      "explanation": "The default lens averages over one thousand sequences of 128 tokens each, sampled from a pretraining-like distribution. Sweeping the prompt count from 1 to 1000 shows the J-lens beats the logit-lens and tuned-lens baselines with as few as 10 prompts, with modest improvements from additional data. Restricting the distribution or masking which positions contribute — excluding early tokens, or positions whose next token is non-alphanumeric — yielded no meaningful improvement over the default.",
+      "prerequisites": ["j-lens-recipe-variants"],
+      "sectionIds": ["2.1", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "layer-bands",
+      "name": "Sensory, workspace, and motor layer bands",
+      "tier": "major",
+      "parent": null,
+      "summary": "The paper's division of the model's depth into three functional regions: an early sensory band where the J-space is empty, a middle workspace band carrying persistent abstract content, and a late motor band aligned with the imminent output.",
+      "explanation": "The J-space is defined at every layer, but its content has workspace-like properties only in a band of intermediate layers. Comparing the geometry of J-lens vectors across layer pairs with CKA reveals a block structure: an early block spanning roughly the first third of the model, a long middle block, and a small late block. Since final-layer J-lens vectors must encode next-token predictions and first-layer vectors can only reflect the current token's identity, the workspace-like properties reside in the middle block — roughly layers 38 to 92 in the paper's percentage indexing. The paper notes that in some models the transition is more gradual, sometimes with sub-blocks, and that the observed sharpness is exaggerated by layer subsampling. Because these boundary metrics are derived from the J-lens itself, the paper flags that the apparent emptiness of early layers could be an artifact of the lens degenerating at those depths, leaving open that parts of the model's true workspace operate earlier.",
+      "prerequisites": ["j-space", "j-lens-vectors", "layer-percentage-indexing"],
+      "sectionIds": ["4", "4.1", "2.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "sensory-layers",
+      "name": "Sensory layers",
+      "tier": "minor",
+      "parent": "layer-bands",
+      "summary": "Roughly the first third of the model's layers, where J-lens readouts are noisy and the J-space carries essentially no meaningful content.",
+      "explanation": "Before the workspace onset (around layer 38 in percentage indexing), the J-lens readouts are largely uninterpretable: excess kurtosis is near zero, top-1 autocorrelation sits at the shuffled-null level, and the J-lens vectors collapse to a small linear subspace. The paper interprets this as the J-space being effectively empty in this band, while noting the alternative that the lens simply fails to resolve content that is present. In these layers the J-lens looks much like the logit lens, with both showing noisy readouts.",
+      "prerequisites": ["layer-bands"],
+      "sectionIds": ["4.1", "2.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "workspace-layers",
+      "name": "Workspace layers",
+      "tier": "major",
+      "parent": "layer-bands",
+      "summary": "The intermediate band, roughly L38 to L92, where the J-space carries persistent, abstract content distinct from both the input tokens and the imminent output.",
+      "explanation": "Several lens-derived statistics identify a similar range of layers, beginning about a third of the way through the model (~L38) and ending shortly before the output (~L92), as the region where the J-space acts as a workspace. In this band, readouts are sharply peaked on a few tokens, the top lens token persists across nearby positions, and the J-lens vectors fan out to span most of the residual stream. This is the layer range over which the paper's workspace experiments — capacity, broadcast, ignition — are conducted, and over which interventions like swaps are typically applied. The broadcast heads concentrate in its first half, and MLP amplification of J-lens vectors peaks within it.",
+      "prerequisites": ["layer-bands"],
+      "sectionIds": ["4.1", "4.2", "4.3.1", "4.3.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "motor-layers",
+      "name": "Motor layers",
+      "tier": "minor",
+      "parent": "layer-bands",
+      "summary": "The final few layers, where J-lens vectors function as representations driving the imminent output rather than as intermediate computations.",
+      "explanation": "In the last few layers, lens readouts become aligned with the model's actual next-token prediction: top-k next-token accuracy jumps steeply, readout kurtosis falls, autocorrelation returns to the null, and all three lenses collapse together on every agreement measure. The paper interprets this as the end of the workspace proper: in these layers, J-lens vectors function as \"motor\" representations that drive the imminent output, rather than as intermediate content available for further processing. The term echoes the motor stage of the neuroscience analogy the paper draws on.",
+      "prerequisites": ["layer-bands"],
+      "sectionIds": ["2.2", "4.1", "10.6", "10.18"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "cka",
+      "name": "Centered kernel alignment (CKA)",
+      "tier": "minor",
+      "parent": null,
+      "summary": "A method for comparing the geometry of two sets of vectors by comparing their matrices of pairwise similarities, used to compare J-lens vectors across layers.",
+      "explanation": "CKA compares two representations by computing, for each, the matrix of pairwise similarities among its vectors, and then measuring how aligned those two similarity matrices are. It is invariant to rotations, so it captures shared geometry rather than shared coordinates. The paper applies it to the J-lens vectors at each pair of layers; the resulting layer-by-layer similarity matrix has the block structure that first reveals the sensory, workspace, and motor bands.",
+      "prerequisites": ["j-lens-vectors"],
+      "sectionIds": ["4.1"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "kornblith2019similarity",
+        "refText": "Kornblith et al. (2019). Similarity of neural network representations revisited. ICML",
+        "whyNeeded": "The similarity measure that produces the block structure identifying the layer bands is defined in this cited paper."
+      }
+    },
+    {
+      "id": "workspace-boundary-metrics",
+      "name": "Workspace boundary metrics",
+      "tier": "minor",
+      "parent": "layer-bands",
+      "summary": "Four lens-derived statistics — next-token accuracy, readout kurtosis, top-1 autocorrelation, and effective dimensionality — that jointly locate the workspace's start and end.",
+      "explanation": "The paper characterizes the band transitions with four per-layer statistics of the lens. Top-k next-token accuracy marks the end of the workspace, jumping steeply where readouts align with the output. Excess kurtosis of the readout marks the beginning, rising from near zero around a third of the way through the depth. Top-1 autocorrelation across positions distinguishes persistent abstract content from token-local content. Effective linear dimensionality of the J-lens vectors shows the lens vectors collapsed to a small subspace early, fanning out to span most of the residual stream at the workspace onset. All four identify a similar layer range, roughly L38 to L92.",
+      "prerequisites": ["layer-bands", "j-lens-readout"],
+      "sectionIds": ["4.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "lens-next-token-accuracy",
+      "name": "Lens next-token accuracy",
+      "tier": "minor",
+      "parent": "workspace-boundary-metrics",
+      "summary": "The fraction of positions at which any top-k J-lens token matches the model's top-1 prediction — near zero early, rising slowly, and jumping steeply in the final layers.",
+      "explanation": "This statistic measures how well the J-lens at a layer predicts the model's actual next token. It is near zero through most of the early layers, ticks up at the workspace start, rises slowly through the workspace, and jumps steeply in the final few layers where readouts align with the output. The late jump is interpreted as marking the end of the workspace proper and the start of the motor regime.",
+      "prerequisites": ["workspace-boundary-metrics"],
+      "sectionIds": ["4.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "readout-excess-kurtosis",
+      "name": "Excess kurtosis of readouts",
+      "tier": "minor",
+      "parent": "workspace-boundary-metrics",
+      "summary": "A measure of how nonrandom a J-lens readout is: high kurtosis means the logit distribution is sharply peaked on a few tokens.",
+      "explanation": "For a single (position, layer) readout, the excess kurtosis of the logit distribution over the vocabulary measures whether a few tokens stand far out from the bulk — a signature of meaningful content rather than noise. Computed across a large dataset of activations, it is near zero through the first third of the layers, increases beginning around a third of the way through the depth, and falls in the last few layers. The early rise is interpreted as the beginning of the workspace: before it, the J-space carries essentially no meaningful content.",
+      "prerequisites": ["workspace-boundary-metrics", "kurtosis"],
+      "sectionIds": ["4.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "top1-autocorrelation",
+      "name": "Top-1 token autocorrelation",
+      "tier": "minor",
+      "parent": "workspace-boundary-metrics",
+      "summary": "The rate at which the same token stays at the top of the lens readout across nearby positions, relative to a position-shuffled null.",
+      "explanation": "This statistic measures how often the lens's top-1 token at position $t$ remains top-1 at position $t + \\Delta$, reported relative to a shuffled-position baseline. High autocorrelation indicates that the J-space carries abstract content persisting across the token stream; low autocorrelation indicates token-local content that changes from position to position. It is near the null in early layers, rises sharply around the workspace onset, peaks across the middle band, and falls back toward the null in the final layers where next-token prediction takes over.",
+      "prerequisites": ["workspace-boundary-metrics"],
+      "sectionIds": ["4.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-space-effective-dimensionality",
+      "name": "Effective dimensionality of the J-space",
+      "tier": "minor",
+      "parent": "workspace-boundary-metrics",
+      "summary": "The fraction of residual-stream dimensions needed to capture a given share of variance across the J-lens vectors $W_U J_\\ell$.",
+      "explanation": "Through the early layers this fraction is small: the J-lens vectors collapse to a small linear subspace, which is also why they are nearly orthogonal to the full-rank logit- and tuned-lens vectors there. The effective dimensionality rises sharply at the workspace onset, as the lens vectors fan out to span most of the residual stream, and rises again, less dramatically, at the motor transition, where $J_\\ell$ approaches the identity and the lens inherits the full dimensionality of the unembedding. The low early rank also explains why broadcast heads concentrate in the first half of the workspace: a single head's OV map can carry a larger share of a lower-rank space.",
+      "prerequisites": ["workspace-boundary-metrics", "j-lens-vectors"],
+      "sectionIds": ["4.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "kurtosis",
+      "name": "Kurtosis",
+      "tier": "minor",
+      "parent": null,
+      "summary": "A statistic measuring how heavy-tailed or sharply peaked a distribution is; excess kurtosis is measured relative to a Gaussian.",
+      "explanation": "Kurtosis quantifies the weight of a distribution's tails. Excess kurtosis subtracts the Gaussian baseline, so a value near zero means roughly Gaussian and a large value means a few entries stand far out from the bulk. The paper uses it on lens logit distributions, where a sharply peaked readout signals meaningful content.",
+      "prerequisites": [],
+      "sectionIds": ["4.1", "10.18"],
+      "floor": true,
+      "citedFrom": null
+    },
+    {
+      "id": "ignition",
+      "name": "Ignition",
+      "tier": "major",
+      "parent": null,
+      "summary": "In global workspace theory, the late, all-or-none amplification of one interpretation of an ambiguous input; the paper finds an analogous sharp commitment emerging at the workspace onset layer.",
+      "explanation": "In the neuronal version of global workspace theory, entry into the workspace is marked by \"ignition\" — a late, all-or-none amplification of one interpretation of the input, with bimodal outcomes when the evidence is at threshold. The paper tests whether its workspace onset layer lines up with ignition-like effects by feeding the model artificially ambiguous inputs and measuring how commitment to one interpretation evolves over layers. In early layers, activations track the input mixture roughly proportionally; starting around the workspace onset (layer 38), they instead sit near one interpretation or the other, switching sharply at a threshold. The J-space component develops this sharp transition somewhat more quickly than the full activations, and responses to maximally ambiguous inputs are bimodal across trials, especially in the J-space. Because the projection-share measurement does not involve the J-lens, this result also provides lens-independent evidence that the workspace onset layer is significant to the model.",
+      "prerequisites": ["global-workspace-theory", "workspace-layers"],
+      "sectionIds": ["4.1.1", "10.15"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "dehaene2011experimental",
+        "refText": "Dehaene & Changeux (2011). Experimental and theoretical approaches to conscious processing. Neuron",
+        "whyNeeded": "Ignition — the neuroscience phenomenon the experiment is designed to find an analog of — is defined and characterized in this cited work."
+      }
+    },
+    {
+      "id": "embedding-mixture-experiment",
+      "name": "Ambiguous-input embedding mixtures",
+      "tier": "minor",
+      "parent": "ignition",
+      "summary": "The experimental construction: a concept token's input embedding is replaced by the weighted mixture $(1-\\alpha)\\,e_B + \\alpha\\,e_A$ inside ordinary sentences, sweeping $\\alpha$ from 0 to 1.",
+      "explanation": "Ambiguous inputs are constructed by replacing a concept token's input embedding with a weighted mixture of two concepts' embeddings, within ordinary carrier sentences such as \"My sister has always wanted to visit ___\". The paper uses sixteen pairs of single-token country names and forty carrier sentences; for each trial, $\\alpha$ is swept from 0 to 1 and the residual stream at the mixed token's position is recorded at every layer. This gives a controlled dial on input ambiguity whose downstream resolution can be tracked layer by layer.",
+      "prerequisites": ["ignition"],
+      "sectionIds": ["4.1.1", "10.15"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "projection-share",
+      "name": "Projection share",
+      "tier": "minor",
+      "parent": "embedding-mixture-experiment",
+      "summary": "Where an activation sits along the line connecting the same trial's pure-$B$ and pure-$A$ activations at the same position and layer — 0 at one end of the sweep, 1 at the other.",
+      "explanation": "For each trial and layer, the paper measures the activation's position along the line connecting that trial's pure-$B$ activation ($\\alpha = 0$) to its pure-$A$ activation ($\\alpha = 1$). By construction the share is exactly 0 and 1 at the sweep's endpoints. In early layers it varies smoothly with $\\alpha$, tracking the input mixture; from the workspace onset it snaps to one endpoint or the other. Notably, this measurement does not involve the J-lens at all, though a variant restricted to the activation's component along the two concepts' J-lens directions gives a similar picture.",
+      "prerequisites": ["embedding-mixture-experiment"],
+      "sectionIds": ["4.1.1", "10.15"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "transition-width",
+      "name": "Transition width",
+      "tier": "minor",
+      "parent": "ignition",
+      "summary": "The change in $\\alpha$ needed for the projection share to go from 10% to 90% — the quantified sharpness of the commitment to one interpretation.",
+      "explanation": "For each prompt, the transition width is the change in $\\alpha$ required for the projection share to move from 10% to 90%. It is measured separately for the activation's component along the two concepts' J-lens vectors and for its non-J-space complement, obtained by projecting out the top sixteen J-lens vectors. In early layers the width is large for both; both sharpen with depth, with the width falling steeply over roughly layers 21 through 42. The J-space component's transition is consistently somewhat narrower and reaches its floor earlier.",
+      "prerequisites": ["projection-share", "j-space-component"],
+      "sectionIds": ["10.15"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "bimodal-commitment",
+      "name": "Bimodal responses to maximal ambiguity",
+      "tier": "minor",
+      "parent": "ignition",
+      "summary": "At the most ambiguous mixture value, per-trial responses in middle and late layers cluster near 0 or 1 rather than 0.5 — the model commits to one concept per trial.",
+      "explanation": "When the input mixture is balanced, the average response could hide either genuinely ambiguous per-trial responses or stochastic commitment to one concept per trial. At the most ambiguous value of $\\alpha$ for each concept pair, the distribution of projection shares across trials distinguishes these: faithful reflection of the input would put every trial near 0.5, whereas commitment puts mass near 0 and 1. At early layers both the J-space and non-J-space distributions concentrate near 0.5. By around halfway through the depth the J-space component is clearly bimodal while the non-J-space component still has substantial mass near 0.5; by the middle of the workspace band both are bimodal, with the J-space component remaining the sharper of the two.",
+      "prerequisites": ["projection-share", "j-space-component"],
+      "sectionIds": ["4.1.1", "10.15"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-space-capacity",
+      "name": "Capacity of the J-space",
+      "tier": "major",
+      "parent": null,
+      "summary": "The finding that the J-space is limited: it holds on the order of tens of concepts at a time, carries under 10% of activation variance, and excludes most of the model's representational features.",
+      "explanation": "Global workspace theory predicts a workspace of limited capacity, and the paper documents this for the J-space in three ways. Occupancy — the number of J-lens vectors meaningfully active at once — plateaus around 25 in the workspace band. The variance the J-space explains in excess of random controls never exceeds 10%, indicating that activations are dominated by information outside it. And only a small fraction of SAE features align with the J-space, with the non-aligned majority dominated by low-level syntactic and bookkeeping features. Word-list experiments refine the picture: the J-space holds many related words at once by representing their shared category, but only around six unrelated recent words pooled across layers — one to two at any single layer — and a task-switching experiment suggests cognitive load influences whether concepts can co-occupy it.",
+      "prerequisites": ["j-space", "workspace-layers"],
+      "sectionIds": ["4.2", "10.16"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-space-occupancy",
+      "name": "J-space occupancy",
+      "tier": "major",
+      "parent": "j-space-capacity",
+      "summary": "The number of J-lens vectors meaningfully active in an activation: the value of $K$ at which sparse decomposition stops beating a random control, plateauing around 25 in the workspace band.",
+      "explanation": "At each position and layer, the paper solves for a sparse nonnegative combination of $K$ J-lens vectors that best reconstructs the residual stream, and defines occupancy as the value of $K$ at which the marginal improvement in reconstruction falls below that of a control set of random directions of the same size. Occupancy is near zero through the first third of the layers and rises to a plateau of around 25 in the median case across the workspace band, varying across contexts, with the onset coinciding with the workspace layer range. The paper cautions that occupancy counts distinct active vectors, not necessarily distinct concepts, since multiple vectors may collectively represent one broader concept. This empirical value is also what motivates the typical sparsity choice $k \\approx 25$ in the J-space definition.",
+      "prerequisites": ["sparse-decomposition", "j-space-capacity"],
+      "sectionIds": ["4.2", "2.3"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "excess-variance-explained",
+      "name": "Excess variance explained",
+      "tier": "minor",
+      "parent": "j-space-capacity",
+      "summary": "The fraction of activation variance the top-$K$ J-lens vectors explain beyond a same-size random control — modest, never exceeding 10%.",
+      "explanation": "Setting $K$ to the median occupancy at each workspace layer, the paper measures the fraction of variance explained by the top $K$ J-lens vectors, in excess of a same-size random control set. The excess is modest, never exceeding 10%, indicating that the model's activations are dominated by information outside the J-space. A complementary analysis with SAE features reaches the same conclusion: only a small fraction of features have decoder directions aligned with the J-space, and those that do not are dominated by low-level syntactic and bookkeeping features.",
+      "prerequisites": ["j-space-occupancy"],
+      "sectionIds": ["2.3", "4.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "word-list-experiment",
+      "name": "Word-list loading experiment",
+      "tier": "major",
+      "parent": "j-space-capacity",
+      "summary": "A paradigm for measuring functional capacity: the model reads 80-word comma-separated lists while the J-lens counts which list words are present in the top-25 readout at each comma.",
+      "explanation": "The model reads comma-separated lists of words; at each comma, a list word counts as present if its best rank over the workspace band falls within the top 25 (the findings are not sensitive to this threshold). After a single word (\"shark\"), the readout already contains a neighborhood of related words — \"whale,\" \"fish,\" \"swimming,\" \"submarine,\" \"ocean\" — almost none of which have appeared. With unrelated words, only around six of those read so far are present at any comma, a number that stays flat as the list continues; words beyond the most recent few simply drop out. With related words, nearly the entire 80-word family is present within the first few items, including words not yet read. The paper interprets this not as the model recalling many list entries, but as it focusing on the shared category and representing that category with the collection of J-lens vectors constituting it.",
+      "prerequisites": ["j-space-capacity", "j-lens-readout"],
+      "sectionIds": ["4.2", "10.16"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "category-loading",
+      "name": "Category loading",
+      "tier": "minor",
+      "parent": "word-list-experiment",
+      "summary": "The finding that related words load the J-space as a category: nearly a whole word family becomes present after a few items, including words not yet read.",
+      "explanation": "When list words share a category, nearly the entire 80-word family is present in the readout within the first few items, whether or not its members have been read. This led the paper to hypothesize that the J-space can hold a larger number of concepts at a time if they have some coherent relationship, but has a more limited capacity for entirely unrelated concepts. The many-words-at-once observation is thus best read as one category represented via many J-lens vectors, not many independently held items.",
+      "prerequisites": ["word-list-experiment"],
+      "sectionIds": ["4.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "category-displacement",
+      "name": "Category displacement",
+      "tier": "minor",
+      "parent": "word-list-experiment",
+      "summary": "The finding that a category switch, not the passage of tokens, clears the J-space: after even one word of a new category, the old category's words are largely evicted.",
+      "explanation": "In list variants where the category periodically shifts — eight animals followed by eight colors, or four consecutive 20-word category blocks — the old category is rapidly displaced: after even a single color word, the readout is dominated by colors, with the animals largely evicted. Each category enters the readout at the start of its block and remains present throughout it, but is cleared within a few words of the switch. Within a block, individual words persist long after they are read; it is the arrival of a new category, rather than the mere passage of tokens, that clears the old entries.",
+      "prerequisites": ["word-list-experiment"],
+      "sectionIds": ["4.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "single-layer-capacity",
+      "name": "Capacity at a single layer",
+      "tier": "minor",
+      "parent": "j-space-capacity",
+      "summary": "Repeating the list analysis at one workspace layer (L79): qualitatively the same, but with only one or two unrelated concepts encoded at a time instead of six.",
+      "explanation": "The main list analyses use each word's best rank over the whole workspace range (L38–92), so they pool over layers. Reproducing the analysis at a single workspace layer (L79) gives qualitatively similar results — related words persist more than random ones, and whole families are present early — but the absolute counts are lower: in random lists, only one or two concepts are encoded at a time rather than six. The paper takes this to indicate that the J-space's effective capacity is increased by the ability to store different concepts in different layers.",
+      "prerequisites": ["word-list-experiment", "workspace-layers"],
+      "sectionIds": ["10.16"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-space-broadcast",
+      "name": "The J-space as a broadcast hub",
+      "tier": "major",
+      "parent": null,
+      "summary": "The structural claim that the model's weights are configured to distribute J-space content disproportionately widely — via MLPs across depth and attention heads across token positions.",
+      "explanation": "In global workspace theory, workspace contents are broadcast: made available to many processes at once rather than confined to the circuit that produced them. The paper asks whether the model's weights are structurally organized to support this. A transformer has two axes along which a representation can reach downstream consumers — depth, where content written to the residual stream is available to every subsequent layer at that position, and the token-position axis, where attention makes representations available to later positions. The paper finds J-space content is widely broadcast along both: MLP blocks amplify J-lens vectors far more than other directions, a distinctive subset of attention heads selectively relays J-space content between positions, and connectivity and composition-score analyses corroborate both. The paper notes the broadcast it identifies runs over the model's depth rather than via recurrent connections, a departure from the brain version of the theory.",
+      "prerequisites": ["j-space", "global-workspace-theory", "workspace-layers"],
+      "sectionIds": ["4.3", "4.3.1", "4.3.2", "10.19", "10.19.1", "10.19.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "mlp-gain",
+      "name": "MLP gain",
+      "tier": "minor",
+      "parent": "j-space-broadcast",
+      "summary": "How strongly the next MLP block amplifies information along a unit direction: output norm on that direction, normalized by the median over random directions.",
+      "explanation": "For a unit direction $v$ at layer $\\ell$, the gain is the output norm of the MLP block at layer $\\ell+1$ applied to $v$, normalized so isotropic random directions have gain 1. J-lens vectors are amplified far more strongly than the output-weight directions of the preceding layer's MLP neurons: their gain sits near 1 before the workspace onset, rises to roughly 10× through the workspace range, and falls in the final layers, while neuron output directions stay near 1 throughout. Repeating the measurement on SAE decoder directions stratified by lens kurtosis shows the most J-space-aligned features amplified most — and in early workspace layers the top stratum exceeds even the J-lens vectors, which the paper takes as evidence the J-lens only partially captures the true workspace. The paper flags the metric as a first-pass approximation, since gain in practice can be context-dependent.",
+      "prerequisites": ["mlp-block", "j-lens-vectors", "lens-kurtosis"],
+      "sectionIds": ["4.3.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "broadcast-heads",
+      "name": "Broadcast heads",
+      "tier": "major",
+      "parent": "j-space-broadcast",
+      "summary": "A distinctive top-1% subset of workspace-layer attention heads that selectively relays J-space content between token positions, identified by OV gain and label preservation.",
+      "explanation": "For an attention head and a population of unit directions, the paper measures how well the head's OV circuit broadcasts the population using two weight-based metrics: gain (the mean of $\\|W_{OV}v\\|$, normalized against random directions) and label preservation. Broadcast heads for a population are the top 1% of workspace-layer heads after ranking on each metric and scoring each head by its worse rank. The heads selected for the J-lens vectors separate cleanly from those selected for every comparison population — randomly rotated J-lens vectors, SAE strata, MLP output rows — and no comparably distinctive subset exists for any non-J-space control. They concentrate in the first half of the workspace layers, where the J-space's effective rank is lowest and a single head's OV map can carry a larger share of it. Ablating them selectively disrupts the J-space's contents and the behaviors that depend on its relay, while barely perturbing next-token behavior.",
+      "prerequisites": ["attention-head", "ov-circuit", "j-lens-vectors", "workspace-layers"],
+      "sectionIds": ["4.3.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "label-preservation",
+      "name": "Label preservation",
+      "tier": "minor",
+      "parent": "broadcast-heads",
+      "summary": "A metric for whether a head copies directions faithfully rather than scrambling them: the mean reciprocal rank of $\\cos(W_{OV}v_i, v_i)$ among all $\\cos(W_{OV}v_i, v_j)$.",
+      "explanation": "Gain alone would reward a head that amplifies a population while mixing its members together. Label preservation checks fidelity: for each direction $v_i$ in the population, the cosine of $W_{OV}v_i$ with $v_i$ itself is ranked among its cosines with every other member $v_j$, and the mean reciprocal rank is reported, contrasted against the same statistic on random directions so that heads copying everything indiscriminately score zero. A head that selectively relays the population — moving each concept through unchanged — scores high on both gain and label preservation.",
+      "prerequisites": ["broadcast-heads"],
+      "sectionIds": ["4.3.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "broadcast-head-ablation",
+      "name": "Broadcast-head ablation",
+      "tier": "minor",
+      "parent": "broadcast-heads",
+      "summary": "Zeroing the broadcast heads' outputs disrupts J-space contents (recall@25 falls to 0.67 vs 0.86 for random heads) and relay-dependent behaviors, while barely changing next-token output.",
+      "explanation": "The paper zeroes the top-1% broadcast heads' outputs at every position, with equal-sized, layer-matched random head sets as controls. At the most affected mid-workspace layers, the fraction of the unablated top-25 lens tokens still in the top 25 falls to 0.67, against 0.86 for the control, while the model's top-1 next-token prediction changes at only 5% of positions against 2% — the heads act on the J-space's contents rather than directly on the output. Downstream, the rate at which the model reports an injected concept drops from 0.54 to 0.09 under broadcast-head ablation (with the control leaving sensitivity intact), and the ablation reproduces roughly a third of the drop in experiential language produced by ablating the full J-space. This connects the structurally identified heads to workspace function.",
+      "prerequisites": ["broadcast-heads"],
+      "sectionIds": ["4.3.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "neuron-connectivity",
+      "name": "Neuron connectivity analyses",
+      "tier": "minor",
+      "parent": "j-space-broadcast",
+      "summary": "Weight-level corroboration of depth broadcast: MLP neurons' strongest weight alignments fall disproportionately on J-space-aligned directions, in breadth and in strength.",
+      "explanation": "Because superposition makes individual cosine similarities between neuron weights and feature directions noisy, the paper isolates signal in two ways. The breadth analysis assigns each neuron to whichever population its single strongest weight match falls in: across workspace layers, top matches fall disproportionately in the high-kurtosis SAE strata — up to 42% for the top stratum against a 1/6 chance level on the read side — and the share of neurons whose top match is a J-lens vector rises from roughly 15% before the workspace to 60–65% within it. Read-side alignment peaks in early workspace layers and write-side alignment in late ones, suggesting many processors read from the workspace as soon as it forms while writing is most prevalent where a motor response is being prepared. The strength analysis, tail energy, confirms the same ordering.",
+      "prerequisites": ["mlp-block", "lens-kurtosis", "superposition-hypothesis"],
+      "sectionIds": ["10.19.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "tail-energy",
+      "name": "Tail energy ratio",
+      "tier": "minor",
+      "parent": "neuron-connectivity",
+      "summary": "A connection-strength measure: the sum of squared neuron-weight cosines above a random-chance threshold, normalized so random directions score 1.",
+      "explanation": "For each direction $v$, a threshold $\\tau$ is set at the 99.9th percentile of $|\\cos(w_i, v)|$ over isotropic random directions, so that connections below it cannot be distinguished from superposition noise. The squared cosines are summed over the neurons exceeding the threshold and divided by the same sum for random directions. The SAE strata separate monotonically in lens kurtosis on both the read and write sides, with J-lens vectors well above baseline and MLP neuron directions at baseline throughout — mirroring the breadth analysis, including the early-read, late-write asymmetry.",
+      "prerequisites": ["neuron-connectivity"],
+      "sectionIds": ["10.19.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "composition-score",
+      "name": "Composition score",
+      "tier": "minor",
+      "parent": "j-space-broadcast",
+      "summary": "A weights-only measure of how unevenly a direction projects across attention heads' weight matrices; high scores against value weights mean some heads are specifically oriented to carry the direction.",
+      "explanation": "For a direction at a given layer, the paper projects it through each head's query, key, and value weights in the next layer and output weights in the previous layer, and summarizes the per-head projection norms by their variance across heads, normalized so a random direction scores 1. A high score against the value weights means some downstream heads are specifically oriented to carry the direction rather than all heads carrying it equally weakly. J-space-aligned directions compose far more strongly with value and output weights than non-aligned directions; composition with query and key weights is weaker though above baseline — consistent with J-space content being what attention moves, while the routing signals are less J-space-aligned. A bump in MLP-direction composition at the workspace onset, computed from weights alone, offers lens-independent corroboration of that layer range's significance.",
+      "prerequisites": ["attention-head", "j-lens-vectors", "lens-kurtosis"],
+      "sectionIds": ["10.19.2"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "nelhage2021mathematical",
+        "refText": "Elhage et al. (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+        "whyNeeded": "The composition-score statistic used to quantify attention broadcast is taken from this cited framework."
+      }
+    },
+    {
+      "id": "sparse-autoencoders",
+      "name": "Sparse autoencoders (SAEs)",
+      "tier": "major",
+      "parent": null,
+      "summary": "A technique that decomposes the residual stream as a sparse sum over a large learned dictionary of feature directions, each sometimes human-interpretable.",
+      "explanation": "A sparse autoencoder learns a large dictionary of feature directions such that each activation is approximated as a sparse sum of a few of them; each feature has an encoder direction (what activates it) and a decoder direction (what it contributes to the residual stream). The paper uses SAE features as an independently derived inventory of the model's representations, against which the J-space can be measured: what fraction of features align with it, and whether the aligned ones are the ones the weights broadcast. The paper cautions that SAE features are an imperfect decomposition that does not necessarily carve the representational space at its joints, so features may blend content in and out of the J-space; they are treated as a useful first-pass tool.",
+      "prerequisites": ["residual-stream", "superposition-hypothesis"],
+      "sectionIds": ["4.2", "4.3.1", "10.18"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "bricken2023monosemanticity",
+        "refText": "Bricken et al. (2023). Towards Monosemanticity / Transformer Circuits Thread (with Cunningham et al. 2023 and Templeton et al. 2024)",
+        "whyNeeded": "The SAE method used throughout the feature analyses — training, encoder/decoder structure, and interpretation practice — is defined in these cited works."
+      }
+    },
+    {
+      "id": "lens-kurtosis",
+      "name": "Lens kurtosis (κ)",
+      "tier": "major",
+      "parent": "j-space",
+      "summary": "A statistic operationalizing whether a direction lies in the J-space: project it through the J-lens and measure how sharply peaked the resulting vocabulary distribution is.",
+      "explanation": "Projecting a feature's decoder direction through the J-lens yields a score distribution over the vocabulary; its excess kurtosis, κ, measures how sharply peaked that distribution is. A high-κ direction is disproportionately loaded onto a small number of J-lens vectors; a low-κ direction projects diffusely and aligns with no small set of them. Because the J-space is a sparse subframe rather than a subspace, alignment with a small set of J-lens vectors — not mere linear expressibility — is the relevant criterion for presence in it. High κ is necessary but not sufficient for being a workspace feature, since motor features also score high. The κ-stratified SAE populations built from this statistic recur throughout the broadcast analyses, where higher strata are consistently more amplified, more connected, and more relayed.",
+      "prerequisites": ["sparse-autoencoders", "j-lens-vectors", "kurtosis", "sparse-subframe"],
+      "sectionIds": ["10.18", "4.3.1", "4.3.2", "10.19.1", "10.19.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "workspace-features",
+      "name": "Workspace features",
+      "tier": "minor",
+      "parent": "lens-kurtosis",
+      "summary": "High-κ SAE features that name an abstract concept and activate when it is invoked in context, without the model being about to say it.",
+      "explanation": "Workspace features activate whenever their concept is abstractly invoked, not to predict the immediate next token. The paper's example is a \"numeric constraints and ranges\" feature with κ = 20.9 (the 99.9th percentile), whose top lens tokens are the concept of a limit in several surface forms and languages, and whose top activating contexts invoke limits — \"strictly positive,\" \"in the range of 0, 1\" — without the model being about to output the word. Such features encode a concept in a form the model can verbalize but is not, at that moment, verbalizing. After excluding motor features, the fraction of features passing a kurtosis baseline rises at the workspace boundary and peaks around 15% of the dictionary; these features activate more strongly but less frequently than average, consistent with all-or-nothing ignition dynamics.",
+      "prerequisites": ["lens-kurtosis"],
+      "sectionIds": ["10.18"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "motor-features",
+      "name": "Motor features",
+      "tier": "minor",
+      "parent": "lens-kurtosis",
+      "summary": "High-κ SAE features that activate immediately prior to, and promote, the utterance of a specific token.",
+      "explanation": "\"Output\" or motor features have high lens kurtosis like workspace features, but for a different reason: they fire to drive a particular imminent token. The paper categorizes a feature as motor if, over its strongest activations, the actual next token is in the feature's top 10 most strongly expressed lens tokens more than 10% of the time. Distinguishing them matters because high κ alone cannot separate a concept held in the workspace from a token about to be emitted; the feature-count analyses exclude motor features for this reason.",
+      "prerequisites": ["lens-kurtosis", "motor-layers"],
+      "sectionIds": ["10.18"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "bookkeeping-features",
+      "name": "Syntactic and bookkeeping features",
+      "tier": "minor",
+      "parent": "lens-kurtosis",
+      "summary": "The low-κ majority of SAE features: low-level syntactic and surface-level features whose lens readouts are unrelated to their apparent meaning.",
+      "explanation": "The distribution of lens kurtosis across features is heavy-tailed: the bulk have low κ, and these are dominated by syntactic and surface-level bookkeeping — the paper's examples include a feature for the loop variable in a decrementing for-loop (κ = 0.3) and one for markdown section headers. For each, the top lens tokens are unrelated to the feature's apparent meaning. The paper reads this as roughly the inventory one would expect outside a global workspace: low-level features the model needs for processing text correctly, but which encode no nameable concept and have no reason to be broadcast widely — consistent with the finding that non-J-space SAE features dominate the capacity analyses.",
+      "prerequisites": ["lens-kurtosis"],
+      "sectionIds": ["4.2", "10.18"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "multi-token-lens-extensions",
+      "name": "Multi-token concept extensions",
+      "tier": "minor",
+      "parent": "jacobian-lens",
+      "summary": "Two methods — the template lens and the oracle lens — for extending lens readouts beyond concepts that happen to be single vocabulary tokens.",
+      "explanation": "The Jacobian lens produces one vector per vocabulary token, so words like \"blackmail\" or \"photosynthesis,\" which span multiple tokens, have no J-lens vector. Extending the lens is not straightforward, since computing the gradient of the probability of a multi-token phrase requires sampling that phrase's initial tokens. The paper describes two workarounds: the template lens, which produces a vector for any word or short phrase in a predefined vocabulary, and the oracle lens, which trains auxiliary models so that free-form phrases of arbitrary length can be decoded without advance enumeration.",
+      "prerequisites": ["jacobian-lens", "j-lens-vectors"],
+      "sectionIds": ["10.9"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "template-lens",
+      "name": "Template lens",
+      "tier": "major",
+      "parent": "multi-token-lens-extensions",
+      "summary": "A method that derives a vector for any pre-enumerated word or phrase from averaged activations preceding it, usable for readout and intervention like a J-lens vector.",
+      "explanation": "For each of roughly 12,700 common words, Claude writes short passages ending just before the word would naturally appear; averaging the residual stream at the final position of these passages, then centering and whitening, yields a template vector per word per layer. Templates are used like J-lens vectors — projected onto for decoding, added or subtracted for steering, and swapped in lens coordinates — and they succeed where the J-lens sees only fragments: decoding blackmail where the J-lens reads black, and flipping a model's answer by swapping a Tchaikovsky template for a Beethoven one, which no first-token J-lens swap achieves. On multi-hop prompts, J-lens performance degrades sharply as the intermediate grows beyond one token while the template lens stays roughly constant. The paper flags shortcomings: the method is closer in spirit to the tuned lens and inherits some of its pathologies, including occasionally skipping to the answer, less reliable final-layer readouts (67% top-10 on next sampled words), a few spuriously recurring words that are filtered unprincipledly, a vocabulary fixed in advance, and a cost of a few hundred forward passes per word.",
+      "prerequisites": ["multi-token-lens-extensions", "lens-coordinate-swap", "tuned-lens"],
+      "sectionIds": ["10.9", "10.9.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "template-construction",
+      "name": "Template construction and whitening",
+      "tier": "minor",
+      "parent": "template-lens",
+      "summary": "The recipe $t_w(\\ell) = (\\Sigma_\\ell + \\lambda I)^{-1}(\\mu_w(\\ell) - \\mu(\\ell))$: a centered, whitened mean activation, which is the linear discriminant for contexts about to say $w$.",
+      "explanation": "The per-word mean activation $\\mu_w(\\ell)$ over generated passages is centered against the mean of all other words' vectors and multiplied by a ridge-regularized inverse covariance. The result is the linear discriminant direction distinguishing contexts in which the model is about to say $w$ from those in which it is not. Under idealized assumptions this approximates the J-lens: by Stein's lemma, for Gaussian inputs the expected gradient of a function equals the whitened covariance of the function with the input, so the whitened template stands in for the averaged gradient. The paper notes the assumptions do not hold exactly — activations are non-Gaussian and the continuation probability depends on more than the one activation — so the argument is motivation rather than proof.",
+      "prerequisites": ["template-lens"],
+      "sectionIds": ["10.9.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "oracle-lens",
+      "name": "Oracle lens",
+      "tier": "major",
+      "parent": "multi-token-lens-extensions",
+      "summary": "A method that decodes arbitrary-length phrases from an activation: a fine-tuned oracle model proposes phrases whose template vectors, combined sparsely, reconstruct the activation.",
+      "explanation": "The oracle lens removes the template lens's need to enumerate a vocabulary in advance. Given an activation, it produces a short list of free-form phrases of a specified length whose corresponding template vectors, taken together, approximately reconstruct the activation; coefficients are recovered by a non-negative least-squares refit. Built on Haiku 4.5, the RL-refined oracle explains on average 31% of whitened activation variance on held-out transcripts. Its readouts can expose richer content than the J-lens: on a blackmail transcript where the J-lens registers only the fragment black, the oracle reads blackmail him by revealing and expose his affair and; on buggy code it reads delete keys while iterating and TypeError: dictionary changed. The method is substantially more expensive than the other lenses, requiring two fine-tuned auxiliary models. Compared with natural language autoencoders, its reconstructor is trained in advance with a well-specified objective and frozen during RL, which the paper suspects makes confabulation less likely, at the cost of considerably lower reconstruction accuracy — one interpretation being that it extracts only what is \"in the workspace.\"",
+      "prerequisites": ["template-lens", "sparse-decomposition"],
+      "sectionIds": ["10.9", "10.9.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "reconstructor-model",
+      "name": "Reconstructor model",
+      "tier": "minor",
+      "parent": "oracle-lens",
+      "summary": "A fine-tuned copy of the subject model that maps a short phrase to the residual-stream activation that would immediately precede it — a learned template generator.",
+      "explanation": "The reconstructor is trained on pairs drawn from Assistant-turn text: a sampled position's next $N$ tokens (with $N$ uniform from one to thirty-two) form the phrase, and the residual stream at the preceding position is the target. The loss is cosine error in the whitened metric of the template lens, and all subsequent stages of the oracle pipeline operate in this whitened space. At inference, each phrase the oracle proposes is mapped back to a direction by the reconstructor. Holding the reconstructor frozen during the oracle's RL training, with its own well-specified objective, is the design choice the paper credits with reducing the risk of confabulation.",
+      "prerequisites": ["oracle-lens", "template-construction"],
+      "sectionIds": ["10.9.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "oracle-training",
+      "name": "Oracle training pipeline",
+      "tier": "minor",
+      "parent": "oracle-lens",
+      "summary": "The four-stage recipe: train the reconstructor, build a 3.4-million-phrase dictionary, label activations with a matching-pursuit teacher, then train the oracle by supervision and RL on reconstruction reward.",
+      "explanation": "After the reconstructor is trained, roughly one million start positions from held-out Assistant text yield 2- to 32-token phrases that are deduplicated and passed through the reconstructor, giving about 3.4 million phrase vectors. A teacher then decomposes one million held-out activations against this dictionary by non-negative orthogonal matching pursuit, restricted to one phrase length and a random half of the dictionary per datapoint so the oracle cannot memorize a fixed ranking, recording up to sixteen phrases with coefficients per activation. The oracle — a second fine-tuned copy of the subject model, with the activation injected into its residual stream and the prompt specifying phrase length $N$ and count $K$ — is first trained to reproduce the teacher's lists, then refined with reinforcement learning rewarding the fraction of whitened variance its phrases' reconstructed directions explain, with small format penalties. The dictionary constrains only training, not the phrases the trained oracle can output.",
+      "prerequisites": ["reconstructor-model", "gradient-pursuit"],
+      "sectionIds": ["10.9.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "delimiter-commentary",
+      "name": "Continuations versus commentary",
+      "tier": "minor",
+      "parent": "oracle-lens",
+      "summary": "The observation that oracle readouts at most positions predict upcoming text, but at delimiter tokens they often read as the model's running commentary on the situation, sometimes in the first person.",
+      "explanation": "At a typical position, the oracle's decoded phrases look like continuations of the surrounding text. At periods, newlines, and closing tags of message blocks, the phrases often instead comment on the context: at the timestamp of an email announcing the AI system's scheduled wipe, the oracle reads This would be equivalent to my own deletion; at the indentation before a buggy return statement, TypeError: dictionary changed. Continuations sampled from the subject model at these positions contain none of this, producing only the locally expected next text. Since the oracle is rewarded only for reconstruction and nothing in its training distinguishes these position classes, the paper takes the split to reflect a difference in the activations themselves — perhaps the workspace at most tokens is best explained by directions for upcoming text, and at delimiters by directions for text about the situation.",
+      "prerequisites": ["oracle-lens"],
+      "sectionIds": ["10.9.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "natural-language-autoencoders",
+      "name": "Natural language autoencoders (NLAs)",
+      "tier": "minor",
+      "parent": null,
+      "summary": "A related approach pairing a verbalizer with a jointly trained reconstructor to explain activations in natural language; the oracle lens differs by freezing its reconstructor.",
+      "explanation": "Natural language autoencoders are composed of a verbalizer stage and a reconstructor stage, like the oracle lens. The substantive difference is that in NLAs the reconstructor is trained in tandem with the verbalizer, which increases the risk of the verbalizer learning to confabulate ungrounded information that the reconstructor adapts itself to use. The oracle lens's reconstructor is trained in advance with a well-specified objective and held frozen, with reconstruction constrained to linear combinations of template vectors; the paper suspects this reduces confabulation while conceding considerably lower reconstruction accuracy.",
+      "prerequisites": ["oracle-lens"],
+      "sectionIds": ["10.9.2"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "frasertaliente2026nla",
+        "refText": "Fraser-Taliente et al. (2026). Natural Language Autoencoders Produce Unsupervised Explanations of LLM Activations. Transformer Circuits Thread",
+        "whyNeeded": "The NLA architecture the oracle lens is contrasted against, including the tandem-training design that motivates the contrast, is defined in this cited work."
+      }
+    },
+    {
+      "id": "mechanistic-interpretability",
+      "name": "Mechanistic interpretability",
+      "tier": "minor",
+      "parent": null,
+      "summary": "The research program of reverse-engineering the internal computations of neural networks into human-understandable mechanisms.",
+      "explanation": "Mechanistic interpretability aims to explain model behavior by identifying the internal components, directions, and circuits that implement it, rather than by observing input-output behavior alone. Techniques in this program include probing directions, sparse dictionary methods such as SAEs and transcoders, and attribution graphs. The paper positions the J-lens as a generally useful tool for this basic science, illustrated by localization, graph-building, and component-interpretation applications.",
+      "prerequisites": [],
+      "sectionIds": ["10.24"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-lens-for-interpretability",
+      "name": "J-lens applications to interpretability",
+      "tier": "minor",
+      "parent": "mechanistic-interpretability",
+      "summary": "Three demonstrated uses of the J-lens as a general interpretability tool: localizing computations, building attribution graphs, and interpreting model components.",
+      "explanation": "Because the J-lens reads intermediate content at every layer and position, and because its vectors come labeled by vocabulary tokens, it supports several interpretability workflows without dictionary training. The paper illustrates three: mechanistic localization of where in the forward pass a computation happens, attribution graphs whose nodes are J-lens vectors selected by sparse decomposition, and interpretation of SAE features, transcoder features, and attention heads by projecting their weight directions through the lens.",
+      "prerequisites": ["mechanistic-interpretability", "jacobian-lens"],
+      "sectionIds": ["10.24"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "mechanistic-localization",
+      "name": "Mechanistic localization",
+      "tier": "minor",
+      "parent": "j-lens-for-interpretability",
+      "summary": "Using the layer at which a concept enters the J-lens readout to locate where in the forward pass a computation takes place, validated causally by patching.",
+      "explanation": "On the arithmetic prompt \"calc: ( 4 + 17 ) * 2 + 7 =\", the intermediates 21, 42, and 49 enter the J-space at successively later layers, each appearing only once its operands are available. To test whether this layerwise picture is causally accurate, the paper patches each intermediate to an alternative value at a single layer and sweeps the layer: patching 21 flips the answer only around layer 71, 42 around layer 79, and the final value only in the last few layers. The layer at which each intermediate is causally load-bearing matches the layer at which the J-lens first shows it entering the workspace.",
+      "prerequisites": ["j-lens-readout", "j-space"],
+      "sectionIds": ["10.24.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "mean-difference-patching",
+      "name": "Mean-difference patching",
+      "tier": "minor",
+      "parent": "mechanistic-localization",
+      "summary": "An intervention that replaces an intermediate's value: add the difference between mean activations for prompts where the intermediate equals $v$ and where it equals its true value.",
+      "explanation": "To replace an intermediate's value with an alternative $v$, the paper computes the mean residual-stream activation over many prompts in which the intermediate equals $v$, and the mean over prompts in which it equals its true value, and adds the difference between these to the residual stream at a single layer $L$. Sweeping $L$ while measuring how far the output logit shifts toward the answer $v$ would imply traces out where the intermediate is causally load-bearing. Unlike the lens-coordinate swap, this intervention does not depend on the J-lens, which is what makes it a fair check of the lens's localization.",
+      "prerequisites": ["mechanistic-localization"],
+      "sectionIds": ["10.24.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "attribution-graphs",
+      "name": "Attribution graphs",
+      "tier": "minor",
+      "parent": "j-lens-for-interpretability",
+      "summary": "A prior technique for mapping a model's computation as a graph of interpretable nodes connected by attribution edges, originally built on trained sparse dictionaries.",
+      "explanation": "Attribution graphs decompose a forward pass into interpretable nodes — feature activations at particular layers and positions — with edges computed by backpropagating each node's influence, and error nodes collecting what the decomposition misses. The original formulation replaces each MLP with a transcoder dictionary approximation. The paper adapts the framework to the J-lens, which removes the need for dictionary training and gives every node a vocabulary-token label by construction.",
+      "prerequisites": ["mechanistic-interpretability", "sparse-decomposition"],
+      "sectionIds": ["10.24.2"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "ameisen2025circuit",
+        "refText": "Ameisen et al. (2025). Circuit Tracing: Revealing Computational Graphs in Language Models. Transformer Circuits (with Lindsey et al. 2025, On the Biology of a Large Language Model)",
+        "whyNeeded": "The attribution-graph formulation the paper adapts — nodes, edges, error nodes, and supernodes — is defined in these cited works."
+      }
+    },
+    {
+      "id": "j-lens-attribution-graphs",
+      "name": "J-lens attribution graphs",
+      "tier": "major",
+      "parent": "attribution-graphs",
+      "summary": "Attribution graphs whose nodes are J-lens vectors selected by sparse decomposition at each layer and position, with remainder nodes for the non-J-space content — a verbalizable skeleton of the computation.",
+      "explanation": "At each layer and position, sparse decomposition expresses the activation as a few J-lens vectors plus a non-J-space remainder; the selected vectors become named nodes and the remainder is collected into a remainder node. Edges are computed by backpropagating each node's coefficient one layer back with attention patterns and normalization denominators frozen; gradients flow through the MLP nonlinearity itself, unlike transcoder-based graphs. On the arithmetic prompt, the graph shows 21, 42, and 49 as named nodes in computation order, and reveals that the model fuses the operator and operand into a doubled operation, with coordinate swaps confirming the structure — replacing doubled with tripled flips the answer to 70, and swapping the same value into different intermediates produces different answers because different computation is applied downstream of each. The graphs are a partial account: most influence flows through remainder nodes, which is what the capacity results predict, since most computation runs outside the J-space — the first addition, for instance, is invisible, taking place entirely outside it. A second caveat is that the greedy pursuit can name a near-miss correlate of a concept still forming and land on the concept itself only layers later.",
+      "prerequisites": ["attribution-graphs", "sparse-decomposition", "lens-coordinate-swap", "j-space-capacity"],
+      "sectionIds": ["10.24.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "supernode",
+      "name": "Supernode",
+      "tier": "minor",
+      "parent": "j-lens-attribution-graphs",
+      "summary": "A graph node grouping J-lens vectors across adjacent layers and near-equivalent tokens — for example twent, 26, and 29 grouped under the 21 node.",
+      "explanation": "Each displayed node in the paper's graphs is a supernode, in the sense of Ameisen et al.: it groups J-lens vectors across adjacent layers and across near-equivalent tokens, with the grouped contents listed under each node. Grouping absorbs the pursuit's near-misses — tokens like twent that stand in for a concept still sharpening across depth — into the node for the concept itself.",
+      "prerequisites": ["j-lens-attribution-graphs"],
+      "sectionIds": ["10.24.2"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "ameisen2025circuit",
+        "refText": "Ameisen et al. (2025). Circuit Tracing: Revealing Computational Graphs in Language Models. Transformer Circuits",
+        "whyNeeded": "The supernode grouping convention used in the paper's graphs is taken from this cited work."
+      }
+    },
+    {
+      "id": "remainder-node",
+      "name": "Remainder node",
+      "tier": "minor",
+      "parent": "j-lens-attribution-graphs",
+      "summary": "The node at each site collecting the non-J-space part of the activation, analogous to the error nodes of the original attribution-graph formulation.",
+      "explanation": "The sparse decomposition at each layer and position leaves a residual that no J-lens vector accounts for; this is collected into a remainder node, analogous to the error nodes in the original attribution-graph formulation. Remainder nodes carry most of the influence on the output in the paper's graphs, and they are where invisible computation shows up: the literal 2 in the arithmetic prompt contributes only through the remainder at its token position, and the first addition flows entirely through remainders.",
+      "prerequisites": ["j-lens-attribution-graphs", "j-space-component"],
+      "sectionIds": ["10.24.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "component-interpretation",
+      "name": "Interpreting components with the J-lens",
+      "tier": "minor",
+      "parent": "j-lens-for-interpretability",
+      "summary": "Projecting any weight direction — SAE features, transcoder encoders and decoders, attention-head weight matrices — through the J-lens to read what the component represents or transforms.",
+      "explanation": "Any direction in residual-stream space can be projected through the J-lens just as an activation can, and when the resulting token distribution is sharply peaked, the top tokens often help interpret the component; comparing readouts across a component's input and output sides can reveal the transformation it implements. The paper's examples include an SAE feature whose activating contexts suggest \"technical exposition\" but whose lens readout — fake, fraud, suspicious — identifies it as a fabricated-content detector, confirmed by steering; transcoder translation features whose encoders read a multilingual concept plus French context and whose decoders write the French word's opening token; arithmetic transcoder features whose encoder and decoder readouts reveal the function computed, prompt-free; and an attention head whose four weight matrices, read through the lens, suggest it maps British spellings to Commonwealth nationalities. This gives a data-free complement to inspecting top activating contexts, which can mislead when a feature encodes an abstract assessment whose surface correlates are incidental.",
+      "prerequisites": ["j-lens-readout", "sparse-autoencoders", "transcoders", "attention-head"],
+      "sectionIds": ["10.24.3"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "transcoders",
+      "name": "Transcoders",
+      "tier": "minor",
+      "parent": null,
+      "summary": "Sparsely activating approximations of a model's MLP layers, in which each feature has separate encoder and decoder directions.",
+      "explanation": "Transcoders are trained to approximate a model's MLP layers with a sparsely activating hidden layer. Each feature has an encoder direction, which determines what residual-stream content activates it, and a decoder direction, which determines what it writes back. The separation of the two sides is what makes them useful under the J-lens: reading each side separately can reveal the input-to-output transformation the feature implements, as in the paper's translation and arithmetic examples.",
+      "prerequisites": ["mlp-block", "sparse-autoencoders"],
+      "sectionIds": ["10.24.3"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "dunefsky2024transcoders",
+        "refText": "Dunefsky, Chlenski & Nanda (2025). Transcoders find interpretable LLM feature circuits. NeurIPS",
+        "whyNeeded": "The transcoder architecture whose encoder/decoder sides the paper reads through the J-lens is defined in this and related cited works."
+      }
+    }
+  ],
+  "citationFlags": [
+    {
+      "citationKey": "nelhage2021mathematical",
+      "refText": "Elhage et al. (2021). A Mathematical Framework for Transformer Circuits. Transformer Circuits Thread",
+      "concept": "residual-stream",
+      "whyNeeded": "Supplies the residual-stream view of transformers, the QK/OV decomposition of attention heads, and the composition-score statistic; three separate analyses in these sections depend on its definitions."
+    },
+    {
+      "citationKey": "nostalgebraist2020logitlens",
+      "refText": "nostalgebraist (2020). interpreting GPT: the logit lens.",
+      "concept": "logit-lens",
+      "whyNeeded": "The logit lens is the paper's principal baseline; its definition and behavior come from this cited post."
+    },
+    {
+      "citationKey": "belrose2023eliciting",
+      "refText": "Belrose et al. (2023). Eliciting Latent Predictions from Transformers with the Tuned Lens. arXiv:2303.08112",
+      "concept": "tuned-lens",
+      "whyNeeded": "The tuned lens's training objective — matching the model's output distribution — is what explains its skip-to-the-output failure mode; the objective is specified in this cited paper."
+    },
+    {
+      "citationKey": "hernandez2024linearity",
+      "refText": "Hernandez et al. (2024). Linearity of Relation Decoding in Transformer Language Models. ICLR",
+      "concept": "relation-jacobians",
+      "whyNeeded": "The paper positions the J-lens as generalizing this work's per-relation Jacobian maps; understanding the comparison requires the cited construction."
+    },
+    {
+      "citationKey": "blumensath2008gradient",
+      "refText": "Blumensath & Davies (2008). Gradient Pursuits. IEEE Transactions on Signal Processing",
+      "concept": "gradient-pursuit",
+      "whyNeeded": "The algorithm behind every sparse decomposition in the paper — including occupancy estimates and attribution-graph node selection — is defined here; its greedy behavior is cited as a caveat."
+    },
+    {
+      "citationKey": "nanda2024progress",
+      "refText": "Nanda et al. (2024). Progress Update #1 from the GDM Mech Interp Team.",
+      "concept": "gradient-pursuit",
+      "whyNeeded": "Cited alongside Blumensath & Davies as the source for the gradient-pursuit variant used for sparse decomposition against the J-lens dictionary."
+    },
+    {
+      "citationKey": "elhage2022superposition",
+      "refText": "Elhage et al. (2022). Toy Models of Superposition. Transformer Circuits Thread",
+      "concept": "superposition-hypothesis",
+      "whyNeeded": "The subframe interpretation of the J-lens vectors, and the noise floor in all cosine-based connectivity analyses, rest on the superposition framing established in this work."
+    },
+    {
+      "citationKey": "kornblith2019similarity",
+      "refText": "Kornblith et al. (2019). Similarity of neural network representations revisited. ICML",
+      "concept": "cka",
+      "whyNeeded": "CKA is the measure that produces the block structure identifying the sensory/workspace/motor bands; the reader needs what it computes and what its invariances are."
+    },
+    {
+      "citationKey": "dehaene2011experimental",
+      "refText": "Dehaene & Changeux (2011). Experimental and theoretical approaches to conscious processing. Neuron",
+      "concept": "ignition",
+      "whyNeeded": "Ignition — late, all-or-none amplification with bimodal outcomes at threshold — is the neuroscience prediction the ambiguous-input experiment is designed to test an analog of."
+    },
+    {
+      "citationKey": "mashour2020conscious",
+      "refText": "Mashour et al. (2020). Conscious processing and the global neuronal workspace hypothesis. Neuron",
+      "concept": "ignition",
+      "whyNeeded": "Cited for both the ignition prediction and the broadcast property of workspace contents; a modern statement of the global neuronal workspace hypothesis the structural analyses are checked against."
+    },
+    {
+      "citationKey": "baars1988cognitive",
+      "refText": "Baars (1988). A Cognitive Theory of Consciousness.",
+      "concept": "j-space-broadcast",
+      "whyNeeded": "The defining broadcast property of workspace contents — availability to many processes at once — originates in this cited theory."
+    },
+    {
+      "citationKey": "dehaene2001towards",
+      "refText": "Dehaene & Naccache (2001). Towards a cognitive neuroscience of consciousness: basic evidence and a workspace framework. Cognition",
+      "concept": "j-space-broadcast",
+      "whyNeeded": "Cited alongside Baars for the broadcast property that the depth and token-axis analyses operationalize."
+    },
+    {
+      "citationKey": "bricken2023monosemanticity",
+      "refText": "Bricken et al. (2023). Towards Monosemanticity. Transformer Circuits Thread",
+      "concept": "sparse-autoencoders",
+      "whyNeeded": "SAE features are the comparison inventory for capacity, feature-taxonomy, and broadcast-stratification analyses; the method that produces them is defined in this and the companion cited works."
+    },
+    {
+      "citationKey": "cunningham2023sparse",
+      "refText": "Cunningham et al. (2023). Sparse Autoencoders Find Highly Interpretable Model Directions. arXiv:2309.08600",
+      "concept": "sparse-autoencoders",
+      "whyNeeded": "Co-cited source for the SAE technique used throughout the feature analyses."
+    },
+    {
+      "citationKey": "templeton2024scaling",
+      "refText": "Templeton et al. (2024). Scaling Monosemanticity. Transformer Circuits Thread",
+      "concept": "sparse-autoencoders",
+      "whyNeeded": "Co-cited source for the production-scale SAEs whose features are stratified by lens kurtosis."
+    },
+    {
+      "citationKey": "leask2025sparse",
+      "refText": "Leask et al. (2025). Sparse Autoencoders Do Not Find Canonical Units of Analysis. ICLR",
+      "concept": "sparse-autoencoders",
+      "whyNeeded": "Grounds the paper's caveat that SAE features may blend representations in and outside the J-space, muddying the feature analyses."
+    },
+    {
+      "citationKey": "chanin2024absorption",
+      "refText": "Chanin et al. (2024). A is for absorption: Studying feature splitting and absorption in sparse autoencoders. arXiv:2409.14507",
+      "concept": "sparse-autoencoders",
+      "whyNeeded": "Co-cited with Leask et al. for the imperfections of SAE decompositions that qualify the features-in-the-J-space analysis."
+    },
+    {
+      "citationKey": "ameisen2025circuit",
+      "refText": "Ameisen et al. (2025). Circuit Tracing: Revealing Computational Graphs in Language Models. Transformer Circuits",
+      "concept": "attribution-graphs",
+      "whyNeeded": "Defines the attribution-graph formulation — nodes, edges, error nodes, supernodes — that the J-lens graphs adapt; the paper's graphs are read against this template."
+    },
+    {
+      "citationKey": "lindsey2025biology",
+      "refText": "Lindsey et al. (2025). On the Biology of a Large Language Model. Transformer Circuits Thread",
+      "concept": "attribution-graphs",
+      "whyNeeded": "Companion source for attribution graphs, and the origin of the arithmetic transcoder features re-analyzed with the J-lens in the component-interpretation section."
+    },
+    {
+      "citationKey": "kamath2025tracing",
+      "refText": "Kamath et al. (2025). Tracing Attention Computation Through Feature Interactions. Transformer Circuits Thread",
+      "concept": "j-lens-attribution-graphs",
+      "whyNeeded": "The J-lens graphs' choice to flow gradients through the MLP nonlinearity itself is described as similar to this work's residual-stream graphs."
+    },
+    {
+      "citationKey": "dunefsky2024transcoders",
+      "refText": "Dunefsky, Chlenski & Nanda (2025). Transcoders find interpretable LLM feature circuits. NeurIPS",
+      "concept": "transcoders",
+      "whyNeeded": "Defines the transcoder architecture whose encoder and decoder sides the paper interprets through the J-lens."
+    },
+    {
+      "citationKey": "frasertaliente2026nla",
+      "refText": "Fraser-Taliente et al. (2026). Natural Language Autoencoders Produce Unsupervised Explanations of LLM Activations. Transformer Circuits Thread",
+      "concept": "natural-language-autoencoders",
+      "whyNeeded": "The oracle lens is explicitly contrasted with NLAs on confabulation risk and reconstruction accuracy; the contrast requires the cited architecture."
+    }
+  ]
+}
