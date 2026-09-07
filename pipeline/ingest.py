@@ -45,10 +45,27 @@ HEAD_RE = re.compile(r"^(\d+(?:\.\d+)*)\.?\s+([A-Z].{2,60})$")
 # which is where an appendix can actually start.
 APPENDIX_RE = re.compile(r"^([A-Z](?:\.\d+)*)\.?\s+([A-Z].{2,60})$")
 # Unnumbered headings worth treating as sections. Extend per paper via
-# papers/<id>/headings.json (a JSON list of strings).
+# papers/<id>/headings.json, a JSON list whose entries are either a string -
+# the heading text, matched exactly against one line, as here - or an object
+# {"title", "level", "match"?, "page"?} for a document whose headings carry
+# no numbers at all (a report exported from a word processor). Leveled
+# entries are numbered by the run of their levels, as ingest_web does, so the
+# section list nests. A heading that wraps is matched against consecutive
+# oversized lines joined, so "title" is written in full; "match" is the text
+# as the PDF has it where that differs (a footnote marker glued on); "page"
+# with no text places the heading at the top of that page, for a part that
+# has no heading of its own.
 NAMED_HEADS = {"Abstract", "Introduction", "References", "Acknowledgements",
                "Acknowledgments", "Conclusion", "Conclusions", "Discussion",
                "Related Work", "Appendix", "Methods", "Results"}
+LEVELED_HEADS = []
+
+
+def head_key(t):
+    """Heading text as compared: whitespace collapsed, zero-width marks gone."""
+    return re.sub(r"[\u200b\s]+", " ", t).strip()
+
+
 BOLD = 16  # pymupdf span flag bit
 PROSE_DENSITY = 0.12  # characters per point of width, above which a block is prose
 
@@ -187,7 +204,12 @@ def find_headings(doc):
     so lines are bucketed by vertical position and joined left-to-right - but
     only within one column, or a heading picks up the body text sitting beside
     it in the other one and stops matching HEAD_RE at all."""
-    heads, apps = [], []
+    heads, apps, leveled = [], [], []
+    by_match = {head_key(e.get("match") or e["title"]): e
+                for e in LEVELED_HEADS if e.get("match") or not e.get("page")}
+    for e in LEVELED_HEADS:
+        if e.get("page") and not e.get("match"):
+            leveled.append((e["page"] - 1, (0, 0, 0, -1.0, -1.0), e["level"], e["title"]))
     mid = column_mid(doc)
     for pno, page in enumerate(doc):
         bands = page_bands(page, mid)
@@ -216,6 +238,29 @@ def find_headings(doc):
                 groups.append([l])
         for g in groups:
             g.sort(key=lambda l: l["x"])
+        # Leveled headings first. One may wrap over several lines, so each
+        # oversized group is tried alone and then joined with the groups that
+        # follow it, and every group a match consumed is skipped below.
+        big = [i for i, g in enumerate(groups)
+               if max(l["size"] for l in g) > 11 or any(l["bold"] for l in g)]
+        consumed = set()
+        for n, i in enumerate(big):
+            if i in consumed:
+                continue
+            for k in range(1, 5):
+                run = big[n:n + k]
+                if len(run) < k or run[-1] - run[0] >= k:
+                    break  # not consecutive groups
+                txt = head_key(" ".join(" ".join(l["txt"] for l in groups[j]) for j in run))
+                e = by_match.get(txt)
+                if e:
+                    key = order_key(groups[i][0]["rect"], mid, bands)
+                    leveled.append((pno, key, e["level"], e["title"]))
+                    consumed.update(run)
+                    break
+        for gi, g in enumerate(groups):
+            if gi in consumed:
+                continue
             txt = " ".join(l["txt"] for l in g)
             size = max(l["size"] for l in g)
             bold = any(l["bold"] for l in g)
@@ -243,6 +288,16 @@ def find_headings(doc):
                 any(a[2] == i and a[0] > pno for a in apps) for i in ids):
             apps = [a for a in apps if a[0] != pno]
 
+    # Leveled headings take dotted numbers from the run of their levels, so
+    # "1", "1.1", "1.2", "2" - the same ids a numbered paper carries.
+    counters = []
+    for pno, key, level, title in sorted(leveled, key=lambda h: (h[0], h[1])):
+        counters = counters[:level]
+        while len(counters) < level:
+            counters.append(1 if len(counters) < level - 1 else 0)
+        counters[-1] += 1
+        heads.append((pno, key, ".".join(str(c) for c in counters), title))
+
     heads.sort(key=lambda h: (h[0], h[1]))
     ref = next((h for h in heads if h[2] == "references"), None)
     if apps and ref is not None:
@@ -253,14 +308,78 @@ def find_headings(doc):
     return heads
 
 
+def block_fonts(page):
+    """For every text block, in the order text_blocks() returns them: its
+    dominant (font, size) weighted by characters, and the same for its first
+    line alone, with that line's bbox and text."""
+    def dominant(lines):
+        w = {}
+        for line in lines:
+            for s in line["spans"]:
+                k = (s["font"], round(s["size"]))
+                w[k] = w.get(k, 0) + len(s["text"])
+        return max(w, key=w.get) if w else None
+    out = []
+    for b in page.get_text("dict")["blocks"]:
+        if b["type"] != 0:
+            continue
+        first = b["lines"][0] if b["lines"] else None
+        out.append({
+            "font": dominant(b["lines"]),
+            "first": dominant([first]) if first else None,
+            "first_y1": first["bbox"][3] if first else None,
+            "first_text": "".join(s["text"] for s in first["spans"]) if first else "",
+        })
+    return out
+
+
+def caption_run(blocks, i, fonts):
+    """A caption that arrives one line per block - a word-processor export
+    does this - joined back into one block. Each following block that starts
+    within a few points of the last, overlaps it horizontally and is set in
+    the caption's own dominant font is a continuation; a body paragraph is
+    set in another face or sits a full paragraph gap away. A caption whose
+    last line is glued to the paragraph after it in one block gives up that
+    line alone, recognised by its face."""
+    x0, y0, x1, y1, text = blocks[i][:5]
+    face = fonts[i]["font"]
+    used = {i}
+    while True:
+        nxt = None
+        for j, b in enumerate(blocks):
+            if j in used or face not in (fonts[j]["font"], fonts[j]["first"]):
+                continue
+            if (-1 <= b[1] - y1 < 5 and b[0] < x1 and b[2] > x0
+                    and not CAP_RE.match(norm(b[4]).strip().replace("\n", " "))
+                    and (nxt is None or b[1] < blocks[nxt][1])):
+                nxt = j
+        if nxt is None:
+            break
+        b = blocks[nxt]
+        used.add(nxt)
+        if fonts[nxt]["font"] == face:
+            x0, x1, y1 = min(x0, b[0]), max(x1, b[2]), b[3]
+            text += "\n" + b[4]
+        else:
+            y1 = fonts[nxt]["first_y1"]
+            text += "\n" + fonts[nxt]["first_text"]
+            break
+    return (x0, y0, x1, y1, text) + tuple(blocks[i][5:])
+
+
 def find_captions(doc):
     """(page_index, block, kind, number, caption_text)"""
     caps = []
     for pno, page in enumerate(doc):
-        for b in text_blocks(page):
+        blocks = text_blocks(page)
+        fonts = block_fonts(page)
+        for i, b in enumerate(blocks):
             t = norm(b[4]).strip().replace("\n", " ")
             m = CAP_RE.match(t)
             if m:
+                if len(fonts) == len(blocks):
+                    b = caption_run(blocks, i, fonts)
+                    t = re.sub(r"\s+", " ", norm(b[4])).strip()
                 caps.append((pno, b, m.group(1).lower(), int(m.group(2)), t))
     return caps
 
@@ -434,7 +553,11 @@ def read_json(path, default):
 
 
 EQUATIONS = read_json(os.path.join(PAPER, "equations.json"), [])
-NAMED_HEADS |= set(read_json(os.path.join(PAPER, "headings.json"), []))
+for _h in read_json(os.path.join(PAPER, "headings.json"), []):
+    if isinstance(_h, str):
+        NAMED_HEADS.add(_h)
+    else:
+        LEVELED_HEADS.append(_h)
 
 
 def main():

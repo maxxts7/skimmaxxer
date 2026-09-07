@@ -14,7 +14,7 @@ from paper import paper_id
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAIN = paper_id()
-TODAY = "2026-08-20"
+TODAY = __import__("datetime").date.today().isoformat()
 
 
 def main(task_out):

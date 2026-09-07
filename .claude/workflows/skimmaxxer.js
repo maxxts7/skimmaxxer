@@ -1,7 +1,7 @@
 export const meta = {
   name: 'skimmaxxer',
   description: 'Turn a research paper PDF into a recursive explainer web app',
-  whenToUse: 'When a new paper should get the full Skimmaxxer treatment: concept tree, self-sufficient figures, relationship graph, themed pages, a recursive narrative, an insights read and a summary. Pass args {paperId, arxivId?, floor?, pace?, lenses?, maxDepth?}. See MANUAL.md.',
+  whenToUse: 'When a new paper should get the full Skimmaxxer treatment: concept tree, self-sufficient figures, relationship graph, themed pages, a recursive narrative, an insights read and a summary. Pass args {paperId, arxivId?, floor?, pace?, lenses?, maxDepth?, skipCited?}. See MANUAL.md.',
   phases: [
     { title: 'Ingest', detail: 'PDF to sections, crops, equation inventory' },
     { title: 'Concepts', detail: '3 extractors + merge' },
@@ -406,11 +406,16 @@ const citedCalls = await triage('triage:cited', 'Cited papers',
   })),
   `SKIP IS ALLOWED HERE. Skip a cited paper when this paper cites it for context, agreement or comparison rather than borrowing a mechanism from it - when a reader can follow every claim without knowing what is in it. Do not skip one whose mechanism, setting or measure this paper actually reuses.`)
 
-const skippedCited = merged.citedReads.filter((r) => citedCalls.get(r.citationKey) === 'skip')
+// A read the run cannot make - the safeguards refuse a cybersecurity paper,
+// say - is passed in as skipCited and treated exactly as a triage skip: the
+// register models an unread cited paper already, so nothing else changes.
+const forcedSkip = new Set(A.skipCited || [])
+const isSkipped = (r) => citedCalls.get(r.citationKey) === 'skip' || forcedSkip.has(r.citationKey)
+const skippedCited = merged.citedReads.filter(isSkipped)
 const fetchable = merged.citedReads.filter((r) => r.arxivId && !knownKeys.has(r.citationKey)
-  && citedCalls.get(r.citationKey) !== 'skip')
+  && !isSkipped(r))
 const noId = merged.citedReads.filter((r) => !r.arxivId && !knownKeys.has(r.citationKey)
-  && citedCalls.get(r.citationKey) !== 'skip')
+  && !isSkipped(r))
 if (noId.length) {
   log(`NOTE: ${noId.length} cited papers have no arXiv id and were skipped: ` +
       noId.map((r) => r.citationKey).join(', '))
