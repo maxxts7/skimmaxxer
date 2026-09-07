@@ -1,0 +1,211 @@
+{
+  "id": "fig-59",
+  "title": "How many prompts the J-lens needs",
+  "takeaway": "Sweeping the number of prompts whose Jacobians are averaged into the lens, from 1 to 1000, shows that the J-lens overtakes both the logit-lens and tuned-lens baselines at intermediate-concept recovery with roughly ten prompts on every one of the six task distributions, and that the curve flattens after a few hundred. The paper reads this as evidence that the lens is cheap to fit: the default corpus of one thousand sequences is generous rather than necessary.",
+  "walkthrough": "### What is plotted\n\nSix panels, one per prompt distribution in the [[intermediate-concept-benchmarks]]. Each panel asks the same question of one task: how good is the [[jacobian-lens]] when it is built from only $n$ prompts.\n\nThe horizontal axis, \"# prompt jacobians\", is $n$. Building the lens means computing one Jacobian per prompt and then averaging those matrices element by element, so $n$ is simply how many prompts entered that average. Ten values are swept, from 1 to 1000, on a log scale.\n\nThe vertical axis is the normalized [[pass-at-k-auc]] score. For each benchmark item the paper knows in advance which single-token intermediate the model ought to be computing. An item counts as recovered at $k$ if that token appears in the lens's top $k$ at any layer, pass@$k$ is the fraction of items recovered, and the AUC is the area under pass@$k$ against $\\log k$, scaled so that always ranking the intermediate first would score 1.\n\n### How to read a panel\n\nBlack circles joined by a solid line are the J-lens, one circle per corpus size, with error bars giving the standard error over items. The red dashed line is the [[logit-lens]] and the blue dotted line is the [[tuned-lens]]. Both baselines are flat, because neither is built from this corpus; they are reference levels, not curves.\n\nThe vertical range differs from panel to panel. Comparing heights across panels is not meaningful; comparing a curve to its own two lines is.\n\n### What it shows\n\nEvery panel has the same shape. The J-lens starts below or near the red line at $n=1$, rises steeply through the single digits, crosses the red line somewhere between about 2 and 20 prompts, and then flattens.\n\nThe crossing is earliest on multihop, where two prompts already match the logit lens, and latest on association, where the curve only clears the red line at around 10 to 20. The blue tuned-lens line sits below the whole curve in all six panels, in poetry and association by a wide margin.\n\nBeyond a few hundred prompts the points wobble inside their error bars rather than climb. The gain from 500 to 1000 prompts is at most a couple of thousandths of AUC, and on multihop and association it is slightly negative.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "J-lens (Jacobian lens)",
+      "definition": "The paper's readout method: for each layer it averages the Jacobian of a late-layer residual stream with respect to that layer's activations over token positions and over a corpus of prompts, then decodes activations through that averaged linear map and the model's unembedding. The black curve here is this lens, built from varying amounts of corpus.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "# prompt jacobians",
+      "definition": "The x-axis label. It counts how many per-prompt Jacobian matrices were averaged together to form the lens for that point, which is the same as the number of sequences in the lens corpus.",
+      "conceptId": "lens-corpus"
+    },
+    {
+      "term": "normalized pass@k AUC",
+      "definition": "The y-axis label and the score being compared. pass@$k$ is the fraction of benchmark items whose known intermediate token appears in the lens's top $k$ at any layer; the AUC is the area under that curve plotted against $\\log k$, normalized so a method that always ranks the intermediate first scores 1.",
+      "conceptId": "pass-at-k-auc"
+    },
+    {
+      "term": "pass@k",
+      "definition": "The underlying per-item criterion: an intermediate is recovered at $k$ if it is among the top $k$ tokens of the lens readout at any layer. The figure never shows pass@$k$ directly, only its normalized area.",
+      "conceptId": "pass-at-k-auc"
+    },
+    {
+      "term": "jacobian (legend, black circles)",
+      "definition": "The series being swept. Each marker is the J-lens built from that many prompt Jacobians, evaluated on the panel's task.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "logit (legend, red dashed)",
+      "definition": "The logit lens baseline: decoding an intermediate residual stream by applying the model's final normalization and unembedding directly, with no fitted map. It does not depend on the corpus, so it is drawn as a flat reference line.",
+      "conceptId": "logit-lens"
+    },
+    {
+      "term": "tuned (legend, blue dotted)",
+      "definition": "The tuned lens baseline: per-layer affine maps trained to match the model's own next-token distribution. It is trained on other data and not on this corpus, so it too is a flat reference line.",
+      "conceptId": "tuned-lens"
+    },
+    {
+      "term": "error bars",
+      "definition": "Vertical whiskers on each black marker. The caption states they are standard errors, taken over the benchmark items in that panel; they are widest at one prompt and shrink as the corpus grows.",
+      "conceptId": null
+    },
+    {
+      "term": "multihop (panel 1)",
+      "definition": "Two-hop factual questions where the answer requires a bridging entity, such as computing Mars before answering that the fourth planet's color is red. The lens is read at the position just before the answer.",
+      "conceptId": "multihop-benchmark"
+    },
+    {
+      "term": "multilingual (panel 2)",
+      "definition": "Prompts written entirely in a non-English language, testing whether the model routes through English-aligned representations. Four intermediates are sought per item: the language, the relation, and the English forms of the input and output words.",
+      "conceptId": "multilingual-benchmark"
+    },
+    {
+      "term": "poetry (panel 3)",
+      "definition": "Rhyming couplets where the lens is read at the newline between the two lines, before any of the second line exists, looking for the word that will end it.",
+      "conceptId": "poetry-benchmark"
+    },
+    {
+      "term": "order_ops (panel 4)",
+      "definition": "The order-of-operations benchmark: arithmetic expressions such as $(2+3)\\times4$, where a partial result must be computed before the remaining operation. Two intermediates are sought per item, the partial result and the pending operation.",
+      "conceptId": "order-of-operations-benchmark"
+    },
+    {
+      "term": "association (panel 5)",
+      "definition": "Short passages that depict a concept through behavioral cues without naming it, with the lens read at the closing period. No single token is the trigger; the concept has to be assembled from accumulated context.",
+      "conceptId": "association-benchmark"
+    },
+    {
+      "term": "typo (panel 6)",
+      "definition": "Sentences ending on a common misspelling, with the lens read at the final fragment of the misspelled token, looking for the correctly spelled word. The model is not about to emit that word, so its appearance indicates internal recognition rather than prediction.",
+      "conceptId": "typo-benchmark"
+    },
+    {
+      "term": "Sonnet 4.5",
+      "definition": "The model all six panels are computed on, named in the caption rather than printed in the figure. It is the mid-size tier of the Claude family and the paper's default subject.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "log-scaled x axis",
+      "definition": "The x axis is logarithmic, labelled at the decades $10^0$ through $10^3$, so equal horizontal distance means equal ratio of corpus size rather than equal difference.",
+      "conceptId": null
+    }
+  ],
+  "numbers": [
+    {
+      "value": "1, 2, 5, 10, 20, 50, 100, 200, 500, 1000",
+      "meaning": "The ten corpus sizes swept along the x axis of every panel, one black marker each. They are roughly log-spaced so that a three-decade range is covered in ten runs."
+    },
+    {
+      "value": "$10^0$, $10^1$, $10^2$, $10^3$",
+      "meaning": "The decade tick labels on the x axis, that is 1, 10, 100 and 1000 prompt Jacobians."
+    },
+    {
+      "value": "1000 sequences of 128 tokens",
+      "meaning": "The default lens corpus used everywhere else in the paper, which is the rightmost point of each curve here. The sweep exists to test whether that default is more data than the lens needs."
+    },
+    {
+      "value": "≈0.743 rising to ≈0.810",
+      "meaning": "Multihop: the J-lens score at 1 prompt and at 1000. It peaks at about 0.815 at 200 prompts and settles slightly below that, so the last half-decade of data buys nothing."
+    },
+    {
+      "value": "≈0.766",
+      "meaning": "Multihop logit-lens baseline (red dashed). The J-lens matches it at 2 prompts and is clearly above it from 5 onward, which is the narrowest margin of any panel."
+    },
+    {
+      "value": "≈0.679",
+      "meaning": "Multihop tuned-lens baseline (blue dotted), below every J-lens point including the single-prompt one."
+    },
+    {
+      "value": "0.68 to 0.82",
+      "meaning": "Multihop y-axis range. Each panel has its own range, chosen to fit its own three series, so panel heights are not comparable to one another."
+    },
+    {
+      "value": "≈0.551 rising to ≈0.709",
+      "meaning": "Multilingual: J-lens score at 1 prompt and at 1000. This panel keeps climbing longer than the others, gaining about 0.02 between 100 and 1000 prompts."
+    },
+    {
+      "value": "≈0.529",
+      "meaning": "Multilingual logit-lens baseline. Even the single-prompt J-lens is above it, so no crossing point exists in this panel."
+    },
+    {
+      "value": "≈0.465",
+      "meaning": "Multilingual tuned-lens baseline, drawn near the bottom edge of the panel's range."
+    },
+    {
+      "value": "0.50 to ≈0.72",
+      "meaning": "Multilingual y-axis range, with labelled ticks at 0.50, 0.55, 0.60, 0.65 and 0.70."
+    },
+    {
+      "value": "≈0.613 rising to ≈0.797",
+      "meaning": "Poetry: J-lens score at 1 prompt and at 1000, with most of the gain arriving by 20 prompts (≈0.764)."
+    },
+    {
+      "value": "≈0.585",
+      "meaning": "Poetry logit-lens baseline. The J-lens is above it from the first prompt onward."
+    },
+    {
+      "value": "≈0.175",
+      "meaning": "Poetry tuned-lens baseline. The paper attributes this near-total failure to the readout position being a newline, where the next token is uninformative and a method trained to predict the next token has nothing to surface."
+    },
+    {
+      "value": "0.1 to 0.8",
+      "meaning": "Poetry y-axis range, stretched down by the very low tuned-lens line."
+    },
+    {
+      "value": "≈0.782 rising to ≈0.891",
+      "meaning": "order_ops: J-lens score at 1 prompt and at 1000. This is the highest-scoring panel in absolute terms and the only curve still visibly rising at the right edge."
+    },
+    {
+      "value": "≈0.717",
+      "meaning": "order_ops logit-lens baseline, already cleared at 1 prompt."
+    },
+    {
+      "value": "≈0.651",
+      "meaning": "order_ops tuned-lens baseline, sitting on the bottom gridline of the panel."
+    },
+    {
+      "value": "0.65 to 0.90",
+      "meaning": "order_ops y-axis range."
+    },
+    {
+      "value": "≈0.542 rising to ≈0.681",
+      "meaning": "Association: J-lens score at 1 prompt and at 1000. The curve is flat from about 50 prompts on, wandering between roughly 0.68 and 0.69."
+    },
+    {
+      "value": "≈0.650",
+      "meaning": "Association logit-lens baseline, and the latest crossing in the figure: the J-lens only reaches it at about 10 prompts and only clears it by a visible gap at 50. This matches the main comparison, where association is one of the two tasks on which the J-lens margin over the logit lens is called modest."
+    },
+    {
+      "value": "≈0.103",
+      "meaning": "Association tuned-lens baseline. As with poetry, the readout position is a period, so a next-token-matching lens recovers almost nothing."
+    },
+    {
+      "value": "0.1 to 0.7",
+      "meaning": "Association y-axis range."
+    },
+    {
+      "value": "≈0.590 rising to ≈0.830",
+      "meaning": "Typo: J-lens score at 1 prompt and at 1000, the largest total gain across the sweep, about 0.24 of AUC. The curve is also the noisiest, dipping at 200 before recovering at 500."
+    },
+    {
+      "value": "≈0.522",
+      "meaning": "Typo logit-lens baseline, cleared from the first prompt."
+    },
+    {
+      "value": "≈0.452",
+      "meaning": "Typo tuned-lens baseline."
+    },
+    {
+      "value": "0.45 to 0.85",
+      "meaning": "Typo y-axis range. The legend is drawn inside this panel, in its upper right corner."
+    },
+    {
+      "value": "±0.015 to ±0.04 at one prompt, shrinking to under ±0.005",
+      "meaning": "Approximate half-widths of the error bars. They are largest at the left of each panel, where the lens rests on a single prompt's Jacobian, and tighten as the average takes in more sequences."
+    },
+    {
+      "value": "50, 54, 52, 55, 50, 96",
+      "meaning": "The item counts of the six benchmarks, in the order multihop, multilingual, poetry, order_ops, association, typo. These set how many items the standard errors are computed over, which is why typo's bars are not the widest despite its noisy curve."
+    },
+    {
+      "value": "10",
+      "meaning": "The number of prompts the surrounding text names as the point where the J-lens beats both baselines, with only modest improvements from additional data after that."
+    }
+  ]
+}

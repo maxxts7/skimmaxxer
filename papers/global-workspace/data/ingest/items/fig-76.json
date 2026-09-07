@@ -1,0 +1,135 @@
+{
+ "id": "fig-76",
+ "title": "Where MLP neurons' strongest matches land",
+ "takeaway": "Across the workspace layer range, an MLP neuron's single strongest weight match falls far more often on a high-kurtosis SAE direction than the 1/6 chance rate would give, and the six strata order monotonically by kurtosis. The effect is strongest in the early workspace layers on the read side and in the late workspace layers on the write side.",
+ "walkthrough": "The item is a pair of line charts. It belongs to the breadth half of the paper's [[neuron-connectivity]] analysis, a weights-only check on the [[j-space-broadcast]] claim: whether the neurons of each [[mlp-block]] are wired to J-space content more than to anything else.\n\nThe candidate pool comes first. Every [[sparse-autoencoder]] feature has a decoder direction, and each such direction is scored by its [[lens-kurtosis]] $\\kappa$ — how sharply peaked its projection through the [[jacobian-lens]] is over the vocabulary. High $\\kappa$ means the direction lies in the [[j-space]]. The features are ranked by $\\kappa$ and cut into six equal samples of 2,000 by percentile: top 1%, 1–5%, 5–10%, 10–20%, 20–50%, and bottom 50%. That gives 12,000 candidate directions per layer.\n\nThe assignment rule is next. For a neuron at that layer, the cosine similarity $C_{ij} = \\cos(w_i, v_j)$ is computed between its weight row $w_i$ and every candidate direction $v_j$. Only the single largest entry survives. The neuron is counted in the stratum its top match came from.\n\nThe reason for keeping only the top match is noise. [[superposition]] packs more feature directions into the [[residual-stream]] than the stream has dimensions, so any weight row has appreciable cosine with directions it has no functional relationship to. Taking the argmax over an evenly balanced pool avoids having to trust the absolute cosine values.\n\nThe axes follow from that. Horizontal is layer depth, under the paper's convention of numbering 25 sampled layers 0–100 ([[layer-percentage-indexing]]). Vertical is the fraction of that layer's neurons assigned to a stratum, so the six curves in a panel sum to 1 at each layer. The left panel uses each neuron's input weights, what it reads from the stream; the right panel uses its output weights, what it writes back. The dashed line at $1/6$, about 16.7%, marks where every curve would sit if neurons had no $\\kappa$ preference.\n\nThe result is the separation of the curves across the [[workspace-layers]], ordered monotonically by $\\kappa$. On the read side the separation appears at the workspace onset and is widest in the early workspace layers, where the top-1% stratum claims up to 42% of neurons and the bottom-50% stratum about 6%. On the write side the same ordering holds, but the peak comes late instead.\n\nThe paper reads that asymmetry as many processors reading from the workspace as soon as it forms, and writing to it mostly in the later layers where an output is being prepared. It offers this as a suggestion rather than a demonstration.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "MLP neuron",
+   "definition": "The unit being classified. Each neuron in a layer's feed-forward block has an input weight row, which determines what it reads from the residual stream, and an output weight column, which determines what it writes back.",
+   "conceptId": "mlp-block"
+  },
+  {
+   "term": "top-1 cosine match",
+   "definition": "The classification rule: for one neuron, the single candidate direction with which its weight row has the highest cosine similarity. Each neuron contributes exactly one such match to exactly one stratum.",
+   "conceptId": null
+  },
+  {
+   "term": "$C_{ij} = \\cos(w_i, v_j)$",
+   "definition": "The matrix of cosine similarities between neuron weight rows $w_i$ and candidate directions $v_j$ at a layer. This figure uses only the position of each row's maximum, not the values themselves.",
+   "conceptId": null
+  },
+  {
+   "term": "neuron input weights (read side)",
+   "definition": "The left panel's data: the weight rows by which neurons read the residual stream. A high match here means the neuron is positioned to be activated by that direction.",
+   "conceptId": null
+  },
+  {
+   "term": "neuron output weights (write side)",
+   "definition": "The right panel's data: the weight vectors neurons write back into the residual stream. A high match here means the neuron contributes to that direction when it fires.",
+   "conceptId": null
+  },
+  {
+   "term": "SAE decoder directions",
+   "definition": "The candidate pool: the write-directions of sparse autoencoder features, an unsupervised dictionary of the model's linear features. They stand in as an independent inventory of directions the model actually uses.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "J-lens kurtosis (κ)",
+   "definition": "The statistic the strata are cut on: project a direction through the J-lens, obtain a score over the vocabulary, and measure how sharply peaked that distribution is. High κ means the direction is loaded onto a few J-lens vectors and so lies in the J-space.",
+   "conceptId": "lens-kurtosis"
+  },
+  {
+   "term": "stratum (six equal-sized strata)",
+   "definition": "One of the six κ-percentile bins of SAE directions, each holding 2,000 directions. Equal sizes are what make the fractions comparable and give the flat chance level.",
+   "conceptId": null
+  },
+  {
+   "term": "top 1% / 1–5% / 5–10% / 10–20% / 20–50% / bottom 50%",
+   "definition": "The six legend entries, given as κ percentile ranges from most J-space-aligned to least. The same six strata are used in the MLP gain figure earlier in the paper.",
+   "conceptId": null
+  },
+  {
+   "term": "layer (horizontal axis)",
+   "definition": "Depth in the model. The paper reports 25 evenly spaced residual-stream layers reindexed to 0–100, so a layer number reads as a percentage of total depth.",
+   "conceptId": "layer-percentage-indexing"
+  },
+  {
+   "term": "fraction of MLP neurons (vertical axis)",
+   "definition": "The share of that layer's neurons whose top-1 match fell in a given stratum. Because each neuron is assigned exactly once, the six curves at any layer sum to 1.",
+   "conceptId": null
+  },
+  {
+   "term": "dashed 1/6 null line",
+   "definition": "The reference level drawn in both panels. Since the strata are equal in size, a neuron with no κ preference would land in each with probability 1/6, so all six curves would lie on this line.",
+   "conceptId": null
+  },
+  {
+   "term": "workspace layers",
+   "definition": "The middle band of depth, roughly L38 to L92 in this model, where the paper's other measurements show the J-space carrying persistent abstract content. The separation between strata in this figure appears within that band.",
+   "conceptId": "workspace-layers"
+  },
+  {
+   "term": "J-space",
+   "definition": "The region of representation space spanned sparsely by J-lens vectors, which the paper argues acts as the model's global workspace. Kurtosis is the operational test for whether a direction lies in it.",
+   "conceptId": "j-space"
+  },
+  {
+   "term": "superposition",
+   "definition": "The reason the raw cosines are untrustworthy: the residual stream carries more feature directions than it has dimensions, so unrelated directions still overlap. The figure's top-1 framing is a response to this.",
+   "conceptId": "superposition"
+  },
+  {
+   "term": "Claude Sonnet 4.5",
+   "definition": "The model the paper reports by default, and so the model whose neurons and layers are counted here. Key results elsewhere are corroborated on Haiku 4.5 and Opus 4.5.",
+   "conceptId": null
+  }
+ ],
+ "numbers": [
+  {
+   "value": "6",
+   "meaning": "The number of κ strata, and the number of curves per panel. Six equal bins are what produce the flat 1/6 chance level; the count itself carries no other significance."
+  },
+  {
+   "value": "2,000",
+   "meaning": "The number of SAE decoder directions sampled into each stratum. It matches the sample size used in the MLP gain figure, so the two analyses draw on the same pools."
+  },
+  {
+   "value": "12,000",
+   "meaning": "The total candidate pool a neuron's weight row is matched against at one layer: six strata of 2,000. Every neuron's argmax is taken over this set."
+  },
+  {
+   "value": "top 1%, 1–5%, 5–10%, 10–20%, 20–50%, bottom 50%",
+   "meaning": "The percentile cuts defining the strata. They are uneven in width because the kurtosis distribution is heavy-tailed: most SAE features have low κ, so resolving the tail requires narrow bins at the top and one wide bin at the bottom."
+  },
+  {
+   "value": "1/6 ≈ 16.7%",
+   "meaning": "The null level marked by the dashed line. With equal-sized strata and no preference, each stratum would win a neuron's top match one time in six."
+  },
+  {
+   "value": "1",
+   "meaning": "The sum of the six curves at any single layer, since each neuron is assigned to exactly one stratum. A gain for one stratum is necessarily a loss for the others."
+  },
+  {
+   "value": "42%",
+   "meaning": "The peak share of neurons whose top-1 read-side match falls in the top-1% κ stratum, reached in the early workspace layers. That is about 2.5 times the 16.7% null."
+  },
+  {
+   "value": "6%",
+   "meaning": "The share of the same neurons whose top read-side match falls in the bottom-50% stratum at that peak. It sits roughly a third of the way to the null, and the top stratum outdraws it by about sevenfold."
+  },
+  {
+   "value": "25 layers, indexed 0–100",
+   "meaning": "The reporting convention behind the horizontal axis: 25 evenly spaced layers of the residual stream are renumbered as percentages of depth, so the same axis is comparable across models of different sizes."
+  },
+  {
+   "value": "~L38 to ~L92",
+   "meaning": "The workspace layer range the paper identifies in section 4.1 for this model. The stratum separation in this figure begins near the lower bound and holds across the band."
+  },
+  {
+   "value": "1 (top-1)",
+   "meaning": "The number of matches kept per neuron. Keeping only the single strongest is what makes the statistic robust to the noisy background of cosines produced by superposition."
+  }
+ ]
+}

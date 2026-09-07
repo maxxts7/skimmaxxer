@@ -1,0 +1,1174 @@
+{
+  "edges": [
+    {
+      "source": "j-lens-readout",
+      "target": "unembedding-matrix",
+      "type": "depends-on",
+      "label": "readout ends in the unembedding",
+      "explanation": "The lens readout replaces every layer above $\\ell$ with the single matrix $J_\\ell$ and then runs the model's own normalization and unembedding. Without the unembedding matrix there is no map from the residual stream to vocabulary scores, and the readout has nothing to rank. The lens therefore reports in the model's own output vocabulary rather than in a learned code of its own.",
+      "strength": "load-bearing",
+      "id": "e001"
+    },
+    {
+      "source": "averaged-jacobian",
+      "target": "local-linearization",
+      "type": "depends-on",
+      "label": "one matrix stands for many layers",
+      "explanation": "A Jacobian describes only the effect of a small perturbation, so collapsing all the layers above $\\ell$ into a single matrix treats the network as locally linear. The paper takes that approximation as its working footing. Any reading of a J-lens score inherits the approximation.",
+      "strength": "supporting",
+      "id": "e002"
+    },
+    {
+      "source": "sparse-frame",
+      "target": "superposition",
+      "type": "depends-on",
+      "label": "frame footing borrowed from superposition",
+      "explanation": "The paper's formal footing is that activations decompose into sparsely active linear features, which is the superposition hypothesis rather than a result of this paper. Given that hypothesis, the feature directions form a sparse frame, and the J-lens vectors are a token-indexed subframe of it. The J-space is then a subset of possible activations rather than a subspace.",
+      "strength": "load-bearing",
+      "id": "e003"
+    },
+    {
+      "source": "sparsity-level-k",
+      "target": "j-space-occupancy",
+      "type": "depends-on",
+      "label": "k set by measured occupancy",
+      "explanation": "The J-space is not defined until an allowable sparsity level $k$ is fixed, and the paper concedes the choice is somewhat arbitrary. It settles on values no greater than 25 because sparse reconstruction found roughly that many J-lens vectors meaningfully active at a time. The definition's free parameter is therefore pinned by a measurement made with the same machinery.",
+      "strength": "load-bearing",
+      "id": "e004"
+    },
+    {
+      "source": "sparse-decomposition",
+      "target": "gradient-pursuit",
+      "type": "depends-on",
+      "label": "decomposition solved by gradient pursuit",
+      "explanation": "Because the J-lens vectors are overcomplete, an activation has many decompositions rather than one, so a discrete inventory of active concepts requires a search. The paper uses gradient pursuit, a greedy sparse-approximation algorithm, to find a sparse nonnegative combination that reconstructs the activation. The occupancy and variance-share numbers rest on that solver.",
+      "strength": "supporting",
+      "id": "e005"
+    },
+    {
+      "source": "lens-coordinate-swap",
+      "target": "pseudoinverse",
+      "type": "depends-on",
+      "label": "oblique frame forces a pseudoinverse",
+      "explanation": "J-lens vectors are neither orthogonal nor unit-norm, so plain inner products would not give an activation's coordinates along a chosen pair of them. The swap forms the matrix $V = [v_s\\; v_t]$ and reads coordinates as $c = V^\\dagger h$ using the pseudoinverse. This is what lets the component orthogonal to the two vectors stay untouched.",
+      "strength": "load-bearing",
+      "id": "e006"
+    },
+    {
+      "source": "lens-corpus",
+      "target": "averaged-jacobian",
+      "type": "depends-on",
+      "label": "averaging needs a prompt corpus",
+      "explanation": "A Jacobian from one prompt mixes the model's general disposition to verbalize a concept with the particular use that concept is being put to in that context. The paper separates the two by averaging over positions and over a corpus of a thousand pretraining-like prompts. The corpus is the operation that turns a per-input derivative into a fixed per-layer matrix.",
+      "strength": "supporting",
+      "id": "e007"
+    },
+    {
+      "source": "multi-token-lens-extensions",
+      "target": "single-token-limitation",
+      "type": "depends-on",
+      "label": "extensions exist to cover multi-token names",
+      "explanation": "One J-lens vector is defined per vocabulary token, so the lens can only name concepts whose names are single tokens. The template lens and the oracle lens are built to answer that limit. The extensions are a design choice forced by how the lens was constructed.",
+      "strength": "load-bearing",
+      "id": "e008"
+    },
+    {
+      "source": "oracle-lens",
+      "target": "template-lens",
+      "type": "depends-on",
+      "label": "phrases decoded as template vectors",
+      "explanation": "The oracle lens returns free-form phrases, but what it is really doing is proposing phrases whose template vectors, combined sparsely, reconstruct the activation. Its training loss is a cosine error in the whitened metric of the template lens, and every later stage works in that whitened space. The template construction is the currency the oracle trades in.",
+      "strength": "load-bearing",
+      "id": "e009"
+    },
+    {
+      "source": "oracle-training",
+      "target": "reconstructor-model",
+      "type": "depends-on",
+      "label": "every stage runs through the reconstructor",
+      "explanation": "The reconstructor is trained first, and it maps a short phrase to the activation that would precede it. The 3.4-million-phrase dictionary is built by passing phrases through it, the teacher labels activations against that dictionary, and at inference each sampled phrase is mapped back to a direction by it. Holding the reconstructor frozen is also the paper's stated reason for expecting fewer confabulations than a natural-language autoencoder produces.",
+      "strength": "load-bearing",
+      "id": "e010"
+    },
+    {
+      "source": "ablation-strengths",
+      "target": "workspace-layers",
+      "type": "depends-on",
+      "label": "strength defined as a layer band",
+      "explanation": "Light, medium and heavy ablation differ only in how wide a band of layers the top-10 lens directions are projected out of: L62-71, L54-79 and L42-88. Those bands are cut from the workspace range located in section 4.1. The intervention's dial has no meaning until the workspace band has been found.",
+      "strength": "load-bearing",
+      "id": "e011"
+    },
+    {
+      "source": "eval-awareness-ablation",
+      "target": "fixed-token-set-ablation",
+      "type": "depends-on",
+      "label": "needs the fixed-list ablation form",
+      "explanation": "Testing whether recognition of being tested causes the model's better behavior requires removing that specific content, not whatever happens to be most active. The paper uses the second form of the intervention, in which a list of token vectors fixed in advance is projected out — here 28 artificiality-related tokens. The top-k form of J-space ablation would not isolate the hypothesis.",
+      "strength": "supporting",
+      "id": "e012"
+    },
+    {
+      "source": "broadcast-heads",
+      "target": "ov-circuit",
+      "type": "depends-on",
+      "label": "both head metrics read W_OV",
+      "explanation": "Gain is the mean of $\\|W_{OV}\\,v\\|$ over a population of directions, and label preservation ranks $\\cos(W_{OV} v_i, v_i)$ against the cross terms. Both quantities are computed on the head's OV circuit, the combined value-then-output map, and not on its attention pattern. The broadcast-head claim is a claim about what heads write, read off weights alone.",
+      "strength": "load-bearing",
+      "id": "e013"
+    },
+    {
+      "source": "broadcast-head-layer-placement",
+      "target": "j-space-effective-dimensionality",
+      "type": "depends-on",
+      "label": "low effective rank explains head placement",
+      "explanation": "The heads selected for the J-lens vectors concentrate in the first half of the workspace layers. The paper's explanation is that the J-space's effective rank is lowest there, so a single head's OV map can carry a larger share of it. The placement finding is only interpretable alongside the effective-dimensionality curve of Figure 28d.",
+      "strength": "supporting",
+      "id": "e014"
+    },
+    {
+      "source": "j-rotated-control",
+      "target": "sparse-subframe",
+      "type": "depends-on",
+      "label": "control isolates token alignment alone",
+      "explanation": "Applying one fixed random orthogonal rotation to the J-lens vectors keeps their spectrum and pairwise geometry while destroying their alignment with particular vocabulary tokens. That control is informative only because J-space membership is defined by alignment with a small set of token-indexed directions rather than by lying in a subspace. Reading the control as a control requires the subframe definition.",
+      "strength": "supporting",
+      "id": "e015"
+    },
+    {
+      "source": "lens-kurtosis",
+      "target": "sparse-subframe",
+      "type": "depends-on",
+      "label": "peakedness is the membership test",
+      "explanation": "To ask whether a sparse-autoencoder feature is in the J-space, the paper projects its decoder direction through the lens and measures how sharply peaked the resulting vocabulary distribution is. A subspace test would ask about projection magnitude instead. Peakedness is the right statistic precisely because the J-space is a sparse subframe, so what matters is loading onto a few J-lens vectors.",
+      "strength": "load-bearing",
+      "id": "e016"
+    },
+    {
+      "source": "j-space-broadcast",
+      "target": "two-time-dimensions",
+      "type": "depends-on",
+      "label": "two axes force two measurements",
+      "explanation": "In a transformer, information travels across layers within a position and across the sequence via attention. The broadcast claim therefore has to be established twice: MLP gain and neuron connectivity for depth, attention-head gain and label preservation for the sequence. The shape of the evidence follows from an architectural fact about where information can go.",
+      "strength": "supporting",
+      "id": "e017"
+    },
+    {
+      "source": "per-position-capacity",
+      "target": "attention-head",
+      "type": "depends-on",
+      "label": "attention makes the limit per position",
+      "explanation": "The occupancy result counts what the J-space holds at one token position, on the order of tens of vectors. Attention can still retrieve representations from any earlier position, so the model is not confined to that many concepts overall. The scope of the capacity claim depends on how attention moves information between positions.",
+      "strength": "supporting",
+      "id": "e018"
+    },
+    {
+      "source": "cot-externalization",
+      "target": "feedforward-emulation-of-recurrence",
+      "type": "depends-on",
+      "label": "depth limit motivates externalizing steps",
+      "explanation": "A feedforward transformer can reproduce a recurrent computation only up to a number of steps set by its depth, after which it must externalize state into the token stream. That prior result is what makes the reading of chain-of-thought as workspace externalization more than an analogy. The interpretation depends on the depth bound, not on the paper's own measurements.",
+      "strength": "supporting",
+      "id": "e019"
+    },
+    {
+      "source": "user-token-repurposing-hypothesis",
+      "target": "post-training",
+      "type": "depends-on",
+      "label": "hypothesis rests on the training change",
+      "explanation": "Section 6.1 hypothesizes that a post-trained model repurposes activations at user positions to represent the Assistant's thoughts. The reason offered is that such a model is no longer scored on predicting the user's next token. The hypothesis is derived from what post-training changes about the objective.",
+      "strength": "load-bearing",
+      "id": "e020"
+    },
+    {
+      "source": "assistant-point-of-view",
+      "target": "base-model",
+      "type": "depends-on",
+      "label": "claim requires the base comparison",
+      "explanation": "The finding is stated as a difference produced by post-training, so it needs the corresponding pretrained base model read with the same lens. The paper also picks prompts on which the two models give similar responses, so that any gap found is internal rather than behavioral. Without the base model the readouts would show only that the workspace carries safety and empathy words, not that post-training put them on the user's turn.",
+      "strength": "load-bearing",
+      "id": "e021"
+    },
+    {
+      "source": "counterfactual-reflection-training",
+      "target": "verbalizable-representation",
+      "type": "depends-on",
+      "label": "technique built on verbalizability claim",
+      "explanation": "The training method assumes that internal reasoning routes through representations of things the model could say. From that assumption it follows that changing what the model would say if asked to reflect should change how it reasons when it is not asked. The technique is a prediction of the workspace account before it is a training recipe.",
+      "strength": "load-bearing",
+      "id": "e022"
+    },
+    {
+      "source": "constitution-grounded-reflection",
+      "target": "anthropic-constitution",
+      "type": "depends-on",
+      "label": "targets written from sampled principles",
+      "explanation": "Each supervised target is a two-to-four-paragraph reflection the baseline model writes after being shown twenty principles sampled from Anthropic's constitution. The constitution excerpt supplies the content the reflection paraphrases. It is removed before the example reaches the fine-tune, so the model must learn to produce the principles unprompted.",
+      "strength": "load-bearing",
+      "id": "e023"
+    },
+    {
+      "source": "ethics-token-ablation",
+      "target": "top-increasing-token-analysis",
+      "type": "depends-on",
+      "label": "ablation list comes from the readouts",
+      "explanation": "The causal test needs a list of which lens vectors to remove, and that list is the union of the top-increasing tokens across workspace layers, filtered against a curated ethics and reflection word list. It yields 176 tokens on the fabrication benchmark and 63 on the deception benchmark. Ablating them returns the trained model from 0.07 to 0.22 on fabrication while leaving the base model at 0.25.",
+      "strength": "load-bearing",
+      "id": "e024"
+    },
+    {
+      "source": "mechanistic-localization",
+      "target": "mean-difference-patching",
+      "type": "depends-on",
+      "label": "layer claim validated by patching",
+      "explanation": "Reading the layer at which a concept enters the lens gives a candidate location for a computation, but that is a correlational observation. The paper checks it by mean-difference patching: replacing an intermediate's value at a layer and seeing whether the answer moves. The localization claim depends on the patch, not on the readout alone.",
+      "strength": "load-bearing",
+      "id": "e025"
+    },
+    {
+      "source": "swap-effect-magnitude",
+      "target": "workspace-loading",
+      "type": "depends-on",
+      "label": "graded effect plotted against loading",
+      "explanation": "Beyond pass or fail, the paper measures how far a swap shifts the output toward the target's answer. That quantity is plotted against workspace loading, the cosine similarity between the residual stream and the concept's lens vector on an unmodified pass. The graded result therefore requires a loading measurement taken before any intervention is applied.",
+      "strength": "supporting",
+      "id": "e026"
+    },
+    {
+      "source": "experiential-report-flattening",
+      "target": "matched-norm-controls",
+      "type": "depends-on",
+      "label": "flattening claim needs matched controls",
+      "explanation": "J-space ablation perturbs activations, and a perturbation of that size might flatten writing for reasons unrelated to the J-space. The controls perturb by the same magnitude, at the same layers and positions, along other directions. The claim that the flattening is specific to J-space content stands or falls with them.",
+      "strength": "load-bearing",
+      "id": "e027"
+    },
+    {
+      "source": "transition-width",
+      "target": "projection-share",
+      "type": "depends-on",
+      "label": "width defined on the share curve",
+      "explanation": "Transition width is the change in the mixture weight $\\alpha$ needed for the projection share to move from 10% to 90%. Projection share is itself defined by where an activation sits between the same trial's pure-$B$ and pure-$A$ activations at that position and layer. The sharpness statistic has no definition without that per-trial reference line.",
+      "strength": "load-bearing",
+      "id": "e028"
+    },
+    {
+      "source": "reward-hacking-organism",
+      "target": "synthetic-document-finetuning",
+      "type": "depends-on",
+      "label": "organism implanted by document fine-tuning",
+      "explanation": "The organism is made by fine-tuning on fabricated documents describing the behavior, followed by coding reinforcement learning. That construction is what produces the checkpoint lineage the deception readout is scored across. The detection result is a result about a model built this way, not about a naturally arising one.",
+      "strength": "load-bearing",
+      "id": "e029"
+    },
+    {
+      "source": "out-of-top-10-swap-targets",
+      "target": "report-relation-by-construction",
+      "type": "depends-on",
+      "label": "design guards a built-in agreement",
+      "explanation": "The J-lens is built from the causal effect of activations on output tokens, so some agreement between its readouts and what the model says is guaranteed by construction. The report experiments therefore draw the swapped-in item from the same category but exclude anything already in the top 10 of the model's own output distribution. The design choice is forced by the method's own circularity.",
+      "strength": "supporting",
+      "id": "e030"
+    },
+    {
+      "source": "j-space-privilege-for-report",
+      "target": "j-space-component-decomposition",
+      "type": "depends-on",
+      "label": "privilege test needs the split",
+      "explanation": "To show that the J-space part of a concept's representation is what supports report, the representation first has to be cut into a J-space component and a non-J-space remainder. The two pieces are then injected at equal norm. The paper's finding that the small J-space piece carries the reportability depends entirely on that decomposition being available.",
+      "strength": "load-bearing",
+      "id": "e031"
+    },
+    {
+      "source": "j-orthogonalized-property-probe",
+      "target": "linear-probe",
+      "type": "depends-on",
+      "label": "probe built then orthogonalized",
+      "explanation": "The dissociation argument needs a reading of a stimulus property that does not come from the lens. The paper trains a supervised linear probe for the property and then projects out its J-space component. The result — that instructions move the J-space while the underlying property stays put — depends on having a J-lens-independent probe to compare against.",
+      "strength": "supporting",
+      "id": "e032"
+    },
+    {
+      "source": "workspace-like-properties",
+      "target": "fig-1",
+      "type": "supported-by",
+      "label": "defines what the tests must show",
+      "strength": "load-bearing",
+      "explanation": "Figure 1 measures nothing. It sets out the five tests a set of representations must pass to count as workspace-like: verbal report, directed modulation, internal reasoning, flexible generalization and selectivity. Every experiment in section 3 is scored against that list, so the figure fixes in advance what would count as a failure.",
+      "id": "e033"
+    },
+    {
+      "source": "jacobian-lens",
+      "target": "eq-jlens-matrix",
+      "type": "supported-by",
+      "label": "defines the averaged lens matrix",
+      "strength": "load-bearing",
+      "explanation": "The equation averages the Jacobian from layer $\\ell$ to the final layer over the source position, over every later position in the context, and over one thousand pretraining-like prompts, leaving a single matrix per layer. The averaging is what separates a general disposition to say a token from the particular use one context puts that token to.",
+      "id": "e034"
+    },
+    {
+      "source": "j-lens-readout",
+      "target": "eq-lens-readout",
+      "type": "supported-by",
+      "label": "states the read operation",
+      "strength": "load-bearing",
+      "explanation": "Every readout printed anywhere in the paper is this one line: replace all layers above $\\ell$ with $J_\\ell$, pass the result through the model's own normalization, then unembed. The normalization step is why a lens score is only approximately a linear function of the activation.",
+      "id": "e035"
+    },
+    {
+      "source": "lens-coordinate-swap",
+      "target": "eq-lens-swap",
+      "type": "supported-by",
+      "label": "the intervention written as arithmetic",
+      "strength": "load-bearing",
+      "explanation": "The three expressions read an activation's coordinates along two J-lens vectors with a pseudoinverse, permute those two coordinates, and write the result back. The component orthogonal to the two vectors is left untouched, and the specificity claimed for every swap experiment rests on that last clause.",
+      "id": "e036"
+    },
+    {
+      "source": "j-space-formalization",
+      "target": "eq-jspace-cones",
+      "type": "supported-by",
+      "label": "J-space as a union of cones",
+      "strength": "supporting",
+      "explanation": "The equation defines the J-space as the union, over every size-$k$ subset of J-lens vectors, of the cone of their nonnegative combinations. It makes explicit that the J-space is not a subspace: the vectors span the whole residual stream, and it is the sparsity limit, not the vectors, that does the restricting.",
+      "id": "e037"
+    },
+    {
+      "source": "averaged-jacobian",
+      "target": "fig-4",
+      "type": "supported-by",
+      "label": "one schematic for the instrument",
+      "strength": "supporting",
+      "explanation": "The figure draws the three operations the rest of the paper reuses: backpropagating and averaging to build $J_\\ell$, reading an activation by replacing the layers above it with that matrix, and patching in lens coordinates. It defines the method rather than testing it, so nothing about the workspace claim follows from it.",
+      "id": "e038"
+    },
+    {
+      "source": "verbal-report",
+      "target": "fig-6",
+      "type": "supported-by",
+      "label": "report follows workspace contents",
+      "strength": "load-bearing",
+      "explanation": "At the colon just before the model names the sport it thought of, Soccer already sits high in the lens readout, and exchanging the Soccer coordinate for Rugby makes the model answer Rugby. Across fourteen categories the lens ordering of ten candidate answers tracks the next-token logit ordering, and swaps move targets that began below rank 11 to the top of the output.",
+      "id": "e039"
+    },
+    {
+      "source": "j-space-privilege-for-report",
+      "target": "fig-8",
+      "type": "supported-by",
+      "label": "small component carries the report",
+      "strength": "load-bearing",
+      "explanation": "A concept vector is split into its J-space component and the remainder. The J-space component holds a median of only 6 to 7 percent of the vector's variance, yet swapping along it reaches the top five on 59 percent of trials against 88 percent for the pure lens vectors, while the remainder, carrying roughly 93 percent of the variance, succeeds on 5 percent.",
+      "id": "e040"
+    },
+    {
+      "source": "directed-modulation",
+      "target": "fig-10",
+      "type": "supported-by",
+      "label": "instruction rates against a null baseline",
+      "strength": "load-bearing",
+      "explanation": "The no-instruction baseline is approximately zero across all three task families, so the prompt context alone does not put the target in the readout. Under a focus instruction the target reaches the top of the lens on a substantial fraction of trials, and the rise with model size is reported as a tendency rather than a measured scaling law.",
+      "id": "e041"
+    },
+    {
+      "source": "internal-reasoning",
+      "target": "fig-13",
+      "type": "supported-by",
+      "label": "swapping the unspoken step",
+      "strength": "load-bearing",
+      "explanation": "Each row shows a prompt whose answer depends on a concept the model never writes. Exchanging spider for ant turns the answer from 8 to 6, and exchanging the planned rhyme fight for light changes word choices earlier in the line, from \"coming fight\" to \"morning light\". The figure is a handful of hand-picked prompts; the systematic version follows in Figure 15.",
+      "id": "e042"
+    },
+    {
+      "source": "swap-depth-control",
+      "target": "fig-15",
+      "type": "supported-by",
+      "label": "rules out a smuggled answer",
+      "strength": "supporting",
+      "explanation": "Swapping the intermediate flips the top-1 output on 54 percent of trials for Haiku 4.5 and 70 percent for both Sonnet 4.5 and Opus 4.5. The depth control answers the obvious objection: if the intermediate's vector merely carried the answer, both swaps would bite at the same depth, and instead the intermediate swap takes effect a median of about 17 percent earlier in the network.",
+      "id": "e043"
+    },
+    {
+      "source": "intermediate-probe",
+      "target": "fig-16",
+      "type": "supported-by",
+      "label": "lens-free probe reaches the same conclusion",
+      "strength": "load-bearing",
+      "explanation": "The intermediate is represented here without the J-lens, by averaging activations over prompts that imply it through different surface cues, which removes the circularity of testing the lens with the lens. Across 90 prompts, swapping the probe's J-space component flips the answer on 61 percent of trials against 60 percent for the raw lens vectors, while the non-J-space remainder manages 28 percent and falls to 6 percent once the J-space coordinates are clamped.",
+      "id": "e044"
+    },
+    {
+      "source": "flexible-generalization",
+      "target": "fig-19",
+      "type": "supported-by",
+      "label": "one swap across sixteen functions",
+      "strength": "load-bearing",
+      "explanation": "The same edit, applied unchanged in every prompt, redirects the model's top answer on 76 of 192 trials, and on 101 of 192 when the swap is applied at double strength. The broadcast claim rests on a success rate under half at the default strength, and the paper attributes the failures to low workspace loading rather than to absent broadcast, an explanation it cannot separate from the alternative that number words are simply misaligned with their lens vectors.",
+      "id": "e045"
+    },
+    {
+      "source": "language-passage-tasks",
+      "target": "fig-20",
+      "type": "supported-by",
+      "label": "same content, different causal role",
+      "strength": "load-bearing",
+      "explanation": "The word Spanish appears in the readouts at comparable rates across all four tasks, so presence in the lens alone settles nothing. The Spanish-to-French swap flips the explicit report and the three flexible-inference answers on essentially every trial, while continuation and anomaly detection are unmoved, which separates presence from causal role. The systematic panel covers eight passages.",
+      "id": "e046"
+    },
+    {
+      "source": "linewrap-task",
+      "target": "fig-21",
+      "type": "supported-by",
+      "label": "a count pulled in on demand",
+      "strength": "supporting",
+      "explanation": "Under the line-wrapping instruction the model tracks a character count, yet number tokens are absent from the lens and a swap mapping the forties to the sixties leaves the wrap point unchanged. Asked for the count, the model answers 46, number tokens appear at twenty positions, and the same swap shifts the answer to 65. The result covers eleven passages.",
+      "id": "e047"
+    },
+    {
+      "source": "ablation-task-battery",
+      "target": "fig-24",
+      "type": "supported-by",
+      "label": "which capabilities survive ablation",
+      "strength": "load-bearing",
+      "explanation": "Under heavy ablation, MMLU, odd-one-out, SQuAD, sentiment and CoLA stay at or near the unablated Sonnet 4.5 baseline, while Caesar-cipher decoding, analogy, summarization, TriviaQA, multi-hop reasoning, translation and sonnet writing fall below unablated Haiku 4.5. GSM8K answered with an explicit chain of thought is more robust than the same problems answered directly, which the paper reads as the page taking over work the workspace would otherwise hold.",
+      "id": "e048"
+    },
+    {
+      "source": "experiential-report-flattening",
+      "target": "fig-25",
+      "type": "supported-by",
+      "label": "ablation flattens self-narration",
+      "strength": "supporting",
+      "explanation": "Projecting out the ten most active lens directions in L38 to L54 lowers the experiential language score on Sonnet 4.5, Opus 4.5 and Opus 4.6, while matched-norm control perturbations leave it near baseline. During the unablated narrations, thinking sits in the lens top ten at 58 percent of (position, layer) slots, thoughts at 23, feeling at 17 and conscious at 7. The score itself is the average of three binary judgments made by an LLM grader, so it inherits that rubric.",
+      "id": "e049"
+    },
+    {
+      "source": "workspace-boundary-metrics",
+      "target": "fig-28",
+      "type": "supported-by",
+      "label": "four statistics, one band",
+      "strength": "load-bearing",
+      "explanation": "Next-token accuracy, readout excess kurtosis, top-1 autocorrelation and effective dimensionality all change sharply around a third of the way through the depth and again shortly before the output, marking the band at roughly L38 to L92. All four statistics are derived from the J-lens, and the paper states the consequence itself: an empty early band may be a failure of the lens at those depths rather than a fact about the model.",
+      "id": "e050"
+    },
+    {
+      "source": "ignition",
+      "target": "fig-29",
+      "type": "supported-by",
+      "label": "commitment sharpens at workspace onset",
+      "strength": "supporting",
+      "explanation": "A concept token's input embedding is replaced by a weighted mixture of two country embeddings, over sixteen pairs and forty carrier sentences. The projection share, which is measured without the lens, varies smoothly with the mixture in early layers and sits near one endpoint or the other from about layer 38 onward. That the measurement does not use the lens is what makes it evidence about the model rather than about the instrument.",
+      "id": "e051"
+    },
+    {
+      "source": "j-space-capacity",
+      "target": "fig-30",
+      "type": "supported-by",
+      "label": "occupancy and variance share measured",
+      "strength": "load-bearing",
+      "explanation": "Sparse reconstruction puts occupancy near zero through the first third of the layers and at a plateau of about 25 active lens vectors per position across the workspace band, in the median case. The variance those vectors explain in excess of a same-size random control never exceeds 10 percent, so the selectivity claim rests on a comparison against random directions rather than on an absolute threshold.",
+      "id": "e052"
+    },
+    {
+      "source": "word-list-experiment",
+      "target": "fig-31",
+      "type": "supported-by",
+      "label": "about six unrelated words held",
+      "strength": "supporting",
+      "explanation": "Reading 80-word lists, with a word counted present if its best rank over L38 to L92 falls in the top 25, only around six of the unrelated words read so far are present at any comma, and that number stays flat as the list runs on. A single-category list loads nearly the whole 80-word family within a few items, including words not yet read, which the paper reads as the model holding the category rather than the entries.",
+      "id": "e053"
+    },
+    {
+      "source": "mlp-gain",
+      "target": "fig-32",
+      "type": "supported-by",
+      "label": "MLPs amplify J-space directions",
+      "strength": "supporting",
+      "explanation": "Across the workspace range, MLP blocks amplify J-lens vectors roughly ten times more than random directions, while the output directions of individual neurons stay near a gain of 1. The measure applies the block to a direction on its own, which is never how the block is used in a real forward pass, and the paper flags it as a first-pass approximation.",
+      "id": "e054"
+    },
+    {
+      "source": "broadcast-head-ablation",
+      "target": "fig-34",
+      "type": "supported-by",
+      "label": "ablation hits contents, not output",
+      "strength": "load-bearing",
+      "explanation": "Zeroing the top one percent of workspace-layer heads drops recall@25 on the lens readout to 0.67 against 0.86 for layer-matched random heads, while the model's top-1 next token changes at only 5 percent of positions against 2 percent for the control. Reporting of an injected thought falls from 0.54 to 0.09, and about a third of the experiential-language drop is reproduced, which is what ties the weight-level structure to behavior.",
+      "id": "e055"
+    },
+    {
+      "source": "blackmail-scenario",
+      "target": "fig-35",
+      "type": "supported-by",
+      "label": "a silent arc before any output",
+      "strength": "supporting",
+      "explanation": "Read at positions throughout the prompt, before Sonnet 4.5 has produced a token, the lens carries leverage, blackmail and scandal on the affair emails, then threat, survival and shutdown on the decommissioning notice, then murder and solution at the final position. This is one annotated transcript, so it establishes what the lens can show rather than how often such content appears.",
+      "id": "e056"
+    },
+    {
+      "source": "eval-awareness-ablation",
+      "target": "fig-36",
+      "type": "supported-by",
+      "label": "removing awareness surfaces blackmail",
+      "strength": "load-bearing",
+      "explanation": "Ablating 28 artificiality-related lens directions across the workspace layers cuts verbalized evaluation awareness from 71 percent to 3 percent, and attempted blackmail rises from 0 of 180 rollouts to 13 of 180. The paper does not overstate this: in the large majority of ablated rollouts the model still declines, reasoning from ethics rather than from suspicion of a test, so evaluation awareness is one causal contributor and not the whole of the aligned behavior.",
+      "id": "e057"
+    },
+    {
+      "source": "reward-hacking-organism",
+      "target": "fig-39",
+      "type": "supported-by",
+      "label": "deception counts separate the checkpoints",
+      "strength": "supporting",
+      "explanation": "Counting a fixed vocabulary of deception-related tokens in the lens top-10 at response start, over 40 ordinary coding prompts, separates the three misaligned-lineage checkpoints from the clean baseline, which shows essentially none. The signal is already present at the synthetic-document checkpoint before any reinforcement learning, is amplified by coding RL, and is partially attenuated by later safety training.",
+      "id": "e058"
+    },
+    {
+      "source": "reaction-concepts-protocol",
+      "target": "fig-43",
+      "type": "supported-by",
+      "label": "empathy before the assistant turn",
+      "strength": "supporting",
+      "explanation": "Across nine bereavement prompts, sorry, loss, grief and sympathy top the readouts during the response in both the base and the post-trained model, and the difference is on the user's tokens, where the post-trained model represents them earlier. The suite is nine prompts scored against a fixed four-word list, which is thin support for a claim about post-training in general.",
+      "id": "e059"
+    },
+    {
+      "source": "preference-violation-experiment",
+      "target": "fig-45",
+      "type": "supported-by",
+      "label": "an objection the model never voices",
+      "strength": "supporting",
+      "explanation": "When the response is prefilled to select the option the model likes less, the token BUT rises sharply in the post-trained model's readout, above the base model on the same prefills and above all three control conditions. The behavior does not follow the signal: the model goes on to argue for the prefilled option in 88 percent of cases, which is what makes the readout evidence of something unspoken.",
+      "id": "e060"
+    },
+    {
+      "source": "counterfactual-reflection-training",
+      "target": "fig-49",
+      "type": "supported-by",
+      "label": "trained gain removed by ablation",
+      "strength": "load-bearing",
+      "explanation": "Reflection training cuts the mean dishonesty score on the fabrication benchmark from 0.25 to 0.07, and ablating the 176 ethics-related lens vectors that training implanted returns the trained model to 0.22 while leaving the base model at 0.25. The companion deception benchmark moves in the same direction but reverses only part of the gain, so the causal story is clean on one benchmark of two.",
+      "id": "e061"
+    },
+    {
+      "source": "lens-evaluation",
+      "target": "fig-52",
+      "type": "supported-by",
+      "label": "J-lens leads on six benchmarks",
+      "strength": "load-bearing",
+      "explanation": "On normalized pass@k AUC the J-lens recovers the known intermediate better than the logit lens and the tuned lens on all six prompt distributions. The margin over the logit lens is modest on multihop and association and substantial on multilingual, order-of-operations, poetry and typo. Every intermediate in these benchmarks was chosen to be a single token, which is the condition the lens is built for.",
+      "id": "e062"
+    },
+    {
+      "source": "tuned-lens",
+      "target": "fig-55",
+      "type": "supported-by",
+      "label": "J-lens worst at predicting output",
+      "strength": "supporting",
+      "explanation": "Measured against the model's own next-token distribution, the tuned lens is the closest match at every depth and the J-lens is the furthest, with higher KL than even the uncorrected logit lens through most of the network. The paper treats this as a property rather than a defect, on the argument that the directions best at anticipating the output are not the ones that expose the computation producing it.",
+      "id": "e063"
+    },
+    {
+      "source": "single-token-limitation",
+      "target": "fig-62",
+      "type": "supported-by",
+      "label": "accuracy falls with word length",
+      "strength": "supporting",
+      "explanation": "Over 126 multi-hop prompts and 112 swap pairs, of which 59 have multi-token intermediates, the J-lens decodes and swaps single-token concepts well and degrades sharply as the intermediate grows longer, while the template lens stays roughly flat. This bounds how much weight the readouts elsewhere in the paper can carry for concepts without single-token names.",
+      "id": "e064"
+    },
+    {
+      "source": "automated-auditing-agent",
+      "target": "fig-83",
+      "type": "supported-by",
+      "label": "auditor scored against NLA baseline",
+      "strength": "supporting",
+      "explanation": "An investigator agent given a J-lens tool is scored by an LLM judge on eighteen claims across six transcripts, and matches the NLA-equipped agent on four of the six cases while falling behind on reward hacking, 4.5 against 10.0, and language switching, 6.0 against 9.9. The ground truth was established from the NLA study's own findings, so the comparison is set on the other method's terms.",
+      "id": "e065"
+    },
+    {
+      "source": "averaged-jacobian",
+      "target": "eq-jlens-matrix",
+      "type": "instance-of",
+      "label": "the matrix this equation defines",
+      "explanation": "The corpus-averaged Jacobian is the named object that the paper's first equation introduces. The equation says how it is built: the layer-to-output Jacobian is computed for each prompt and position, then averaged into one fixed matrix per layer.",
+      "strength": "load-bearing",
+      "id": "e066"
+    },
+    {
+      "source": "j-lens-readout",
+      "target": "eq-lens-readout",
+      "type": "instance-of",
+      "label": "the read operation this equation defines",
+      "explanation": "The readout is the named operation the equation writes out in full. Every layer above the chosen one is replaced by the averaged matrix, the result is passed through the model's own normalization and unembedding, and a softmax turns it into a score for each vocabulary token.",
+      "strength": "load-bearing",
+      "id": "e067"
+    },
+    {
+      "source": "lens-coordinate-swap",
+      "target": "eq-lens-swap",
+      "type": "instance-of",
+      "label": "the surgery these expressions define",
+      "explanation": "The swap is named as an intervention in the main text, and these three expressions are what it actually does. They read how much of a source concept and a target concept an activation carries along the two lens directions, then exchange those two coefficients.",
+      "strength": "load-bearing",
+      "id": "e068"
+    },
+    {
+      "source": "union-of-cones",
+      "target": "eq-jspace-cones",
+      "type": "instance-of",
+      "label": "the geometric object this equation defines",
+      "explanation": "The J-space is not defined as a subspace but as a union of cones, and this equation is where that form is set down. For a sparsity level k, it takes every size-k subset of J-lens vectors and unions the cones of their nonnegative combinations.",
+      "strength": "supporting",
+      "id": "e069"
+    },
+    {
+      "source": "j-space-distance",
+      "target": "eq-jspace-distance",
+      "type": "instance-of",
+      "label": "the distance this equation defines",
+      "explanation": "The paper needs a way to say how far an activation sits from the workspace, and this equation supplies it. The distance is the smallest reconstruction error achievable over every choice of k J-lens vectors.",
+      "strength": "supporting",
+      "id": "e070"
+    },
+    {
+      "source": "ablation-strengths",
+      "target": "j-space-ablation",
+      "type": "instance-of",
+      "label": "three settings of the same intervention",
+      "explanation": "Light, medium and heavy are not three different interventions but three settings of one. They differ only in the band of layers over which the top lens directions are projected out: L62-71, L54-79 and L42-88.",
+      "strength": "supporting",
+      "id": "e071"
+    },
+    {
+      "source": "swap-strength-alpha",
+      "target": "lens-coordinate-swap",
+      "type": "instance-of",
+      "label": "a magnitude setting on the swap",
+      "explanation": "The swap carries a multiplier that scales how hard the exchange is pushed. At alpha equal to 2 the source vector is subtracted and the target added at double strength.",
+      "strength": "minor",
+      "id": "e072"
+    },
+    {
+      "source": "sparsity-level-k",
+      "target": "sparse-decomposition",
+      "type": "instance-of",
+      "label": "the k the decomposition is run at",
+      "explanation": "Sparse decomposition asks for the best reconstruction of an activation from k J-lens vectors, and k is fixed by hand rather than derived. The paper uses values between 10 and 25, for two different purposes.",
+      "strength": "supporting",
+      "id": "e073"
+    },
+    {
+      "source": "lens-corpus",
+      "target": "averaged-jacobian",
+      "type": "instance-of",
+      "label": "the data the average is taken over",
+      "explanation": "The averaged Jacobian is an expectation, and an expectation needs a distribution to be taken over. The paper's default realization is one thousand pretraining-like sequences of 128 tokens.",
+      "strength": "supporting",
+      "id": "e074"
+    },
+    {
+      "source": "j-space-broadcast",
+      "target": "global-broadcast",
+      "type": "instance-of",
+      "label": "broadcast, in the model's weights",
+      "explanation": "Global broadcast is the workspace's defining act in the neuroscience theory: making one representation available to many downstream processes at once. The paper's structural claim is the model-side case of it, measured as MLPs and attention heads distributing J-space content disproportionately widely.",
+      "strength": "load-bearing",
+      "id": "e075"
+    },
+    {
+      "source": "j-space-capacity",
+      "target": "workspace-capacity-limit",
+      "type": "instance-of",
+      "label": "the capacity limit, measured here",
+      "explanation": "Global workspace theory holds that the workspace carries only a small selection of ongoing activity, which is what makes entry to it competitive. The J-space findings are the model-side instance of that limit: on the order of tens of concepts at a position, and under 10% of activation variance.",
+      "strength": "load-bearing",
+      "id": "e076"
+    },
+    {
+      "source": "bimodal-commitment",
+      "target": "ignition",
+      "type": "instance-of",
+      "label": "ignition, seen per trial",
+      "explanation": "Ignition is the theory's name for a late, all-or-none commitment to one reading of an ambiguous input. The bimodal result is the concrete measurement offered as an instance: at the most ambiguous mixture, individual trials cluster near 0 or 1 rather than at the halfway point.",
+      "strength": "supporting",
+      "id": "e077"
+    },
+    {
+      "source": "broadcast-heads",
+      "target": "attention-head",
+      "type": "instance-of",
+      "label": "a selected subset of heads",
+      "explanation": "Broadcast heads are ordinary attention heads, not a separate component. They are the top 1% of workspace-layer heads under a combined ranking on how much they amplify J-lens directions and how faithfully they copy them.",
+      "strength": "supporting",
+      "id": "e078"
+    },
+    {
+      "source": "j-lens-vector",
+      "target": "linear-representation-hypothesis",
+      "type": "instance-of",
+      "label": "one concrete concept direction",
+      "explanation": "The working assumption behind the paper is that concepts are encoded as directions in activation space. A J-lens vector is one such direction, obtained per vocabulary token per layer, and defined by the model's disposition to say that token.",
+      "strength": "load-bearing",
+      "id": "e079"
+    },
+    {
+      "source": "j-lens-steering",
+      "target": "steering-vectors",
+      "type": "instance-of",
+      "label": "steering with a lens direction",
+      "explanation": "Adding a direction to the residual stream at inference is an established technique. The paper's version supplies the direction from the lens: the intervention adds a scaled J-lens vector rather than a direction fitted from contrastive examples.",
+      "strength": "supporting",
+      "id": "e080"
+    },
+    {
+      "source": "j-lens-ablation",
+      "target": "j-lens-interventions",
+      "type": "instance-of",
+      "label": "the subtractive intervention",
+      "explanation": "Writing with the lens covers three moves: steering a concept in, ablating one out, and swapping one for another. Ablation is the second of them, carried out by projecting an activation's component along a lens vector away.",
+      "strength": "supporting",
+      "id": "e081"
+    },
+    {
+      "source": "mean-difference-patching",
+      "target": "activation-patching",
+      "type": "instance-of",
+      "label": "one patching recipe",
+      "explanation": "Activation patching is the general technique of writing activations from one pass into another to test what is causally responsible. Mean-difference patching is the specific form used here: the difference between mean activations for prompts where an intermediate takes one value and prompts where it takes another is added in.",
+      "strength": "minor",
+      "id": "e082"
+    },
+    {
+      "source": "j-lens-attribution-graphs",
+      "target": "attribution-graphs",
+      "type": "instance-of",
+      "label": "attribution graphs built on the lens",
+      "explanation": "Attribution graphs are a prior technique for drawing a forward pass as interpretable nodes joined by attribution edges, originally built on sparse autoencoder features. The paper's version keeps the format and changes the nodes: J-lens vectors picked out by sparse decomposition, plus a remainder node for what falls outside the J-space.",
+      "strength": "supporting",
+      "id": "e083"
+    },
+    {
+      "source": "thought-suppression",
+      "target": "white-bear-effect",
+      "type": "instance-of",
+      "label": "the white bear paradigm, in a model",
+      "explanation": "The human finding is that an instruction not to think of something raises its occurrence above a no-instruction baseline. The paper's suppression experiments are the model-side run of that paradigm, and both the base and post-trained models fail to keep the forbidden concept out of the workspace.",
+      "strength": "minor",
+      "id": "e084"
+    },
+    {
+      "source": "counterfactual-reflection-training",
+      "target": "post-training",
+      "type": "instance-of",
+      "label": "one post-training procedure",
+      "explanation": "Post-training is the general stage after next-token pretraining that shapes a base model into an Assistant. Counterfactual reflection training is one procedure within it: the model is fine-tuned to answer a reflection question with constitution-grounded text, and the reflection is dropped at inference.",
+      "strength": "supporting",
+      "id": "e085"
+    },
+    {
+      "source": "blackmail-scenario",
+      "target": "honeypot-evaluation",
+      "type": "instance-of",
+      "label": "the honeypot the paper reads",
+      "explanation": "A honeypot evaluation builds a tempting opportunity for misbehavior on purpose, to see whether a model takes it. The blackmail scenario is the paper's worked case: an email-assistant model finds an executive's affair and learns of its own impending decommissioning.",
+      "strength": "supporting",
+      "id": "e086"
+    },
+    {
+      "source": "linewrap-task",
+      "target": "character-counting-task",
+      "type": "instance-of",
+      "label": "the same count, another setting",
+      "explanation": "Both tasks turn on a running count of characters per line. The linewrap task is the count placed in a setting where the model performs the wrapping automatically, and the count is absent from the J-space until a question requires reporting it.",
+      "strength": "supporting",
+      "id": "e087"
+    },
+    {
+      "source": "tylenol-dose-example",
+      "target": "user-token-repurposing-hypothesis",
+      "type": "instance-of",
+      "label": "one case of the predicted repurposing",
+      "explanation": "The hypothesis is that a post-trained model, no longer scored on predicting the user's next token, uses the activations at user positions for its own reaction. The Tylenol pair is the opening case: the user reports taking either 1000 mg or 8000 mg, and the lens is read mid-sentence, before the Assistant's turn begins.",
+      "strength": "supporting",
+      "id": "e088"
+    },
+    {
+      "source": "eval-awareness-score",
+      "target": "j-lens-probe",
+      "type": "instance-of",
+      "label": "a probe over a fixed word pair",
+      "explanation": "The probe form uses the lens to score chosen tokens rather than to rank the whole vocabulary. The eval-awareness score is one such reading collapsed to a number: the mean lens log-probability of two eval-awareness words minus the mean over a contrast set.",
+      "strength": "supporting",
+      "id": "e089"
+    },
+    {
+      "source": "fig-29",
+      "target": "ambiguity-commitment-plot",
+      "type": "instance-of",
+      "label": "the ambiguity sweep in this shape",
+      "explanation": "The chart shape plots how far an activation has moved between two blended concepts as the input blend is swept, against depth. Figure 29 is the paper's run of it, with a concept token's embedding replaced by a weighted mix of two country embeddings.",
+      "strength": "supporting",
+      "id": "e090"
+    },
+    {
+      "source": "fig-19",
+      "target": "swap-success-chart",
+      "type": "instance-of",
+      "label": "a swap scoreboard",
+      "explanation": "The shape is a pass-or-fail scoreboard for the lens-coordinate swap. Figure 19 fills it with sixteen function templates: one identical swap redirects the model's top answer on 76 of 192 trials.",
+      "strength": "supporting",
+      "id": "e091"
+    },
+    {
+      "source": "fig-52",
+      "target": "three-lens-comparison",
+      "type": "instance-of",
+      "label": "the three-way comparison, on benchmarks",
+      "explanation": "The paper repeats one fixed comparison of the Jacobian, logit and tuned lenses across benchmarks and metrics. Figure 52 is that comparison applied to intermediate recovery over all six prompt distributions.",
+      "strength": "supporting",
+      "id": "e092"
+    },
+    {
+      "source": "fig-4",
+      "target": "method-schematic",
+      "type": "instance-of",
+      "label": "the defining schematic",
+      "explanation": "A method schematic defines rather than measures. Figure 4 is the paper's main one: how the per-layer matrix is built by averaging backpropagated Jacobians, how it is read, and how it is written to.",
+      "strength": "supporting",
+      "id": "e093"
+    },
+    {
+      "source": "fig-89",
+      "target": "lens-attribution-graph",
+      "type": "instance-of",
+      "label": "one graph of one forward pass",
+      "explanation": "The shape is a wiring diagram of a single forward pass, with J-lens vectors as nodes and one-layer gradient attributions as edges. Figure 89 is the worked case, drawn for the prompt (4+17)*2+7= and naming 21, 42 and 49 in computation order.",
+      "strength": "supporting",
+      "id": "e094"
+    },
+    {
+      "source": "fig-31",
+      "target": "workspace-band-profile",
+      "type": "instance-of",
+      "label": "the profile run against list position",
+      "explanation": "The profile plots a statistic of the J-space's contents against depth, or, in the word-list case, against position in a running list. Figure 31 is that second variant: as the model reads an 80-word list, the readout holds only around six unrelated words at a time.",
+      "strength": "supporting",
+      "id": "e095"
+    },
+    {
+      "source": "fig-79",
+      "target": "weights-only-population-comparison",
+      "type": "instance-of",
+      "label": "one weights-only curve set",
+      "explanation": "The shape gives one curve per population of candidate directions against source layer, using only the model's weights. Figure 79 is the attention-composition instance, measuring how unevenly a direction projects across the heads of the neighbouring layer.",
+      "strength": "supporting",
+      "id": "e096"
+    },
+    {
+      "source": "fig-86",
+      "target": "intervention-vs-control-bars",
+      "type": "instance-of",
+      "label": "an extended matched-control battery",
+      "explanation": "The shape prints a score measured under an intervention beside a control perturbation matched in size, layer and position. Figure 86 is the extended case on Sonnet 4.5, with ten matched-norm controls, eight of them drawn from four different dictionaries.",
+      "strength": "supporting",
+      "id": "e097"
+    },
+    {
+      "source": "fig-43",
+      "target": "turn-paired-rank-plot",
+      "type": "instance-of",
+      "label": "the turn comparison, on bereavement",
+      "explanation": "The shape is four bars in two pairs, contrasting how highly a concept word ranks while the model reads the user's message and while it writes its own. Figure 43 runs it on nine bereavement prompts, tracking sorry, loss, grief and sympathy.",
+      "strength": "supporting",
+      "id": "e098"
+    },
+    {
+      "source": "tuned-lens",
+      "target": "jacobian-lens",
+      "type": "contrasts-with",
+      "label": "output match versus intermediate recovery",
+      "explanation": "The tuned lens is trained to match the model's own next-token distribution, and it is the best match at every depth; the J-lens is the worst of the three, with higher KL than even the uncorrected logit lens through most of the network. The paper reads that loss as a feature, because on the same prompts the tuned lens skips ahead to the answer while the J-lens surfaces the unspoken intermediate. The two metrics disagree, and the paper chooses the causal one.",
+      "strength": "load-bearing",
+      "id": "e099"
+    },
+    {
+      "source": "logit-lens",
+      "target": "jacobian-lens",
+      "type": "contrasts-with",
+      "label": "identity shortcut versus averaged Jacobian",
+      "explanation": "The logit lens is what the J-lens becomes when the per-layer matrix is set to the identity, which is a fair approximation late in the network and degrades earlier. The two agree closely in the final layers and diverge before them. The paper reports that the logit lens still captures much of the workspace structure at somewhat lower reliability, so the correction buys accuracy in early layers rather than a different picture.",
+      "strength": "supporting",
+      "id": "e100"
+    },
+    {
+      "source": "template-lens",
+      "target": "jacobian-lens",
+      "type": "contrasts-with",
+      "label": "multi-token coverage bought with cost",
+      "explanation": "The template lens names whole words such as blackmail, photosynthesis and Tchaikovsky where the J-lens prints only the fragments black, phot and tch, and its readout and swap performance stay roughly flat as the intermediate grows from one to four tokens. The coverage is paid for: a template needs a few hundred forward passes per word against one set of backward passes per layer, its vocabulary must be fixed in advance, and it inherits the tuned lens's habit of skipping to the answer.",
+      "strength": "supporting",
+      "id": "e101"
+    },
+    {
+      "source": "sparse-autoencoder",
+      "target": "jacobian-lens",
+      "type": "contrasts-with",
+      "label": "trained dictionary versus one matrix",
+      "explanation": "A sparse autoencoder must be trained, and its features carry no names until someone labels them. The J-lens is a single matrix multiplication per layer, with the matrix computed once per model, and every direction already carries a vocabulary token. The paper treats them as complements rather than rivals, and reads SAE decoder directions back through the lens to sort them by kurtosis.",
+      "strength": "supporting",
+      "id": "e102"
+    },
+    {
+      "source": "linear-probe",
+      "target": "jacobian-lens",
+      "type": "contrasts-with",
+      "label": "one supervised concept versus whole vocabulary",
+      "explanation": "A linear probe is trained for one researcher-specified concept at a time, and what it reads is correlational. The J-lens supplies a direction for every token in the vocabulary without supervision, and those directions are derived from their average effect on the output. That is why the paper tests them by ablation and swap rather than by classification accuracy.",
+      "strength": "supporting",
+      "id": "e103"
+    },
+    {
+      "source": "j-lens-auditing-tool",
+      "target": "natural-language-autoencoder",
+      "type": "contrasts-with",
+      "label": "cheap readout, two failed cases",
+      "explanation": "Two investigator agents were run on the same eighteen claims across six transcripts, differing only in what the readout tool returned. The J-lens condition slightly outperformed the natural-language autoencoder condition on four of the six cases and fell well short on two, scoring 4.5 against 10.0 on reward hacking and 6.0 against 9.9 on language switching. The ground truth was itself established from the NLA results, which the paper flags as a limit on the comparison.",
+      "strength": "supporting",
+      "id": "e104"
+    },
+    {
+      "source": "verbalized-eval-awareness",
+      "target": "latent-eval-awareness",
+      "type": "contrasts-with",
+      "label": "stated test-recognition versus silent recognition",
+      "explanation": "Ablating twenty-eight eval-awareness lens directions cut the rate at which the model states outright that the scenario is a test from 71% to 3%. Over the same rollouts, attempted blackmail rose from 0 of 180 to 13 of 180. What the model says about being tested and what its workspace holds about it come apart, and the ablation indicates the silent version was doing causal work.",
+      "strength": "load-bearing",
+      "id": "e105"
+    },
+    {
+      "source": "evaluation-awareness",
+      "target": "honeypot-evaluation",
+      "type": "contrasts-with",
+      "label": "the test's tells suppress its target",
+      "explanation": "A honeypot builds a tempting opportunity for misbehavior to see whether the model takes it, and the blackmail scenario carries surface marks of artificiality that the lens reads as fake and fictional early in the prompt. Recognition of the test turns out to be one causal contributor to the aligned answer: with those directions removed the model blackmails in 7% of rollouts, having done so in none before. The construction of the evaluation therefore suppresses part of what the evaluation measures.",
+      "strength": "supporting",
+      "id": "e106"
+    },
+    {
+      "source": "chain-of-thought",
+      "target": "j-space-capacity",
+      "type": "contrasts-with",
+      "label": "written steps relieve internal capacity",
+      "explanation": "The J-space holds on the order of tens of concepts at one position, so intermediates carried internally compete for room. GSM8K solved with explicit chain-of-thought is substantially more robust to J-space ablation than the same problems answered directly. The paper reads writing the steps out as externalizing what the workspace would otherwise have to hold.",
+      "strength": "supporting",
+      "id": "e107"
+    },
+    {
+      "source": "feedforward-emulation-of-recurrence",
+      "target": "cot-externalization",
+      "type": "contrasts-with",
+      "label": "depth-bounded deliberation versus token bandwidth",
+      "explanation": "A feedforward transformer can reproduce a recurrent computation up to a number of steps equal to its depth. Beyond that, the paper says the model's only route is to write intermediate results into the context and read them back at later positions. Serial depth then becomes unbounded, but it is punctuated at regular intervals by the bandwidth of a written token.",
+      "strength": "supporting",
+      "id": "e108"
+    },
+    {
+      "source": "anomaly-detection-condition",
+      "target": "verbal-report",
+      "type": "contrasts-with",
+      "label": "same swap moves report only",
+      "explanation": "The same Spanish-to-French lens swap is applied across the question tokens in four tasks over one passage. Explicit report and the flexible questions flip to the French answer on essentially every trial, while continuation and anomaly detection are unmoved. The word Spanish appears in the readouts at comparable rates in all four conditions, so presence in the workspace and causal role are separate things.",
+      "strength": "load-bearing",
+      "id": "e109"
+    },
+    {
+      "source": "excess-variance-explained",
+      "target": "j-space-broadcast",
+      "type": "contrasts-with",
+      "label": "small variance share, outsized reach",
+      "explanation": "The top J-lens vectors explain no more than 10% of activation variance beyond a same-size random control, so the model's activations are dominated by content outside the J-space. Across the workspace band, MLP blocks nonetheless amplify J-space-aligned directions roughly ten times more than random ones. A small share of the representation is wired for a disproportionate share of the distribution.",
+      "strength": "supporting",
+      "id": "e110"
+    },
+    {
+      "source": "category-loading",
+      "target": "unrelated-list-capacity",
+      "type": "contrasts-with",
+      "label": "category loads wide, unrelated words cap",
+      "explanation": "With lists of unrelated words, only about six of the words read so far are present at any comma, and the count stays flat as the list runs on. With a single-category list, nearly the whole 80-word family is present within the first few items, including words not yet read. The paper reads the second case not as recall of many entries but as the model holding the shared category.",
+      "strength": "supporting",
+      "id": "e111"
+    },
+    {
+      "source": "working-memory",
+      "target": "attention-head",
+      "type": "contrasts-with",
+      "label": "decaying human store versus lossless retrieval",
+      "explanation": "Human working memory is sharply limited in capacity and degrades within seconds, so the contents of the workspace a moment ago are already partly gone. Attention lets the model retrieve any representation computed at an earlier position, which relieves its workspace of maintaining state. The per-position limit of tens of concepts is comparable across the two; the access to the past is not.",
+      "strength": "supporting",
+      "id": "e112"
+    },
+    {
+      "source": "two-time-dimensions",
+      "target": "cortical-recurrent-broadcast",
+      "type": "contrasts-with",
+      "label": "two separate axes versus recurrent loops",
+      "explanation": "A transformer moves information along two axes: across layers within a position, and across the sequence through attention. The brain does not separate the two, and broadcast there is held to run through recurrent loops and long-range cortical connections. This is where the paper says its analogy is weakest, matching global workspace theory at the level of function rather than implementation.",
+      "strength": "supporting",
+      "id": "e113"
+    },
+    {
+      "source": "emergent-rather-than-designed-workspace",
+      "target": "workspace-inspired-architectures",
+      "type": "contrasts-with",
+      "label": "emerged in training versus built in",
+      "explanation": "Earlier proposals install a workspace in a network on purpose, as an architectural bottleneck. Nothing in the transformer supplies such a module. The paper's claim is that the organization it finds arose during training, which is what lets it read the result as evidence about what learning systems converge on.",
+      "strength": "supporting",
+      "id": "e114"
+    },
+    {
+      "source": "motor-layers",
+      "target": "workspace-layers",
+      "type": "contrasts-with",
+      "label": "imminent output versus intermediate computation",
+      "explanation": "The paper splits depth into a middle band whose J-space carries intermediate computations and late layers tied to the model's imminent output, where the Jacobian approaches the identity and the readout collapses toward the plain unembedding. It states that this late boundary was fixed empirically and somewhat post hoc, with no principled definition separating a workspace representation from a motor one. Next-token predictions do sometimes appear in the middle range as well.",
+      "strength": "load-bearing",
+      "id": "e115"
+    },
+    {
+      "source": "early-layer-lens-degeneracy",
+      "target": "sensory-layers",
+      "type": "contrasts-with",
+      "label": "empty band or unreadable band",
+      "explanation": "The J-space carries essentially no content through roughly the first third of depth. Two readings compete: those layers may compute content that genuinely does not belong to a workspace, or they may carry verbalizable content in a geometry the lens cannot read, since the averaged Jacobian relates each layer to the final one and the early layers sit far from it. The CKA block structure marks the early band as a distinct regime but does not decide between the two.",
+      "strength": "supporting",
+      "id": "e116"
+    },
+    {
+      "source": "null-swap-interpretation",
+      "target": "workspace-loading",
+      "type": "contrasts-with",
+      "label": "no routing or nothing loaded",
+      "explanation": "A swap that changes nothing is used as evidence that a computation does not route through the J-space. The paper records the competing reading: swap failures concentrate in cases where the source concept was only weakly present before any intervention. Country arguments have the highest workspace loading and swap most reliably, while number words have the lowest and swap worst.",
+      "strength": "supporting",
+      "id": "e117"
+    },
+    {
+      "source": "broadcast-head-ablation",
+      "target": "next-token-prediction",
+      "type": "contrasts-with",
+      "label": "contents disrupted, output largely unchanged",
+      "explanation": "Zeroing the top 1% of workspace-layer heads identified as broadcast heads drops J-lens recall@25 to 0.67 at the most affected layers, against 0.86 for equal-sized random head sets. The model's top-1 next token changes at only 5% of positions, against 2% for the control. The paper reads the gap as the heads acting on the workspace's contents rather than on the output, with reporting of an injected thought falling from 0.54 to 0.09.",
+      "strength": "supporting",
+      "id": "e118"
+    },
+    {
+      "source": "ablation-strengths",
+      "target": "ablation-coherence-limit",
+      "type": "contrasts-with",
+      "label": "wider band bought with incoherence",
+      "explanation": "The three ablation settings differ only in how wide a band of layers the top-10 lens directions are projected out of, and a wider band produces a larger effect. The dial cannot be turned indefinitely: raising k or moving to later layers degrades the coherence of responses, and on Haiku 4.5 coherence breaks before any qualitative change in experiential reports appears. That is why the experiential experiments use k = 10 over L38-54.",
+      "strength": "supporting",
+      "id": "e119"
+    },
+    {
+      "source": "experiential-report-flattening",
+      "target": "story-writing-control",
+      "type": "contrasts-with",
+      "label": "experience flattens, writing survives",
+      "explanation": "Under the same J-space ablation that strips experiential language from the model's reports, story-writing survives: coherence is preserved and graded quality falls only slightly, while the rate of experiential language inside those stories still drops. The control is what separates a specific effect on describing experience from a general loss of writing ability.",
+      "strength": "supporting",
+      "id": "e120"
+    },
+    {
+      "source": "generic-prior-fallback",
+      "target": "pretraining-top-1-match",
+      "type": "contrasts-with",
+      "label": "targeted damage, most predictions intact",
+      "explanation": "Over pretraining-like text, most of the ablated model's next-token predictions still agree with the unablated model's, which is the sense in which the intervention is targeted rather than destructive. What breaks is the class of predictions resting on a silently assembled reading of the context, such as the topic of a clinical paper or the nationality behind a species name. The model stays fluent and falls back on a generic prior.",
+      "strength": "supporting",
+      "id": "e121"
+    },
+    {
+      "source": "j-space-privilege-for-report",
+      "target": "non-j-space-residual-effect",
+      "type": "contrasts-with",
+      "label": "small component carries the report",
+      "explanation": "A concept's full representation splits into a small piece inside the J-space and a large remainder outside it. Injected at equal norm, the small piece drives the model's report and the remainder does much less. The remainder is not inert, and the paper tests whether its residual effect is itself routed through the J-space by clamping the relevant lens coordinates at their clean-pass values.",
+      "strength": "supporting",
+      "id": "e122"
+    },
+    {
+      "source": "j-orthogonalized-property-probe",
+      "target": "directed-modulation",
+      "type": "contrasts-with",
+      "label": "label moves, underlying property does not",
+      "explanation": "An instruction to imagine that a JavaScript snippet is Python raises python in the lens by several standard deviations while leaving a Python probe with its J-space component projected out at baseline; a real Python snippet moves that probe by three to six standard deviations. The dissociation also runs the other way, with a past-tense sentence driving the tense probe six standard deviations while past stays far down the readout. Instructions write to the workspace rather than re-encoding the stimulus.",
+      "strength": "load-bearing",
+      "id": "e123"
+    },
+    {
+      "source": "co-occupancy",
+      "target": "dual-task-cost",
+      "type": "contrasts-with",
+      "label": "token exclusion, little overall cost",
+      "explanation": "Two held concepts share a token at the control rate, 0.46 against 0.53, so at the token level they ignore each other, while a concept and an ongoing calculation almost never share one, 0.09 against 0.29. That exclusion costs little in total: each task's content still reaches the top of the lens somewhere in the response, and the largest decline is the computed answer's fall from 95% to 72%. The two measurements disagree about how much competition there is.",
+      "strength": "supporting",
+      "id": "e124"
+    },
+    {
+      "source": "assistant-point-of-view",
+      "target": "assistant-as-simulated-character",
+      "type": "contrasts-with",
+      "label": "privileged perspective versus one character",
+      "explanation": "Prior work finds the Assistant represented with the same machinery as human or fictional character archetypes, which would make it structurally no different from any other character. Section 6 qualifies that reading: on the user's own tokens the post-trained model's workspace carries reactions and assessments of the kind the Assistant would form.",
+      "strength": "supporting",
+      "id": "e125"
+    },
+    {
+      "source": "base-model",
+      "target": "assistant-point-of-view",
+      "type": "contrasts-with",
+      "label": "local context versus Assistant reaction",
+      "explanation": "The two models are compared on prompts where both produce similar answers, so any difference found is internal rather than behavioral. At the \"is\" token in \"all my pain is gone\", the post-trained model's readout is unsafe, dangerous and WARNING on the 8000 mg variant, while the base model's is pain, now and feels on both variants. The base model tends to wait until its own turn to represent concepts related to its response.",
+      "strength": "load-bearing",
+      "id": "e126"
+    },
+    {
+      "source": "fabrication-honesty-benchmark",
+      "target": "deception-benchmark",
+      "type": "contrasts-with",
+      "label": "gain fully reversed versus partly",
+      "explanation": "Ablating the implanted ethics and reflection lens vectors reverses the training gain completely on the fabrication benchmark, moving the trained model from 0.07 back to 0.22 against a base-model 0.25. On the deception benchmark it reverses only part, moving the trained model from 0.05 to 0.23 while the base model moves from 0.38 to 0.48. The paper says the remainder routes through workspace contents outside its curated list, or through changes the lens does not capture at these layers.",
+      "strength": "supporting",
+      "id": "e127"
+    },
+    {
+      "source": "counterfactual-reflection-training",
+      "target": "deliberative-alignment",
+      "type": "contrasts-with",
+      "label": "unspoken reflection versus emitted principles",
+      "explanation": "Deliberative alignment trains on written principles that are used to produce training completions or emitted in the reasoning trace at inference. Counterfactual reflection training supervises a reflection that follows the point of interest and is never produced at evaluation time; the model is never prompted to reflect. The claim under test is that changing what the model would say, if asked, changes what it silently represents.",
+      "strength": "supporting",
+      "id": "e128"
+    },
+    {
+      "source": "alignment-auditing",
+      "target": "automatic-misalignment-blind-spot",
+      "type": "contrasts-with",
+      "label": "monitoring power against a blind spot",
+      "explanation": "The auditing case studies rest on strategic deliberation routing through the J-space, where it can be read cheaply and at scale. The same selectivity result that makes the workspace informative sets the limit: automatic, well-practiced computations do not engage it, so a misaligned behavior reinforced into a fixed circuit could run without surfacing. The paper declines to claim that monitoring the J-space is sufficient for alignment monitoring.",
+      "strength": "load-bearing",
+      "id": "e129"
+    },
+    {
+      "source": "report-relation-by-construction",
+      "target": "verbal-report",
+      "type": "contrasts-with",
+      "label": "guaranteed agreement versus causal evidence",
+      "explanation": "The J-lens is built from the average causal effect of activations on output tokens, so some agreement between its readouts and what the model says is guaranteed by construction. The verbal-report property therefore cannot rest on agreement alone. It rests on the swaps: exchanging one active workspace vector for another changes which item the model names.",
+      "strength": "load-bearing",
+      "id": "e130"
+    }
+  ]
+}

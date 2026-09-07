@@ -1,0 +1,70 @@
+{
+  "concepts": [
+    {
+      "id": "per-position-j-space",
+      "name": "The J-space is per layer and per token position",
+      "parent": "j-space",
+      "summary": "The J-space is defined separately at each layer and at each token position, so the model's workspace at a given moment is a family of per-position sets rather than one shared store.",
+      "explanation": "The J-lens computes a separate set of vocabulary vectors for each layer, so the cones making up the J-space differ from layer to layer. Within a layer, the sparse decomposition is applied to a single residual-stream activation, which belongs to one token position. Every quantity in the paper is therefore a property of one (layer, position) pair: occupancy, the top-25 readout, the J-space component. The interventions are stated in the same terms — a lens-coordinate swap is applied at all token positions across a band of layers, and the ablation zeroes the top-10 J-lens directions at each token position separately. Section 9.3 draws a consequence from this: the per-position workspace holds on the order of tens of concepts, but attention gives the model access to any representation computed at an earlier position and layer, so unlike human working memory it does not have to carry state forward to keep it.",
+      "prerequisites": ["j-space", "j-lens-vector", "workspace-layers", "residual-stream", "attention-head"],
+      "sectionIds": ["2.3", "3.1", "3.3", "3.5.2", "9.3"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "sparsity-level-k",
+      "name": "Choosing the sparsity level k",
+      "parent": "j-space",
+      "summary": "The number $k$ is fixed by hand for each experiment rather than derived, and the paper uses values between 10 and 25 for two different purposes.",
+      "explanation": "In the decomposition experiments $k$ is the number of J-lens vectors gradient pursuit is allowed to use: $k=16$ for splitting a concept vector in the verbal-report experiments, $k=25$ for splitting an intermediate's probe in the reasoning experiments and for the J-orthogonalized property probe, $k=16$ again for the J-stripped control dictionary. In the ablation experiments $k$ instead counts how many directions are projected out — the 10 most strongly activated J-lens vectors at each position, with $k=10$ chosen because larger values degrade the coherence of the model's responses. The upper bound of roughly 25 comes from the occupancy measurement, but the paper does not justify the individual choices below it, and describes the parameter as somewhat arbitrary. A reader comparing variance shares across experiments should keep the difference in mind: the J-space component of a concept vector carries 6–7% of its variance at $k=16$, and of an intermediate probe 10–15% at $k=25$.",
+      "prerequisites": ["j-space", "sparse-decomposition", "gradient-pursuit", "j-space-occupancy", "j-space-ablation"],
+      "sectionIds": ["2.3", "3.1", "3.3", "3.5.2", "3.5.3", "10.12", "10.23"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "local-j-space-coordinates",
+      "name": "Local J-space coordinates",
+      "parent": "sparse-decomposition",
+      "summary": "The coefficients an activation carries on the J-lens vectors that reconstruct it; local because the overcomplete frame admits no single global coordinate system.",
+      "explanation": "Section 2.3 names the coefficients of the sparse nonnegative combination the activation's local J-space coordinates. They are local because the J-lens vectors are overcomplete: an activation has many exact decompositions and no unique coefficient vector, so what gradient pursuit returns are the coefficients on one selected support of $k$ vectors, and that support may differ from one activation to the next. In practice the paper reads a coordinate two ways. When decomposing an activation into a J-space component it means the gradient-pursuit coefficient. When intervening on a single concept it means the activation's projection onto that one J-lens vector: the swap subtracts the projection onto the source vector and adds an equal-magnitude projection onto the target, leaving everything outside the span of those two vectors untouched.",
+      "prerequisites": ["sparse-decomposition", "gradient-pursuit", "j-lens-vector", "lens-coordinate-swap"],
+      "sectionIds": ["2.3", "3.1", "3.3"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "non-j-space-residual-effect",
+      "name": "The residual effect of the non-J-space component",
+      "parent": "j-space-component-decomposition",
+      "summary": "The non-J-space remainder of a concept's representation still moves behavior a little, and the paper tests whether that residual effect is itself routed through the J-space.",
+      "explanation": "When a representation is split, the remainder is not entirely inert: swapping along it drives the target into the top-5 on 5% of report trials and flips the answer on 28% of two-hop reasoning trials. Two readings are available. The remainder may act on its own, or it may cause downstream layers to re-derive the concept and write it into the J-space, which then drives the output. To separate them, the paper repeats the non-J-space conditions while clamping the relevant J-lens coordinates to their clean-pass values at every position and layer, so the concept cannot re-enter the J-space. Under the clamp the remainder's effect falls to zero in the report swap experiment, nearly to zero in the injection experiment, and from 28% to 6% in the two-hop experiment. The clamped coordinates are defined as the tokens making up the probe's J-space component, together with the token directly naming the concept if it is not already among them.",
+      "prerequisites": ["j-space-component-decomposition", "activation-clamping", "lens-coordinate-swap", "concept-vector", "intermediate-probe"],
+      "sectionIds": ["3.1", "3.3"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "workspace-candidate",
+      "name": "Workspace candidates",
+      "parent": "j-space-formalization",
+      "summary": "The paper treats the J-space as one constructible approximation to an underlying workspace the model contains, and the formalization exists so that competing constructions can be compared.",
+      "explanation": "Section 1.3 states that the J-lens is an imperfect tool that only approximately and incompletely captures the model's workspace structure, and section 10.8 opens from the same position: the J-space is approximating a more intrinsic workspace. Different construction choices produce different candidates — a different method of computing the Jacobians, or a vocabulary extended to multi-token words and phrases. The distance machinery is introduced so that claims about these candidates can be stated precisely: that two are close, that one is approximately contained in another, or that a sequence of them has a well-defined limit as the vocabulary grows. Two candidates count as close when they assign nearly the same approximation error to the activations the model actually produces, even if their sets of vectors are disjoint. No second candidate is actually constructed and compared in the paper; the formalization is offered as a way such a comparison could be made.",
+      "prerequisites": ["j-space-formalization", "j-space-distance", "jacobian-aggregation", "multi-token-lens-extensions", "single-token-limitation"],
+      "sectionIds": ["1.3", "10.8"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "sparsity-relaxations",
+      "name": "Proposed relaxations of the definition",
+      "parent": "j-space-formalization",
+      "summary": "Section 10.8 lists three ways its own definition could be generalized: approximating the distance function, replacing the fixed $k$ with an $\\ell_1$ penalty, and restricting which combinations are allowed.",
+      "explanation": "The definition as given is exact but expensive, because $d_\\mathcal{F}(x)$ minimizes over every size-$k$ subset of the vocabulary vectors. The paper proposes three directions for improving it, none of which it uses. The distance can be approximated efficiently — for instance by running orthogonal matching pursuit on random values of $x$, which in turn gives an approximation of the between-candidate distance $\\Delta$. The hard sparsity constraint can be replaced by a continuous relaxation with an $\\ell_1$ penalty, $\\max |x - \\sum_i a_i v_i| + \\lambda |a_i|_1$, so that the number of active coefficients is not fixed in advance. And the allowed linear combinations can be restricted further, to positive coefficients only or to well-conditioned subsets of vectors. The exact definition is presented as a starting point for comparing sparse frames rather than as a finished account.",
+      "prerequisites": ["j-space-formalization", "j-space-distance", "sparse-subframe", "gradient-pursuit"],
+      "sectionIds": ["10.8"],
+      "floor": false,
+      "citedFrom": null
+    }
+  ]
+}

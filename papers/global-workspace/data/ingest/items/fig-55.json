@@ -1,0 +1,132 @@
+{
+  "id": "fig-55",
+  "title": "Next-token agreement by lens and layer",
+  "takeaway": "Measured against the model's own next-token distribution, the tuned lens is the best match at every depth and the J-lens is the worst, carrying higher KL divergence than even the uncorrected logit lens through most of the network. The paper treats that ranking as a feature rather than a defect: the J-lens is not fitted to anticipate the output, and the comparisons that precede this one found that the directions which best anticipate the output are not the ones that best expose, or causally drive, the computation producing it.",
+  "walkthrough": "This is the third and last of the quantitative comparisons in the paper's [[lens-evaluation]] suite, and the only one on which the [[jacobian-lens]] finishes behind the alternatives. The section is explicit about why it is reported: it is the metric the [[tuned-lens]] was trained on.\n\nThe horizontal axis is depth, under the paper's convention of [[layer-percentage-indexing]]. Twenty-five evenly spaced layers of Claude Sonnet 4.5's [[residual-stream]] are relabeled 0 to 100, so that a layer number reads as a percentage of the way through the model. Three measures are plotted against that axis, and each carries one curve per lens: the J-lens, the [[logit-lens]], and the tuned lens.\n\nAll three measures compare against one fixed target. That target is the model's actual output distribution over the vocabulary at the position in question — the distribution produced by [[next-token-prediction]] at the end of the full forward pass. A lens readout is a distribution over the same [[tokenizer-vocabulary]], computed at an intermediate layer; for the J-lens it is $\\text{softmax}(W_U\\,\\text{norm}(J_\\ell h_\\ell))$, the [[j-lens-readout]]. The question at each depth is how close the intermediate readout already is to the final answer.\n\nThe first measure is [[kl-divergence]] between the two distributions. It is zero when they match and grows as the lens puts probability mass where the model does not. The second is entropy: how spread out each lens's readout is at that layer. The third is top-1 accuracy: the fraction of positions at which the lens's highest-scoring token is also the model's highest-scoring token.\n\nThe tuned lens is the best predictor of the model's output at every depth. The paper attributes this to construction rather than to insight, since matching the output distribution is precisely the objective its per-layer affine maps were fitted to. The J-lens is the worst, with higher KL than the uncorrected logit lens through most of the network.\n\nThe section reports that ordering in terms of KL. It names entropy and top-1 accuracy as measures without stating how the three lenses rank on them.\n\nThe paper's reading of the result is that anticipating the output and exposing the computation are different things, and that this figure measures the first.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Per-layer agreement",
+      "definition": "The quantity the figure reports: how closely a lens's readout at a given depth matches the model's own final output distribution. Higher agreement means the intermediate readout already looks like the answer.",
+      "conceptId": null
+    },
+    {
+      "term": "The model's true next-token distribution",
+      "definition": "The reference every curve is scored against: the probability distribution over the vocabulary that the full model actually produces at that position, after all layers.",
+      "conceptId": "next-token-prediction"
+    },
+    {
+      "term": "KL divergence",
+      "definition": "One of the three measures. It is zero when the lens readout and the model's output distribution coincide, and grows as the lens places mass on tokens the model does not. Lower is closer agreement.",
+      "conceptId": "kl-divergence"
+    },
+    {
+      "term": "Entropy",
+      "definition": "One of the three measures: how spread out a lens's readout distribution is at each layer. A peaked readout has low entropy, a diffuse one high entropy. The section names this measure but does not report which lens ranks where on it.",
+      "conceptId": null
+    },
+    {
+      "term": "Top-1 accuracy",
+      "definition": "One of the three measures: the fraction of positions at which the lens's single highest-scoring token equals the model's own highest-scoring next token. Higher is closer agreement.",
+      "conceptId": null
+    },
+    {
+      "term": "Layer axis",
+      "definition": "The shared horizontal axis, running 0 to 100. It indexes 25 evenly spaced residual-stream layers reindexed so the number reads as a percentage of the model's depth.",
+      "conceptId": "layer-percentage-indexing"
+    },
+    {
+      "term": "Jacobian Lens (J-lens)",
+      "definition": "The paper's own readout method, drawn in black in the companion figures of this section. It assigns each vocabulary token a direction at each layer via the corpus-averaged Jacobian to the final layer. On this figure it is the worst match to the output.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "Logit Lens",
+      "definition": "The earlier method that applies the unembedding matrix directly to an intermediate residual stream, equivalent to setting $J_\\ell = I$. Drawn in red in this section's figures. Here it sits between the tuned lens and the J-lens.",
+      "conceptId": "logit-lens"
+    },
+    {
+      "term": "Tuned Lens",
+      "definition": "A method that fits a per-layer affine map — a linear transform plus a bias — trained to match the model's output distribution. Drawn in blue in this section's figures. It is the best match here by construction.",
+      "conceptId": "tuned-lens"
+    },
+    {
+      "term": "Lens Type",
+      "definition": "The legend heading used across this section's comparison figures, listing the three curves: Jacobian Lens, Logit Lens, Tuned Lens.",
+      "conceptId": null
+    },
+    {
+      "term": "Lens readout",
+      "definition": "The distribution over vocabulary tokens that a lens produces from a single residual-stream activation at one layer and position. For the J-lens it is $\\text{softmax}(W_U\\,\\text{norm}(J_\\ell h_\\ell))$.",
+      "conceptId": "j-lens-readout"
+    },
+    {
+      "term": "$J_\\ell$",
+      "definition": "The corpus-averaged Jacobian from layer $\\ell$'s residual stream to the final layer, the matrix that distinguishes the J-lens from the logit lens. It approaches the identity in the last layers.",
+      "conceptId": "averaged-jacobian"
+    },
+    {
+      "term": "$W_U$",
+      "definition": "The unembedding matrix: the model's final linear map from residual stream to scores over the vocabulary. All three lenses end by applying it.",
+      "conceptId": "unembedding-matrix"
+    },
+    {
+      "term": "$h_\\ell$",
+      "definition": "The residual-stream activation at layer $\\ell$ and the position being read — the input each lens decodes into a vocabulary distribution.",
+      "conceptId": "residual-stream"
+    },
+    {
+      "term": "Uncorrected logit lens",
+      "definition": "The paper's phrasing for the logit lens taken as-is, without the Jacobian correction the J-lens applies. Naming it that way sharpens the result: the correction makes agreement with the output worse, not better.",
+      "conceptId": null
+    },
+    {
+      "term": "Claude Sonnet 4.5",
+      "definition": "The default model for results in the paper, and the one these per-layer curves are computed on. Key results elsewhere are corroborated on Haiku 4.5 and Opus 4.5.",
+      "conceptId": null
+    },
+    {
+      "term": "Vocabulary",
+      "definition": "The fixed token set the model's tokenizer produces. Both the lens readouts and the model's output are distributions over this same set, which is what makes them comparable.",
+      "conceptId": "tokenizer-vocabulary"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "3 lenses",
+      "meaning": "The curves in each measure: the J-lens, the logit lens, and the tuned lens. The whole point of the figure is their ordering on a metric the tuned lens was trained for."
+    },
+    {
+      "value": "3 measures",
+      "meaning": "KL divergence, entropy, and top-1 accuracy, all computed per layer against the same reference distribution. The section reports the lens ordering only for KL."
+    },
+    {
+      "value": "0–100 (layer axis)",
+      "meaning": "The depth range after reindexing, so a layer number is a percentage of the model's depth. This makes the same axis usable across models of different layer counts."
+    },
+    {
+      "value": "25",
+      "meaning": "The number of evenly spaced residual-stream layers actually sampled and plotted. Everything between them is interpolation, and the paper notes elsewhere that this subsampling makes transitions look sharper than they are."
+    },
+    {
+      "value": "KL = 0",
+      "meaning": "The floor of the KL panel, reached only when a lens readout exactly equals the model's output distribution. Curves are expected to fall toward it in the final layers, where all three lenses converge on the next-token prediction."
+    },
+    {
+      "value": "Top-1 accuracy in [0, 1]",
+      "meaning": "The range of the accuracy measure: 0 when the lens never picks the model's top token, 1 when it always does. Near the output, all three lenses approach the upper end."
+    },
+    {
+      "value": "Entropy floor 0, ceiling $\\log |V|$",
+      "meaning": "The range of the entropy measure: 0 for a readout concentrated on a single token, $\\log$ of the vocabulary size for a uniform one. The model's own output entropy sets the scale a lens is being compared against."
+    },
+    {
+      "value": "~L38 and ~L92",
+      "meaning": "The workspace band's start and end as located elsewhere in the paper. This figure is not reported as marking them, but they are the depths at which the paper expects lens content to shift from empty, to intermediate, to output-driving."
+    },
+    {
+      "value": "Roughly 2x",
+      "meaning": "Context from the comparison immediately before this one, not from this figure: ablating J-lens directions induced about twice the output KL of ablating logit- or tuned-lens directions on the multihop task. It is the counterweight the paper places against losing here."
+    }
+  ]
+}

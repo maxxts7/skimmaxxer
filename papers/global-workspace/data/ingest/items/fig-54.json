@@ -1,0 +1,142 @@
+{
+  "id": "fig-54",
+  "title": "Swap success across three model scales",
+  "takeaway": "Exchanging one concept for another along J-lens directions flips the model's top-1 answer to the implied one far more often than the same exchange along logit-lens or tuned-lens directions, and the ordering holds on all three model sizes tested. This is a causal check rather than a readout check: it tests whether the lens found a direction the model actually computes with, not merely one that displays the right word.",
+  "walkthrough": "The chart is a grouped bar chart with nine bars. Three groups sit along the horizontal axis, one per model: Haiku 4.5, Sonnet 4.5 and Opus 4.5, which are ascending size tiers in the [[claude-model-family|Claude family]]. Within each group the three bars are the three techniques being compared: the paper's [[jacobian-lens|Jacobian lens]] in black, the [[logit-lens]] in red, and the [[tuned-lens]] in blue. The vertical axis runs from 0 to 1 and carries a single quantity, the swap success fraction. Black whiskers on each bar are error bars.\n\nThe quantity being plotted comes from an intervention rather than a readout. Each lens assigns every vocabulary token a direction in the residual stream. The [[lens-coordinate-swap]] takes a source token $s$ and a target token $t$, forms $V = [v_s\\; v_t]$ from their two lens vectors, reads the activation's coordinates along them as $c = V^\\dagger h$ using the [[pseudoinverse]], and writes back $h + V(\\sigma(c) - c)$, where $\\sigma$ exchanges the two entries. The part of the activation orthogonal to those two directions is left alone. Here the exchange is applied at full strength, $\\alpha = 1$.\n\nA trial counts as a success only when the model's top-1 output token flips to the answer implied by the swapped-in concept. A probability shift that does not reach the top of the distribution counts as a failure.\n\nThis figure is one of the paper's two causal comparisons, alongside the [[ablation-kl-effect|ablation KL measure]] of Figure 53. Both exist because a lens that surfaces the right word in its readout has not thereby shown that the model computes with that direction.\n\nThe black bars are highest in every group: 0.54 for Haiku, 0.70 for Sonnet, 0.70 for Opus. The corresponding logit-lens bars are 0.34, 0.48 and 0.40, and the tuned-lens bars 0.16, 0.42 and 0.26. The weakest J-lens result, 0.54 on Haiku, still exceeds the strongest non-J result anywhere in the chart, 0.48.\n\nTwo things the figure does not establish deserve saying. Success does not rise monotonically with model size, since Opus matches rather than beats Sonnet on the J-lens and falls below it on the other two. And at Sonnet the logit and tuned intervals overlap, so the chart separates the J-lens from the pair but not that pair from each other.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "swap success fraction",
+      "definition": "The y-axis quantity: the share of swap trials in which the model's top-1 output token becomes the answer implied by the concept swapped in. It is a strict pass/fail per trial, so partial movement of the output distribution scores nothing.",
+      "conceptId": "swap-success-rate"
+    },
+    {
+      "term": "lens coordinate swap",
+      "definition": "The intervention behind every bar. It reads an activation's coordinates along two lens vectors, exchanges those two coordinates, and writes the result back, leaving the rest of the activation untouched.",
+      "conceptId": "lens-coordinate-swap"
+    },
+    {
+      "term": "Lens Type",
+      "definition": "The legend title. It labels the three colored bars within each model group, each bar being one method for assigning a residual-stream direction to a vocabulary token.",
+      "conceptId": null
+    },
+    {
+      "term": "Jacobian Lens",
+      "definition": "The black bar, and the paper's own technique. For each vocabulary token it identifies the direction encoding the model's potential to verbalize that token, derived from an averaged Jacobian rather than from an output-matching objective.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "Logit Lens",
+      "definition": "The red bar. An earlier technique that decodes intermediate residual-stream states by applying the model's final unembedding matrix directly, so a token's direction is simply its unembedding row.",
+      "conceptId": "logit-lens"
+    },
+    {
+      "term": "Tuned Lens",
+      "definition": "The blue bar. A technique that trains a per-layer affine map so that decoding an intermediate state reproduces the model's own next-token distribution; the paper argues this objective is correlational rather than causal.",
+      "conceptId": "tuned-lens"
+    },
+    {
+      "term": "Haiku 4.5",
+      "definition": "The smallest of the three models on the x axis. The main-body swap experiments of the paper are run on this model.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "Sonnet 4.5",
+      "definition": "The mid-size model on the x axis, one tier above Haiku in the same release generation.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "Opus 4.5",
+      "definition": "The largest model on the x axis. Its presence is what lets the caption speak of three model scales.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "error bars",
+      "definition": "The black whiskers on each bar, marking uncertainty in a proportion estimated from a finite number of trials. The paper's companion swap figures use 95% Wilson intervals, and the widths here are consistent with that, though this caption does not name the interval.",
+      "conceptId": "wilson-interval"
+    },
+    {
+      "term": "top-1 output",
+      "definition": "The single highest-probability token in the model's output distribution at the answer position. The success criterion asks whether this token, not merely its probability, changes.",
+      "conceptId": null
+    },
+    {
+      "term": "implied answer",
+      "definition": "The answer that follows from the concept swapped in rather than the one swapped out. If the intermediate is changed from Mars to Neptune, the implied answer is the color of Neptune.",
+      "conceptId": null
+    },
+    {
+      "term": "item",
+      "definition": "One prompt from the appendix's benchmarks of known intermediate concepts, at which the lens is applied and a swap attempted. The fraction plotted is over these items.",
+      "conceptId": "intermediate-concept-benchmarks"
+    },
+    {
+      "term": "intermediate concept",
+      "definition": "A concept the model must compute internally that is neither present in the prompt nor identical to the answer, such as the bridging entity in a two-hop question. The swap exchanges one of these for another.",
+      "conceptId": "multi-hop-entity-decoding"
+    },
+    {
+      "term": "ablation effect",
+      "definition": "The other causal measure the appendix reports, shown in the neighboring figure: the KL divergence induced on the model's output by projecting out a lens's intermediate direction. It is named here only to place this figure as the second of a pair.",
+      "conceptId": "ablation-kl-effect"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "0.0 to 1.0",
+      "meaning": "The y-axis range, with gridlines every 0.2. It is a fraction of trials, so 1.0 would mean every swap flipped the top-1 output to the implied answer and 0.0 that none did."
+    },
+    {
+      "value": "0.54",
+      "meaning": "J-lens swap success on Haiku 4.5, the lowest of the three black bars. It is still above every red and blue bar in the chart."
+    },
+    {
+      "value": "0.34",
+      "meaning": "Logit-lens swap success on Haiku 4.5, about six tenths of the J-lens value on the same model."
+    },
+    {
+      "value": "0.16",
+      "meaning": "Tuned-lens swap success on Haiku 4.5, the lowest bar anywhere in the figure. Roughly one swap in six flips the output."
+    },
+    {
+      "value": "0.70",
+      "meaning": "J-lens swap success on both Sonnet 4.5 and Opus 4.5, the joint highest bars. The two are equal to the plotted precision, so the figure shows no gain from Sonnet to Opus on this measure."
+    },
+    {
+      "value": "0.48",
+      "meaning": "Logit-lens swap success on Sonnet 4.5. It is the highest non-J-lens bar in the figure, and still below the weakest J-lens bar, 0.54."
+    },
+    {
+      "value": "0.42",
+      "meaning": "Tuned-lens swap success on Sonnet 4.5. This is the one place where the tuned lens comes close to the logit lens, their intervals overlapping."
+    },
+    {
+      "value": "0.40",
+      "meaning": "Logit-lens swap success on Opus 4.5, lower than the same lens on the smaller Sonnet. Success on this measure does not rise monotonically with model size."
+    },
+    {
+      "value": "0.26",
+      "meaning": "Tuned-lens swap success on Opus 4.5, again below its Sonnet value."
+    },
+    {
+      "value": "about plus or minus 0.05 to 0.07",
+      "meaning": "The half-widths of the error bars, read off the plot. For a proportion near 0.5 a 95% interval of this width corresponds to a couple of hundred trials per bar; the caption does not state the trial count, so this is an inference from the width rather than a figure the paper gives."
+    },
+    {
+      "value": "alpha = 1",
+      "meaning": "The strength of the swap used for this comparison, stated in the surrounding text: the source coordinate is removed and the target coordinate written in at full size, with no doubling. The main body elsewhere reports a double-strength variant at alpha = 2, which is not used here."
+    },
+    {
+      "value": "3",
+      "meaning": "The number of models compared, giving the three groups on the x axis, and also the number of lenses, giving the three bars per group. Nine bars in total."
+    },
+    {
+      "value": "50, 54, 55, 52, 96, 50",
+      "meaning": "The item counts of the appendix's six prompt distributions - multihop, multilingual, order of operations, poetry, typo and association - which are the pool of prompts with known intermediates that these comparisons draw on. The caption does not say which of the six supply the swap pairs plotted here."
+    },
+    {
+      "value": "2x",
+      "meaning": "The rough factor by which ablating a J-lens direction exceeds ablating a logit- or tuned-lens direction in output KL divergence, reported in the text for the companion figure. It is quoted here only to show that the two causal measures agree in direction."
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+ "id": "fig-78",
+ "title": "How strongly J-space directions connect to MLP neurons",
+ "takeaway": "Directions that lie in the J-space overlap the weights of individual MLP neurons far more strongly than chance, and more strongly than non-aligned directions of the same kind, across the workspace layers. The effect peaks early on the read side and late on the write side, which the paper takes as many processors reading from the workspace as soon as it forms and writing to it mainly where output is prepared.",
+ "walkthrough": "The figure is a live widget holding two line charts side by side. Both plot the same quantity, the tail energy ratio, against model depth. The left panel scores each direction against the *input* weights of the next layer's MLP neurons, which the paper calls the read side. The right panel scores it against the *output* weights of the previous layer's neurons, the write side.\n\n### What the quantity is\n\nEvery neuron in an [[mlp-block]] has an input weight row, which sets what the neuron reads out of the [[residual-stream]], and an output weight column, which is what it writes back. For a candidate direction $v$ at layer $\\ell$, the analysis takes the [[cosine-similarity]] $\\cos(w_i, v)$ against each neuron weight row $w_i$ in the adjacent layer.\n\nMost of those cosines carry no information. The residual stream packs more feature directions than it has dimensions, so under [[superposition]] a direction has appreciable cosine with weights it has no functional relationship to. The paper therefore keeps only cosines large enough to be surprising. It sets a threshold $\\tau$ at the 99.9th percentile of $|\\cos(w_i, v)|$ taken over isotropic random $v$, so chance alone puts about one neuron in a thousand above it.\n\nThe surviving cosines are squared and summed. That sum is the tail energy. Dividing it by the same sum computed for random directions gives the ratio on the vertical axis. Random directions therefore score 1 by construction, and the gray line at 1 is the null. A height of 3 means three times the above-chance overlap a random direction receives.\n\n### How to read it\n\nThe horizontal axis is the source layer in the paper's percentage convention ([[layer-percentage-indexing]]). The shaded band marks the [[workspace-layers]], roughly L38 to L92. One line is drawn per population of directions, each point a median over N=500 directions.\n\n### What it shows\n\n[[j-lens-vector]]s sit well above the null across the band. The [[sparse-autoencoder]] strata separate in order of [[lens-kurtosis]], the high-$\\kappa$ bands highest. MLP neuron directions stay at baseline throughout, which is the control.\n\nThe two panels peak at different depths. Read-side connections are strongest in the early workspace layers; write-side connections are strongest later. The paper reads this as many processors reading from the workspace as soon as it forms, with writing concentrated where a response is being prepared.\n\nThis is a weights-only measurement ([[j-space-broadcast]]). It describes how the model is wired, not what any particular input does.",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Tail energy ratio",
+   "definition": "The plotted quantity: the summed squared cosine between a direction and neuron weights, restricted to cosines above a chance threshold, divided by the same sum for random directions. It answers how strongly, rather than how widely, a direction connects to MLP neurons.",
+   "conceptId": "tail-energy"
+  },
+  {
+   "term": "Tail energy",
+   "definition": "The numerator of the ratio: $\\sum C_{iv}^2$ taken only over neurons whose cosine with the direction $v$ exceeds the threshold $\\tau$. \"Tail\" refers to the upper tail of the cosine distribution, the only part treated as evidence of a real connection.",
+   "conceptId": "tail-energy"
+  },
+  {
+   "term": "Source layer (reindexed) →",
+   "definition": "The horizontal axis label on both panels: the layer at which the direction being scored lives. \"Reindexed\" refers to the paper's convention of sampling 25 evenly spaced layers and renumbering them 0–100 so a layer number reads as a percentage of depth.",
+   "conceptId": "layer-percentage-indexing"
+  },
+  {
+   "term": "Tail-energy ratio →",
+   "definition": "The vertical axis label, shown on the left panel and on the lower panel when the two stack on a narrow screen. The scale is linear and starts at 0.",
+   "conceptId": "tail-energy"
+  },
+  {
+   "term": "MLP input weights (read)",
+   "definition": "Title of the left panel. A direction at layer $\\ell$ is compared against the input weight rows of the MLP neurons in layer $\\ell+1$, that is, against what downstream neurons are configured to read.",
+   "conceptId": null
+  },
+  {
+   "term": "MLP output weights (write)",
+   "definition": "Title of the right panel. A direction at layer $\\ell$ is compared against the output weight columns of the MLP neurons in layer $\\ell-1$, that is, against what upstream neurons are configured to write.",
+   "conceptId": null
+  },
+  {
+   "term": "Read side / write side",
+   "definition": "The paper's shorthand for the two directions of a neuron's connection to the residual stream. Reading is a neuron's input weights selecting content; writing is its output weights depositing content.",
+   "conceptId": "neuron-connectivity"
+  },
+  {
+   "term": "Workspace layers",
+   "definition": "The label on the shaded vertical band spanning both panels. It marks the middle range of depth, from roughly L38 to roughly L92, in which the paper's other measurements find the J-space carrying persistent abstract content.",
+   "conceptId": "workspace-layers"
+  },
+  {
+   "term": "J-lens vectors",
+   "definition": "One legend entry and the population of central interest, drawn in orange with the heaviest stroke. Each J-lens vector is the residual-stream direction that, on average across contexts, disposes the model to say one particular vocabulary token.",
+   "conceptId": "j-lens-vector"
+  },
+  {
+   "term": "SAE feature directions (κ-strata)",
+   "definition": "Legend entries drawn on a dark-to-light blue ramp, one per stratum. They are decoder directions from a sparse autoencoder, grouped into bands by their J-lens kurtosis so that degree of J-space alignment varies across the bands while everything else about them is held fixed.",
+   "conceptId": "sparse-autoencoder"
+  },
+  {
+   "term": "MLP neuron directions",
+   "definition": "A legend entry, drawn in purple: the neuron weight directions themselves used as a comparison population. They are a control for directions that the model plainly uses but that are not J-space-aligned.",
+   "conceptId": "neuron-connectivity"
+  },
+  {
+   "term": "Random direction",
+   "definition": "A legend entry paired with the flat gray reference line at height 1. It is not measured data but the normalizer: the ratio is defined so an isotropic random direction scores exactly 1.",
+   "conceptId": null
+  },
+  {
+   "term": "κ (lens kurtosis)",
+   "definition": "The statistic used to sort SAE features into strata: a direction is pushed through the J-lens and the sharpness of the resulting distribution over vocabulary tokens is measured. High $\\kappa$ means the direction loads onto a few tokens, which is the paper's operational test for lying in the J-space.",
+   "conceptId": "lens-kurtosis"
+  },
+  {
+   "term": "J-space",
+   "definition": "The set of activations expressible as a sparse nonnegative combination of J-lens vectors; the paper's candidate for a global workspace. This figure asks whether the model's MLP weights connect preferentially to it.",
+   "conceptId": "j-space"
+  },
+  {
+   "term": "$v$",
+   "definition": "A unit direction in residual-stream space drawn from one of the plotted populations. It is the thing being scored; each line is the median score over 500 such directions.",
+   "conceptId": null
+  },
+  {
+   "term": "$w_i$",
+   "definition": "The weight vector of MLP neuron $i$: its input weight row on the read side, its output weight column on the write side.",
+   "conceptId": null
+  },
+  {
+   "term": "$C_{ij} = \\cos(w_i, v_j)$",
+   "definition": "The matrix of cosine similarities between every neuron weight vector and every direction in the population under test. The tail energy is built from the squared entries of one of its columns.",
+   "conceptId": "cosine-similarity"
+  },
+  {
+   "term": "$\\tau$",
+   "definition": "The significance threshold on absolute cosine, set at the 99.9th percentile of $|\\cos(w_i, v)|$ over isotropic random $v$. Only neurons above it count toward the tail energy.",
+   "conceptId": null
+  },
+  {
+   "term": "$P$",
+   "definition": "A population of unit directions at a given layer — J-lens vectors, one SAE κ-stratum, or MLP neuron directions. Each population supplies one line per panel.",
+   "conceptId": null
+  },
+  {
+   "term": "Median",
+   "definition": "The summary statistic used at every layer, in place of the mean. It keeps a handful of extreme directions from setting the height of a line.",
+   "conceptId": null
+  },
+  {
+   "term": "Superposition",
+   "definition": "The hypothesis that a model represents more features than it has dimensions, so feature directions cannot all be orthogonal. It is why raw cosines are noisy here and why the thresholded tail is used instead.",
+   "conceptId": "superposition"
+  },
+  {
+   "term": "Residual stream",
+   "definition": "The running per-position vector that every layer reads from and writes to. Neuron weights and the directions being scored both live in this space, which is what makes the cosine meaningful.",
+   "conceptId": "residual-stream"
+  },
+  {
+   "term": "MLP block",
+   "definition": "The feed-forward component of a transformer layer, made of individual neurons. This appendix breaks the block into its neurons rather than treating it as one function.",
+   "conceptId": "mlp-block"
+  },
+  {
+   "term": "Claude Sonnet 4.5",
+   "definition": "The model these measurements default to, per the paper's reporting conventions. Layer numbers on the axis are its depth expressed as percentages.",
+   "conceptId": "claude-model-family"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "99.9th percentile",
+   "meaning": "Where the threshold $\\tau$ on absolute cosine is set, measured over isotropic random directions. It is high enough that a cosine clearing it is unlikely to be an artifact of superposition packing."
+  },
+  {
+   "value": "0.1%",
+   "meaning": "The complement of that percentile: the share of neurons a random direction is expected to push above $\\tau$. The tail energy is summed over roughly this many neurons for a null direction."
+  },
+  {
+   "value": "1",
+   "meaning": "The height of the gray reference line and the score of a random direction. The ratio divides by the tail energy of random directions, so this value is true by construction rather than measured."
+  },
+  {
+   "value": "2 (the square in $C_{iv}^2$)",
+   "meaning": "Cosines are squared before summing, so the measure adds energy rather than signed overlap. Squaring also makes strong connections count disproportionately, which is the point of a strength measure."
+  },
+  {
+   "value": "N = 500",
+   "meaning": "The number of directions sampled per population per layer, over which the plotted median is taken. It is smaller than the populations used in this appendix's breadth analysis because each direction here requires a full sweep against every neuron in an adjacent layer."
+  },
+  {
+   "value": "25 layers, reindexed 0–100",
+   "meaning": "The paper reports on 25 evenly spaced residual-stream layers renumbered to a 0–100 scale, so the horizontal tick labels read as percentages of depth rather than raw layer indices."
+  },
+  {
+   "value": "~L38 and ~L92",
+   "meaning": "The start and end of the shaded workspace band. These come from the lens-derived boundary metrics of section 4.1, not from this figure, which uses them only as an overlay."
+  },
+  {
+   "value": "Top 1%, 1–5%, middle 50%; six equal strata of N=2,000",
+   "meaning": "The two ways this appendix cuts the SAE dictionary into κ-strata: three uneven percentile bands for the attention analysis, and six equal-sized bands for the MLP breadth analysis. The legend here lists one SAE row per stratum in κ order."
+  },
+  {
+   "value": "42% versus 6%",
+   "meaning": "From the companion breadth analysis rather than this figure: the share of neurons whose single best match falls in the top κ-stratum against the bottom one, at the read-side peak. It is quoted here because this figure is described as mirroring that result."
+  }
+ ]
+}

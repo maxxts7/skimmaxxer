@@ -1,0 +1,202 @@
+{
+  "id": "fig-57",
+  "title": "Recipe ablations for intermediate recovery",
+  "takeaway": "Five ways of building the J-lens matrix are graded on the same six intermediate-recovery benchmarks, under both mean and median aggregation across prompts. Four of the five recipes land close together, so the lens's readout quality is not very sensitive to these design choices; the exception is restricting the Jacobian to the current token, which is clearly the weakest recipe under mean aggregation.",
+  "walkthrough": "Two heatmaps sit side by side, reporting the same measurement under two different ways of averaging. Both grade variants of the [[jacobian-lens]] on how well the lens surfaces a concept the model had to compute internally but never wrote out.\n\nRows are five recipes for building the lens matrix $J_\\ell$. Columns are the six prompt distributions of the [[intermediate-concept-benchmarks]] — [[multihop-benchmark|multihop]], [[multilingual-benchmark|multilingual]], [[poetry-benchmark|poetry]], [[order-of-operations-benchmark|order_ops]], [[association-benchmark|association]] and [[typo-benchmark|typo]] — plus an `avg` column set off by a white gutter, which is the mean of the six cells to its left.\n\nEach cell is a normalized [[pass-at-k-auc|pass@k AUC]]: pass@k measured across a range of $k$, integrated against $\\log k$, and scaled so that a lens ranking the target intermediate first every time would score 1. Higher is better. The viridis bar runs from about 0.54 to 0.89, dark purple low and yellow high.\n\nThe panels differ only in [[jacobian-aggregation]]. The left takes the per-element mean of the per-prompt Jacobians; the right takes the per-element median.\n\nIn the mean panel the penultimate-layer recipe leads at 0.79, ahead of the default at 0.76, freeze-qk at 0.75, future-only at 0.73 and current-token-only at 0.65. Its margin comes almost entirely from two columns: multilingual, 0.71 against 0.66, and typo, 0.83 against 0.76.\n\nThe current-token-only row is the one clear loser. Restricting the Jacobian to $t' = t$, one of the [[target-position-variants]], sends multilingual to 0.54 and typo to 0.55 — the two darkest cells in the figure. Both are readout positions where the intermediate is not the next token, so a lens confined to the present position has little to work with.\n\nThe freeze-qk row, the [[frozen-qk-variant]], tracks the default within about 0.02 in every column.\n\nThe median panel compresses the spread. Four rows fall between 0.74 and 0.76, and current-token-only recovers to 0.71.\n\nTwo places cut against the ordering. Future-only takes the best multihop cell in both panels, 0.86 and 0.82. And on association every recipe lands between 0.65 and 0.69, so that column separates nothing.\n\nThe paper reads the figure as showing the methods are \"fairly consistent,\" with penultimate under mean aggregation a small improvement.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Sonnet 4.5",
+      "definition": "The model these ablations were run on; the mid-size tier of the Claude family and the model used for most of the paper's lens comparisons.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "J-lens",
+      "definition": "The Jacobian lens: for each layer, an averaged Jacobian $J_\\ell$ from the residual stream at that layer to the target layer, composed with the unembedding to give a vocabulary readout of an activation. Every row of this figure is one way of computing that matrix.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "J-lens method ablations",
+      "definition": "The title's name for the experiment: holding the evaluation fixed and varying one construction choice of the lens at a time, to see how much each choice matters.",
+      "conceptId": "j-lens-recipe-variants"
+    },
+    {
+      "term": "pass@k AUC",
+      "definition": "The metric filling every cell. An intermediate is recovered at $k$ if it appears in the lens's top-$k$ tokens at any layer; pass@k is the fraction of intermediates recovered; the AUC integrates that curve against $\\log k$.",
+      "conceptId": "pass-at-k-auc"
+    },
+    {
+      "term": "normalized pass@k AUC",
+      "definition": "The colorbar label, and the quantity in each cell. Normalized means the area is scaled so that a method always ranking the intermediate first scores 1.",
+      "conceptId": "pass-at-k-auc"
+    },
+    {
+      "term": "mean aggregation",
+      "definition": "The left panel. Per-prompt Jacobians are combined across prompts by taking the per-element arithmetic mean, which is the paper's default.",
+      "conceptId": "jacobian-aggregation"
+    },
+    {
+      "term": "median aggregation",
+      "definition": "The right panel. Per-prompt Jacobians are combined by taking the per-element median instead, a more robust estimator when the per-prompt Jacobians are heavy-tailed.",
+      "conceptId": "jacobian-aggregation"
+    },
+    {
+      "term": "all tokens (default)",
+      "definition": "Row 1. Gradients are injected at every output position with no stop-gradients. The enumerated list in the text pairs this row with a final-layer target, while an adjacent paragraph calls the penultimate target the default for Sonnet 4.5; the paper is not consistent on which layer this row uses.",
+      "conceptId": "j-lens-recipe-variants"
+    },
+    {
+      "term": "all tokens, penultimate",
+      "definition": "Row 2. The same all-positions recipe, but backpropagating from the second-to-last layer's residual stream instead of the final one, so the last transformer block is left out of the backward pass.",
+      "conceptId": "j-lens-recipe-variants"
+    },
+    {
+      "term": "all tokens, freeze-qk",
+      "definition": "Row 3. The same recipe with gradients through the query and key projections zeroed, so attention patterns are held fixed and only the value pathway contributes. It separates what gets moved from what gets attended to.",
+      "conceptId": "frozen-qk-variant"
+    },
+    {
+      "term": "future tokens only",
+      "definition": "Row 4. The Jacobian is restricted to strictly later output positions, $t' > t$, isolating what the activation makes available to downstream positions rather than its effect on the current one.",
+      "conceptId": "target-position-variants"
+    },
+    {
+      "term": "current token only",
+      "definition": "Row 5. The Jacobian is restricted to $t' = t$, the effect of the activation on its own position's output with cross-position attention zeroed. This is the variant closest in spirit to the logit lens.",
+      "conceptId": "target-position-variants"
+    },
+    {
+      "term": "multihop",
+      "definition": "Column 1. Fifty two-hop factual questions where a bridging entity must be computed — for example computing Mars before answering that the fourth planet is red.",
+      "conceptId": "multihop-benchmark"
+    },
+    {
+      "term": "multilingual",
+      "definition": "Column 2. Fifty-four prompts written entirely in a non-English language, testing whether the model routes through English-aligned representations; the intermediates include the language name, the relation, and English equivalents of the input and output words.",
+      "conceptId": "multilingual-benchmark"
+    },
+    {
+      "term": "poetry",
+      "definition": "Column 3. Fifty-two rhyming couplets, with the lens read at the newline between the lines, looking for the second line's planned final word before any of that line has been read.",
+      "conceptId": "poetry-benchmark"
+    },
+    {
+      "term": "order_ops",
+      "definition": "Column 4. Fifty-five arithmetic expressions such as (2 + 3) x 4, where the partial result and the pending operation must both be held as intermediates.",
+      "conceptId": "order-of-operations-benchmark"
+    },
+    {
+      "term": "association",
+      "definition": "Column 5. Fifty short passages that depict a concept through behavioral cues without naming it; the lens is read at the closing period to see whether the implied concept has surfaced.",
+      "conceptId": "association-benchmark"
+    },
+    {
+      "term": "typo",
+      "definition": "Column 6. Ninety-six sentences ending on a common misspelling, checking whether the correctly spelled word appears in the lens at the misspelled token — a position where that word is not the next token.",
+      "conceptId": "typo-benchmark"
+    },
+    {
+      "term": "avg",
+      "definition": "The seventh column in each panel, separated from the rest by a white gutter. It is the unweighted mean of that row's six task scores, so it ignores the differing item counts of the six benchmarks.",
+      "conceptId": null
+    },
+    {
+      "term": "White gutter",
+      "definition": "The vertical white stripe before the avg column, marking that the column is a summary rather than another task distribution.",
+      "conceptId": null
+    },
+    {
+      "term": "viridis",
+      "definition": "The perceptually uniform colormap used for the cells and the colorbar: dark purple at the low end, blue and teal in the middle, green and yellow at the high end.",
+      "conceptId": null
+    },
+    {
+      "term": "Stop grads",
+      "definition": "The text's term for zeroing gradients along a chosen path during the backward pass. The freeze-qk row uses stop-grads on the query and key projections.",
+      "conceptId": "frozen-qk-variant"
+    },
+    {
+      "term": "Intermediate",
+      "definition": "The single-token concept each benchmark item requires the model to compute — present in neither the input nor the predicted output. Recovering it in the lens readout is what pass@k scores.",
+      "conceptId": "intermediate-concept-benchmarks"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "2",
+      "meaning": "Panels. The same five recipes and six tasks are scored twice, once with mean aggregation across prompts and once with median, because heavy-tailed per-prompt Jacobians make the choice of estimator potentially consequential."
+    },
+    {
+      "value": "5",
+      "meaning": "Rows, one per lens recipe: all tokens (default), all tokens penultimate, all tokens freeze-qk, future tokens only, current token only. These are the five recipes enumerated in the text."
+    },
+    {
+      "value": "6 (+1)",
+      "meaning": "Task columns per panel, plus the avg summary column, giving seven columns of cells in each heatmap."
+    },
+    {
+      "value": "0.54-0.89",
+      "meaning": "The span of the viridis colorbar, set by the lowest and highest cells in the figure: 0.54 for current-token-only on multilingual under mean aggregation, and 0.89 for penultimate on order_ops under the same aggregation."
+    },
+    {
+      "value": "1.0",
+      "meaning": "The normalization ceiling. A lens that ranked the correct intermediate first on every item at some layer would score 1, so every cell here can be read as a fraction of that ideal."
+    },
+    {
+      "value": "0.80, 0.66, 0.81, 0.87, 0.67, 0.76 | 0.76",
+      "meaning": "Mean panel, all tokens (default), across multihop, multilingual, poetry, order_ops, association, typo, and then the avg. This is the recipe used for the paper's main results, so the other rows are read against it."
+    },
+    {
+      "value": "0.81, 0.71, 0.80, 0.89, 0.68, 0.83 | 0.79",
+      "meaning": "Mean panel, all tokens penultimate. The best row in the figure. Its lead over the default comes almost entirely from multilingual (0.71 against 0.66) and typo (0.83 against 0.76); the text attributes the gain to the final block being specialized for next-token calibration and carrying less semantic content."
+    },
+    {
+      "value": "0.78, 0.64, 0.77, 0.87, 0.68, 0.72 | 0.75",
+      "meaning": "Mean panel, all tokens freeze-qk. Every cell sits within about 0.02 of the default row, so holding attention patterns fixed costs little readout quality. The text notes that the same variant can increase causal effect, reported in the companion figure."
+    },
+    {
+      "value": "0.86, 0.60, 0.74, 0.85, 0.65, 0.69 | 0.73",
+      "meaning": "Mean panel, future tokens only. Restricting to strictly later positions loses ground on most tasks but gives the highest multihop cell in the figure, 0.86 — consistent with a bridging entity being something the position makes available to later positions rather than uses itself."
+    },
+    {
+      "value": "0.73, 0.54, 0.66, 0.74, 0.66, 0.55 | 0.65",
+      "meaning": "Mean panel, current token only. The weakest row by a clear margin. Its two lowest cells are multilingual (0.54) and typo (0.55), both benchmarks whose readout position is one where the intermediate is not what the model is about to say."
+    },
+    {
+      "value": "0.80, 0.67, 0.80, 0.87, 0.67, 0.77 | 0.76",
+      "meaning": "Median panel, all tokens (default). Essentially identical to the same row under mean aggregation, so the default recipe is insensitive to the estimator."
+    },
+    {
+      "value": "0.80, 0.68, 0.76, 0.87, 0.69, 0.77 | 0.76",
+      "meaning": "Median panel, all tokens penultimate. Its mean-aggregation advantage disappears here: 0.76 rather than 0.79, level with the default. The text's claim of a small improvement is therefore specific to mean aggregation."
+    },
+    {
+      "value": "0.78, 0.64, 0.76, 0.87, 0.69, 0.72 | 0.74",
+      "meaning": "Median panel, all tokens freeze-qk. Again within about 0.02 of the default row, matching its behavior under mean aggregation."
+    },
+    {
+      "value": "0.82, 0.64, 0.74, 0.86, 0.69, 0.73 | 0.75",
+      "meaning": "Median panel, future tokens only. It improves on its mean-aggregation counterpart (0.75 against 0.73) and again posts the panel's best multihop cell, 0.82."
+    },
+    {
+      "value": "0.78, 0.62, 0.69, 0.86, 0.67, 0.62 | 0.71",
+      "meaning": "Median panel, current token only. Still last, but by a much smaller margin than under mean aggregation: 0.71 against 0.74-0.76 for the others, rather than 0.65 against 0.73-0.79."
+    },
+    {
+      "value": "0.65-0.69",
+      "meaning": "The full range of the association column across all ten rows of the figure. No recipe separates from any other on that benchmark, so the column carries no signal about the design choices."
+    },
+    {
+      "value": "0.74-0.79",
+      "meaning": "The range of the avg column once current-token-only is set aside. That narrow band is what the text means in saying the methods are fairly consistent across these design choices."
+    },
+    {
+      "value": "50, 54, 52, 55, 50, 96",
+      "meaning": "Item counts for multihop, multilingual, poetry, order_ops, association and typo. They matter for reading the cells because a single item moves a small benchmark more than a large one, and the avg column weights all six equally regardless."
+    },
+    {
+      "value": "1000",
+      "meaning": "Prompts in the corpus the Jacobian expectation is averaged over for every recipe here, each 128 tokens long, sampled from a pretraining-like distribution. It is held fixed across the figure so that only the recipe varies."
+    }
+  ]
+}

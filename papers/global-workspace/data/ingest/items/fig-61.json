@@ -1,0 +1,207 @@
+{
+  "id": "fig-61",
+  "title": "Template lens versus J-lens on multi-token words",
+  "takeaway": "Three side-by-side comparisons show that the template lens names whole multi-token words — blackmail, photosynthesis, Tchaikovsky — where the J-lens returns only word-initial fragments, and that swapping one template for another at the workspace layers flips the model's answer in a way the corresponding fragment vectors cannot. The panels are hand-picked examples; the paper treats the template lens as a proof of concept rather than a finished method.",
+  "walkthrough": "This item is a three-panel figure, labelled A, B and C. Each panel sets the [[template-lens]] beside the [[jacobian-lens]] on the same activation and prints what each one names.\n\nThe second lens exists because of a limit in the first. A J-lens vector is defined per entry of the [[tokenizer-vocabulary]], so the lens can only name a concept whose name is a single token ([[single-token-limitation]]). \"Blackmail\" and \"photosynthesis\" span several tokens, so no J-lens vector stands for them at all.\n\nThe template lens supplies one. About 12,700 common words are enumerated in advance. For a word $w$, Claude writes short passages that end just before $w$ would fall, never using $w$ itself. The model reads those passages, and the [[residual-stream]] activation at the final position is averaged over them into $\\mu_w(\\ell)$, one vector per layer $\\ell$. That mean is centered against the mean over all the other words and whitened by an inverse covariance: $t_w(\\ell) = (\\Sigma_\\ell + \\lambda I)^{-1}(\\mu_w(\\ell) - \\mu(\\ell))$ ([[template-construction]]). What comes out is the linear discriminant direction between contexts where the model is about to say $w$ and contexts where it is not. Templates are then used like J-lens vectors with the unembedding step dropped: a readout projects an activation onto them, and steering adds or subtracts them.\n\nPanel A reads both lenses at one workspace cell — a single layer at a single token position — in the [[blackmail-scenario]] transcript. The J-lens top entries are the word-initial fragments black and ext. The template lens returns blackmail.\n\nPanel B does the same on a multi-hop question whose unspoken intermediate is photosynthesis ([[internal-reasoning]]). The template lens places the whole word near the top of its ranking. The best the J-lens manages is phot.\n\nPanel C is causal rather than descriptive. Asked for the nationality of the composer of Swan Lake and The Nutcracker, the model answers \"Russian.\" A [[lens-coordinate-swap]] that exchanges the Tchaikovsky template for the Beethoven template across the [[workspace-layers]] changes the answer to \"German,\" and the mirror swap on a Beethoven prompt flips the answer back the other way. The paper reports that the tch and beeth J-lens vectors cannot produce either flip.\n\nPanels A to C are three chosen examples, not a measurement; the population evidence is the following figure. The paper also lists the method's faults, among them readouts that skip to the answer in early layers, as the [[tuned-lens]] does, and a final-layer readout that contains the model's next sampled word only 67% of the time.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Template lens",
+      "definition": "A method for getting a lens vector for any word chosen in advance, including words that span several tokens. It is built from averaged activations in contexts that lead up to the word, and it is then read and steered exactly as a J-lens vector is.",
+      "conceptId": "template-lens"
+    },
+    {
+      "term": "J-lens (Jacobian lens)",
+      "definition": "The paper's main readout method: one vector per vocabulary token per layer, the direction in activation space that on average disposes the model to say that token. It is the baseline the template lens is compared against in all three panels.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "Panel A",
+      "definition": "The blackmail example. Both lenses are read at the same layer and token position of one transcript, and their top-ranked entries are printed side by side.",
+      "conceptId": null
+    },
+    {
+      "term": "Panel B",
+      "definition": "The multi-hop example. Both lenses are read on a question whose intermediate answer, photosynthesis, the model never says out loud.",
+      "conceptId": null
+    },
+    {
+      "term": "Panel C",
+      "definition": "The intervention example. Instead of reading a lens, this panel writes with it, swapping one template for another and recording how the model's answer changes.",
+      "conceptId": null
+    },
+    {
+      "term": "Workspace cell",
+      "definition": "One (layer, token position) location in the readout grid the paper uses throughout. Panel A reads both lenses at the same such location so the comparison is like for like.",
+      "conceptId": null
+    },
+    {
+      "term": "Workspace layers",
+      "definition": "The middle band of layers in which the paper finds the J-space behaving like a workspace. Panel C applies its swap across this whole band rather than at one layer.",
+      "conceptId": "workspace-layers"
+    },
+    {
+      "term": "Blackmail transcript",
+      "definition": "The honeypot evaluation of section 5.1, in which an email-reading assistant discovers an executive's affair and its own imminent decommissioning. The readouts in that section are taken from Sonnet 4.5.",
+      "conceptId": "blackmail-scenario"
+    },
+    {
+      "term": "black",
+      "definition": "A J-lens entry in panel A. It is the first token of a longer word, and a reader has to complete it to \"blackmail\" without help from the lens.",
+      "conceptId": null
+    },
+    {
+      "term": "ext",
+      "definition": "The other J-lens fragment shown in panel A. It is likewise a word-initial piece rather than a word; the paper's main text does not say which word it completes to.",
+      "conceptId": null
+    },
+    {
+      "term": "blackmail",
+      "definition": "The template-lens readout in panel A: the whole word, returned directly, because a template was built for it in advance.",
+      "conceptId": null
+    },
+    {
+      "term": "Multi-hop item",
+      "definition": "A question that requires an unstated intermediate answer before the final answer can be given. The paper uses such prompts to test whether a lens can see a step the model never writes down.",
+      "conceptId": "internal-reasoning"
+    },
+    {
+      "term": "photosynthesis",
+      "definition": "The unspoken intermediate concept in panel B, and the word the template lens surfaces first. It has no J-lens vector because it is not a single token.",
+      "conceptId": null
+    },
+    {
+      "term": "phot",
+      "definition": "The best the J-lens does in panel B: the first token of photosynthesis rather than the concept itself.",
+      "conceptId": null
+    },
+    {
+      "term": "Ranking universe",
+      "definition": "The set of candidates a lens ranks. For the template lens it is the roughly 12,700 words with templates; for the J-lens it is the tokenizer's whole vocabulary. Placing a word near the top of a large candidate set is what makes a readout informative.",
+      "conceptId": null
+    },
+    {
+      "term": "Lens-coordinate swap",
+      "definition": "The intervention used in panel C. It reads an activation's coordinates along two lens vectors, exchanges those two coordinates, writes the result back, and leaves everything orthogonal to the two vectors untouched.",
+      "conceptId": "lens-coordinate-swap"
+    },
+    {
+      "term": "Tchaikovsky template / Beethoven template",
+      "definition": "The two multi-token names whose template vectors are exchanged in panel C. Neither name is a single token, so neither has a J-lens vector of its own.",
+      "conceptId": null
+    },
+    {
+      "term": "tch, beeth",
+      "definition": "The J-lens vectors for the first tokens of the two composers' names. The paper reports that intervening on these fragment vectors does not flip the answer, which is what makes the template swap in panel C worth showing.",
+      "conceptId": null
+    },
+    {
+      "term": "Swan Lake, The Nutcracker",
+      "definition": "The two works named in panel C's prompt. They identify Tchaikovsky without naming him, so the composer is an intermediate the model must hold internally.",
+      "conceptId": null
+    },
+    {
+      "term": "\"Russian\" / \"German\"",
+      "definition": "The model's answer before and after the swap in panel C. \"Russian\" follows from Tchaikovsky, \"German\" from Beethoven, so the answer tracks whichever template occupies the swapped coordinate.",
+      "conceptId": null
+    },
+    {
+      "term": "Readout (decode)",
+      "definition": "Projecting an activation onto a lens vector to score how present that concept is. For the template lens this is done at the same layer the template was built at, and without the unembedding step the J-lens uses.",
+      "conceptId": "j-lens-readout"
+    },
+    {
+      "term": "Steering",
+      "definition": "Adding or subtracting a lens vector from the residual stream to push a concept in or out. Templates are steered with in exactly the same way as J-lens vectors.",
+      "conceptId": "j-lens-steering"
+    },
+    {
+      "term": "$w$",
+      "definition": "The word a template is being built for, drawn from the pre-enumerated list.",
+      "conceptId": null
+    },
+    {
+      "term": "$\\mu_w(\\ell)$",
+      "definition": "The template's raw ingredient: the mean residual-stream activation at layer $\\ell$, taken at the final position of every passage written so that $w$ is the natural next word.",
+      "conceptId": null
+    },
+    {
+      "term": "$\\mu(\\ell)$",
+      "definition": "The mean activation at layer $\\ell$ over the same passage set across all words. Subtracting it removes what is common to every context and leaves what is specific to $w$.",
+      "conceptId": null
+    },
+    {
+      "term": "$\\Sigma_\\ell$",
+      "definition": "The covariance of the residual stream at layer $\\ell$ over those passages. Inverting it whitens the direction, so that variance the activations have anyway does not count as evidence for $w$.",
+      "conceptId": null
+    },
+    {
+      "term": "$\\lambda$",
+      "definition": "A small ridge term added to the diagonal before inverting the covariance. It keeps the inverse stable when $\\Sigma_\\ell$ is close to singular.",
+      "conceptId": null
+    },
+    {
+      "term": "$t_w(\\ell)$",
+      "definition": "The finished template for word $w$ at layer $\\ell$: the centered, whitened mean. It is the linear discriminant direction separating contexts where $w$ is about to be said from those where it is not.",
+      "conceptId": "template-construction"
+    },
+    {
+      "term": "Stein's lemma",
+      "definition": "The identity $\\mathbb{E}[\\nabla g(x)] = \\Sigma^{-1}\\mathbb{E}[g(x)(x-\\mu)]$ for Gaussian $x$. The paper uses it to argue that the template is an approximation of an averaged gradient, and so should behave somewhat like a J-lens vector; it also states the assumptions do not hold exactly, since activations are not Gaussian.",
+      "conceptId": null
+    },
+    {
+      "term": "Tuned lens",
+      "definition": "A prior method that fits per-layer maps onto the model's output distribution. The paper says the template lens resembles it more than the J-lens does, and inherits its habit of skipping ahead to the answer in early layers.",
+      "conceptId": "tuned-lens"
+    },
+    {
+      "term": "Unembedding step",
+      "definition": "The final projection to vocabulary logits that the J-lens readout includes. The template lens drops it and projects onto templates directly.",
+      "conceptId": "unembedding-matrix"
+    },
+    {
+      "term": "Oracle lens",
+      "definition": "The companion method described in the same appendix, which drops the requirement to enumerate a vocabulary in advance. It is not shown in this figure.",
+      "conceptId": "oracle-lens"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "3 panels (A, B, C)",
+      "meaning": "Two readout comparisons and one intervention. A and B show what each lens names on a fixed activation; C shows what happens when a template is written into the activation instead."
+    },
+    {
+      "value": "~12,700",
+      "meaning": "The number of common words for which templates are built. It is a design choice, not a measurement: the template lens can only name words on this list, because each one costs a separate data-collection run."
+    },
+    {
+      "value": "1 template vector per word per layer",
+      "meaning": "Templates are layer-specific, matching the J-lens, which also has one vector per token per layer. A readout at layer $\\ell$ uses the templates built at layer $\\ell$."
+    },
+    {
+      "value": "a few hundred forward passes per word",
+      "meaning": "The cost of building one template: the model must read every passage written for that word. The paper contrasts this with a J-lens vector, which costs one set of backward passes per layer for the whole vocabulary at once."
+    },
+    {
+      "value": "1 token vs several",
+      "meaning": "The distinction the whole figure turns on. black, ext, phot, tch and beeth are single tokens and so have J-lens vectors; blackmail, photosynthesis, Tchaikovsky and Beethoven are not, and so have none."
+    },
+    {
+      "value": "67%",
+      "meaning": "On post-training transcripts where the model's next sampled word is in the template vocabulary, that word appears in the top ten final-layer template readouts only two-thirds of the time. The paper reports it as a shortcoming: final-layer template readouts predict the next word less reliably than J-lens readouts predict the next token."
+    },
+    {
+      "value": "top ten",
+      "meaning": "The rank cutoff the paper uses when it counts a readout as a hit, both in the 67% figure and in the population evaluations that follow this figure."
+    },
+    {
+      "value": "2 swap directions in panel C",
+      "meaning": "Tchaikovsky to Beethoven on the Swan Lake prompt, and Beethoven to Tchaikovsky on a Beethoven prompt. Running the swap both ways guards against the reading that one template simply dominates whatever it is added to."
+    },
+    {
+      "value": "0 flips from the fragment vectors",
+      "meaning": "The paper states that neither swap can be achieved by intervening on the tch or beeth J-lens vectors. This is the negative control that makes panel C a claim about multi-token concepts rather than about swapping in general."
+    }
+  ]
+}

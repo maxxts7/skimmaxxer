@@ -1,0 +1,124 @@
+{
+  "id": "eq-jspace-cones",
+  "title": "The J-space as a union of k-sparse cones",
+  "takeaway": "The equation defines the J-space as $\\mathcal{F}$, the union over every size-$k$ subset of J-lens vectors of the cone of their nonnegative combinations. Because the J-lens vectors are overcomplete and would otherwise span the whole residual stream, the sparsity limit $k$ is what makes the definition pick out anything at all; the price is that the resulting object is a union of cones rather than a linear subspace.",
+  "walkthrough": "This one line is the paper's answer to a question its earlier sections leave open: what kind of mathematical object the [[j-space]] actually is.\n\nThe ingredients come from the lens. At each layer, the [[jacobian-lens]] supplies one [[j-lens-vector]] per token in the model's [[tokenizer-vocabulary]] — here written $v_1, \\dots, v_n$, with $n = n_{\\text{vocab}}$. Each vector is a direction in the $d_{\\text{model}}$-dimensional [[residual-stream]] space, and there are more vectors than dimensions. The set is overcomplete.\n\nOvercompleteness has a consequence the paper states plainly. The vectors typically span the entire residual stream, so any activation can be written as some linear combination of them. A set that reaches everything singles out nothing. Spanning alone therefore cannot define a workspace.\n\nThe restriction that does the work is sparsity. $k$ is the allowed number of nonzero coefficients. $S$ names one choice of which $k$ tokens may contribute, $|S| = k$ fixes its size, and $\\operatorname{span}\\{v_i : i \\in S\\}$ is the set of combinations built from those $k$ vectors alone. The coefficients are also required to be nonnegative — the sentence introducing the equation says so, though the $\\operatorname{span}$ symbol does not.\n\nNonnegativity is what turns each piece from a subspace into a cone. Scaling a point by a positive number keeps it inside; negating a vector leaves.\n\n$\\bigcup_{|S|=k}$ then sweeps over every size-$k$ subset, so $\\mathcal{F}$ collects $\\binom{n}{k}$ such cones. The union is not closed under addition: two points in $\\mathcal{F}$ generally sum to a point outside it, because between them they may draw on more than $k$ vectors. That is the sense in which the J-space is not a linear subspace, and the word \"space\" is loose.\n\nThe vectors coupled with $k$ are what the paper calls a [[sparse-subframe]] — a frame because the vectors need not be independent, sparse because of the coefficient limit, and \"sub\" because under that limit they no longer reach the whole space.\n\nTwo things follow. The [[j-space-component]] of an activation becomes its nearest point in $\\mathcal{F}$, located by [[sparse-decomposition]]. And one candidate workspace can be compared with another through [[j-space-distance]], rather than by comparing vector sets directly.\n\nThe paper hedges on $k$. It calls the level \"somewhat arbitrary\", varies it across experiments, and typically keeps it at or below 25, a figure taken from the measured [[j-space-occupancy]].",
+  "latex": "\\mathcal{F} \\;=\\; \\bigcup_{|S| = k} \\operatorname{span}\\{v_i : i \\in S\\}",
+  "terms": [
+    {
+      "term": "$\\mathcal{F}$",
+      "definition": "The object being defined: the J-space itself, written as a set of points in residual-stream space. It is a union of cones, not a linear subspace.",
+      "conceptId": "j-space"
+    },
+    {
+      "term": "$\\bigcup$",
+      "definition": "Set union. Here it joins together one cone for every admissible choice of $k$ vectors, so a point belongs to $\\mathcal{F}$ if it lies in at least one of them.",
+      "conceptId": null
+    },
+    {
+      "term": "$S$",
+      "definition": "A subset of the vocabulary indices — one particular choice of which J-lens vectors are allowed nonzero coefficients. Each distinct $S$ contributes its own cone to the union.",
+      "conceptId": null
+    },
+    {
+      "term": "$|S| = k$",
+      "definition": "The size constraint on the subset: exactly $k$ indices. Written under the union symbol, it says the union runs over all subsets of that size.",
+      "conceptId": null
+    },
+    {
+      "term": "$k$ (sparsity level)",
+      "definition": "The allowable number of positive coefficients in a decomposition, and equally the dimension of each cone. It is a chosen parameter, not something the model supplies.",
+      "conceptId": "sparse-subframe"
+    },
+    {
+      "term": "$v_i$",
+      "definition": "The J-lens vector for vocabulary token $i$ at the layer in question: the residual-stream direction that, averaged over contexts, disposes the model to say that token.",
+      "conceptId": "j-lens-vector"
+    },
+    {
+      "term": "$v_1, \\dots, v_n$",
+      "definition": "The full collection of vocabulary vectors at one layer, indexed by token. In the paper's use these are the J-lens vectors, but the definition is stated for any such collection.",
+      "conceptId": "j-lens-vector"
+    },
+    {
+      "term": "$n$",
+      "definition": "The number of vocabulary vectors in the collection. For the J-lens it equals $n_{\\text{vocab}}$, the size of the tokenizer's vocabulary.",
+      "conceptId": "tokenizer-vocabulary"
+    },
+    {
+      "term": "$\\operatorname{span}\\{v_i : i \\in S\\}$",
+      "definition": "The set of combinations of the $k$ chosen vectors. The surrounding text specifies nonnegative coefficients, so despite the notation this is the cone they generate rather than the linear span.",
+      "conceptId": "union-of-cones"
+    },
+    {
+      "term": "Polyhedral cone",
+      "definition": "The set of all nonnegative linear combinations of a fixed finite set of vectors. It is closed under positive scaling and under adding two of its own members, but not under negation.",
+      "conceptId": "union-of-cones"
+    },
+    {
+      "term": "$n_{\\text{vocab}}$",
+      "definition": "The number of tokens in the model's vocabulary, and hence the number of J-lens vectors at each layer. The paper does not print its value for the models used.",
+      "conceptId": "tokenizer-vocabulary"
+    },
+    {
+      "term": "$d_{\\text{model}}$",
+      "definition": "The dimension of the residual stream, and therefore of the space the J-lens vectors live in. Smaller than $n_{\\text{vocab}}$, which is what makes the set overcomplete.",
+      "conceptId": "residual-stream"
+    },
+    {
+      "term": "Overcomplete set",
+      "definition": "More vectors than dimensions, so the vectors are linearly dependent and an activation has many possible decompositions rather than one. This is why a sparsity limit is needed before the definition says anything.",
+      "conceptId": "superposition"
+    },
+    {
+      "term": "Frame",
+      "definition": "A spanning set of vectors that need not be linearly independent — the generalization of a basis used when directions overlap. The J-lens vectors form one because they are overcomplete.",
+      "conceptId": "sparse-frame"
+    },
+    {
+      "term": "Sparse subframe",
+      "definition": "The paper's name for the J-lens vectors together with the sparsity level $k$. Sparse because of the coefficient limit, and 'sub' because under that limit the set no longer reaches the whole residual stream.",
+      "conceptId": "sparse-subframe"
+    },
+    {
+      "term": "J-space component",
+      "definition": "For a given activation, the point of $\\mathcal{F}$ nearest to it: the part of the activation expressible as a sparse nonnegative sum of J-lens vectors. The leftover difference is the non-J-space component.",
+      "conceptId": "j-space-component"
+    },
+    {
+      "term": "J-lens vector",
+      "definition": "One row of $W_U J_\\ell$: the direction in residual-stream space associated with a single vocabulary token at layer $\\ell$, obtained from the corpus-averaged Jacobian.",
+      "conceptId": "j-lens-vector"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "$k \\approx 25$",
+      "meaning": "The sparsity level the formalization section says is typically used. The appendix writes '(we typically use $k \\approx 25$)' when introducing the equation."
+    },
+    {
+      "value": "no more than 25",
+      "meaning": "The bound section 2.3 puts on $k$. The section calls the choice 'somewhat arbitrary' and says the value is varied throughout the paper, so 25 is a habitual ceiling rather than a fixed setting."
+    },
+    {
+      "value": "≈ 25 (measured occupancy plateau)",
+      "meaning": "Where the value of $k$ comes from. Section 4.2 measures J-space occupancy — the $K$ at which sparse decomposition stops beating a same-size random control — and finds it rises to a plateau of around 25 across the workspace layers, in the median case, varying across contexts."
+    },
+    {
+      "value": "$k$ = the dimension of each cone",
+      "meaning": "Each cone is spanned by exactly $k$ vectors, so the paper calls them $k$-dimensional polyhedral cones. With $k \\approx 25$, each piece of $\\mathcal{F}$ is a 25-dimensional cone sitting inside a much larger residual-stream space."
+    },
+    {
+      "value": "$\\binom{n}{k}$",
+      "meaning": "The number of cones in the union: one for each size-$k$ subset of the $n$ vocabulary vectors. The paper does not state this count, but it follows from the union running over all $S$ with $|S| = k$, and it is astronomically large for a full tokenizer vocabulary."
+    },
+    {
+      "value": "$n_{\\text{vocab}} > d_{\\text{model}}$",
+      "meaning": "The inequality that makes the J-lens vector set overcomplete. Section 2.3 states it directly; it is why the vectors typically span the entire residual stream and why the matrix formed by concatenating them is full-rank."
+    },
+    {
+      "value": "under 10%",
+      "meaning": "The excess share of activation variance the top-$K$ J-lens vectors explain over a same-size random control, at $K$ = median occupancy. Reported in section 4.2, it indicates that most of an activation lies outside $\\mathcal{F}$, so the union of cones is a thin part of what the model represents."
+    }
+  ]
+}

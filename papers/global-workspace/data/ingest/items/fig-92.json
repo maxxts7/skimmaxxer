@@ -1,0 +1,178 @@
+{
+  "id": "fig-92",
+  "title": "Arithmetic transcoder features under the J-lens",
+  "takeaway": "Projecting a transcoder feature's encoder and decoder directions separately through the J-lens recovers what the feature reads and what it writes, without running any prompts. For three two-digit-addition features, those weight-only readouts match the firing patterns measured earlier on 10,000 addition prompts.",
+  "walkthrough": "### What is on the page\n\nThree [[transcoder]] features involved in two-digit addition appear side by side, one per column. A transcoder is a dictionary-learning model trained to reproduce an [[mlp-block]]'s input-output map through a sparsely active hidden layer. Each of its features carries two directions in [[residual-stream]] space: an encoder, which decides what content switches the feature on, and a decoder, which decides what the feature writes back.\n\nEvery feature gets two views, stacked. The top panel is the empirical one, carried over from the authors' earlier circuits work: the feature's activation recorded on 10,000 prompts of the form \"{a} + {b} = \", one prompt per operand pair $(a,b)$ with $0 \\le a,b < 100$, shaded in orange.\n\nThe bottom panel needs no prompts at all. It takes the encoder direction and the decoder direction and pushes each through the [[jacobian-lens]] — the averaged Jacobian $J$, then the model's own [[unembedding-matrix]] $W_U$ — producing a score for every token in the [[tokenizer-vocabulary]]. The earlier work could only do this for decoders, using the [[logit-lens]]; the lens here reads the encoder side too. [[component-interpretation]]\n\n### How to read the lens grids\n\nThe lens scores are drawn only over the thousand three-digit number tokens, $000$ through $999$, laid out as ten rows by a hundred columns. The row index is the hundreds digit. The column index is the last two digits.\n\nThat split does real work. A property that depends only on the last two digits shows up as a vertical band running through all ten rows. Green marks tokens the direction promotes; purple marks tokens it suppresses.\n\n### What the three features show\n\nThe left feature fires when either operand ends in 80–85, and its encoder lens shows those same values as a green band.\n\nThe middle feature fires when the sum ends in _95. Its encoder lens carries two patterns at once: thin stripes repeating on every number ending in 5, and a thicker stripe near _95. The paper reads the conjunction of the two conditions as a sum ending in _95. Its decoder lens agrees, promoting _95 while suppressing the competing values in purple bands — a sharpening around the correct answer.\n\nThe right feature is a lookup table. It fires when both operands fall in the ranges its encoder shows in green, mostly 25–40 modulo 50, and its decoder writes the matching approximate sum, also modulo 50.\n\nThe claim is narrow: the two readouts describe the function the feature computes from weights alone.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Transcoder",
+      "definition": "A dictionary-learning model trained to approximate an MLP layer's input-output map with a sparsely activating hidden layer. Unlike a sparse autoencoder, which reconstructs activations, it maps the layer's input to the layer's output, so each of its features has a separate encoder and decoder direction.",
+      "conceptId": "transcoder"
+    },
+    {
+      "term": "Transcoder feature",
+      "definition": "One unit of that sparse hidden layer. Here, three features previously identified as taking part in two-digit addition circuitry.",
+      "conceptId": "transcoder"
+    },
+    {
+      "term": "Encoder (direction)",
+      "definition": "The residual-stream direction the feature reads: its dot product with the incoming activation determines whether the feature switches on. In this figure the encoder is what the top lens grid of each pair is computed from.",
+      "conceptId": null
+    },
+    {
+      "term": "Decoder (direction)",
+      "definition": "The residual-stream direction the feature writes back when it is active, scaled by its activation. It is what the second lens grid of each pair is computed from.",
+      "conceptId": null
+    },
+    {
+      "term": "J-lens (Jacobian lens)",
+      "definition": "The paper's readout: an averaged Jacobian $J_\\ell$ from layer $\\ell$ to the final residual stream, composed with the unembedding, giving a score over the vocabulary for any residual-stream direction. Applied to a weight direction rather than an activation, it says what that direction is verbalizable as.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "$J$",
+      "definition": "The averaged Jacobian at the relevant layer: the linear map from a perturbation of the residual stream to its first-order effect on the final-layer residual stream, averaged over token positions and over a corpus of prompts.",
+      "conceptId": "jacobian-matrix"
+    },
+    {
+      "term": "$W_U$",
+      "definition": "The model's unembedding matrix, the final linear map from the residual stream to per-token scores. It is the model's own weights, not anything fitted for this figure.",
+      "conceptId": "unembedding-matrix"
+    },
+    {
+      "term": "$J\\,W_U$ (\"projected through\")",
+      "definition": "The caption's shorthand for the composition that turns a direction into vocabulary scores. Written out in the methods, the score vector for a direction $v$ is $W_U J_\\ell v$; the caption reverses the factors but names the same operation.",
+      "conceptId": "j-lens-readout"
+    },
+    {
+      "term": "Logit lens",
+      "definition": "The older readout that applies only the final unembedding to an intermediate state or direction. The earlier circuits work used it on these features' decoders; it has no way to read an encoder, because an encoder direction is an input side rather than something written toward the output.",
+      "conceptId": "logit-lens"
+    },
+    {
+      "term": "Operand pair $(a, b)$",
+      "definition": "The two summands in the prompt used to measure activation, each ranging over the integers 0 to 99. One grid cell in a top panel corresponds to one such pair.",
+      "conceptId": null
+    },
+    {
+      "term": "\"{a} + {b} = \"",
+      "definition": "The prompt template on which the features' activations were recorded, with the two placeholders filled by every pair of integers below 100.",
+      "conceptId": null
+    },
+    {
+      "term": "Activation (top panels)",
+      "definition": "How strongly the transcoder feature fires on a given prompt, shaded in orange over the operand grid. This is the measured, prompt-based view of the feature.",
+      "conceptId": null
+    },
+    {
+      "term": "Sum tokens $000$–$999$",
+      "definition": "The thousand three-digit number tokens over which the encoder and decoder readouts are displayed. The lens scores every vocabulary token, but only this family is plotted, since it is where an addition feature's meaning lives.",
+      "conceptId": "tokenizer-vocabulary"
+    },
+    {
+      "term": "Rows = hundreds digit",
+      "definition": "The row index of a lens grid, running 0 to 9: the leading digit of the three-digit token in that cell.",
+      "conceptId": null
+    },
+    {
+      "term": "Cols = last two digits",
+      "definition": "The column index of a lens grid, running 00 to 99: the trailing two digits of the token in that cell. Because the layout separates this from the hundreds digit, any pattern that depends only on the last two digits appears as a vertical band crossing all rows.",
+      "conceptId": null
+    },
+    {
+      "term": "Promotes (green)",
+      "definition": "A positive lens score: the direction pushes the model toward saying that token. On an encoder panel it indicates the values the feature is disposed to read; on a decoder panel, the values it writes toward.",
+      "conceptId": null
+    },
+    {
+      "term": "Suppresses (purple)",
+      "definition": "A negative lens score: the direction pushes the model away from that token. It appears on the middle feature's decoder, which downweights the values competing with the correct answer.",
+      "conceptId": null
+    },
+    {
+      "term": "_95",
+      "definition": "Notation for a three-digit token whose last two digits are 95, with the underscore standing for any hundreds digit. In the grid layout that is a single column, running through all ten rows.",
+      "conceptId": null
+    },
+    {
+      "term": "__5",
+      "definition": "Notation for a three-digit token ending in the digit 5, with both underscores free. In the grid layout that is every tenth column, giving the thin repeating stripes described in the middle feature's encoder.",
+      "conceptId": null
+    },
+    {
+      "term": "Lookup table feature",
+      "definition": "The paper's label for the right-hand feature: rather than computing an operation, it fires on a restricted band of operand values and writes out the answer associated with that band.",
+      "conceptId": null
+    },
+    {
+      "term": "Sharpening effect",
+      "definition": "The pattern the middle feature's decoder shows: promoting the correct sum while suppressing its numeric neighbours, which concentrates probability on one answer rather than merely raising it.",
+      "conceptId": null
+    },
+    {
+      "term": "Modulo 50",
+      "definition": "Used for the right-hand feature to say that its operand bands and its written sums repeat every 50, so a range described as 25–40 also covers 75–90.",
+      "conceptId": null
+    },
+    {
+      "term": "Component interpretation with the J-lens",
+      "definition": "The general move this figure illustrates: any weight direction, not just an activation, can be pushed through the lens, and comparing the input side against the output side exposes the transformation the component implements.",
+      "conceptId": "component-interpretation"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "3",
+      "meaning": "The number of transcoder features shown, one per column: an operand-band feature on the left, a sum-detector feature in the middle, a lookup-table feature on the right. The paper picks them as illustrations rather than as a survey."
+    },
+    {
+      "value": "2 panels per feature, 6 lens grids in total",
+      "meaning": "Each feature contributes one encoder readout and one decoder readout. Splitting the two sides is the whole point: the encoder says what is read, the decoder says what is written, and the pair names the transformation."
+    },
+    {
+      "value": "$(a,b) \\in \\{0,\\dots,99\\}^2$, that is $0 \\le a,b < 100$",
+      "meaning": "The operand range swept in the top panels. Both summands are restricted to the two-digit range, which is what makes this a two-digit-addition study."
+    },
+    {
+      "value": "10,000",
+      "meaning": "The number of prompts behind each top grid, which is $100 \\times 100$: one prompt for every ordered pair of operands in that range. Each prompt contributes one cell."
+    },
+    {
+      "value": "1,000 tokens, $000$ to $999$",
+      "meaning": "The set of three-digit number tokens over which each lens readout is plotted. Sums of two two-digit numbers reach at most $99 + 99 = 198$, so most of this range is never a correct answer; plotting the whole family is what lets the periodic structure in the readouts be seen."
+    },
+    {
+      "value": "10 rows",
+      "meaning": "One row per hundreds digit, 0 through 9."
+    },
+    {
+      "value": "100 columns",
+      "meaning": "One column per pair of trailing digits, 00 through 99. Ten rows times a hundred columns covers the thousand tokens exactly."
+    },
+    {
+      "value": "80–85",
+      "meaning": "The operand values the left feature responds to: it fires when either $a$ or $b$ ends in this range. Six adjacent values, so its encoder readout is a narrow green band six columns wide, running down all ten rows."
+    },
+    {
+      "value": "5 (as in tokens ending __5)",
+      "meaning": "The last digit picked out by the first of the two patterns in the middle feature's encoder. A condition on the last digit alone repeats every ten columns, which is why the paper describes thin repeating stripes."
+    },
+    {
+      "value": "95 (as in _95)",
+      "meaning": "The last two digits the middle feature is tuned to, both in the thicker encoder stripe and in what its decoder promotes. The paper reads the two encoder patterns as an AND whose result is a sum ending in _95; within the reachable sum range that means the sums 95 and 195."
+    },
+    {
+      "value": "25–40",
+      "meaning": "The operand band the right-hand lookup-table feature reads, visible as green in its encoder. The feature fires when both operands fall in it."
+    },
+    {
+      "value": "50 (the modulus)",
+      "meaning": "The period of the right feature's bands. Because the condition holds modulo 50, the band 25–40 repeats as 75–90, and the decoder writes the sum only up to a multiple of 50 — an approximate answer rather than an exact one."
+    },
+    {
+      "value": "92",
+      "meaning": "The figure's number in the paper. It sits in the appendix section on applying the J-lens to mechanistic interpretability, after the SAE-feature and translation-feature examples and before the attention-head ones."
+    }
+  ]
+}

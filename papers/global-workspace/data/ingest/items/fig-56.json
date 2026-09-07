@@ -1,0 +1,207 @@
+{
+ "id": "fig-56",
+ "title": "Where the three lenses agree, layer by layer",
+ "takeaway": "Comparing the logit, tuned, and Jacobian lenses against each other rather than against an external target, the three agreement measures pick out four ranges of depth whose boundaries line up with the workspace band identified independently in section 4.1. Direction agreement and readout agreement come apart in the early workspace: the J-lens and logit lens vectors swing into rough alignment while their actual readouts still disagree.",
+ "walkthrough": "Three panels compare the lenses against one another rather than against any outside standard. Three lenses are in play: the [[logit-lens]], the [[tuned-lens]], and the paper's own [[jacobian-lens]]. Each panel therefore carries three curves, one for each unordered pair of lenses.\n\nThe horizontal axis of every panel is depth, in the paper's [[layer-percentage-indexing]] convention. Twenty-five evenly spaced layers are reindexed to 0-100, so a layer number reads as a percentage of the way through the network. The default model is Claude Sonnet 4.5. A shaded band marks the workspace layers, roughly L38 to L92, which is the middle of the three [[layer-bands]].\n\nThe panels measure three different kinds of agreement. Left is the mean [[cosine-similarity]] between the two methods' vectors for the same vocabulary token, averaged over the [[tokenizer-vocabulary]]. That asks whether the two lenses point a given token in aligned directions in [[residual-stream]] space. Middle is the symmetric [[kl-divergence]] between the two lenses' readout distributions. Right is top-1 agreement, the rate at which the two lenses rank the same token first. Both readout measures are averaged over a held-out set of pretraining-style text.\n\nThe paper reads four layer ranges off these curves.\n\nBefore the workspace, at layers 0-33, no pair agrees on readouts: top-1 agreement is near zero and symmetric KL is high. The logit-tuned cosine is nonetheless around 0.9. The tuned lens is an affine map, and cosine sees only its linear part; stripping out the learned bias collapses the logit-tuned KL to near zero here. The paper reads this as the tuned lens's early advantage coming from the bias alone, which means it is ignoring the input. J-lens vectors are close to orthogonal to both, a consequence of their being confined to a low-rank subspace at these depths.\n\nThrough the early workspace, about L38 to L58, the J-logit cosine climbs from near zero to around 0.7 over some twenty layers. Their KL stays near its peak and top-1 agreement stays low. The directions align before the readouts do.\n\nThrough the late workspace, about L62 to L92, the J-logit KL falls monotonically and their top-1 agreement is the first pairing to rise appreciably above zero. The tuned lens stays the outlier on both readout measures.\n\nPast the workspace, all three collapse together: cosine approaches one, KL drops to zero, top-1 rises to one. Every lens has converged on [[next-token-prediction]].",
+ "latex": null,
+ "terms": [
+  {
+   "term": "Logit lens",
+   "definition": "The earlier readout method that decodes an intermediate residual-stream state by applying the model's final unembedding matrix directly. One of the three lenses compared here.",
+   "conceptId": "logit-lens"
+  },
+  {
+   "term": "Tuned lens",
+   "definition": "A readout method that trains a per-layer affine map so the decoded distribution matches the model's own next-token distribution. It is the only one of the three trained on an output-matching objective.",
+   "conceptId": "tuned-lens"
+  },
+  {
+   "term": "Jacobian lens (J-lens)",
+   "definition": "The paper's own lens, built from a corpus-averaged Jacobian from layer L to the final layer, giving one vector per vocabulary token per layer. Written J-lens in the panel legends.",
+   "conceptId": "jacobian-lens"
+  },
+  {
+   "term": "Pairwise agreement",
+   "definition": "The quantity plotted: each curve is one unordered pair of lenses, so the three curves are logit-tuned, logit-J, and tuned-J. No curve compares a lens against the model itself.",
+   "conceptId": null
+  },
+  {
+   "term": "Layer (x-axis)",
+   "definition": "Depth in the network, running left to right across all three panels. Reported on the paper's 0-100 reindexing rather than as raw layer counts.",
+   "conceptId": "layer-percentage-indexing"
+  },
+  {
+   "term": "Mean cosine (left panel)",
+   "definition": "The cosine similarity between the two lenses' vectors for the same vocabulary token, averaged over the whole vocabulary. It measures whether the two methods point a token in the same direction in activation space, ignoring scale.",
+   "conceptId": "cosine-similarity"
+  },
+  {
+   "term": "Lens vector",
+   "definition": "The direction in residual-stream space that a lens assigns to one vocabulary token at one layer. The left panel compares these directions token by token.",
+   "conceptId": "j-lens-vector"
+  },
+  {
+   "term": "Symmetric KL (middle panel)",
+   "definition": "The KL divergence between the two lenses' readout distributions, symmetrized so neither lens is treated as the reference. Large values mean the two lenses report different things about the same activation.",
+   "conceptId": "kl-divergence"
+  },
+  {
+   "term": "Readout distribution",
+   "definition": "The probability distribution over the vocabulary that a lens produces from an activation. The middle and right panels compare these distributions; the left panel does not.",
+   "conceptId": "j-lens-readout"
+  },
+  {
+   "term": "Top-1 agreement (right panel)",
+   "definition": "The fraction of positions at which two lenses put the same token in first place. It is the coarsest of the three measures, and the least forgiving.",
+   "conceptId": null
+  },
+  {
+   "term": "Shaded band",
+   "definition": "The marked span of workspace layers, roughly L38 to L92, carried over from the layer-band analysis of section 4.1. It is an annotation on the plot, not something the agreement measures produce.",
+   "conceptId": "layer-bands"
+  },
+  {
+   "term": "Workspace layers",
+   "definition": "The middle band of depth where the paper argues the J-space carries persistent abstract content, distinct from the input tokens and from the imminent output.",
+   "conceptId": "layer-bands"
+  },
+  {
+   "term": "Pre-workspace layers",
+   "definition": "Layers 0-33, before the shaded band. The paper reports that none of the three lenses produces meaningful readouts here.",
+   "conceptId": null
+  },
+  {
+   "term": "Early workspace",
+   "definition": "Roughly L38 to L58. The range where the J-lens starts recovering intermediate concepts that the logit lens still misses.",
+   "conceptId": null
+  },
+  {
+   "term": "Late workspace",
+   "definition": "Roughly L62 to L92. The range where the logit lens starts surfacing useful intermediates too and its readouts converge toward the J-lens's.",
+   "conceptId": null
+  },
+  {
+   "term": "Motor layers",
+   "definition": "The final few layers past the workspace, where lens vectors drive the imminent output rather than carrying intermediates. All three lenses agree here.",
+   "conceptId": "layer-bands"
+  },
+  {
+   "term": "Residual stream",
+   "definition": "The running per-position vector that transformer layers read from and write to. It is the space in which the left panel's cosines are computed.",
+   "conceptId": "residual-stream"
+  },
+  {
+   "term": "Vocabulary",
+   "definition": "The tokenizer's fixed token set. The left panel's cosine is averaged over it, one token at a time.",
+   "conceptId": "tokenizer-vocabulary"
+  },
+  {
+   "term": "Held-out pretraining-style text",
+   "definition": "The text the middle and right panels are averaged over: ordinary pretraining-like sequences, not the six intermediate-concept benchmarks used elsewhere in the appendix.",
+   "conceptId": null
+  },
+  {
+   "term": "Affine map",
+   "definition": "A linear transform plus a bias term, which is the form of the tuned lens. The distinction matters here because cosine similarity sees only the linear part and is blind to the bias.",
+   "conceptId": null
+  },
+  {
+   "term": "Bias term",
+   "definition": "The constant vector the tuned lens adds after its linear transform. The paper reports that in early layers this term alone carries the divergence between the tuned and logit lenses.",
+   "conceptId": null
+  },
+  {
+   "term": "Low-rank subspace",
+   "definition": "The small linear subspace the J-lens vectors collapse into in early layers, measured separately in Figure 28d. It explains why the J-lens is near-orthogonal to the two full-rank lenses there.",
+   "conceptId": null
+  },
+  {
+   "term": "Claude Sonnet 4.5",
+   "definition": "The model these curves are computed on, the paper's default throughout. This figure does not repeat the measurement across model scales.",
+   "conceptId": "claude-model-family"
+  },
+  {
+   "term": "Next-token prediction",
+   "definition": "The model's output distribution over the following token. It is what all three lenses converge on in the final layers, which is why the panels collapse there.",
+   "conceptId": "next-token-prediction"
+  }
+ ],
+ "numbers": [
+  {
+   "value": "3",
+   "meaning": "The number of lenses compared: logit, tuned, and Jacobian. It fixes the rest of the layout."
+  },
+  {
+   "value": "3 curves per panel",
+   "meaning": "One per unordered pair of three lenses: logit-tuned, logit-J, tuned-J. Three items give exactly three pairs."
+  },
+  {
+   "value": "3 panels",
+   "meaning": "Mean cosine on the left, symmetric KL in the middle, top-1 agreement on the right. Each answers a different question about the same pair of lenses at the same layer."
+  },
+  {
+   "value": "25",
+   "meaning": "The number of evenly spaced residual-stream layers the paper reports on. Every layer-wise plot in the paper, this one included, is sampled at these 25 depths."
+  },
+  {
+   "value": "0-100",
+   "meaning": "The range the 25 layers are reindexed onto, so an x-axis value reads as a percentage of network depth rather than an absolute layer count."
+  },
+  {
+   "value": "layers 0-33",
+   "meaning": "The pre-workspace range the paper reads off these curves. Through it, top-1 agreement is near zero and symmetric KL is high for every pairing."
+  },
+  {
+   "value": "~0.9",
+   "meaning": "The logit-tuned mean cosine through the pre-workspace layers. It is high because the tuned lens's linear transform is effectively the identity there, so only its bias separates it from the logit lens."
+  },
+  {
+   "value": "~0 (top-1, pre-workspace)",
+   "meaning": "Top-1 agreement for every pairing before the workspace. The paper takes this as consistent with none of the three producing meaningful readouts at these depths."
+  },
+  {
+   "value": "~0 (logit-tuned KL, bias stripped)",
+   "meaning": "The symmetric KL between logit and tuned readouts in early layers once the tuned lens's learned bias is removed. This is a separate measurement reported in the text, not a curve on the plot, and it is what supports the claim that the bias carries the whole difference."
+  },
+  {
+   "value": "~L38",
+   "meaning": "The workspace onset layer, where the shaded band begins. It is the same boundary the four independent metrics of section 4.1 converge on."
+  },
+  {
+   "value": "~L38-58",
+   "meaning": "The early workspace range. Here the J-lens starts recovering intermediates while the logit lens largely does not."
+  },
+  {
+   "value": "~0.7",
+   "meaning": "The J-logit mean cosine reached by the end of the early workspace, up from near zero at the start of the band. The vectors are pointing in broadly similar directions by this depth."
+  },
+  {
+   "value": "~20 layers",
+   "meaning": "The span over which that J-logit cosine climbs from near zero to about 0.7. On the 0-100 indexing this is a fifth of the network's depth."
+  },
+  {
+   "value": "~L62-92",
+   "meaning": "The late workspace range, where the J-logit symmetric KL falls monotonically and their top-1 agreement is the first pairing to rise appreciably above zero."
+  },
+  {
+   "value": "~L92",
+   "meaning": "The workspace offset layer, where the shaded band ends. Past it the layers are read as motor layers driving the output."
+  },
+  {
+   "value": "1 (cosine, final layers)",
+   "meaning": "Cosine similarities approach one for every pairing past the workspace. All three lenses are pointing each token in the same direction there."
+  },
+  {
+   "value": "0 (KL, final layers)",
+   "meaning": "Symmetric KL drops to zero past the workspace. The readout distributions themselves have become the same, not just the directions."
+  },
+  {
+   "value": "1 (top-1, final layers)",
+   "meaning": "Top-1 agreement rises to one past the workspace. Every lens is surfacing the model's next-token prediction, so there is nothing left to disagree about."
+  },
+  {
+   "value": "4",
+   "meaning": "The number of layer ranges the paper picks out of these curves: pre-workspace, early workspace, late workspace, and motor. The paper's point is that these boundaries line up with the workspace boundaries found independently in section 4.1."
+  }
+ ]
+}

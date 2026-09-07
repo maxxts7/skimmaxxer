@@ -1,0 +1,124 @@
+{
+  "concepts": [
+    {
+      "id": "broadcast-control-populations",
+      "name": "Control populations for broadcast measurements",
+      "tier": "minor",
+      "parent": "j-space-broadcast",
+      "summary": "The set of direction populations every broadcast metric is run on, so that J-lens vectors are always scored against comparably shaped alternatives rather than in isolation.",
+      "explanation": "Every broadcast metric in this branch — MLP gain, OV gain, label preservation, tail energy, composition score — is computed over a population of unit directions rather than a single vector, and the claim is always comparative. The populations are the J-lens vectors themselves; MLP neuron input- or output-weight directions from an adjacent layer, standing for ordinary computational directions the model actually uses; SAE decoder directions split into strata by J-space alignment; a randomly rotated copy of the J-lens vectors; and isotropic random directions as the normalizing baseline. The neuron directions matter because they rule out the reading that any real direction in the residual stream is amplified and relayed. A result counts for the paper when the J-aligned populations separate from these controls, and when the graded strata order monotonically in between.",
+      "prerequisites": ["j-lens-vector", "sparse-autoencoder", "mlp-block", "residual-stream"],
+      "sectionIds": ["4.3.1", "4.3.2", "10.19.1", "10.19.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "j-rotated-control",
+      "name": "J-rotated control population",
+      "tier": "minor",
+      "parent": "broadcast-control-populations",
+      "summary": "A control made by applying one fixed random orthogonal rotation to the J-lens vectors, keeping their spectrum and pairwise geometry while destroying their alignment with the model's weights.",
+      "explanation": "One worry about the broadcast-head result is that the J-lens vectors might be easy to relay because of the shape of the set — their norms, their spectrum, how close they sit to one another — rather than because of where they sit relative to the model's weights. The paper builds $J_{\\text{rot}}$ by applying a single fixed random orthogonal matrix to every J-lens vector. An orthogonal map preserves norms and inner products, so all within-population geometry survives while the whole population is moved to an arbitrary orientation in activation space. The broadcast heads selected for $J_{\\text{rot}}$ score far lower on both gain and label preservation than those selected for $J$, which places the effect in the relationship between the J-space and the weights rather than in the population's internal structure.",
+      "prerequisites": ["j-lens-vector", "broadcast-heads", "label-preservation"],
+      "sectionIds": ["4.3.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "kappa-strata",
+      "name": "SAE kurtosis strata",
+      "tier": "minor",
+      "parent": "broadcast-control-populations",
+      "summary": "SAE decoder directions split into six equal-sized bins by J-lens kurtosis percentile, giving a graded rather than binary measure of how J-space-aligned a feature is.",
+      "explanation": "J-lens kurtosis $\\kappa$ scores how strongly a direction lies in the J-space. The broadcast analyses sort SAE feature decoder directions by that score and cut them into six equal-sized strata — top 1%, 1–5%, 5–10%, 10–20%, 20–50%, bottom 50% — with N=2,000 directions in each. Equal sizes make the null explicit: a neuron with no preference places its top match in each stratum with probability 1/6. Because the strata are ordered, they turn a two-way comparison into a dose-response test, and the paper treats monotonic separation across strata — highest gain, tail energy and composition score at the top, baseline at the bottom — as stronger evidence than J-lens vectors beating a single control. The strata also supply a measurement that does not depend on J-lens vectors at all, since the SAE features are found independently of the lens.",
+      "prerequisites": ["sparse-autoencoder", "lens-kurtosis", "j-space"],
+      "sectionIds": ["4.3.1", "4.3.2", "10.19.1", "10.19.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "random-direction-normalization",
+      "name": "Normalization against random directions",
+      "tier": "minor",
+      "parent": "j-space-broadcast",
+      "summary": "Every broadcast metric is divided by the same quantity computed on isotropic random unit directions, so a score of 1 means no more than chance.",
+      "explanation": "MLP gain, OV gain, tail energy and composition score are raw quantities whose scale depends on the layer, the width of the model and the norm conventions of the block being probed, which leaves a bare number uninterpretable and blocks comparison across layers. Each is therefore reported as a ratio against the same measurement on directions drawn uniformly at random, so that 1 is the chance level by construction and curves from different layers sit on one axis. The random baseline does further work in the connectivity analysis, where the 99.9th percentile of $|\\cos(w_i, v)|$ over random $v$ sets the threshold above which a cosine counts as a real connection. Label preservation is contrasted against the same statistic on random directions for a related reason: a head that copies every direction indiscriminately then scores zero rather than high.",
+      "prerequisites": ["mlp-gain", "tail-energy", "composition-score", "cosine-similarity"],
+      "sectionIds": ["4.3.1", "4.3.2", "10.19.1", "10.19.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "neuron-top-match-breadth",
+      "name": "Top-match breadth analysis",
+      "tier": "minor",
+      "parent": "neuron-connectivity",
+      "summary": "The breadth half of the connectivity analysis: each MLP neuron is assigned to whichever population its single strongest weight cosine falls in, and J-aligned populations claim far more neurons than chance.",
+      "explanation": "For every MLP neuron the analysis takes the direction its weight row is most aligned with, drawn from the six equal-sized kurtosis strata, and assigns the neuron to that stratum, separately for input weights and output weights. Equal strata put the chance share at 1/6. Across the workspace layers the top-$\\kappa$ stratum claims up to 42% of neurons on the read side against 6% for the bottom stratum, with the intermediate strata ordered monotonically in between. The same test run without SAE features, matching each neuron against an equal pool of J-lens vectors and adjacent-layer neuron directions, moves the J-lens share from roughly 15% before the workspace range to 60–65% inside it, against a 50% chance level. Taking only the single top match per neuron sidesteps the problem that superposition gives every weight row an appreciable cosine with directions it has no functional relationship to.",
+      "prerequisites": ["neuron-connectivity", "kappa-strata", "superposition", "workspace-layers"],
+      "sectionIds": ["10.19.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "read-write-asymmetry",
+      "name": "Read-side and write-side asymmetry",
+      "tier": "minor",
+      "parent": "neuron-connectivity",
+      "summary": "J-space alignment of MLP neuron input weights peaks in the early workspace layers, while alignment of output weights peaks in the late ones.",
+      "explanation": "The connectivity analyses are run separately on what a neuron reads from the residual stream, its input weights, and what it writes back, its output weights. Both sides show the same ordering across the kurtosis strata, but they peak at different depths: the read-side effect emerges at the workspace onset and is strongest in the early workspace layers, while the write-side effect is strongest in the late workspace layers. The paper reads this as many processors drawing on the workspace as soon as it forms, with writing into it concentrated later, where a response is being prepared. The tail energy measurement reproduces the same split, so the asymmetry does not depend on which of the two connectivity statistics is used. The interpretation is a reading of weight statistics rather than a causal test.",
+      "prerequisites": ["neuron-connectivity", "tail-energy", "workspace-layers", "motor-layers"],
+      "sectionIds": ["10.19.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "value-vs-query-key-asymmetry",
+      "name": "Value-output versus query-key asymmetry",
+      "tier": "minor",
+      "parent": "composition-score",
+      "summary": "J-space directions compose strongly with attention value and output weights but only weakly with query and key weights, which the paper reads as content being moved in J-space format while routing is less J-space-aligned.",
+      "explanation": "The aggregate composition analysis projects a direction through each head's query, key, value and output weights and scores the spread of the resulting norms. J-space-aligned directions score far above baseline against the value and output weights, and above baseline but much less so against the query and key weights. A high value score means some downstream heads are specifically oriented to carry the direction; a high query or key score would mean the direction is used to decide where to attend. The paper reads the asymmetry as consistent with the J-space being the format for what attention moves between positions, rather than the signal that decides which positions attend to which. This rests on weight statistics alone, and is not a test of attention behavior in context.",
+      "prerequisites": ["composition-score", "ov-circuit", "attention-head"],
+      "sectionIds": ["10.19.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "broadcast-head-selection-rule",
+      "name": "Broadcast-head selection rule",
+      "tier": "minor",
+      "parent": "broadcast-heads",
+      "summary": "How the two head metrics are combined: rank all workspace-layer heads on gain and on label preservation, score each head by its worse rank across the two, and take the best 1%.",
+      "explanation": "Gain and label preservation can each be high for an uninteresting reason — a head can amplify everything, or copy everything faithfully without amplifying. Scoring a head by the worse of its two ranks means it enters the shortlist only if it does well on both, so neither criterion can carry a head on its own. The candidate pool is restricted to heads in the workspace layers, and the cut is the best 1% of those combined scores. The same procedure is run separately for each comparison population, so every population gets its own best-1% subset and the comparison is between best cases rather than between a selected set and an unselected one.",
+      "prerequisites": ["broadcast-heads", "label-preservation", "ov-circuit", "workspace-layers"],
+      "sectionIds": ["4.3.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "broadcast-head-layer-placement",
+      "name": "Where the broadcast heads sit",
+      "tier": "minor",
+      "parent": "broadcast-heads",
+      "summary": "The heads selected for the J-lens vectors concentrate in the first half of the workspace layers, where the J-space's effective rank is lowest.",
+      "explanation": "Broadcast heads are searched for across all workspace-layer heads, and the ones found for the J-lens vectors fall in the earlier half of that range. The paper connects this to the J-space's measured effective dimensionality, which is lowest in the same layers. A single head's OV map is low-rank, bounded by the head dimension, so it can carry only a subspace of limited size; where the J-space itself has lower effective rank, one head's map can carry a larger share of it. This is offered as an account of where the heads fall, not as an independent test of the broadcast claim.",
+      "prerequisites": ["broadcast-heads", "j-space-effective-dimensionality", "ov-circuit", "workspace-layers"],
+      "sectionIds": ["4.3.2"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "mlp-gain-context-caveat",
+      "name": "Context dependence of MLP gain",
+      "tier": "minor",
+      "parent": "mlp-gain",
+      "summary": "The gain measurement applies the MLP block to a direction on its own, which is never how the block is used in practice; the paper flags it as a first-pass approximation.",
+      "explanation": "An MLP block is nonlinear, so what it does to a direction $v$ depends on whatever else is present in the activation it is applied to. The gain metric feeds $v$ to the block in isolation and takes the output norm, which fixes one number per direction per layer but discards that context dependence. The paper states in a footnote that the metric is only an approximate description of the block's behavior in natural settings, and that the gain in practice may be influenced by other information in the activations, while holding that it remains a useful first-pass approximation. The neuron-level connectivity analyses are offered separately as corroboration that never runs the block at all, reading the weights directly instead.",
+      "prerequisites": ["mlp-gain", "mlp-block"],
+      "sectionIds": ["4.3.1"],
+      "floor": false,
+      "citedFrom": null
+    }
+  ]
+}

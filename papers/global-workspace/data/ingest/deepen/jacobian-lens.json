@@ -1,0 +1,70 @@
+{
+  "concepts": [
+    {
+      "id": "target-layer-choice",
+      "name": "Target layer for the backward pass",
+      "parent": "j-lens-recipe-variants",
+      "summary": "Which layer's residual stream sits at the output end of the derivative: the final layer, or the penultimate one, with the last transformer block left out of the backward pass.",
+      "explanation": "The Methods definition writes $J_\\ell$ as a derivative of the final-layer residual stream, while the methodological appendix reports that the default lens used throughout the paper differentiates the penultimate layer instead, omitting the last transformer block from the backward pass. The paper reports that including the last block can increase the number of noisy artifacts in lens readouts, and offers as a possible reason that the final block is heavily specialized for calibrating next-token predictions and carries less semantic content. Both settings appear among the five recipes evaluated on intermediate recovery and on causal ablation effect. Mean aggregation at the penultimate layer is reported as a small improvement at extracting intermediates.",
+      "prerequisites": ["averaged-jacobian", "residual-stream", "j-lens-recipe-variants"],
+      "sectionIds": ["2.1", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "jacobian-computation-procedure",
+      "name": "Computing the Jacobian in practice",
+      "parent": "averaged-jacobian",
+      "summary": "The pseudocode the paper supplies for estimating $J_\\ell$: one forward pass per prompt, then one backward pass per output dimension, with every layer's Jacobian falling out of the same backward pass.",
+      "explanation": "For each prompt in the corpus, a forward pass caches the residual stream $h_\\ell[t]$ at every layer and position. A gradient is then injected at the target layer, one output dimension $i$ at a time and at every token position at once, and backpropagated; because the derivative is taken of $\\sum_t z[t]$ and the model is causal, the gradient arriving at source position $t$ is already the summed effect of $h_{\\ell,t}$ on all positions $t' \\geq t$. A single backward pass yields the row for every layer simultaneously, so the cost is one backward pass per output dimension rather than per layer, batched in practice. Row $i$ of the per-prompt Jacobian is the mean over source positions, and the per-prompt matrices are then combined element by element across the corpus. The whole procedure is paid once per model, after which reading the lens costs one matrix multiply per layer.",
+      "prerequisites": ["averaged-jacobian", "jacobian-matrix", "residual-stream", "lens-corpus"],
+      "sectionIds": ["2.1", "10.7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "lens-readout-normalization",
+      "name": "Normalization inside the readout",
+      "parent": "j-lens-readout",
+      "summary": "The readout passes $J_\\ell h_\\ell$ through the model's own pre-unembedding normalization, which is why a lens score is only approximately a linear function of the activation.",
+      "explanation": "The readout is $\\text{lens}(h_\\ell) = \\text{softmax}(W_U\\,\\text{norm}(J_\\ell h_\\ell))$, where the norm step is the normalization the model itself applies before unembedding, here applied to the mapped activation rather than to the original one. That step rescales by a quantity computed from the vector being normalized, so the pre-softmax logits are set by the inner products $\\langle v_t, h_\\ell\\rangle$ only up to a data-dependent factor. The paper states this caveat at the point where it introduces the probe form, in which the score or cosine similarity of a single chosen lens vector is read off without ranking the vocabulary. The approximation is what licenses treating a lens score as a projection onto $v_t$.",
+      "prerequisites": ["j-lens-readout", "j-lens-vector", "unembedding-matrix"],
+      "sectionIds": ["2.1", "2.5"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "tuned-lens-bias-term",
+      "name": "The tuned lens's bias term",
+      "parent": "inter-lens-agreement",
+      "summary": "The tuned lens is an affine map, and the paper finds that in early layers its whole advantage over the logit lens comes from the learned bias rather than from its linear part.",
+      "explanation": "In the pre-workspace layers, the logit-lens and tuned-lens vectors have a mean cosine similarity around 0.9, because the cosine sees only the tuned lens's linear transform, which at those depths is effectively the identity. Their readouts nonetheless diverge sharply, and the paper reports that stripping the bias out collapses the KL divergence between the two readout distributions to near zero at those layers. The reading offered is that the tuned lens's early-layer predictive edge comes from the bias alone, a term that does not depend on the input. The same passage attributes the near-orthogonality of the J-lens vectors to both other lenses at these depths to a separate cause: the J-lens vectors are confined to a low-rank subspace there.",
+      "prerequisites": ["tuned-lens", "logit-lens", "inter-lens-agreement", "kl-divergence", "cosine-similarity"],
+      "sectionIds": ["10.6"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "lens-readout-reading-heuristics",
+      "name": "Reading a lens readout",
+      "parent": "jacobian-lens",
+      "summary": "The rules the paper gives for interpreting a list of top lens tokens: treat it as a bag of ideas, look for families of related words, and trust an idea more when it recurs across layers or neighbouring positions.",
+      "explanation": "A readout is a ranked list of vocabulary tokens, not a sentence, so the paper's guidance is to look for themes across the list rather than to read it in order. One idea can surface as several related words at once - synonyms, names, variants - which makes the family more informative than any single term. Noise confined to one layer is expected, and an idea is treated as more credible when it also appears at adjacent layers or at nearby token positions. The paper sets these rules out explicitly in the instructions it gives to the automated auditing agent, and there asks the agent to quote a specific layer line verbatim so that its evidence can be checked against the readout.",
+      "prerequisites": ["j-lens-readout", "uninterpretable-readouts", "j-lens-visualization"],
+      "sectionIds": ["2.2", "10.22"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "readout-method-tradeoffs",
+      "name": "Where the J-lens sits among readout methods",
+      "parent": "jacobian-lens",
+      "summary": "The paper places the J-lens on a spectrum of activation-readout tools that trade expressivity against cost and grounding, and puts it at the cheap and grounded end.",
+      "explanation": "Linear probes are cheap but supervised, each measuring one researcher-specified concept, and the paper notes they may recover information the model encodes without using. Sparse dictionary learning is unsupervised and yields a linear decomposition, but the dictionary is expensive to train and each feature still needs a separate interpretation step. Attribution graphs say which upstream features caused a given output in a given context, but not what an activation is generally poised to verbalize. Free-text decoders sit at the expressive end and can articulate multi-token concepts and relations the J-lens cannot, at substantially higher cost and with a risk of confabulations not grounded in the activations. The J-lens is one precomputed matrix multiply per layer, derived from the model's own Jacobian and applicable to activations, weights and feature directions alike, with its output limited to a ranked list of single tokens. The paper describes it as complementary to the more expressive methods rather than competitive with them.",
+      "prerequisites": ["jacobian-lens", "linear-probe", "sparse-autoencoder", "attribution-graphs", "free-text-activation-decoders"],
+      "sectionIds": ["8"],
+      "floor": false,
+      "citedFrom": null
+    }
+  ]
+}

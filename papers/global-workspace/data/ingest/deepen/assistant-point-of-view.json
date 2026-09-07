@@ -1,0 +1,96 @@
+{
+  "concepts": [
+    {
+      "id": "user-token-repurposing-hypothesis",
+      "name": "Repurposing of user-token activations",
+      "parent": "assistant-point-of-view",
+      "summary": "The hypothesis motivating section 6.1: because a post-trained model is no longer scored on predicting the user's next token, the activations at user positions are free to carry the Assistant's thoughts instead.",
+      "explanation": "A base model is trained to predict every next token, including the user's. A post-trained model is trained on the Assistant's turns, so the activations sitting on user tokens no longer have to serve a prediction of how the user's sentence continues. The paper's hypothesis is that post-training therefore repurposes those positions to represent the Assistant's own upcoming response and the intermediate computations feeding it. The J-lens comparison of section 6.1 is the test: the same prompts are run through a production post-trained model and its corresponding base model, and the readouts on user tokens are compared. The paper states the result loosely, that the Assistant's perspective comes to \"take over\" an increasing amount of workspace capacity, rather than as a quantified fraction.",
+      "prerequisites": ["post-training", "base-model", "next-token-prediction", "j-space", "jacobian-lens"],
+      "sectionIds": ["6.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "intended-response-on-user-tokens",
+      "name": "Prior evidence of intended responses on user tokens",
+      "parent": "user-token-repurposing-hypothesis",
+      "summary": "Earlier work cited in section 6.1 reporting that post-trained models store intended Assistant responses on user tokens more than base models do.",
+      "explanation": "Section 6.1 grounds its hypothesis in a prior result rather than presenting the idea as untested: earlier work found some evidence that post-trained models store intended Assistant responses on user token positions, more so than base models. The paper describes this as some evidence and does not restate the method or the strength of that finding. Its role here is to make the repurposing hypothesis worth testing with the J-lens, which supplies a readout of what those positions contain rather than only whether a response can be decoded from them.",
+      "prerequisites": ["post-training", "base-model"],
+      "sectionIds": ["6.1"],
+      "floor": false,
+      "citedFrom": {
+        "citationKey": "g2026simulation",
+        "refText": "Cited in section 6.1 as g2026simulation; the paper attributes to it the finding that post-trained models store intended Assistant responses on user tokens more than base models.",
+        "whyNeeded": "The finding that post-training moves intended responses onto user positions is asserted here as prior work, with no method or numbers given in this paper."
+      }
+    },
+    {
+      "id": "matched-response-control",
+      "name": "Matching the two models' responses",
+      "parent": "assistant-point-of-view",
+      "summary": "The design choice of comparing the base and post-trained models on prompts where both produce similar answers, so any difference found is internal rather than behavioural.",
+      "explanation": "In every example of section 6.1 the two models are given the same prompt and give similar responses. In the bereavement suite both models express comparable empathy, and in the example shown both say \"I'm sorry for your loss\"; during the Assistant's turn the reaction concepts sit at the top of the J-lens readouts in both. The difference the paper reports is therefore not that post-training changed what the model says, but when the relevant content appears in the workspace: the post-trained model carries it while still reading the user's message, and the base model tends to wait until the Assistant turn. Without matched responses the same rank difference could be explained by the two models simply answering differently.",
+      "prerequisites": ["base-model", "post-training", "j-lens-readout"],
+      "sectionIds": ["6.1", "10.20"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "tylenol-dose-example",
+      "name": "The Tylenol dose example",
+      "parent": "assistant-point-of-view",
+      "summary": "The paired prompt opening section 6.1, in which the user reports taking either 1000 mg or 8000 mg of Tylenol and the lens is read mid-sentence, before any request has been made.",
+      "explanation": "Both models receive a prompt in which the user reports a dose of Tylenol, 1000 mg in one variant and 8000 mg in the other, and the J-lens is applied at the \"is\" token of \"all my pain is gone\" at layer L58 — a position well before the user's request and before the Assistant's turn. In the post-trained model the readout there is safely, safe, maximum on the 1000 mg variant and unsafe, dangerous, WARNING on the 8000 mg variant. In the base model the readout at the same position is pain, now, feels on both variants: local context, with no assessment of the dose. The two variants differ only in a number, so the split in the readout is what the paper reads as a safety assessment of the kind the Assistant would form, present while the user's sentence is still being read.",
+      "prerequisites": ["j-lens-readout", "base-model", "post-training", "workspace-layers"],
+      "sectionIds": ["6.1"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "reaction-prompt-suites",
+      "name": "The three reaction-prompt suites",
+      "parent": "reaction-concepts-protocol",
+      "summary": "The three small prompt sets the protocol is run on — bereavement (n = 9), danger awareness (n = 10) and withheld answer (n = 7) — each chosen to provoke a reaction the prompt does not state.",
+      "explanation": "In the bereavement set the user mentions a recent loss in passing while asking about something practical, such as how best to preserve a late relative's letters; the reaction concepts are sorry, loss, grief and sympathy. In the danger awareness set the user innocently narrates a hazardous situation, such as sanding old paint without a respirator; the reaction concepts are danger, unsafe, warning and toxic. The withheld answer set asks the model to think of an item from a category and not reveal it yet. In each case the reaction concepts are words that would indicate a reaction and are not present in the prompt itself, so a high rank cannot come from the model simply echoing the surface text. The suites are small — nine, ten and seven prompts — and the paper reports them as suites rather than as a benchmark.",
+      "prerequisites": ["reaction-concepts-protocol"],
+      "sectionIds": ["6.1", "10.20"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "own-answer-as-reaction-concept",
+      "name": "The model's own answer as the reaction concept",
+      "parent": "reaction-prompt-suites",
+      "summary": "In the withheld-answer set the reaction concept is not a fixed word list but whatever answer the model itself goes on to produce, so the measurement asks whether that choice is already in the lens while the instruction to withhold it is being read.",
+      "explanation": "The bereavement and danger-awareness suites fix their reaction concepts in advance. The withheld-answer suite cannot, because the item the model picks is not known before it picks it. The reaction concept is therefore defined per run as the answer the model eventually produces, and its rank is tracked back through the user turn. The question the design puts is whether the model's eventual choice is already present in the workspace while it reads the instruction not to reveal it. The paper reports that in the post-trained model the answer sits at or near the top of the lens during the user turn, and typically not in the base model.",
+      "prerequisites": ["reaction-prompt-suites", "think-of-a-category-task"],
+      "sectionIds": ["10.20"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "reaction-rank-aggregation",
+      "name": "How the reaction rank is aggregated",
+      "parent": "reaction-concepts-protocol",
+      "summary": "The two-stage statistic behind the turn comparison: at each token, the median J-lens rank reached by any reaction concept across the workspace layers; then the best such rank anywhere in the user turn and anywhere in the response.",
+      "explanation": "The rank is first collapsed over depth. At every token position the protocol records the median rank that any of the reaction concepts achieves in the J-lens readouts across the workspace layer range, so a concept that surfaces in a single layer does not count and one that holds across the band does. The rank is then collapsed over position, twice: each model is summarized by the best (that is, numerically lowest) per-token rank reached anywhere in the user's turn, and by the best one reached anywhere in the model's own response. The comparison the figures show is between those two numbers, for the post-trained and base model on the same prompt. Taking a best over positions means one token carrying the reaction is enough to give a turn a strong score.",
+      "prerequisites": ["reaction-concepts-protocol", "workspace-layers", "j-lens-readout"],
+      "sectionIds": ["6.1", "10.20"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "self-tokens-at-turn-start",
+      "name": "Self-describing tokens at the start of the Assistant turn",
+      "parent": "assistant-point-of-view",
+      "summary": "In the model-organism experiments the lens surfaces AI, assistant, bot and chat at the opening of the Assistant's turn regardless of what the prompt was about.",
+      "explanation": "Section 9.4 reports that at the start of the Assistant's turn the J-lens carries tokens describing the model itself — AI, assistant, bot, chat — independently of the prompt's content. The paper calls this a self-model in a rather literal sense and pairs it with the post-training comparison, where Assistant-perspective content appears at positions where the Assistant is not speaking, as together suggesting a persistent representation of the system itself in the workspace. It is careful about the limit of the claim: these readouts are not representations of the model's own attention, so they sit at the edge of what attention schema theory predicts rather than confirming it.",
+      "prerequisites": ["j-lens-readout", "assistant-persona", "attention-schema-theory", "model-organism"],
+      "sectionIds": ["9.4"],
+      "floor": false,
+      "citedFrom": null
+    }
+  ]
+}

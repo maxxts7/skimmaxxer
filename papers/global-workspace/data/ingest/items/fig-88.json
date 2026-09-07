@@ -1,0 +1,167 @@
+{
+  "id": "fig-88",
+  "title": "Patching arithmetic intermediates layer by layer",
+  "takeaway": "A causal check on the lens: replacing each arithmetic intermediate with a different value only changes the model's answer when the replacement is written into a narrow band of layers, and that band sits where the J-lens first shows the intermediate entering the workspace. The three intermediates become load-bearing at successively later depths, in the order the computation requires.",
+  "walkthrough": "### What is on screen\n\nThree line charts side by side, one per intermediate step of a single arithmetic problem. The prompt given to Opus 4.5 ([[claude-model-family]]) is \"calc: ( 4 + 17 ) * 2 + 7 =\", and the model answers 49. Reaching that answer requires $A+B = 21$ first, then $(A+B)\\times C = 42$, then $(A+B)\\times C + D = 49$. The left panel intervenes on the first of these values, the middle panel on the second, the right panel on the answer itself.\n\n### How to read it\n\nThe horizontal axis of each panel is the layer $L$ at which the intervention is applied. Layer numbers are percentages of depth rather than raw indices, so 0 sits at the input side and 100 at the output side ([[layer-percentage-indexing]]).\n\nEach thin line is one alternative target value $v$ for that intermediate. The intervention is [[mean-difference-patching]]. The mean [[residual-stream]] activation is taken over many prompts whose intermediate equals $v$, and again over prompts whose intermediate equals the true value; the difference between those two means is added to the residual stream at layer $L$ alone. This is a form of [[activation-patching]] built from corpus averages rather than from a single donor forward pass.\n\nThe vertical axis is the logit of the answer $v$ implies, minus the logit of the true answer 49. Taking the left panel with $v = 20$: the implied answer is $20 \\times 2 + 7 = 47$, so the curve plots the logit of 47 minus the logit of 49. A negative value means the model still prefers 49. The layer at which a curve crosses zero is the layer at which the patch flips the prediction.\n\n### What it shows\n\nPatching $21 \\to v$ flips the answer around layer 71, and does nothing at earlier or later layers. Patching $42 \\to v$ flips it around layer 79. Patching $49 \\to v$ works only in the last few layers.\n\nThose depths are the ones the lens already named. Figure 17 tracked the J-lens rank of the same three values across depth ([[arithmetic-intermediate-ordering]]): all three are absent through roughly the first third of the network, then separate near layer 71, with 42 following about eight layers later and 49 rising only at the end. The causal window and the readout onset line up.\n\nThat agreement is what licenses [[mechanistic-localization]] — using the layer at which a concept enters the [[j-space]] to locate where a computation happens. The evidence here is one prompt on one model, and the paper reports the match by comparing curves rather than by any numerical score.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Mean-difference patching",
+      "definition": "The intervention plotted here: the mean residual-stream activation over prompts whose intermediate equals a target value $v$, minus the mean over prompts whose intermediate equals the true value, added into the residual stream at one layer. It substitutes an intermediate's value without needing a matched donor prompt for each trial.",
+      "conceptId": "mean-difference-patching"
+    },
+    {
+      "term": "Activation patching",
+      "definition": "The broader technique this intervention belongs to: writing activations into a forward pass to test which activations actually cause a behavior, as opposed to merely correlating with it.",
+      "conceptId": "activation-patching"
+    },
+    {
+      "term": "J-lens (Jacobian lens)",
+      "definition": "The paper's readout method, which assigns each vocabulary token a direction in activation space and so reports which concepts an activation carries at a given layer and position. This figure exists to check the layers it reports against a causal test.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "J-lens readout",
+      "definition": "The per-layer, per-position ranking of vocabulary tokens the lens produces. Figure 17 read the rank of 21, 42 and 49 from it; this figure compares those ranks against patching.",
+      "conceptId": "j-lens-readout"
+    },
+    {
+      "term": "J-space",
+      "definition": "The region of activation space spanned by sparse combinations of J-lens vectors, which the paper argues functions as the model's workspace. An intermediate \"entering the J-space\" means its lens rank climbs toward the top at that layer.",
+      "conceptId": "j-space"
+    },
+    {
+      "term": "Residual stream",
+      "definition": "The running per-token vector that each transformer layer reads from and writes to. The patch is added directly into it at a single layer.",
+      "conceptId": "residual-stream"
+    },
+    {
+      "term": "Patching layer $L$",
+      "definition": "The horizontal axis of every panel: the one layer at which the mean-difference vector is added. Sweeping $L$ is what turns the intervention into a localization test.",
+      "conceptId": null
+    },
+    {
+      "term": "Target value $v$",
+      "definition": "The alternative value patched in for an intermediate. Each thin line in a panel is one choice of $v$, so a panel is a family of curves rather than a single trace.",
+      "conceptId": null
+    },
+    {
+      "term": "$A+B$ (21 → v)",
+      "definition": "The first intermediate, the sum inside the parentheses, and the quantity patched in the left panel. Its true value in this prompt is 21.",
+      "conceptId": null
+    },
+    {
+      "term": "$(A+B)\\times C$ (42 → v)",
+      "definition": "The second intermediate, the parenthesised sum multiplied by 2, and the quantity patched in the middle panel. Its true value is 42.",
+      "conceptId": null
+    },
+    {
+      "term": "$(A+B)\\times C + D$ (49 → v)",
+      "definition": "The final answer, and the quantity patched in the right panel. Its true value is 49, which is also the model's actual output on the clean prompt.",
+      "conceptId": null
+    },
+    {
+      "term": "Logit difference (vertical axis)",
+      "definition": "The logit the model assigns to the answer implied by $v$, minus the logit it assigns to 49. Negative means the true answer still wins; positive means the patched-in value has taken over.",
+      "conceptId": null
+    },
+    {
+      "term": "Zero crossing",
+      "definition": "The point where a curve passes through 0 on the vertical axis, meaning the two answers are equally weighted. To the right of it within the effective band, the patch has flipped the model's prediction.",
+      "conceptId": null
+    },
+    {
+      "term": "Causally load-bearing",
+      "definition": "Said of an intermediate at a layer where changing it changes the output. A flat curve means the intermediate is not load-bearing at that layer, whatever the lens shows.",
+      "conceptId": null
+    },
+    {
+      "term": "Workspace layers",
+      "definition": "The middle band of depth in which the paper argues the J-space behaves like a workspace, bounded below by the sensory layers and above by the output-driving motor layers. All three flip points here fall in or just after that band.",
+      "conceptId": "workspace-layers"
+    },
+    {
+      "term": "Layer numbering as percentages",
+      "definition": "The paper's reporting convention: 25 evenly spaced residual-stream layers reindexed to 0-100, so \"layer 71\" means 71% of the way through the network, not the seventy-first block.",
+      "conceptId": "layer-percentage-indexing"
+    },
+    {
+      "term": "Mechanistic localization",
+      "definition": "The application this figure supports: using the depth at which a concept appears in the lens to say where in the forward pass a computation happens.",
+      "conceptId": "mechanistic-localization"
+    },
+    {
+      "term": "Opus 4.5",
+      "definition": "The model these runs use. The paper's default reporting model is Sonnet 4.5, but this arithmetic example and its patching check are run on Opus 4.5.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "\"calc: ( 4 + 17 ) * 2 + 7 =\"",
+      "definition": "The prompt, reproduced as the paper prints it. Its bracketing forces two intermediate results before the answer, which is what makes it usable as a depth-ordering test.",
+      "conceptId": null
+    },
+    {
+      "term": "Arithmetic intermediates in the lens",
+      "definition": "The earlier result this figure is measured against: 21, 42 and 49 reach the top of the J-lens at successively later layers, in computation order.",
+      "conceptId": "arithmetic-intermediate-ordering"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "4, 17, 2, 7",
+      "meaning": "The operands of the prompt \"calc: ( 4 + 17 ) * 2 + 7 =\", named $A$, $B$, $C$ and $D$ in the caption. They are arbitrary small integers chosen so that each intermediate has a distinct single-token value."
+    },
+    {
+      "value": "21",
+      "meaning": "The first intermediate, $A+B = 4+17$. The left panel replaces it with other values $v$."
+    },
+    {
+      "value": "42",
+      "meaning": "The second intermediate, $(A+B)\\times C = 21 \\times 2$. The middle panel replaces it."
+    },
+    {
+      "value": "49",
+      "meaning": "The answer, $(A+B)\\times C + D = 42 + 7$. It is the model's actual output on the clean prompt, the quantity patched in the right panel, and the reference logit subtracted on every vertical axis."
+    },
+    {
+      "value": "$v$",
+      "meaning": "The family of alternative values patched in, one thin line each. A given $v$ implies a different final answer; for the left panel that implied answer is $v \\times 2 + 7$, for the middle panel $v + 7$, and for the right panel $v$ itself."
+    },
+    {
+      "value": "0",
+      "meaning": "The reference level on the vertical axis, where the implied answer and 49 carry equal logits. A curve crossing it marks the layer at which the patch flips the model's prediction."
+    },
+    {
+      "value": "71",
+      "meaning": "The depth, as a percentage of the network, at which patching the first intermediate flips the answer. It is also the layer at which Figure 17 shows 21 separating from the other two values in the lens."
+    },
+    {
+      "value": "79",
+      "meaning": "The depth at which patching the second intermediate flips the answer. It sits later than 71 because 42 cannot be computed until 21 is available."
+    },
+    {
+      "value": "roughly 8",
+      "meaning": "The number of layers, in percentage-of-depth units, by which 42 trails 21 in the lens readout. It is the gap the patching curves are being compared against, and 79 minus 71 matches it."
+    },
+    {
+      "value": "the last few layers",
+      "meaning": "The only range where patching the answer 49 has an effect. The paper gives no single layer number here; the value is a motor-layer representation of the imminent output rather than an intermediate available for further computation."
+    },
+    {
+      "value": "roughly the first third",
+      "meaning": "The share of depth over which all three values are absent from the J-space in Figure 17 — the sensory band. No patching effect appears there either."
+    },
+    {
+      "value": "0-100",
+      "meaning": "The range of the layer axis. The paper samples 25 evenly spaced residual-stream layers and reindexes them to this range so layer numbers read as percentages of depth."
+    },
+    {
+      "value": "25",
+      "meaning": "The number of evenly spaced layers the paper reports on throughout, which sets the resolution of the layer sweep on the horizontal axis."
+    },
+    {
+      "value": "3",
+      "meaning": "The number of panels, one per intermediate quantity, arranged left to right in the order the computation produces them."
+    }
+  ]
+}

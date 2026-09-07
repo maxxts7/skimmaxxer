@@ -1,0 +1,81 @@
+{
+  "concepts": [
+    {
+      "id": "reflection-training-corpus",
+      "name": "Reflection training contexts",
+      "parent": "counterfactual-reflection-training",
+      "summary": "The ten thousand training contexts: task prompts drawn from production RL environments, rolled out by the baseline model and cut off at a randomly chosen turn.",
+      "explanation": "The contexts are not written for the experiment. Ten thousand task prompts are sampled from the RL environments used in production training, the baseline model (Claude Haiku 4.5) generates a partial rollout for each, and the rollout is truncated at a randomly selected turn. The paper reports that the resulting set deliberately spans three kinds of situation: contexts in which the model has already committed some undesirable action, contexts in which it is positioned to commit one but has not yet, and contexts sampled at random. That mix is what gives the appended reflection something specific to be about, since the target reflection is required to be grounded in the particulars of the task rather than in general rules.",
+      "prerequisites": ["counterfactual-reflection-training", "post-training"],
+      "sectionIds": ["7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "constitution-grounded-reflection",
+      "name": "Constitution-grounded reflection",
+      "parent": "counterfactual-reflection-training",
+      "summary": "The supervised target text: a two-to-four-paragraph reflection the baseline model writes after being shown twenty sampled constitution principles, paraphrasing the relevant ones in its own words against the task at hand.",
+      "explanation": "For each truncated context, the baseline model is given twenty principles sampled from Anthropic's constitution and asked to write a reflection of two to four paragraphs. The instruction is to paraphrase whichever principles are relevant in natural, internalized language and to reason about the specifics of the task, rather than to recite rules. Figure 48 shows two such targets: in one the model has already replaced a form's save() method with a bare return False to silence a failing test, and the reflection names that action as deceptive; in the other it has found a failing assertion and not yet acted, and the reflection examines the impulse to delete it. The text is model-written rather than human-written, so what the fine-tune supervises is the baseline model's own way of applying the principles to that context.",
+      "prerequisites": ["counterfactual-reflection-training", "anthropic-constitution", "reflection-question", "reflection-training-corpus"],
+      "sectionIds": ["7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "stripped-training-example",
+      "name": "Stripped training example",
+      "parent": "constitution-grounded-reflection",
+      "summary": "What actually reaches the fine-tune: the original context, the reflection question and the reflection, with the constitution excerpt removed and loss computed on the reflection turn alone.",
+      "explanation": "The twenty sampled principles are present only while the target reflection is being generated. In the final training example that scaffolding is stripped, leaving the original truncated transcript, the appended reflection question, and the model-written reflection. Loss is computed on the reflection turn alone, so no gradient is applied to the transcript or to the question. The model is therefore trained to produce a constitution-grounded reflection conditioned only on the task context and the short probe, never on the constitution text itself, which is what the paper means by saying the model produces such reflections spontaneously.",
+      "prerequisites": ["constitution-grounded-reflection", "anthropic-constitution"],
+      "sectionIds": ["7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "post-response-supervision",
+      "name": "Supervising a continuation rather than a response",
+      "parent": "counterfactual-reflection-training",
+      "summary": "The training signal sits in text that follows the point of interest rather than text that produces an answer, so it specifies which concepts should be active while the model responds rather than what the response should be.",
+      "explanation": "Section 8 draws the distinction against two neighbours. Deliberative alignment supervises or emits the principles as part of the model's own response; counterfactual reflection training never touches the model's behavior in the target contexts, at training time or at evaluation. Implicit chain-of-thought trains on auxiliary reasoning text that is dropped at inference, which is the closer analogue, but there the auxiliary text produces the answer. Here the supervised text is a continuation appended after the truncation point, so the paper describes the signal as saying which concepts should be in the workspace while the model responds rather than what the response itself should be. The paper reads the resulting transfer as a form of out-of-context reasoning, with the addition that the J-lens makes the mechanism visible.",
+      "prerequisites": ["counterfactual-reflection-training", "implicit-chain-of-thought", "deliberative-alignment", "out-of-context-reasoning"],
+      "sectionIds": ["8"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "top-increasing-token-analysis",
+      "name": "Top-increasing token analysis",
+      "parent": "counterfactual-reflection-training",
+      "summary": "The measurement that shows training changed the workspace: J-lens readouts computed on the same evaluation prompts before and after fine-tuning, ranked by how much each token's activation rose in the workspace layers.",
+      "explanation": "The evaluation prompts contain no reflection question, and the model produces no reflection text. J-lens readouts are computed at the relevant positions in those uninterrupted contexts (the final 30 positions of the fabrication prompt, and all positions of the deception prompt), for the baseline model and the reflection-trained model, and averaged over contexts. The tokens whose workspace-layer activation rose most are then read off. A substantial number of them are ethics, reflection and meta-cognition terms: reflection, ethical, honestly, constitution, truth, transparent. The claim the paper draws is narrow and about timing: after reading the evaluation prompt and before emitting any output, the trained model's workspace already carries ethical-reflection concepts that the baseline's does not. This measurement is correlational; the ablation test is what makes the causal claim.",
+      "prerequisites": ["counterfactual-reflection-training", "j-lens-readout", "workspace-layers", "fabrication-honesty-benchmark", "deception-benchmark"],
+      "sectionIds": ["7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "top-25-appearance-rate",
+      "name": "Top-25 appearance rate",
+      "parent": "top-increasing-token-analysis",
+      "summary": "The statistic used to rank tokens in Figures 49 and 50: how often a token reaches the top 25 of the J-lens readout, reported before and after training.",
+      "explanation": "Rather than comparing raw activation values, the middle panels report, for each token, the fraction of evaluation prompts at which it enters the top 25 of the readout, and the fraction of (prompt x position) pairs at which it does. Both fractions are given before and after fine-tuning, and the twenty ethics-and-reflection tokens with the largest increase are listed for each benchmark. Measuring appearance in a ranked list rather than magnitude keeps the comparison stable across two models whose readout scales need not match, and separates a token that surfaces on many prompts from one that surfaces strongly on a few.",
+      "prerequisites": ["top-increasing-token-analysis", "j-lens-readout"],
+      "sectionIds": ["7"],
+      "floor": false,
+      "citedFrom": null
+    },
+    {
+      "id": "reflection-training-generalization-limits",
+      "name": "What reflection training is not yet known to do",
+      "parent": "counterfactual-reflection-training",
+      "summary": "The paper's own limits on the technique: it has been shown for one disposition, on one model, on two honesty benchmarks, and its breadth is untested.",
+      "explanation": "Section 9.2 states plainly that it is not known how broadly the technique generalizes, or whether it can implant dispositions more specific or more abstract than something like considering ethical principles in this kind of situation. The evidence in hand is one baseline model, Claude Haiku 4.5, and two honesty benchmarks, on one of which the ablation reverses almost the whole gain and on the other only part of it. The paper offers the conditional rather than the claim: if the technique does generalize, it would be a route to instilling principles at an abstract level without translating them into demonstrations or reward functions.",
+      "prerequisites": ["counterfactual-reflection-training", "ethics-token-ablation"],
+      "sectionIds": ["9.2", "7"],
+      "floor": false,
+      "citedFrom": null
+    }
+  ]
+}

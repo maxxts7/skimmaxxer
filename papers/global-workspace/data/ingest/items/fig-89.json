@@ -1,0 +1,224 @@
+{
+  "id": "fig-89",
+  "title": "Attribution graph for a two-step calculation",
+  "takeaway": "A J-lens attribution graph of the prompt \"(4+17)*2+7=\" names the three intermediates 21, 42 and 49 as nodes in computation order, and shows the multiplication entering as a fused \"doubled\" operation rather than as an operator plus a literal 2. Coordinate swaps confirm the named intermediates are causally load-bearing, while the first addition's operands are not, which the paper reads as that step happening outside the J-space.",
+  "walkthrough": "This is a live widget rather than a static image, and it carries two panels. The left panel is a [[j-lens-attribution-graphs]] built on the prompt \"(4+17)*2+7=\", computed on Sonnet 4.5 (one of the [[claude-model-family]]). The right panel is a bar chart of causal tests on the structure the graph proposes.\n\n### How the graph is built\n\nAt every layer and token position, [[sparse-decomposition]] writes the [[residual-stream]] activation as a small nonnegative combination of [[j-lens-vector]]s plus a leftover. Each selected vector becomes a node. Because a J-lens vector belongs to a vocabulary token, every node arrives already labelled, with no dictionary to train first. The leftover at each site becomes a [[remainder-node]], the counterpart of the error nodes in the original [[attribution-graphs]].\n\nEdges come from backpropagating a node's coefficient one layer back, with attention patterns and normalization denominators frozen. Unlike [[transcoder]]-based graphs, the gradient here passes through the MLP nonlinearity itself. Each drawn node is a [[supernode]], grouping vectors across adjacent layers and near-equivalent tokens; the gray text underneath lists what was grouped. The subgraph shown is curated.\n\n### How to read the right panel\n\nEach bar pair is a [[lens-coordinate-swap]]. One named concept's lens coordinates are exchanged for a counterfactual's, at every token position, over the upper half of the layers. The bars give the probability of the answer that counterfactual implies, before and after the swap, on a log scale.\n\n### What it shows\n\nThe arithmetic runs $4+17=21$, then $21\\times2=42$, then $42+7=49$. All three appear as named nodes at the final token, in that order, with 49 driving the output logit — the same ordering [[mechanistic-localization]] found by layer, and the [[arithmetic-intermediate-ordering]] result again.\n\nThe multiplication looks fused. The 42 node draws from 21 and from a doubled node, so operator and operand seem to arrive as one operation. A mult node traces to the operator token, but the literal 2 never appears as a named node and contributes only through the remainder. Swapping doubled for tripled flips the answer to 70.\n\nThe swaps also separate the intermediates. Putting 63 in for 42 pushes the answer toward 70, that is $63+7$. Putting the same 63 in for 21 pushes it toward 133, that is $63\\times2+7$. Downstream computation therefore still acts on each intermediate.\n\nThe two additions differ. The 21 node arrives already computed, and swapping 17 or 4 has essentially no effect, which the paper reads as the first addition happening outside the [[j-space]]. The final addition is partly visible: swapping 7 raises the counterfactual answer substantially, though not enough to displace 49.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "J-lens attribution graph",
+      "definition": "The left panel: a graph of a single forward pass whose nodes are J-lens vectors picked out by sparse decomposition at each layer and token position, and whose edges are one-layer gradient attributions between them. It is the paper's proof-of-concept adaptation of attribution graphs to the J-lens.",
+      "conceptId": "j-lens-attribution-graphs"
+    },
+    {
+      "term": "J-lens",
+      "definition": "The paper's readout technique: for each vocabulary token and layer, a direction in residual-stream space along which activation disposes the model toward emitting that token. It supplies both the graph's node dictionary and the coordinates the swaps operate on.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "\"(4+17)*2+7=\"",
+      "definition": "The prompt driving the forward pass. It requires two unspoken intermediate values before the answer, which is what makes the computation worth graphing.",
+      "conceptId": null
+    },
+    {
+      "term": "Sonnet 4.5",
+      "definition": "The model this graph and these swaps are computed on. Earlier figures ran the same arithmetic prompt on Opus 4.5, so this is a different model of the same family rather than a repeat.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "node",
+      "definition": "One J-lens vector, or a group of them, selected by the sparse decomposition at some layer and token position. Every node carries the label of its vocabulary token by construction.",
+      "conceptId": "j-lens-vector"
+    },
+    {
+      "term": "sparse decomposition",
+      "definition": "The procedure that expresses an activation as a small nonnegative combination of J-lens vectors plus a non-J-space leftover. It is what selects which nodes exist at each site.",
+      "conceptId": "sparse-decomposition"
+    },
+    {
+      "term": "supernode",
+      "definition": "A drawn node that merges several J-lens vectors — those from adjacent layers and those from near-equivalent tokens — into one box. The convention is taken from Ameisen et al.'s attribution graphs.",
+      "conceptId": "supernode"
+    },
+    {
+      "term": "gray text under each node",
+      "definition": "The list of J-lens vectors that were merged into that supernode. It includes near-misses, so a reader can see what the grouping absorbed.",
+      "conceptId": null
+    },
+    {
+      "term": "remainder node",
+      "definition": "The node at each layer and position collecting the part of the activation the sparse decomposition could not express in J-lens vectors. It plays the role the error nodes play in dictionary-based attribution graphs.",
+      "conceptId": "remainder-node"
+    },
+    {
+      "term": "non-J-space term",
+      "definition": "The content a remainder node stands for: activation outside the region spanned by sparse combinations of J-lens vectors. Most of the influence on the output in these graphs flows through it.",
+      "conceptId": "j-space-component"
+    },
+    {
+      "term": "J-space",
+      "definition": "The set of activations expressible as a sparse nonnegative combination of J-lens vectors — the paper's candidate global workspace. A computation the graph cannot name is a computation running outside it.",
+      "conceptId": "j-space"
+    },
+    {
+      "term": "edge",
+      "definition": "An attribution between two nodes, obtained by backpropagating the downstream node's coefficient one layer back with attention patterns and normalization denominators frozen. Edge weight indicates how much one node's presence accounts for another's.",
+      "conceptId": null
+    },
+    {
+      "term": "curated subgraph",
+      "definition": "The authors' own caveat that the drawn graph is a selection, chosen to show the main structure rather than the full set of nodes and edges the method produces.",
+      "conceptId": null
+    },
+    {
+      "term": "coordinate swap",
+      "definition": "The intervention behind the right panel: an activation's coordinates along two J-lens vectors are read out with a pseudoinverse, exchanged, and written back, leaving the rest of the activation untouched. Here it is applied at every token position over the upper half of the layers.",
+      "conceptId": "lens-coordinate-swap"
+    },
+    {
+      "term": "counterfactual",
+      "definition": "The concept swapped in for a named one, chosen so it implies a different final answer. The bars measure how much probability that implied answer gains.",
+      "conceptId": null
+    },
+    {
+      "term": "implied counterfactual answer",
+      "definition": "The number the model should output if the swapped-in concept genuinely played the swapped-out concept's role. It is the quantity the bar heights track.",
+      "conceptId": null
+    },
+    {
+      "term": "before / after",
+      "definition": "The two bars for each swap: the probability of the implied answer in the unmodified forward pass, and its probability once the swap is applied.",
+      "conceptId": null
+    },
+    {
+      "term": "log scale",
+      "definition": "The bar axis. The clean probabilities are small enough that a linear axis would flatten them to nothing, so the panel plots probability logarithmically.",
+      "conceptId": null
+    },
+    {
+      "term": "21 node",
+      "definition": "The named node for the first intermediate, the result of 4 + 17. It appears already computed, with no incoming edge from the 4.",
+      "conceptId": null
+    },
+    {
+      "term": "42 node",
+      "definition": "The named node for the second intermediate, 21 doubled. It receives edges from the 21 node and from the doubled node.",
+      "conceptId": null
+    },
+    {
+      "term": "49 node",
+      "definition": "The named node for the answer. It receives input from the 42 node and from the non-J-space term at the \"7\" token, and it drives the output logit.",
+      "conceptId": null
+    },
+    {
+      "term": "doubled node",
+      "definition": "A named node standing for the fused operation of doubling, feeding the 42 node. Its presence is the paper's evidence that the model merged the operator and the operand 2 into a single concept.",
+      "conceptId": null
+    },
+    {
+      "term": "mult node",
+      "definition": "A named node for the multiplication operator, traceable to the \"*\" token. The operator is visible in the J-space even though its operand is not.",
+      "conceptId": null
+    },
+    {
+      "term": "seventeen node",
+      "definition": "A named node at the \"17\" token feeding the 21 node. Its swap has essentially no effect, so the graph's edge overstates its causal role.",
+      "conceptId": null
+    },
+    {
+      "term": "tripled",
+      "definition": "The counterfactual swapped in for doubled. Under it the model outputs 70, which is 21 x 3 + 7.",
+      "conceptId": null
+    },
+    {
+      "term": "twent, 26, 29",
+      "definition": "Near-miss J-lens vectors grouped under the 21 supernode. They arise because the sparse pursuit runs greedily layer by layer and can land on a correlate of a concept that is still forming.",
+      "conceptId": null
+    },
+    {
+      "term": "gradient pursuit",
+      "definition": "The greedy sparse-approximation algorithm behind the decomposition. Its greediness is why near-misses appear in the supernode groupings before the concept itself does.",
+      "conceptId": "gradient-pursuit"
+    },
+    {
+      "term": "transcoder-based graphs",
+      "definition": "The prior form of attribution graph, which replaces each MLP with a learned sparse dictionary approximation. The J-lens graph differs in letting gradients flow through the MLP nonlinearity itself.",
+      "conceptId": "transcoder"
+    },
+    {
+      "term": "error nodes",
+      "definition": "The original attribution graphs' name for the unexplained residue at each site. Remainder nodes here are the analogue.",
+      "conceptId": "attribution-graphs"
+    },
+    {
+      "term": "output logit",
+      "definition": "The model's pre-softmax score for the answer token. The graph is anchored on it: 49 is the node feeding it.",
+      "conceptId": null
+    },
+    {
+      "term": "top prediction",
+      "definition": "The token the model would emit. Three of the swaps move the implied counterfactual answer into this position; the 7 swap does not.",
+      "conceptId": null
+    },
+    {
+      "term": "upper half of the network's layers",
+      "definition": "The layer range over which every swap in the right panel is applied. It covers the workspace and later layers rather than the early ones where the J-space is empty.",
+      "conceptId": "workspace-layers"
+    },
+    {
+      "term": "frozen attention patterns and normalization denominators",
+      "definition": "A choice in computing edges: attention weights and the scaling factors in layer normalization are treated as constants during the backward pass, so the gradient measures direct linear influence rather than routing changes.",
+      "conceptId": null
+    }
+  ],
+  "numbers": [
+    {
+      "value": "4, 17, 2, 7",
+      "meaning": "The four operands of the prompt \"(4+17)*2+7=\", in order. 4 and 17 are the first addition's operands, 2 the multiplier and 7 the final addend."
+    },
+    {
+      "value": "21",
+      "meaning": "The first intermediate, 4 + 17. It appears as a named node at the final token position, already computed, and swapping it for 63 redirects the answer."
+    },
+    {
+      "value": "42",
+      "meaning": "The second intermediate, 21 x 2. It appears as a named node receiving edges from 21 and from doubled."
+    },
+    {
+      "value": "49",
+      "meaning": "The correct answer, 42 + 7, and the model's actual output. It appears as the last named node and drives the output logit; no swap of the 7 alone displaces it as top prediction."
+    },
+    {
+      "value": "63",
+      "meaning": "The counterfactual value swapped in for 42 in one test and for 21 in another. The same number is used twice on purpose, so that any difference in outcome must come from the downstream computation rather than from the value itself."
+    },
+    {
+      "value": "70",
+      "meaning": "The implied answer in two separate swaps. Swapping 42 for 63 gives 63 + 7 = 70; swapping doubled for tripled gives 21 x 3 + 7 = 70."
+    },
+    {
+      "value": "133",
+      "meaning": "The implied answer when 21 is swapped for 63, since the downstream computation still doubles and then adds 7: 63 x 2 + 7 = 133. That it differs from the 70 produced by the same 63 at the 42 node is the point of the pairing."
+    },
+    {
+      "value": "twent, 26, 29",
+      "meaning": "Token labels grouped under the 21 supernode as near-misses. 26 and 29 are numerically close to 21 without equalling it; twent is a word-piece prefix of twenty-one. They are listed to show what the grouping absorbed."
+    },
+    {
+      "value": "one layer",
+      "meaning": "The distance a node's coefficient is backpropagated to produce an edge. Edges are therefore local, layer-to-layer attributions rather than end-to-end paths."
+    },
+    {
+      "value": "Sonnet 4.5",
+      "meaning": "The model version. The earlier layerwise figure for this same prompt used Opus 4.5, so the structural agreement between them is across two models."
+    },
+    {
+      "value": "upper half of the layers",
+      "meaning": "The layer range each swap covers. Restricting to the upper half keeps the intervention inside the depth where the J-space carries content."
+    },
+    {
+      "value": "negligible probability",
+      "meaning": "The paper's description of the clean-run bars for the successful swaps: the counterfactual answers start with essentially no probability mass, which is why the axis is logarithmic and why the post-swap rise is legible as a causal effect."
+    }
+  ]
+}

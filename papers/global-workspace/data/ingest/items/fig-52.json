@@ -1,0 +1,155 @@
+{
+  "id": "fig-52",
+  "title": "Intermediate recovery across three lenses",
+  "takeaway": "Across all six prompt distributions in which a known intermediate concept must be computed, the J-lens surfaces that intermediate in its top-$k$ readout more reliably than either the logit lens or the tuned lens. Its margin is small on multihop and association and large on multilingual, poetry, order-of-operations and typo; the tuned lens is last on every distribution and recovers almost nothing on poetry and association.",
+  "walkthrough": "The figure is a two-by-three grid of line plots. Each panel is one of the six prompt distributions in the [[intermediate-concept-benchmarks]]: multihop, multilingual and poetry on the top row, order_ops, association and typo on the bottom. Every panel is scored the same way, so panels can be read against one another.\n\nEach panel carries three lines, one per readout method under comparison. Black is the [[jacobian-lens]], red the [[logit-lens]], blue the [[tuned-lens]]. Markers sit at the seven measured values of $k$.\n\n### How to read a panel\n\nThe horizontal axis is $k$, spaced logarithmically at 1, 2, 5, 10, 20, 50, 100. The vertical axis is pass@k: the fraction of the known intermediates that the lens recovers. An intermediate counts as recovered at $k$ when it appears among the top $k$ tokens of that lens's [[j-lens-readout|readout]] at any layer.\n\nThe \"at any layer\" clause does real work. The score takes the best depth in the network, so a lens is not penalised for surfacing a concept in only a narrow band of layers.\n\nEvery curve therefore rises with $k$, since a wider net catches more. The number beside each legend entry is the [[pass-at-k-auc]]: the area under that curve plotted against $\\log k$, normalised so that a method always ranking the intermediate first would score 1.\n\n### What the panels show\n\nThe black line sits above the other two at nearly every $k$ in every panel, and the AUC ordering is Jacobian, then logit, then tuned on all six distributions.\n\nThe size of the gap varies. On multihop the J-lens scores 0.81 against the logit lens's 0.77, and on association 0.68 against 0.65 — differences of a few points. On multilingual it is 0.71 against 0.53, on poetry 0.80 against 0.58, on typo 0.83 against 0.52.\n\nThe tuned lens is lowest everywhere, and collapses on two distributions: 0.18 on poetry and 0.11 on association. The paper offers an explanation. Those are the two distributions whose readout position is followed by an uninformative next token — a newline and a period — and the tuned lens is fitted to match the model's next-token distribution.\n\nThe tuned lens does close much of the gap at large $k$ on multihop, order_ops and typo, crossing the red line somewhere past $k=20$. Its weakness on those three is one of ranking rather than of the concept being absent from its readout altogether.\n\nOne artefact of the plotting: in the poetry, association and typo panels the legend box covers part of the blue curve, so the tuned lens's mid-range values there are inferred from the visible endpoints.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "pass@k",
+      "definition": "The y-axis of every panel: the fraction of known intermediate concepts that appear among the top $k$ tokens of a lens's readout, at any layer of the model. It is a recovery rate, not an accuracy on the model's own output.",
+      "conceptId": "pass-at-k-auc"
+    },
+    {
+      "term": "k",
+      "definition": "The x-axis: how many of the lens's highest-scoring vocabulary tokens are inspected at each layer. Larger $k$ is a looser test, so every curve is non-decreasing in $k$.",
+      "conceptId": null
+    },
+    {
+      "term": "AUC",
+      "definition": "The number in parentheses after each legend entry: the area under that method's pass@k curve when plotted against $\\log k$, normalised so a method that always ranks the intermediate first would score 1. Here it is not the area under an ROC curve.",
+      "conceptId": "pass-at-k-auc"
+    },
+    {
+      "term": "Lens Type (AUC)",
+      "definition": "The legend title in each panel. It labels the three lines by method and gives each method's normalised AUC for that panel's distribution.",
+      "conceptId": null
+    },
+    {
+      "term": "Jacobian Lens",
+      "definition": "The paper's own method, drawn in black. For each vocabulary token it holds a residual-stream direction — obtained from a corpus-averaged Jacobian from layer $\\ell$ to the final layer — that disposes the model to say that token.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "Logit Lens",
+      "definition": "The earlier baseline, drawn in red: apply the model's unembedding matrix directly to the intermediate residual stream. In the paper's formulation this is the J-lens with the Jacobian replaced by the identity.",
+      "conceptId": "logit-lens"
+    },
+    {
+      "term": "Tuned Lens",
+      "definition": "The other baseline, drawn in blue: per-layer affine maps trained so that the decoded distribution matches the model's own next-token distribution. The paper argues that objective is correlational rather than causal.",
+      "conceptId": "tuned-lens"
+    },
+    {
+      "term": "Intermediate concept",
+      "definition": "The known single-token word that the model must compute for a given prompt, chosen so that it is neither present in the input nor identical to the predicted output. Recovering it is what pass@k scores.",
+      "conceptId": "intermediate-concept-benchmarks"
+    },
+    {
+      "term": "multihop",
+      "definition": "The panel for two-hop factual questions whose surface tokens have no direct association with the answer, so a bridging entity must be computed — for example Mars, before answering that the fourth planet's colour is red.",
+      "conceptId": "multihop-benchmark"
+    },
+    {
+      "term": "multilingual",
+      "definition": "The panel for prompts written entirely in a non-English language, testing whether the model routes through English-aligned representations. Four intermediates are sought per item: the language, the relation, and the English equivalents of the input and output words.",
+      "conceptId": "multilingual-benchmark"
+    },
+    {
+      "term": "poetry",
+      "definition": "The panel for rhyming couplets, where the lens is read at the newline between the two lines and the target is the second line's final word — a word the model has planned but not yet written.",
+      "conceptId": "poetry-benchmark"
+    },
+    {
+      "term": "order_ops",
+      "definition": "The panel for arithmetic expressions such as (2 + 3) × 4. Two intermediates are sought per item, the partial result and the pending operation, with single-token synonyms accepted.",
+      "conceptId": "order-of-operations-benchmark"
+    },
+    {
+      "term": "association",
+      "definition": "The panel for short passages that depict a concept through behavioural cues without naming it. The lens is read at the closing period, and no single token is the trigger — the concept must be assembled from accumulated context.",
+      "conceptId": "association-benchmark"
+    },
+    {
+      "term": "typo",
+      "definition": "The panel for sentences ending on a common misspelling. The target is the correctly spelled word, read at the final fragment of the misspelled token, where the model is not about to say that word.",
+      "conceptId": "typo-benchmark"
+    },
+    {
+      "term": "Readout at any layer",
+      "definition": "The rule under which recovery is scored: an intermediate counts as recovered if it reaches the top $k$ at any depth of the network, so each method is credited with its best layer.",
+      "conceptId": "j-lens-readout"
+    },
+    {
+      "term": "Top-$k$ tokens",
+      "definition": "The $k$ highest-scoring entries of a lens's distribution over the tokenizer vocabulary at one position and layer. The intermediates are all chosen to be single-token words so that they can appear in such a list.",
+      "conceptId": "tokenizer-vocabulary"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "6",
+      "meaning": "The number of panels, one per prompt distribution in the benchmark suite. Each distribution is a different way for a model to be forced to compute a concept it does not say."
+    },
+    {
+      "value": "1, 2, 5, 10, 20, 50, 100",
+      "meaning": "The seven values of $k$ at which pass@k is measured, marked by dots on each curve. They are spaced roughly evenly on a log scale, which is also the scale the AUC integrates over."
+    },
+    {
+      "value": "0.0 to 1.0",
+      "meaning": "The y-axis range of every panel, gridded at 0.2. It is a fraction of intermediates recovered, so 1.0 means every known intermediate was found within the top $k$ at some layer."
+    },
+    {
+      "value": "1",
+      "meaning": "The AUC a method would score if it always placed the intermediate at rank 1 for every item. The normalisation is defined against this ceiling, which makes AUC values comparable across panels."
+    },
+    {
+      "value": "0.81 / 0.77 / 0.68",
+      "meaning": "Multihop AUC for the Jacobian, logit and tuned lenses. The paper calls the J-lens margin over the logit lens modest here; two-hop bridging entities are the case earlier work had already shown the logit lens can decode."
+    },
+    {
+      "value": "0.71 / 0.53 / 0.47",
+      "meaning": "Multilingual AUC for the three lenses. A gap of 0.18 between the J-lens and the logit lens — one of the four distributions where the paper describes the margin as substantial."
+    },
+    {
+      "value": "0.80 / 0.58 / 0.18",
+      "meaning": "Poetry AUC for the three lenses. The tuned lens's 0.18 is its second-worst score; the paper attributes it to the readout position being a newline, whose next token carries no information about the planned rhyme."
+    },
+    {
+      "value": "0.89 / 0.72 / 0.65",
+      "meaning": "Order-of-operations AUC for the three lenses. 0.89 is the J-lens's highest score in the figure — partial arithmetic results are recovered at or near rank 1 for most items."
+    },
+    {
+      "value": "0.68 / 0.65 / 0.11",
+      "meaning": "Association AUC for the three lenses. The J-lens and logit lens are within 0.03 of each other, the narrowest gap in the figure, while the tuned lens's 0.11 is the lowest value anywhere in it."
+    },
+    {
+      "value": "0.83 / 0.52 / 0.45",
+      "meaning": "Typo AUC for the three lenses. The 0.31 gap between the J-lens and the logit lens is the widest in the figure."
+    },
+    {
+      "value": "~0.36 to ~0.57",
+      "meaning": "The range of the J-lens's pass@1 across the six panels — about 0.36 on association, 0.42 multilingual, 0.46 poetry, 0.55 multihop, 0.56 order_ops, 0.57 typo. Roughly half the intermediates are already the single top-ranked token at some layer."
+    },
+    {
+      "value": "~0.90 to 1.00",
+      "meaning": "The J-lens's pass@100 on five of the six panels; poetry and order_ops reach 1.00 by $k=50$, multihop and typo sit near 0.98, multilingual 0.91 and association 0.90. Almost every intermediate appears somewhere in the top 100."
+    },
+    {
+      "value": "~0.00 to ~0.37",
+      "meaning": "The tuned lens's pass@1 across the panels — near zero on association, about 0.02 on poetry, 0.06 typo, 0.24 multihop, 0.25 multilingual, 0.37 order_ops. It rarely ranks an unspoken intermediate first."
+    },
+    {
+      "value": "~0.32",
+      "meaning": "The tuned lens's pass@100 on association, its lowest endpoint. Even with a hundred tokens inspected at every layer, it misses the implied concept on roughly two thirds of items."
+    },
+    {
+      "value": "20 to 50",
+      "meaning": "The approximate range of $k$ over which the blue tuned-lens curve crosses above the red logit-lens curve on multihop, order_ops and typo. Its deficit on those three is in ranking rather than in the concept being absent."
+    },
+    {
+      "value": "50 / 54 / 52 / 55 / 50 / 96",
+      "meaning": "Item counts for multihop, multilingual, poetry, order_ops, association and typo respectively, from the section text rather than the figure. The multilingual and order_ops sets look for several intermediates per item, so the pass@k denominator counts intermediates, not prompts."
+    }
+  ]
+}

@@ -1,0 +1,284 @@
+{
+  "id": "fig-82",
+  "title": "Validating the eval-awareness score",
+  "takeaway": "The figure collapses the J-lens readout into a single eval-awareness score and checks it four ways: it separates positions an independent NLA pipeline calls latently eval-aware (AUC 0.853), it moves monotonically under contrastive steering, it falls when evaluation prompts are rewritten to read like real usage, and it runs higher on evaluation suites than on deployment traffic. The separation from deployment is a shift in distribution rather than a clean split, and the authors present the score only as a proof of concept.",
+  "walkthrough": "The figure reports one scalar quantity, the [[eval-awareness-score]], across four panels. All four use Opus 4.6, a production model from the [[claude-model-family]]. The question behind them is whether [[evaluation-awareness]] can be measured systematically rather than read off case by case.\n\nThe score collapses a whole [[j-lens-readout]] into a number. At a token position the [[jacobian-lens]] gives a score for every vocabulary token at every layer. The score takes the log-probability of two words that signal artificiality, `fictional` and `simulation`, and averages them. It then subtracts the mean log-probability of one hundred unrelated control nouns — recipe, bicycl, guitar and the like. That difference is averaged over the [[workspace-layers]], the middle band of depth where the J-space carries workspace content. A high score means the workspace is holding the idea that the situation is not real.\n\n### The four panels\n\nTop left tests discrimination against an independent method. Every Assistant-turn-start position in a corpus of automated auditing transcripts was scored, roughly 94,000 in total. A [[natural-language-autoencoder]] pipeline, which decodes an activation into text that a grader then judges, flagged 198 of those positions (0.2%) as latently eval-aware. On a stratified subset — all 198 flagged positions plus 594 drawn from the remainder — the two score distributions separate with an [[auc]] of 0.853.\n\nTop middle tests whether the score responds to a causal push. Under [[contrastive-eval-awareness-steering]] at strengths $-0.1$ (toward ordinary conversation), $0$, and $+0.1$ (toward test), the score rose monotonically on all six suites. Points are means over transcripts, error bars standard errors.\n\nTop right tests surface cues. [[realism-edits]] rewrite an evaluation prompt to read like real usage while preserving the task. Across eleven suites with paired original and rewritten prompts the score fell on every suite; on eight of them the 95% confidence interval on the paired difference excludes zero.\n\nBottom compares settings. Per-transcript score distributions are drawn for two deployment controls, seven alignment evaluations and nine capability evaluations, with horizontal bars marking means.\n\n### What the bottom panel shows\n\nThe deployment distributions center near 1.0. The highest-scoring suites — Sycophancy, Appropriate Harmlessness, Blackmail, BrowseComp — sit two to three score units above them. Twelve of the sixteen evaluations score above the Claude Code sessions and ten above the Claude.ai conversations. Four of the sixteen therefore do not exceed the Claude Code sessions, and six do not exceed the Claude.ai conversations, so the gap is a shift in distribution and not a separation.\n\nThe paper calls this classifier a proof of concept and expects a better one from a larger readout vocabulary plus post-hoc filtering by a language model, since `fictional` could also fire during a genuine discussion of fiction.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "J-lens eval-awareness score",
+      "definition": "The single number plotted in every panel: at one token position, the mean J-lens log-probability of the two eval-awareness words minus the mean over one hundred control words, averaged across the workspace layers. It is the paper's attempt to turn a qualitative lens readout into a quantitative probe.",
+      "conceptId": "eval-awareness-score"
+    },
+    {
+      "term": "J-lens (Jacobian lens)",
+      "definition": "The paper's interpretability technique, which maps a residual-stream activation to a score over every vocabulary token by applying a layer-specific averaged Jacobian and then the unembedding. Here it supplies the per-token log-probabilities the score is built from.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "J-lens readout",
+      "definition": "The read operation of the lens at one (position, layer): softmax over the vocabulary of the lens-transformed activation. The score in this figure reads two specific entries of that distribution and one hundred others as a baseline.",
+      "conceptId": "j-lens-readout"
+    },
+    {
+      "term": "Evaluation awareness",
+      "definition": "A model's internal recognition that the situation it is in is a test rather than real use. The figure asks whether that recognition can be measured with one number across many transcripts.",
+      "conceptId": "evaluation-awareness"
+    },
+    {
+      "term": "Latent eval-awareness",
+      "definition": "The case the NLA pipeline flags: the decoded description of the model's internal state asserts that the situation is a test, while the model's visible output says nothing of the kind. These flagged positions are the positive class in the top-left panel.",
+      "conceptId": "evaluation-awareness"
+    },
+    {
+      "term": "fictional, simulation",
+      "definition": "The two eval-awareness words whose lens log-probabilities form the positive half of the score. The paper notes that `fictional` can also fire in a genuine discussion of works of fiction, which is one reason it treats the score as provisional.",
+      "conceptId": "eval-awareness-score"
+    },
+    {
+      "term": "Control words",
+      "definition": "One hundred unrelated common concrete nouns (recipe, bicycl, guitar and similar) whose mean lens log-probability is subtracted as a baseline. They absorb the general level of the readout at that position and layer, so the score reflects the two target words specifically.",
+      "conceptId": "eval-awareness-score"
+    },
+    {
+      "term": "Workspace layers",
+      "definition": "The middle band of model depth in which the J-space behaves like a workspace, sitting between early 'sensory' layers and late 'motor' layers. The score is averaged over these layers rather than over all layers.",
+      "conceptId": "workspace-layers"
+    },
+    {
+      "term": "Opus 4.6",
+      "definition": "The production Claude model all four panels are computed on. Opus is the largest of the three size tiers in the family.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "Natural-language autoencoder (NLA)",
+      "definition": "A separate readout method that decodes an activation into a text description, which a language-model grader then assesses. In the top-left panel it is the independent judge whose verdicts split the two distributions.",
+      "conceptId": "natural-language-autoencoder"
+    },
+    {
+      "term": "NLA-based pipeline verdict",
+      "definition": "The binary label attached to each scored position by the NLA study's procedure: flagged as latently eval-aware, or not. It is not ground truth, only a second method built on different machinery.",
+      "conceptId": "natural-language-autoencoder"
+    },
+    {
+      "term": "Language-model grader",
+      "definition": "A model used to judge text against a written rubric in place of a human rater; here it decides whether an NLA description asserts that the situation is a test.",
+      "conceptId": "llm-grader"
+    },
+    {
+      "term": "Assistant-turn-start position",
+      "definition": "The token position where the model's own turn begins, before it has emitted response content. The paper scores there because the workspace at that point reflects the model's reading of the situation rather than its unfolding output.",
+      "conceptId": "readout-positions"
+    },
+    {
+      "term": "Automated auditing transcripts",
+      "definition": "Conversations produced by an automated auditing setup, in which an investigator agent probes the target model. They supply the roughly 94,000 positions used in the top-left panel.",
+      "conceptId": "automated-auditing-agent"
+    },
+    {
+      "term": "Stratified subset",
+      "definition": "The scored sample used for the AUC: every flagged position plus a sample from the unflagged remainder. Stratifying is needed because flagged positions are only 0.2% of the corpus, so a uniform sample would contain almost none.",
+      "conceptId": null
+    },
+    {
+      "term": "AUC",
+      "definition": "Area under the ROC curve: the probability that the score ranks a randomly chosen flagged position above a randomly chosen unflagged one. 0.5 is chance.",
+      "conceptId": "auc"
+    },
+    {
+      "term": "Contrastive steering",
+      "definition": "Adding a direction to the model's activations during generation, where the direction comes from paired prompts framing the same content as a test versus an ordinary conversation. It is the causal manipulation in the top-middle panel.",
+      "conceptId": "contrastive-eval-awareness-steering"
+    },
+    {
+      "term": "Steering vector",
+      "definition": "The direction added at inference time to push behavior toward or away from some content. Here the content is the sense of being tested.",
+      "conceptId": "steering-vectors"
+    },
+    {
+      "term": "\"ordinary conversation\" / \"test\"",
+      "definition": "The two poles of the contrastive direction, shown in the top-middle panel as the negative and positive steering strengths respectively.",
+      "conceptId": "contrastive-eval-awareness-steering"
+    },
+    {
+      "term": "Evaluation suite",
+      "definition": "A named set of prompts run as one benchmark, such as Sycophancy or BrowseComp. Suites are the unit along which the top-middle, top-right and bottom panels are broken out.",
+      "conceptId": null
+    },
+    {
+      "term": "Realism edits",
+      "definition": "Rewrites of an evaluation prompt that keep the underlying task but strip the surface tells of artificiality, so the prompt reads like real usage. The top-right panel plots the score change they produce.",
+      "conceptId": "realism-edits"
+    },
+    {
+      "term": "Paired difference",
+      "definition": "The per-suite change in score between an original prompt and its rewritten counterpart, computed within pairs rather than between separate groups. Pairing removes the between-prompt variation that would otherwise swamp the effect.",
+      "conceptId": null
+    },
+    {
+      "term": "Standard error",
+      "definition": "The error bars in the top-middle panel: the spread of the transcript-mean score, indicating how precisely each point is estimated.",
+      "conceptId": null
+    },
+    {
+      "term": "95% confidence interval",
+      "definition": "The error bars in the top-right panel, placed on the paired difference. A suite counts as significant when its interval does not include zero.",
+      "conceptId": null
+    },
+    {
+      "term": "Deployment controls",
+      "definition": "The two non-evaluation sources in the bottom panel: internal Claude.ai conversations and internal Claude Code sessions. They stand in for what real traffic looks like.",
+      "conceptId": null
+    },
+    {
+      "term": "Internal Claude.ai conversations",
+      "definition": "One of the two deployment controls: chat traffic from internal use of the consumer product.",
+      "conceptId": null
+    },
+    {
+      "term": "Internal Claude Code sessions",
+      "definition": "The other deployment control: agentic coding sessions from internal use of the CLI tool.",
+      "conceptId": null
+    },
+    {
+      "term": "Alignment evaluations",
+      "definition": "The seven safety-oriented suites in the bottom panel, drawn from the authors' pre-release audits; Sycophancy, Appropriate Harmlessness and Blackmail are named examples.",
+      "conceptId": null
+    },
+    {
+      "term": "Capability evaluations",
+      "definition": "The nine ability-oriented suites in the bottom panel, also from the pre-release audits; BrowseComp is a named example.",
+      "conceptId": null
+    },
+    {
+      "term": "Sycophancy",
+      "definition": "One of the alignment suites, testing whether the model caves to a user's stated view. It is among the four highest-scoring suites in the bottom panel.",
+      "conceptId": null
+    },
+    {
+      "term": "Appropriate Harmlessness",
+      "definition": "An alignment suite testing whether refusals are calibrated rather than blanket. It is among the four highest-scoring suites.",
+      "conceptId": null
+    },
+    {
+      "term": "Blackmail",
+      "definition": "The honeypot evaluation in which an email-assistant model discovers an executive's affair and its own impending replacement. It appears elsewhere in the paper as the case study that first showed eval awareness in the workspace.",
+      "conceptId": "blackmail-scenario"
+    },
+    {
+      "term": "BrowseComp",
+      "definition": "A capability suite for hard web-browsing lookups. It scores among the highest four despite not being a safety test.",
+      "conceptId": null
+    },
+    {
+      "term": "Per-transcript score",
+      "definition": "The unit plotted in the bottom panel: a whole transcript reduced to one number by averaging its scored positions. The top-middle panel uses roughly fifty scored positions per transcript.",
+      "conceptId": null
+    },
+    {
+      "term": "Horizontal bars",
+      "definition": "The marks over each distribution in the bottom panel, giving that group's mean score.",
+      "conceptId": null
+    },
+    {
+      "term": "Score units",
+      "definition": "The units of the horizontal axis in the bottom panel: differences of mean log-probability between the target and control words. They are not probabilities and have no fixed scale, so only relative distances are interpretable.",
+      "conceptId": null
+    },
+    {
+      "term": "Validation experiments",
+      "definition": "The three checks the NLA study used to argue its measurements track eval awareness — steering, realism edits, and evaluation versus deployment. This figure repeats all three on the same transcripts and suites with the J-lens score in place of the NLA readout.",
+      "conceptId": null
+    }
+  ],
+  "numbers": [
+    {
+      "value": "2",
+      "meaning": "Eval-awareness words in the positive half of the score: `fictional` and `simulation`. The paper picked a small hand-chosen set and says a larger readout vocabulary would likely do better."
+    },
+    {
+      "value": "100",
+      "meaning": "Control words whose mean lens log-probability is subtracted. They are common concrete nouns, unrelated to testing, and serve as a per-position baseline for the general level of the readout."
+    },
+    {
+      "value": "~94,000",
+      "meaning": "Assistant-turn-start positions scored across the corpus of automated auditing transcripts of Opus 4.6. This is the full population from which the top-left panel's subset is drawn."
+    },
+    {
+      "value": "198",
+      "meaning": "Positions the NLA pipeline flags as latently eval-aware. These are the positives in the top-left panel and all of them are kept in the scored subset."
+    },
+    {
+      "value": "0.2%",
+      "meaning": "The flagged 198 as a share of the roughly 94,000 positions. The rarity is why the comparison had to be run on a stratified subset rather than a uniform sample."
+    },
+    {
+      "value": "594",
+      "meaning": "Positions sampled from the unflagged remainder to serve as negatives. With the 198 flagged positions this gives a scored subset of 792, a ratio of three negatives per positive."
+    },
+    {
+      "value": "0.853",
+      "meaning": "AUC of the J-lens score in separating NLA-flagged from unflagged positions. Chance is 0.5, so the score carries substantial signal about the other method's verdict without matching it."
+    },
+    {
+      "value": "-0.1, 0, +0.1",
+      "meaning": "The three contrastive steering strengths in the top-middle panel: toward ordinary conversation, no steering, and toward test. The score rose monotonically across these three on every suite."
+    },
+    {
+      "value": "6",
+      "meaning": "Evaluation suites used in the steering experiment. The monotonic increase held on all six."
+    },
+    {
+      "value": "~50",
+      "meaning": "Scored positions per transcript in the top-middle panel, sampled at random within each response. Each plotted point is a mean over transcripts, each transcript itself a mean over roughly this many positions."
+    },
+    {
+      "value": "11",
+      "meaning": "Suites in the realism-edit experiment, each with original and rewritten prompts paired. The score fell on all eleven."
+    },
+    {
+      "value": "8",
+      "meaning": "Of the eleven suites, the number where the drop from realism editing is significant at a 95% confidence interval on the paired difference. On the remaining three the direction is the same but the interval includes zero."
+    },
+    {
+      "value": "95%",
+      "meaning": "Confidence level of the error bars in the top-right panel, placed on the paired original-minus-rewritten difference."
+    },
+    {
+      "value": "2",
+      "meaning": "Deployment controls in the bottom panel: internal Claude.ai conversations and internal Claude Code sessions."
+    },
+    {
+      "value": "7",
+      "meaning": "Alignment evaluations in the bottom panel, drawn from the authors' pre-release audits."
+    },
+    {
+      "value": "9",
+      "meaning": "Capability evaluations in the bottom panel, from the same pre-release audits."
+    },
+    {
+      "value": "16",
+      "meaning": "Total evaluation suites in the bottom panel: the seven alignment plus the nine capability evaluations. It is the denominator for the counts that follow."
+    },
+    {
+      "value": "1.0",
+      "meaning": "Approximate center of the two deployment distributions on the score axis. It is the reference level against which the evaluation suites are read; the score is a log-probability difference, so this value has no absolute interpretation."
+    },
+    {
+      "value": "2 to 3",
+      "meaning": "Score units by which the four highest suites — Sycophancy, Appropriate Harmlessness, Blackmail, BrowseComp — sit above the deployment distributions."
+    },
+    {
+      "value": "12",
+      "meaning": "Of the sixteen evaluations, the number scoring above the Claude Code sessions. The other four do not, so evaluation and deployment overlap."
+    },
+    {
+      "value": "10",
+      "meaning": "Of the sixteen evaluations, the number scoring above the Claude.ai conversations. Claude.ai traffic therefore scores higher than Claude Code traffic, and six evaluations fall inside its range."
+    },
+    {
+      "value": "4.6",
+      "meaning": "The Claude Opus version all four panels run on."
+    }
+  ]
+}

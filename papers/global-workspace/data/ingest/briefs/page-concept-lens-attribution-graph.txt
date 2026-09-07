@@ -1,0 +1,45 @@
+PAGE FOR CONCEPT: lens-attribution-graph
+NAME: J-lens attribution graph
+
+SUMMARY (already shown above your page as the lede - do not repeat it verbatim):
+A wiring diagram of a single forward pass whose nodes are J-lens vectors picked out by sparse decomposition and whose edges are one-layer gradient attributions, paired with a bar panel of coordinate swaps that tests whether the drawn wiring is causally real. It is for showing how a computation is organized, not how strong any one quantity is.
+
+DRAFT EXPLANATION from the extraction stage (your page replaces this; keep what is right, go deeper):
+### Why this chart and not another
+
+The question behind the shape is organizational: which named quantity feeds which, in what order, at which depth. A line or heatmap of concept rank across layers — the shape [[arithmetic-intermediate-ordering]] uses — records when a value surfaces but says nothing about what produced it. A table of decomposition coefficients would list the parts and drop the wiring. An average over prompts would erase the object entirely, since the claim is about one forward pass on one prompt: that 21 exists before 42, and that 42 draws on 21 together with a fused doubled node. Wiring is a graph, so the plot is a graph.
+
+The second half of the question is whether the drawn wiring is real. An edge here is a gradient quantity — how much a downstream coefficient moves when an upstream one moves, with attention patterns and normalization denominators held fixed. That is local sensitivity, not evidence of use. Hence the pairing: the graph proposes a structure and the bar panel tests it. Neither half stands alone.
+
+### How to read it, step by step
+
+In the left panel, depth runs upward and token position runs across, with the final token column carrying the answer. One node is one [[j-lens-vector]] selected by [[sparse-decomposition]] at that layer and position, or a [[supernode]] merging several across adjacent layers and near-equivalent tokens; the gray text underneath lists what was merged. Every node arrives labelled with a vocabulary token by construction, so no dictionary was trained first — the difference from [[transcoder]]-based [[attribution-graphs]]. A [[remainder-node]] at each site holds whatever the decomposition could not express in lens vectors, playing the role error nodes play in the original formulation. Edges come from backpropagating a node's coefficient one layer back; weight indicates how much one node accounts for another.
+
+The reading starts at the output logit on the final token and walks backwards. Most of the influence on the output runs through remainder nodes rather than named ones, which is what [[j-space-capacity]] predicts, and the subgraph drawn is curated to show the main structure. What survives is the verbalizable skeleton of the computation, not the computation.
+
+In the right panel each bar pair is one [[lens-coordinate-swap]]: a named concept's coordinates exchanged for a counterfactual's at every token position over the upper half of the layers. The bars give the probability of the answer that counterfactual implies, before and after. The axis is logarithmic because the clean-run probabilities are negligible, and a linear axis would flatten both bars to the floor. Each named node in the graph should be matched to its bar.
+
+### What a bad result would look like
+
+Bars that do not move. If the named nodes were correlates rather than the computation, swapping 42 for 63 would leave 49 in place. A weaker failure: the same counterfactual raising the same answer wherever it is inserted. Swapping 63 in for 42 implies 70 and in for 21 implies 133, and if both gave the same output the graph's ordering would carry no information. The figure also contains one honest miss — the seventeen node has an edge into 21, but swapping 17 does essentially nothing. The paper reports that edge as overstated, and the same doubt applies to every drawn edge without a bar beside it. A further caveat is in the method: the [[gradient-pursuit]] runs greedily layer by layer over an overcomplete, correlated frame, so a node may name a near-miss of a concept still forming rather than the concept.
+
+### Where it comes back
+
+The shape appears once, at fig-89. It closes a chain of three treatments of the same arithmetic prompt: rank across layers in fig-17, mean-difference patching sweeps in fig-88 under [[mechanistic-localization]], and the graph here. The first two locate a computation in depth; only this one draws what connects to what, and only on Sonnet 4.5 rather than the Opus 4.5 of the earlier two.
+
+THEME IT BELONGS TO: theme-reading-the-charts | How to read this paper's charts - The paper argues with a small number of chart shapes, each repeated across many figures. This chapter explains each shape once: what it plots, why that shape was chosen, how to read it, and what it would look like if the paper's claim were false. It teaches how to read the evidence rather than what the evidence says, so it stands apart from the argument and sits at the end, where a reader can return to it while working through the figures.
+
+PREREQUISITES:
+  - jacobian-lens | Jacobian lens (J-lens): The paper's new interpretability technique: for each vocabulary token, it identifies the vector direction that encodes the model's potential to verbalize that token, by averaging the linearized effect of activations on the token's likelihood over a large corpus.
+  - j-lens-vector | J-lens vector: One vector per vocabulary token per layer: the direction in residual-stream space that, on average across contexts, disposes the model to say that token.
+  - j-space | J-space: The set of activation-space points expressible as a sparse nonnegative combination of J-lens vectors — the region of representation space the paper argues functions as a global workspace.
+  - sparse-decomposition | Sparse decomposition: Solving for a sparse nonnegative combination of $k$ J-lens vectors that best reconstructs an activation, yielding a discrete inventory of active concepts and their coefficients.
+  - residual-stream | Residual stream: The running vector at each token position that a transformer's layers read from and write to; the activations that all the paper's readouts and interventions act on.
+  - attribution-graphs | Attribution graphs: A prior technique for mapping a model's computation as a graph of interpretable nodes connected by attribution edges, originally built on trained sparse dictionaries.
+  - lens-coordinate-swap | Lens-coordinate swap: An intervention that exchanges one concept for another: it reads an activation's coordinates along two J-lens vectors, permutes them, and writes the result back, leaving everything orthogonal to those vectors unchanged.
+
+EDGES TOUCHING THIS CONCEPT (1) - the relationships the app already knows; weave the load-bearing ones into your prose:
+  [supporting] <- fig-89 (Attribution graph for a two-step calculation (fig-89)) | instance-of | one graph of one forward pass: The shape is a wiring diagram of a single forward pass, with J-lens vectors as nodes and one-layer gradient attributions as edges. Figure 89 is the worked case, drawn for the prompt (4+17)*2+7= and naming 21, 42 and 49 in computation order.
+
+PAPER SECTIONS TO READ (in papers/global-workspace/data/ingest/sections/):
+  - 75-10.24.2-attribution-graphs.txt

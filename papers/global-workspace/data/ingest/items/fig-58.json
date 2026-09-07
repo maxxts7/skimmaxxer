@@ -1,0 +1,180 @@
+{
+  "id": "fig-58",
+  "title": "Causal efficacy across J-lens recipe variants",
+  "takeaway": "Five variants of the J-lens recipe are scored on how much output change their vectors cause when ablated, under both mean and median aggregation. Restricting the gradient target to the current token alone roughly halves the causal effect, while freezing the query-key pathway slightly raises it; every other choice moves the average by less than 10%.",
+  "walkthrough": "This item is a pair of heatmaps that score five recipe variants of the [[jacobian-lens]] on how much the model's output moves when a lens vector is ablated. It is the causal companion to the preceding figure, which scored the same five variants on readout accuracy instead. All numbers come from [[claude-model-family|Sonnet 4.5]].\n\nEach panel has five rows and four columns. The rows are the [[j-lens-recipe-variants|recipe variants]] under test. The columns are three of the [[intermediate-concept-benchmarks]] — [[multihop-benchmark|multihop]], [[multilingual-benchmark|multilingual]] and [[poetry-benchmark|poetry]] — followed by an avg column, set off by a white rule, holding the mean of those three.\n\nThe two panels differ in one choice only. The left aggregates per-prompt Jacobians across prompts with a per-element mean, the right with a per-element median. That is the [[jacobian-aggregation]] axis.\n\nEach cell holds an ablation KL. The measurement takes the lens vector for the known intermediate concept, zeroes the [[residual-stream]]'s component along that vector, and records the [[kl-divergence]] between the model's output distribution before and after ([[j-lens-ablation]]). A larger number means the direction was more causally load-bearing, so on this metric high is good. The colorbar spans roughly 0.17 to 2.22, dark purple to yellow.\n\nMultihop cells are five to ten times the poetry cells in every row. That gap belongs to the task, not to the recipe, so variants are compared down a column rather than across one.\n\nThe freeze-qk row is the strongest on avg in both panels, at 1.25 and 1.27. This is what the text reports: applying stop-grads to the query and key projections ([[frozen-qk-variant]]) can increase the causal effect.\n\nThe two restricted-target rows lose ground. Future-tokens-only falls to 0.80 and 0.96; current-token-only falls furthest, to 0.59 and 0.79. Narrowing the [[target-position-variants|target positions]] to the present token — the setting closest in spirit to the [[logit-lens]] — costs about half the causal effect under mean aggregation.\n\nOne labelling wrinkle is worth flagging. The row marked \"default\" here is the final-layer recipe, while the surrounding text describes the Sonnet 4.5 default used throughout the paper as taking the target at the penultimate layer.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Sonnet 4.5 J-lens method ablations — ablation KL",
+      "definition": "The figure's printed title. It states the subject (variants of the J-lens construction recipe on Sonnet 4.5) and the metric (the KL divergence induced by ablating a lens direction).",
+      "conceptId": "j-lens-recipe-variants"
+    },
+    {
+      "term": "Sonnet 4.5",
+      "definition": "The model every cell is measured on: a mid-sized member of the Claude family, and the paper's main subject for J-lens methodology work.",
+      "conceptId": "claude-model-family"
+    },
+    {
+      "term": "J-lens (Jacobian lens)",
+      "definition": "The paper's interpretability method. It averages the Jacobian from a layer's residual stream to a late-layer target over a corpus, giving one matrix per layer whose rows supply a direction for each vocabulary token.",
+      "conceptId": "jacobian-lens"
+    },
+    {
+      "term": "Method ablation",
+      "definition": "Here it means an ablation of the method itself, not of the model: one ingredient of the J-lens recipe is changed at a time and the resulting lens is re-scored. It is distinct from the ablation the metric performs on activations.",
+      "conceptId": "j-lens-recipe-variants"
+    },
+    {
+      "term": "Ablation KL",
+      "definition": "The metric filling every cell. The lens vector for the item's known intermediate concept is projected out of the residual stream, and the KL divergence between the model's output distribution before and after the projection is recorded.",
+      "conceptId": "j-lens-ablation"
+    },
+    {
+      "term": "mean KL divergence",
+      "definition": "The colorbar label, and what a cell reports: the ablation KL averaged over the items in that benchmark. Higher means the ablated direction carried more of the computation.",
+      "conceptId": "kl-divergence"
+    },
+    {
+      "term": "mean aggregation",
+      "definition": "The left panel's title. Per-prompt Jacobians are combined across prompts by taking the per-element arithmetic mean before the lens is built.",
+      "conceptId": "jacobian-aggregation"
+    },
+    {
+      "term": "median aggregation",
+      "definition": "The right panel's title. Per-prompt Jacobians are combined across prompts by taking the per-element median, which is more resistant to the heavy tails the paper reports in per-sample Jacobians.",
+      "conceptId": "jacobian-aggregation"
+    },
+    {
+      "term": "all tokens (default)",
+      "definition": "Row 1. Gradients are injected at all output positions at the final layer, with no stop-gradients anywhere. The label marks it as the reference recipe within this figure.",
+      "conceptId": null
+    },
+    {
+      "term": "all tokens, penultimate",
+      "definition": "Row 2. The same all-positions recipe, but the target is the penultimate-layer residual stream, so the last transformer block is omitted from the backward pass. The paper argues that block is specialized for next-token calibration and adds noise.",
+      "conceptId": null
+    },
+    {
+      "term": "all tokens, freeze-qk",
+      "definition": "Row 3. The same all-positions recipe with gradients through the query and key projections zeroed, holding attention patterns fixed so only the value pathway contributes.",
+      "conceptId": "frozen-qk-variant"
+    },
+    {
+      "term": "future tokens only",
+      "definition": "Row 4. The Jacobian target is restricted to strictly later positions, $t' > t$, isolating what a position makes available to downstream positions rather than to its own output.",
+      "conceptId": "target-position-variants"
+    },
+    {
+      "term": "current token only",
+      "definition": "Row 5. The Jacobian target is restricted to the same position, $t' = t$, with cross-position attention zeroed. The paper calls this the variant closest in spirit to the logit lens.",
+      "conceptId": "target-position-variants"
+    },
+    {
+      "term": "multihop",
+      "definition": "Column 1. Fifty two-hop factual questions requiring a bridging entity, such as computing Mars before answering that the fourth planet's color is red. The ablated direction is the bridging entity's.",
+      "conceptId": "multihop-benchmark"
+    },
+    {
+      "term": "multilingual",
+      "definition": "Column 2. Fifty-four prompts written entirely in a non-English language, testing whether the model routes through English-aligned intermediates. Ablation targets those intermediates.",
+      "conceptId": "multilingual-benchmark"
+    },
+    {
+      "term": "poetry",
+      "definition": "Column 3. Fifty-two rhyming couplets in which the planned final word of the second line is read at the newline. For this benchmark the target position itself is excluded from the ablation.",
+      "conceptId": "poetry-benchmark"
+    },
+    {
+      "term": "avg",
+      "definition": "Column 4, separated by a white rule. The unweighted mean of that row's three task cells, up to rounding; it is a summary, not a fourth benchmark.",
+      "conceptId": null
+    },
+    {
+      "term": "Stop-grad / stop-gradient",
+      "definition": "Zeroing the gradient along a chosen path in the backward pass so that path contributes nothing to the computed Jacobian. Here it is applied to the query and key projections in the freeze-qk row.",
+      "conceptId": null
+    },
+    {
+      "term": "Penultimate layer",
+      "definition": "The second-to-last transformer layer's residual stream, used as the differentiation target in row 2 instead of the final layer's.",
+      "conceptId": "residual-stream"
+    },
+    {
+      "term": "Target positions",
+      "definition": "Which output positions $t'$ the Jacobian is taken with respect to, given a perturbation at position $t$. The default mixes all $t' \\geq t$; rows 4 and 5 take the two limiting cases.",
+      "conceptId": "target-position-variants"
+    },
+    {
+      "term": "Viridis colormap",
+      "definition": "The colour scale used, running dark purple through blue and teal to yellow as the value rises. It is redundant with the printed numbers and serves only to make the pattern visible at a glance.",
+      "conceptId": null
+    }
+  ],
+  "numbers": [
+    {
+      "value": "5 rows x 4 columns x 2 panels",
+      "meaning": "The figure's shape: five J-lens recipe variants, three benchmarks plus an average column, evaluated once under mean aggregation and once under median aggregation. Forty cells in total."
+    },
+    {
+      "value": "all tokens (default), mean panel: 2.03 / 0.86 / 0.32 / 1.07",
+      "meaning": "Ablation KL on multihop, multilingual, poetry and their average for the final-layer all-positions recipe with mean aggregation. The average is (2.03 + 0.86 + 0.32) / 3 = 1.07. This row is the reference the other four are read against."
+    },
+    {
+      "value": "all tokens (default), median panel: 2.21 / 0.91 / 0.32 / 1.14",
+      "meaning": "The same recipe with per-element median aggregation across prompts. Every task is flat or slightly higher than under mean aggregation, lifting the average from 1.07 to 1.14."
+    },
+    {
+      "value": "all tokens, penultimate, mean panel: 2.13 / 0.90 / 0.30 / 1.11",
+      "meaning": "Moving the differentiation target back one block gains a little on multihop and multilingual and loses a little on poetry, for a net average of 1.11 against the default's 1.07 — inside the range the paper describes as fairly consistent."
+    },
+    {
+      "value": "all tokens, penultimate, median panel: 2.14 / 0.95 / 0.26 / 1.12",
+      "meaning": "The penultimate-layer recipe under median aggregation. Its average of 1.12 sits just below the default's 1.14 here, so the small advantage the paper reports for the penultimate variant on readout accuracy does not reappear as a causal advantage."
+    },
+    {
+      "value": "all tokens, freeze-qk, mean panel: 2.21 / 1.21 / 0.33 / 1.25",
+      "meaning": "The strongest average in the left panel. The gain over the default comes mostly from multilingual, where 1.21 against 0.86 is about a 40% increase; this is the effect the text describes as stop-grads on QK increasing the causal effect."
+    },
+    {
+      "value": "all tokens, freeze-qk, median panel: 2.22 / 1.26 / 0.35 / 1.27",
+      "meaning": "The strongest average in the right panel, and the largest single cell in the figure at 2.22 on multihop. Freezing the attention pattern is the only variation that raises causal efficacy under both aggregations."
+    },
+    {
+      "value": "future tokens only, mean panel: 1.49 / 0.70 / 0.20 / 0.80",
+      "meaning": "Restricting the target to strictly later positions costs about a quarter of the default average, 0.80 against 1.07. The drop is proportionally similar on all three tasks, so it is not driven by one benchmark."
+    },
+    {
+      "value": "future tokens only, median panel: 1.74 / 0.84 / 0.31 / 0.96",
+      "meaning": "The same restriction under median aggregation. The penalty is smaller here, 0.96 against the default's 1.14, which is consistent with the median being less sensitive to how many positions enter the average."
+    },
+    {
+      "value": "current token only, mean panel: 0.87 / 0.72 / 0.17 / 0.59",
+      "meaning": "The weakest row in the figure. The average of 0.59 is a little over half the default's 1.07, and the multihop cell falls from 2.03 to 0.87 — the largest single loss anywhere in the figure. The poetry cell of 0.17 is the smallest value shown."
+    },
+    {
+      "value": "current token only, median panel: 1.37 / 0.78 / 0.21 / 0.79",
+      "meaning": "The same restriction under median aggregation. It remains the weakest row, at 0.79 against the default's 1.14, so the finding that self-only targeting sacrifices causal efficacy holds under both estimators."
+    },
+    {
+      "value": "0.5, 1.0, 1.5, 2.0",
+      "meaning": "The printed colorbar ticks, in units of mean KL divergence. They set the reading scale: cells near 0.2 are dark purple, cells near 1.0 blue-teal, cells above 2.0 yellow."
+    },
+    {
+      "value": "0.17 to 2.22",
+      "meaning": "The full range of values in the figure, from poetry under current-token-only in the mean panel to multihop under freeze-qk in the median panel. The colour scale is shared across both panels, so cells can be compared by eye left to right."
+    },
+    {
+      "value": "50 / 54 / 52",
+      "meaning": "Item counts for the multihop, multilingual and poetry benchmarks respectively, as given where those distributions are defined. Each cell is a mean over that many items, so the differences between neighbouring cells of a few hundredths carry little weight."
+    },
+    {
+      "value": "3 of 6",
+      "meaning": "The causal-ablation evaluation uses three of the paper's six intermediate-concept distributions. Order-of-operations, typo and association appear in the readout comparison but not here."
+    },
+    {
+      "value": "roughly 2x",
+      "meaning": "The paper's separate claim, from the lens comparison, that ablating J-lens directions induces about twice the output KL of ablating logit- or tuned-lens directions on multihop. That comparison sets the scale against which the within-recipe differences in this figure are small."
+    }
+  ]
+}

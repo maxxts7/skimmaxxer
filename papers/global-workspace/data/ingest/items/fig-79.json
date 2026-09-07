@@ -1,0 +1,160 @@
+{
+  "id": "fig-79",
+  "title": "Composition with attention weights, by source layer",
+  "takeaway": "Using only the model's weights, the paper measures how unevenly a direction projects across the attention heads of the neighbouring layer. J-lens vectors and high-kurtosis SAE features compose far more strongly than control directions with the value and output weights, and less strongly with the query and key weights, which the paper reads as consistent with the J-space being the format attention moves between positions rather than the signal that routes it.",
+  "walkthrough": "The figure reports one weights-only measurement, made three times over the same set of direction populations.\n\nEach of the three panels plots a median [[composition-score]] on the vertical axis against the source layer on the horizontal axis. Layers run from 0 to 100, because the paper reindexes 25 evenly spaced residual-stream layers onto that range so a layer number reads as a percentage of depth ([[layer-percentage-indexing]]). A shaded band marks the [[workspace-layers]], roughly L38 to L92.\n\n### How the score is built\n\nA unit direction $v$ is fixed at some source layer $\\ell$. It is pushed through the query, key and value weight matrices of every [[attention-head]] in layer $\\ell+1$, and through the output weight matrices of every head in layer $\\ell-1$. Each head returns one projection norm.\n\nThe score is the variance of those norms across heads, a statistic the paper takes from earlier transformer-circuits work. It is then normalized so that a random direction has an expected score of 1.\n\nA score near 1 means the norms are flat: every head touches the direction about equally weakly, and none is built for it. A high score means the norms are uneven, so a few heads are specifically oriented toward that direction.\n\n### The curves\n\nFive populations are drawn in each panel: [[j-lens-vector]]s; [[sparse-autoencoder]] feature directions split into three strata by [[lens-kurtosis]] (top 1%, 1–5%, middle 50%); and MLP neuron directions.\n\n### What it shows\n\nIn the left panel, against value weights, and in the right panel, against output weights, the [[j-space]]-aligned populations sit far above the non-aligned ones. In the middle panel, against query and key weights, the separation is smaller, though the paper reports it as still above baseline.\n\nThe paper reads that asymmetry as consistent with a broadcast format: J-space content is what attention disproportionately carries between positions, while the signals deciding which position attends where are less J-space-aligned.\n\nMLP neuron directions rise moderately above baseline at the workspace onset and revert shortly after. That bump is computed from the weights alone, without any lens or dictionary, and the paper offers it as lens-independent corroboration of the layer range.\n\nThe surrounding text states orderings and directions only. The numeric sizes of these gaps appear nowhere but in the figure itself.",
+  "latex": null,
+  "terms": [
+    {
+      "term": "Composition score",
+      "definition": "The quantity on the vertical axis: for one direction, the variance across heads of its projection norms through a weight matrix family, normalized so a random direction scores 1. It measures unevenness, not size — whether a few heads are specifically oriented toward the direction rather than all heads touching it equally.",
+      "conceptId": "composition-score"
+    },
+    {
+      "term": "Source layer",
+      "definition": "The horizontal axis: the layer $\\ell$ at which the direction being tested lives. The weights it is composed against come from the neighbouring layers, not from $\\ell$ itself.",
+      "conceptId": null
+    },
+    {
+      "term": "Adjacent layer's attention weights",
+      "definition": "The weight matrices the direction is projected through: query, key and value matrices from layer $\\ell+1$, and output matrices from layer $\\ell-1$. Composition is always measured one layer away from the source layer.",
+      "conceptId": null
+    },
+    {
+      "term": "Value projections (downstream), left panel",
+      "definition": "Composition against the value weight matrices of the next layer's heads. A high score means some downstream heads are specifically oriented to carry this direction when they attend to a position holding it.",
+      "conceptId": null
+    },
+    {
+      "term": "Query and key projections (\"read\" side), middle panel",
+      "definition": "Composition against the next layer's query and key weight matrices. These matrices determine which positions attend to which, so a high score means the direction is used to decide where attention goes rather than what attention carries.",
+      "conceptId": null
+    },
+    {
+      "term": "Output projections (\"write\" side), right panel",
+      "definition": "Composition against the output weight matrices of the previous layer's heads — the matrices by which a head writes back into the residual stream. A high score means some upstream heads are specifically oriented to write this direction.",
+      "conceptId": null
+    },
+    {
+      "term": "OV circuit",
+      "definition": "The value-then-output path of an attention head taken as a single map: what the head writes about the content it attends to. The left and right panels of this figure measure its two halves separately.",
+      "conceptId": "ov-circuit"
+    },
+    {
+      "term": "Attention head",
+      "definition": "The unit whose weights supply one projection norm each. The composition score is a statistic over the population of heads in one layer.",
+      "conceptId": "attention-head"
+    },
+    {
+      "term": "J-lens vectors",
+      "definition": "One curve's population: the paper's per-token, per-layer directions in residual-stream space that dispose the model to say a given vocabulary token. These are the directions whose broadcast privilege the figure is testing.",
+      "conceptId": "j-lens-vector"
+    },
+    {
+      "term": "SAE feature directions",
+      "definition": "Decoder directions from a sparse autoencoder trained on the residual stream, used here as a comparison population that is independent of the J-lens. They are split into three strata rather than used as one group.",
+      "conceptId": "sparse-autoencoder"
+    },
+    {
+      "term": "J-lens kurtosis (κ)",
+      "definition": "The statistic used to stratify the SAE features: an SAE decoder direction is projected through the J-lens, and κ measures how sharply peaked the resulting score distribution over the vocabulary is. High κ means the direction loads onto a small number of J-lens vectors, which the paper treats as the operational test of lying in the J-space.",
+      "conceptId": "lens-kurtosis"
+    },
+    {
+      "term": "SAE top 1% (legend entry)",
+      "definition": "The stratum of SAE decoder directions in the highest 1% of lens-kurtosis. The most J-space-aligned of the three SAE curves.",
+      "conceptId": null
+    },
+    {
+      "term": "SAE 1–5% (legend entry)",
+      "definition": "The stratum of SAE decoder directions between the 95th and 99th kurtosis percentiles. An intermediate level of J-space alignment, included so the curves can be checked for ordering by κ rather than only for a top-versus-rest gap.",
+      "conceptId": null
+    },
+    {
+      "term": "SAE middle 50% (legend entry)",
+      "definition": "The middle half of the kurtosis distribution, from the 25th to the 75th percentile. The paper's non-aligned SAE control; section 10.18 reports that low-κ features are dominated by syntactic and bookkeeping roles.",
+      "conceptId": null
+    },
+    {
+      "term": "MLP neuron directions",
+      "definition": "A further control population: the weight-row directions of individual MLP neurons. These are directions the model certainly uses, but which are not selected for J-space alignment in any way.",
+      "conceptId": null
+    },
+    {
+      "term": "Random directions (normalization baseline)",
+      "definition": "Isotropic random unit directions, used to set the scale. Every curve is divided by the score such directions obtain, so the value 1 is the no-structure reference line.",
+      "conceptId": null
+    },
+    {
+      "term": "Median",
+      "definition": "The summary statistic plotted at each layer: the middle composition score over the directions in a population, rather than a mean. It keeps a few extreme directions from setting a curve's height.",
+      "conceptId": null
+    },
+    {
+      "term": "Shaded band (workspace layer range)",
+      "definition": "The middle region of depth, roughly L38 to L92, where the paper's earlier lens-derived metrics agree that the J-space carries persistent abstract content. Its role here is to let a reader see whether the weight-only effects line up with a range identified by other means.",
+      "conceptId": "workspace-layers"
+    },
+    {
+      "term": "J-space",
+      "definition": "The region of activation space spanned by sparse nonnegative combinations of J-lens vectors — the paper's candidate workspace. The figure asks whether the model's attention weights are structured to move its contents preferentially.",
+      "conceptId": "j-space"
+    },
+    {
+      "term": "Broadcast",
+      "definition": "Making a representation available to many downstream consumers at once. Across token positions this happens through attention, which is what the three panels measure.",
+      "conceptId": "global-broadcast"
+    },
+    {
+      "term": "Claude Sonnet 4.5",
+      "definition": "The model the paper reports on by default, and so the one whose weights and layers this analysis uses unless another is named.",
+      "conceptId": null
+    }
+  ],
+  "numbers": [
+    {
+      "value": "1",
+      "meaning": "The baseline score. Every curve is normalized by the score of isotropic random directions, so a random direction has expected score 1 by construction, and any value above 1 is structure the weights impose beyond chance."
+    },
+    {
+      "value": "3",
+      "meaning": "The number of panels, one per weight family: value on the left, query and key in the middle, output on the right. The split matters because the paper's claim is about the difference between them."
+    },
+    {
+      "value": "5",
+      "meaning": "The number of curves in each panel: J-lens vectors, the three SAE kurtosis strata, and MLP neuron directions."
+    },
+    {
+      "value": "top 1%",
+      "meaning": "The highest-kurtosis SAE stratum. Chosen as the sharpest available proxy for J-space membership that does not itself consist of J-lens vectors."
+    },
+    {
+      "value": "1–5%",
+      "meaning": "The second SAE stratum, the next 4% of the kurtosis distribution. It supplies a middle rung so the curves can be checked for monotonic ordering in κ."
+    },
+    {
+      "value": "middle 50%",
+      "meaning": "The third SAE stratum, the 25th to 75th kurtosis percentiles. It stands for the bulk of SAE features, which the paper reports as syntactic and bookkeeping features with no reason to be broadcast."
+    },
+    {
+      "value": "0–100",
+      "meaning": "The range of the layer axis. The paper reports 25 evenly spaced residual-stream layers reindexed onto this range, so a layer number reads directly as a percentage of the model's depth."
+    },
+    {
+      "value": "25",
+      "meaning": "The number of evenly spaced layers sampled from the residual stream for all of the paper's layer-wise reporting. The figure's horizontal resolution is therefore coarse, not one point per real layer."
+    },
+    {
+      "value": "L38",
+      "meaning": "The approximate start of the shaded workspace band, about a third of the way through depth. Section 4.1 places it there because lens next-token accuracy, readout kurtosis, top-1 autocorrelation and effective dimensionality all change around this layer."
+    },
+    {
+      "value": "L92",
+      "meaning": "The approximate end of the shaded workspace band, shortly before the output. Past it, J-lens readouts align with the model's imminent next token, which the paper treats as motor rather than workspace representation."
+    },
+    {
+      "value": "ℓ+1 and ℓ−1",
+      "meaning": "The layer offsets at which weights are read. Query, key and value matrices come from one layer after the source layer, since those matrices consume what layer ℓ has written; output matrices come from one layer before, since those matrices produced it."
+    }
+  ]
+}

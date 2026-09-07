@@ -1,0 +1,118 @@
+{
+  "id": "eq-jlens-matrix",
+  "title": "The averaged Jacobian, one matrix per layer",
+  "takeaway": "This line defines the object the whole paper is built on: for each layer, a single fixed matrix $J_\\ell$ obtained by averaging the layer-to-output Jacobian over source positions, over later positions, and over a thousand pretraining-like prompts. The averaging is what turns a per-prompt derivative into a claim about the model's general disposition to verbalize a concept rather than its use of that concept in one context.",
+  "walkthrough": "The equation defines the central object of the [[jacobian-lens]]: one matrix $J_\\ell$ for each layer $\\ell$ of the model.\n\nThe quantity inside the brackets is the piece that does the causal work. $h_{\\ell,t}$ is the [[residual-stream]] vector at layer $\\ell$ and token position $t$ — the running activation that every layer reads from and writes to. $h_{\\text{final},t'}$ is that same stream at the model's last layer, at some position $t'$. Because attention is causal, a perturbation at position $t$ can only reach positions at or after $t$, which is why the target is restricted to $t' \\geq t$.\n\nThe fraction $\\partial h_{\\text{final},t'} / \\partial h_{\\ell,t}$ is the [[jacobian-matrix]] relating those two vectors. Its entry in row $i$, column $j$ states how far final-layer coordinate $i$ moves when source coordinate $j$ is nudged. It is computed by backpropagating from the final layer down to $h_\\ell$, and it describes the true effect of a perturbation only to first order, which is the paper's [[local-linearization]] assumption.\n\nThe $\\mathbb{E}$ carries three subscripts, and each names one thing being averaged away. The first is the source position $t$. The second is the target position $t'$, ranging over all positions from $t$ to the end of that context. The third is the prompt, drawn from a corpus of one thousand sequences sampled from a pretraining-like distribution ([[lens-corpus]]).\n\nThe paper's stated reason for averaging is that a Jacobian from a single prompt conflates two kinds of structure. One is the model's general disposition to verbalize a given concept. The other is the particular use that concept is being put to in the context at hand. The second part changes from prompt to prompt and from position to position, so averaging over both shrinks it; what survives is the part that holds across contexts.\n\nBoth residual-stream vectors have $d_{\\text{model}}$ entries, so the derivative is a $d_{\\text{model}} \\times d_{\\text{model}}$ matrix, and averaging leaves that shape unchanged. The output is therefore one fixed matrix per layer, mapping layer $\\ell$ to the final layer $L$, not one matrix per prompt. Composing it with the [[unembedding-matrix]] $W_U$ gives the rows of $W_U J_\\ell$, which the paper calls the [[j-lens-vector]]s and whose span it studies as the [[j-space]].\n\nThe appendix records that the default lens actually differentiates the penultimate-layer residual stream rather than the final one, and that the range of target positions is one of several recipe choices the authors sweep ([[target-position-variants]]).",
+  "latex": "J_\\ell \\;=\\; \\mathbb{E}_{\\,t,\\,t' \\geq t,\\,\\text{prompt}} \\left[ \\frac{\\partial h_{\\text{final},t'}}{\\partial h_{\\ell,t}} \\right]",
+  "terms": [
+    {
+      "term": "$J_\\ell$",
+      "definition": "The Jacobian lens matrix at layer $\\ell$: the averaged derivative of the final-layer residual stream with respect to the layer-$\\ell$ residual stream. It is the single object the rest of the paper reads and writes through.",
+      "conceptId": "averaged-jacobian"
+    },
+    {
+      "term": "$\\ell$",
+      "definition": "The source layer index — the depth in the network at which an activation is being characterized. A separate $J_\\ell$ exists for each layer.",
+      "conceptId": null
+    },
+    {
+      "term": "$L$",
+      "definition": "The model's final layer, named in the sentence that follows the equation as the layer $J_\\ell$ maps into.",
+      "conceptId": null
+    },
+    {
+      "term": "$h_{\\ell,t}$",
+      "definition": "The residual stream at layer $\\ell$ and token position $t$: the vector of activations at that point in the forward pass, and the thing whose causal effect the lens measures.",
+      "conceptId": "residual-stream"
+    },
+    {
+      "term": "$h_{\\text{final},t'}$",
+      "definition": "The residual stream at the model's final layer and position $t'$, just before the unembedding step that produces output logits. It is the target of the derivative.",
+      "conceptId": null
+    },
+    {
+      "term": "$t$",
+      "definition": "The source token position: where in the sequence the perturbed activation sits. The expectation runs over it.",
+      "conceptId": null
+    },
+    {
+      "term": "$t'$",
+      "definition": "A target token position at which the final-layer effect is read. It is constrained to $t' \\geq t$ because a transformer's causal attention lets an activation influence only its own position and later ones.",
+      "conceptId": null
+    },
+    {
+      "term": "$\\partial h_{\\text{final},t'} / \\partial h_{\\ell,t}$",
+      "definition": "The Jacobian matrix of the final-layer residual at $t'$ with respect to the layer-$\\ell$ residual at $t$: the linear map, obtained by backpropagation, that best approximates how a small change at the source shifts the final layer.",
+      "conceptId": "jacobian-matrix"
+    },
+    {
+      "term": "$\\mathbb{E}$",
+      "definition": "The expectation, taken here as an empirical average over the three things listed in its subscript: source position, target position, and prompt.",
+      "conceptId": null
+    },
+    {
+      "term": "prompt",
+      "definition": "The third averaging variable: a text sequence drawn from the paper's lens corpus of pretraining-like data. Averaging over prompts is what removes context-specific structure from the Jacobian.",
+      "conceptId": "lens-corpus"
+    },
+    {
+      "term": "$d_{\\text{model}}$",
+      "definition": "The width of the residual stream — the number of entries in each activation vector. Both the input and output of $J_\\ell$ live in this space, so $J_\\ell$ is square.",
+      "conceptId": null
+    },
+    {
+      "term": "$d_{\\text{model}} \\times d_{\\text{model}}$",
+      "definition": "The shape of $J_\\ell$: a square matrix mapping residual-stream vectors at layer $\\ell$ to residual-stream vectors at the final layer.",
+      "conceptId": null
+    },
+    {
+      "term": "pretraining-like distribution",
+      "definition": "The kind of text the averaging corpus is sampled from: ordinary next-token-prediction data rather than chat transcripts or task prompts, so the average reflects broad contexts rather than one setting.",
+      "conceptId": null
+    },
+    {
+      "term": "$W_U$",
+      "definition": "The unembedding matrix, which maps a final-layer residual vector to scores over the vocabulary. It is not in this equation, but $J_\\ell$ is composed with it to produce readouts and lens vectors.",
+      "conceptId": "unembedding-matrix"
+    },
+    {
+      "term": "first-order effect",
+      "definition": "The linear part of the true effect of a perturbation, which is what a Jacobian captures. Larger perturbations, or strongly nonlinear responses, are not described by it.",
+      "conceptId": "local-linearization"
+    }
+  ],
+  "numbers": [
+    {
+      "value": "1,000",
+      "meaning": "The number of prompts the expectation is taken over in the default lens. The appendix reports that the J-lens already beats the logit-lens and tuned-lens baselines with as few as 10 prompts, with modest gains from more, so this size buys stability rather than a qualitative change."
+    },
+    {
+      "value": "128",
+      "meaning": "The length in tokens of each sequence in the default corpus, stated in the methodological appendix rather than beside the equation. Each sequence contributes one within-prompt average over its positions before the cross-prompt average is taken."
+    },
+    {
+      "value": "10",
+      "meaning": "The corpus size, in prompts, at which the appendix's sweep finds the J-lens already outperforming the logit lens and tuned lens; the sweep runs from 1 to 1000."
+    },
+    {
+      "value": "first order (order 1)",
+      "meaning": "The order of the approximation. Only the linear term of the perturbation's effect is kept, which is what makes a single matrix per layer sufficient."
+    },
+    {
+      "value": "$d_{\\text{model}} \\times d_{\\text{model}}$",
+      "meaning": "The dimensions of the resulting matrix. Source and target are both residual-stream vectors of width $d_{\\text{model}}$, so the derivative is square and averaging does not change its shape."
+    },
+    {
+      "value": "one matrix per layer",
+      "meaning": "The count of objects produced. The averaging collapses every prompt and position into a single $J_\\ell$ for each layer, so the lens is fixed once and then applied to any activation."
+    },
+    {
+      "value": "$t' \\geq t$",
+      "meaning": "The range of target positions in the default recipe: the source position itself plus every later position in the context. Restricting instead to $t' = t$ or $t' > t$ gives the self-only and future-only variants the appendix tests."
+    },
+    {
+      "value": "25 layers, reindexed 0-100",
+      "meaning": "The reporting convention for layer $\\ell$ throughout the paper: results are shown on 25 evenly spaced residual-stream layers, renumbered so a layer index reads as a percentage of depth."
+    }
+  ]
+}
