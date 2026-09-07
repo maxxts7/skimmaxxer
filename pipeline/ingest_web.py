@@ -450,9 +450,15 @@ def main():
                 caption = introducing_sentence(prev_prose)
             img = el.find("img")
             asset = save_image(img, url, item_id) if img else captured(item_id)
+            # Where the picture came from is a claim the figure page makes
+            # out loud, so it is recorded rather than assumed. An <img> is
+            # the authors' own file; anything else is a still captured off
+            # the rendered page, because the article draws that figure in
+            # the browser and stores no image at all.
             items.append({"id": item_id, "kind": ikind, "number": counts[ikind],
                           "caption": caption, "captionInferred": inferred,
                           "page": None, "anchor": item_id, "asset": asset,
+                          "assetCaptured": bool(asset) and img is None,
                           "section": cur["id"],
                           "text": txt if ikind == "table" else None})
             regions.append({"id": item_id, "kind": "item", "sectionId": cur["id"],

@@ -583,8 +583,11 @@ function vFigure(id) {
     h += '<p class="fig-note">' + (it.page
       ? 'Cropped as-is from <a href="' + esc(pdfHref(t.paperId, it.page)) + '"' + pdfAttrs(t.paperId) +
         ">page " + esc(it.page) + "</a> of the PDF."
-      : 'The authors’ own image, taken whole from <a href="' + esc(pdfHref(t.paperId, it.anchor)) + '"' +
-        pdfAttrs(t.paperId) + ">where it sits in the paper</a>.") + "</p>";
+      : it.assetCaptured
+        ? 'A still captured from <a href="' + esc(pdfHref(t.paperId, it.anchor)) + '"' +
+          pdfAttrs(t.paperId) + ">where it sits in the paper</a>: the article draws this figure in the browser, so there is no image file to take."
+        : 'The authors’ own image, taken whole from <a href="' + esc(pdfHref(t.paperId, it.anchor)) + '"' +
+          pdfAttrs(t.paperId) + ">where it sits in the paper</a>.") + "</p>";
   }
   if (it.kind === "equation" && it.latex) h += '<div class="figure-wrap"><span class="math-pending math-block">$$' + esc(it.latex) + "$$</span></div>";
   if (!it.asset) h += sourceCite(it.sources);
