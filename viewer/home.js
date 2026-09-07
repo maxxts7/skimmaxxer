@@ -259,19 +259,25 @@ function wireTabs(root) {
 /* Narrow reads have no shell of their own, so their concepts open inside the
    shell of a paper that cites them - which is how the reader handles a concept
    belonging to another paper. */
+/* A host has to be a paper the shelf is willing to show. Sending a reader into
+   the shell of one that is off the shelf lands them in an empty story - which
+   is the thing hiding it was for. */
 function hostFor(pid) {
   const r = REG[pid] || {};
-  const citer = (r.citedBy || []).find((x) => REG[x] && REG[x].status === "full");
-  return citer || Object.keys(REG).find((x) => REG[x].status === "full") || pid;
+  const ok = (x) => REG[x] && REG[x].status === "full" && ready(x);
+  const citer = (r.citedBy || []).find(ok);
+  return citer || Object.keys(REG).find(ok) || pid;
 }
 
 function narrowRow(pid) {
   const r = REG[pid] || {};
   const host = hostFor(pid);
   const cs = data(pid).concepts || [];
-  const needed = (r.citedBy || []).map((x) => (REG[x] && REG[x].status === "full")
+  /* Named only where the citing paper is itself on the shelf. A row that says
+     it was read for a paper nobody can open explains nothing. */
+  const needed = (r.citedBy || []).filter(ready).map((x) => (REG[x].status === "full")
     ? '<a href="' + readHref(x) + '">' + esc(REG[x].title) + "</a>"
-    : esc((REG[x] && REG[x].title) || x));
+    : esc(REG[x].title || x));
 
   let h = '<li class="narrow">';
   h += '<p class="narrow-id">' + esc(pid) + "</p>";
@@ -471,8 +477,26 @@ function howToSection() {
 
 /* ---------- page ---------- */
 
+/* A card may not promise what is not behind it. A paper on the shelf as read in
+   full needs a story and concepts; a narrow read needs its concepts. One that
+   has neither is off the shelf and out of the tally until its run finishes -
+   nothing is deleted, and it comes back the moment it is ready.
+
+   Today that is one paper. `global-workspace` has 249 concepts extracted and
+   then nothing: no story, no themes, no written pages, no figures. Its card
+   rendered under "Read in full" with no tabs to fill, and its wiki door opened
+   a shell whose story was empty. Demoting it to the narrow list would be
+   worse - narrowRow prints every concept, so it would run to 249 of them under
+   a heading saying the paper was opened for one mechanism and closed again. */
+function ready(id) {
+  const p = data(id), r = REG[id] || {};
+  if (!(p.concepts || []).length) return false;
+  if (r.status !== "full") return true;
+  return !!(p.narrative && (p.narrative.chapters || []).length);
+}
+
 function render() {
-  const ids = Object.keys(REG);
+  const ids = Object.keys(REG).filter(ready);
   const full = ids.filter((id) => REG[id].status === "full");
   const narrow = ids.filter((id) => REG[id].status !== "full").sort();
 

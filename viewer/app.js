@@ -46,6 +46,53 @@ function displayName(t) {
 const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const el = (id) => document.getElementById(id);
 
+/* ---------- images ---------- */
+/* Every crop the app draws goes through here, for one reason: a request that
+   fails once must not stay failed. Nothing is wrong with the paths - every
+   asset named in every items.json resolves to a file - so a figure that does
+   not arrive has lost a single fetch, and a reader was fixing it by hand by
+   reloading the whole page. One delegated listener does that for them, once,
+   and then gives up rather than hammering. */
+const assetSrc = (pid, asset) => "../papers/" + encodeURI(pid + "/" + asset);
+
+function figImg(pid, asset, alt, lazy) {
+  return '<img src="' + esc(assetSrc(pid, asset)) + '"' + (lazy ? ' loading="lazy"' : "") +
+    ' decoding="async" alt="' + esc(alt || "") + '">';
+}
+
+/* Load failures do not bubble, so this listens on the way down. */
+document.addEventListener("error", (ev) => {
+  const img = ev.target;
+  if (!img || img.tagName !== "IMG" || img.dataset.retried) return;
+  img.dataset.retried = "1";
+  const base = img.src.split("#")[0].split("?")[0];
+  setTimeout(() => { img.src = base + "?r=1"; }, 400);
+}, true);
+
+/* Prose reduced to one plain line: markdown links carry ids a caption cannot
+   render, and a caption is not the place to follow one anyway. */
+function plainLine(text, cap) {
+  let s = String(text || "")
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/[*_`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  cap = cap || 190;
+  if (s.length > cap) s = s.slice(0, cap).replace(/\s+\S*$/, "") + "…";
+  return s;
+}
+
+/* A paper named in a search hit, short enough to sit at the end of a row.
+   Most titles in this field front-load the name and explain after a colon. */
+function shortTitle(s) {
+  let t = String(s || "");
+  const colon = t.indexOf(":");
+  if (colon > 2 && colon < 34) t = t.slice(0, colon);
+  if (t.length > 34) t = t.slice(0, 34).replace(/\s+\S*$/, "") + "…";
+  return t;
+}
+
 function termLink(id, label, where) {
   const t = INDEX[id];
   const text = esc(label || (t ? displayName(t) : id.replace(/-/g, " ")));
@@ -481,10 +528,22 @@ function vConcept(id) {
   }
   const evid = (mainPaper().items || []).filter((it) => (it.terms || []).some((x) => x.conceptId === id));
   if (evid.length) {
+    /* This section names the figures a concept shows up in and then made the
+       reader go and look at each one. It leads with the picture now. */
     h += "<h2>Where you can see it</h2>" + evid.map((it) =>
-      '<div class="card"><a class="title" href="#/figure/' + esc(it.id) + '">' + esc(it.title || it.id) + "</a> " +
+      '<div class="card card-fig">' +
+      (it.asset
+        ? '<a class="card-fig-shot" href="#/figure/' + esc(it.id) + '">' +
+          figImg(MAIN_ID, it.asset, it.caption || it.id, true) + "</a>"
+        : it.latex
+          /* An equation has no crop, but it has itself. Leaving the card blank
+             here would be the same gap this section was fixing. */
+          ? '<a class="card-fig-shot is-eq" href="#/figure/' + esc(it.id) + '">' +
+            '<span class="math-pending math-block">$$' + esc(it.latex) + "$$</span></a>"
+          : "") +
+      '<div class="card-fig-text"><a class="title" href="#/figure/' + esc(it.id) + '">' + esc(it.title || it.id) + "</a> " +
       chip(null, it.kind + (it.number ? " " + it.number : ""), "floor") +
-      '<p class="sub">' + esc(it.takeaway || it.caption || "") + "</p></div>").join("");
+      '<p class="sub">' + esc(it.takeaway || it.caption || "") + "</p></div></div>").join("");
   }
   const ed = edgesTouching(id);
   if (ed.length) h += "<h2>Connections</h2>" + ed.map(edgeRow).join("");
@@ -520,7 +579,7 @@ function vFigure(id) {
   let h = '<p class="eyebrow">' + kindName + (it.number ? " " + it.number : "") + "</p>";
   h += "<h1>" + esc(it.title || (it.caption ? it.caption.split(/[:.]/)[0] : it.id)) + "</h1>";
   if (it.asset) {
-    h += '<div class="figure-wrap"><img src="../papers/' + esc(t.paperId) + "/" + esc(it.asset) + '" alt="' + esc(it.caption || it.id) + '"></div>';
+    h += '<div class="figure-wrap">' + figImg(t.paperId, it.asset, it.caption || it.id, false) + "</div>";
     h += '<p class="fig-note">' + (it.page
       ? 'Cropped as-is from <a href="' + esc(pdfHref(t.paperId, it.page)) + '"' + pdfAttrs(t.paperId) +
         ">page " + esc(it.page) + "</a> of the PDF."
@@ -562,6 +621,114 @@ function vFigure(id) {
   return h;
 }
 
+/* ---------- figures in the prose ---------- */
+/* The prose already says which figure a paragraph is about - 136 times in the
+   story of 1706.03762 alone, and 137 times across its concept pages - and then
+   made the reader go and look it up. A link to a figure now brings the figure
+   with it: the paragraph reads through exactly as written, and the crop follows
+   underneath.
+
+   Three rules keep it prose with pictures in it rather than a slide deck.
+
+   Once per chapter. table-3 is linked 28 times in one story, and a reader does
+   not need it 28 times; the scope is the <section class="chapter"> the link
+   sits in, or the whole page where there are no chapters.
+
+   Capped at 420px tall. A paper prints figures from a 200px table to a
+   full-page architecture diagram, and an uncapped crop pushes the next
+   paragraph off the screen. Anything taller is scaled down and says so; the
+   click opens it at full size.
+
+   The sentence is untouched. The link stays a link - hoverable, navigable -
+   and the picture is a block after the paragraph, not a change to the prose. */
+
+/* Places a link is a reference rather than a mention: term tables, chip rows,
+   the reading column, cards, and inside a block already placed here. */
+const INLINE_SKIP = ".fig-inline, .kv, .chips, .beside-c, .edge-row, .contents, .card, blockquote";
+
+/* An equation is routinely printed by the prose itself - "With those shapes
+   fixed, Equation (1) is:" and then the formula. Our own copy above the
+   authored one shows the same maths twice in a row. placeFigures runs before
+   mountMath, so the authored maths is still its raw $$ source and can simply
+   be compared against. */
+const tex = (s) => String(s || "").replace(/[\s{}]/g, "");
+function mathAlreadyShown(scope, latex) {
+  const want = tex(latex);
+  if (!want) return false;
+  return Array.from(scope.querySelectorAll(".math-pending")).some((n) => tex(n.textContent).includes(want));
+}
+
+function figBlock(t) {
+  const it = t.obj;
+  let media = "";
+  if (it.asset) media = figImg(t.paperId, it.asset, it.caption || it.id, true);
+  else if (it.kind === "equation" && it.latex) media = '<span class="math-pending math-block">$$' + esc(it.latex) + "$$</span>";
+  else return "";
+  const label = itemLabel(it);
+  /* An item with no printed number is labelled by its title, so printing the
+     title after it says the same thing twice. */
+  const title = it.title && it.title !== label ? it.title : "";
+  return '<figure class="fig-inline' + (it.asset ? "" : " is-eq") + '" data-fig="' + esc(it.id) +
+    '" tabindex="0" role="button" aria-label="Open ' + esc(label) + '">' +
+    '<div class="fig-inline-media">' + media + "</div><figcaption>" +
+    '<span class="fig-inline-label">' + esc(label) + "</span>" +
+    (title ? '<span class="fig-inline-title">' + esc(title) + "</span>" : "") +
+    (it.takeaway ? '<span class="fig-inline-take">' + esc(plainLine(it.takeaway)) + "</span>" : "") +
+    "</figcaption></figure>";
+}
+
+/* Two blocks of prose have to survive between one figure and the next. A
+   figure-dense paper otherwise turns a chapter into a slide deck: the story of
+   `monosemanticity`, which prints 72 figures, put six into a chapter of eight
+   paragraphs before this rule, against a worst case of five in nineteen for
+   `1706.03762`. The gap is what makes it prose with pictures rather than
+   captions with prose between them, and a link that loses its picture to it is
+   still a link. */
+function gapOk(prevFig, block) {
+  if (!prevFig) return true;
+  /* A paragraph that names two figures would put the second one in front of
+     the first, since both insert directly after the same block. That is the
+     one case where the next candidate does not follow the last figure, and it
+     is the case that produced two pictures back to back. */
+  if (!(prevFig.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+  let n = 0;
+  for (let node = prevFig.nextElementSibling; node && node !== block; node = node.nextElementSibling) n++;
+  return n >= 2;
+}
+
+function placeFigures(root, skipId) {
+  if (!root) return;
+  const scopes = new Map();
+  /* Captured before anything is inserted, so the walk cannot trip over its own
+     output - and figBlock emits no term links, so there is none to trip on. */
+  Array.from(root.querySelectorAll("a.term[data-id]")).forEach((a) => {
+    const t = INDEX[a.dataset.id];
+    if (!t || t.kind !== "item") return;
+    if (a.closest(INLINE_SKIP)) return;
+    const scope = a.closest("section.chapter") || root;
+    let st = scopes.get(scope);
+    if (!st) { st = { placed: new Set(skipId ? [skipId] : []), last: null }; scopes.set(scope, st); }
+    if (st.placed.has(t.obj.id)) return;
+    if (!t.obj.asset && t.obj.latex && mathAlreadyShown(scope, t.obj.latex)) return;
+    const html = figBlock(t);
+    if (!html) return;
+    /* Under the whole block the link sits in, not inside it: a figure cannot
+       go in the middle of a sentence, or inside the list item that named it. */
+    let block = a;
+    while (block.parentElement && block.parentElement !== scope) block = block.parentElement;
+    if (block.parentElement !== scope) return;
+    if (!gapOk(st.last, block)) return;
+    st.placed.add(t.obj.id);
+    block.insertAdjacentHTML("afterend", html);
+    st.last = block.nextElementSibling;
+  });
+}
+
+/* The story and the concept pages. Not the summary, which carries the argument
+   without the evidence apparatus and links no figures anyway; not the themes,
+   the map or the indexes, which are lists rather than prose. */
+const INLINE_ROUTES = /^#\/?$|^#\/n\/|^#\/insights$|^#\/concept\//;
+
 function vFigures() {
   const items = mainPaper().items || [];
   let h = '<p class="eyebrow">Self-sufficient figures</p><h1>Figures, tables & equations</h1><p class="lede">Each one is meant to be understandable on its own — every term and number in it defined.</p>';
@@ -569,7 +736,7 @@ function vFigures() {
     const group = items.filter((i) => i.kind === k);
     if (!group.length) return;
     h += "<h2>" + label + "</h2><div class=\"card-grid\">" + group.map((it) =>
-      '<div class="card">' + (it.asset ? '<a href="#/figure/' + esc(it.id) + '"><img loading="lazy" style="max-width:100%;max-height:130px;object-fit:contain" src="../papers/' + esc(MAIN_ID) + "/" + esc(it.asset) + '" alt=""></a>' : "") +
+      '<div class="card">' + (it.asset ? '<a class="card-shot" href="#/figure/' + esc(it.id) + '">' + figImg(MAIN_ID, it.asset, "", true) + "</a>" : "") +
       '<a class="title" href="#/figure/' + esc(it.id) + '">' + esc(it.title || (it.caption || it.id).split(":")[0]) + '</a><p class="sub">' + esc((it.takeaway || it.caption || "").slice(0, 140)) + "</p></div>").join("") + "</div>";
   });
   return h;
@@ -647,6 +814,59 @@ function vPaper(pid) {
 }
 
 const notFound = (id) => '<h1>Not found</h1><p>Nothing is registered under <code>' + esc(id) + "</code>.</p>";
+
+/* ---------- a figure opened over the article ---------- */
+/* The whole figure page, not a lightbox of the image: the caption, the
+   takeaway, every term in it defined and every number explained. A reader who
+   stops at a figure has a question, and the answer is the page rather than a
+   bigger picture.
+
+   It is vFigure() verbatim, the way the reading column already opens one, so
+   there is no second version of a figure page to keep in step. The article
+   stays behind it and the paragraph that raised the question is still there
+   when it closes. */
+function openFigPop(id) {
+  const t = INDEX[id];
+  if (!t || t.kind !== "item") return;
+  const wrap = el("figpop"), box = el("figpop-body");
+  if (!wrap || !box) { location.hash = "#/figure/" + id; return; }
+  box.innerHTML = vFigure(id) +
+    '<p class="col-out"><a class="col-out-link" href="#/figure/' + esc(id) + '">Open this on the full site →</a></p>';
+  mountMath(box);
+  wrap.hidden = false;
+  document.body.classList.add("figpop-open");
+  box.scrollTop = 0;
+  const c = wrap.querySelector(".figpop-close");
+  if (c) c.focus();
+}
+
+function closeFigPop() {
+  const wrap = el("figpop");
+  if (!wrap || wrap.hidden) return;
+  wrap.hidden = true;
+  document.body.classList.remove("figpop-open");
+  el("figpop-body").innerHTML = "";
+}
+
+function setupFigPop() {
+  document.addEventListener("click", (ev) => {
+    if (ev.target.closest && ev.target.closest("#figpop [data-close]")) { closeFigPop(); return; }
+    const fig = ev.target.closest && ev.target.closest(".fig-inline");
+    if (!fig) return;
+    ev.preventDefault();
+    /* Inside the reading column a figure belongs in the column's own stack -
+       a modal over the reader would cover the paper the reader is reading. */
+    if (fig.closest(".col-body")) pushColumn("item", fig.dataset.fig);
+    else openFigPop(fig.dataset.fig);
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") closeFigPop();
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target.classList && ev.target.classList.contains("fig-inline")) {
+      ev.preventDefault();
+      ev.target.click();
+    }
+  });
+}
 
 /* ---------- the reader ---------- */
 /* The paper as printed, with the concepts of the block you are on beside it.
@@ -834,10 +1054,15 @@ function columnList(g) {
      what a paragraph is about; what it could not say is what the paper shows
      you there, which is usually the thing a reader is looking for when the
      prose says "as we see below". */
+  /* These rows point at figures elsewhere in the section - the ones the reader
+     cannot currently see - so each carries its crop. The row for the figure
+     under the reader's eye does not: the paper is right there showing it at
+     full size, and a thumbnail of that is noise. */
   const figRow = (it) =>
-    '<div class="beside-c small" data-open="item:' + esc(it.id) + '">' +
-    '<span class="beside-fig">' + esc(itemLabel(it)) + "</span>" +
-    '<span class="beside-name">' + esc(it.title || it.id) + "</span></div>";
+    '<div class="beside-c small beside-figrow" data-open="item:' + esc(it.id) + '">' +
+    (it.asset ? '<span class="beside-thumb">' + figImg(MAIN_ID, it.asset, "", true) + "</span>" : "") +
+    '<span class="beside-figtext"><span class="beside-fig">' + esc(itemLabel(it)) + "</span>" +
+    '<span class="beside-name">' + esc(it.title || it.id) + "</span></span></div>";
 
   function evidenceBlock(sid, exceptId) {
     const figs = itemsInSection(sid).filter((it) => it.id !== exceptId);
@@ -912,6 +1137,10 @@ function paintColumn() {
   if (!box) return;
   const top = RD.stack[RD.stack.length - 1];
   box.innerHTML = top ? columnPage(top) : columnList(RD.byId[RD.pinned || RD.live]);
+  /* A page opened in the column is the site's page at the column's scale, so it
+     gets its figures too - except the one it is about, which is already the
+     thing at the top of it. */
+  if (top && top.kind !== "theme") placeFigures(box, top.id);
   mountMath(box);
   const reader = document.querySelector(".reader");
   if (reader) {
@@ -1583,7 +1812,10 @@ function render() {
   for (const [re, fn] of ROUTES) { const m = route.match(re); if (m) { html = fn(m); break; } }
   content.innerHTML = html == null ? notFound(route) : html;
   if (isReader && el("pdf-pane")) mountReader();
+  /* Before mountMath, so an inlined equation is rendered along with the rest. */
+  if (INLINE_ROUTES.test(route)) placeFigures(content);
   mountMath(content);
+  closeFigPop();
   markActiveNav(full, route);
   paintNavContext(route);
   el("sidebar").classList.remove("open");
@@ -1688,18 +1920,30 @@ function onSearch(ev) {
   const q = ev.target.value.trim().toLowerCase();
   const out = el("search-results");
   if (!q) { out.innerHTML = ""; return; }
+  /* Every paper's bundle is loaded, so this index already spans the project.
+     What made it feel local was stopping at sixty candidates while scanning in
+     insertion order - and the paper you are standing in was indexed first, so
+     on a paper with 276 concepts the scan could end before reaching another
+     one. Score everything, then rank; the current paper gets no advantage. */
   const hits = [];
   for (const id in INDEX) {
     const t = INDEX[id];
     if (t.kind === "paper") continue;
     const name = displayName(t);
-    const hay = (name + " " + (t.obj.summary || t.obj.caption || "")).toLowerCase();
-    if (hay.includes(q)) hits.push({ id, t, name, rank: name.toLowerCase().startsWith(q) ? 0 : 1 });
-    if (hits.length > 60) break;
+    const n = name.toLowerCase();
+    if (!(n + " " + (t.obj.summary || t.obj.caption || "").toLowerCase()).includes(q)) continue;
+    hits.push({ id, t, name, rank: n === q ? 0 : n.startsWith(q) ? 1 : 2 });
   }
   hits.sort((a, b) => a.rank - b.rank || a.name.length - b.name.length);
-  out.innerHTML = hits.slice(0, 10).map((h) =>
-    '<li><a href="#/' + routeFor(h.t) + '">' + esc(h.name) + '<span class="kind">' + h.t.kind + "</span></a></li>").join("");
+  /* And say which paper each hit came from. Two papers can own a concept of the
+     same name, and without this a reader cannot tell them apart - which is the
+     other half of the search reading as though it only knew one paper. */
+  out.innerHTML = hits.slice(0, 10).map((h) => {
+    const owner = REG[h.t.paperId] || {};
+    return '<li><a href="#/' + routeFor(h.t) + '">' + esc(h.name) +
+      '<span class="kind">' + h.t.kind + "</span>" +
+      '<span class="from">' + esc(shortTitle(owner.title || h.t.paperId)) + "</span></a></li>";
+  }).join("");
 }
 
 /* ---------- popover ---------- */
@@ -1776,6 +2020,7 @@ document.addEventListener("DOMContentLoaded", () => {
   buildNav();
   SkimTheme.mount(el("theme-toggle"));
   setupPopover();
+  setupFigPop();
   el("menu-btn").addEventListener("click", () => el("sidebar").classList.toggle("open"));
   window.addEventListener("hashchange", render);
   render();
