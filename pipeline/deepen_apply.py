@@ -1,4 +1,4 @@
-"""Stage 1c apply: fold the deepening agents' children into the concept tree.
+"""Stage 2c apply: fold the deepening agents' children into the concept tree.
 
 Strictly additive, and it has to stay that way. By the time this runs, the
 figure agents have linked their terms to concept ids, the cited reads have

@@ -36,6 +36,11 @@ Changing your mind afterwards means re-pacing everything, which costs more than 
 put together. There is a stage for exactly that, so it is recoverable — it is just the one expensive
 mistake available in the sequence.
 
+A fifth choice is made for you unless you go and change it: the register. It is not an argument, it
+lives in the workflow's voice block, and it is formal by default — third person, no contractions, no
+imperatives aimed at the reader, and quoted material reproduced exactly as the paper printed it,
+contractions and all. Changing it after the fact costs the same as a re-pace, because it is one.
+
 ## The stages
 
 Each stage writes its output to disk before the next starts, so any one can be re-run alone. That
@@ -48,18 +53,28 @@ matters more than it sounds like it does.
 | 1b | Cited papers | 1 per paper | Narrow read: only the concepts the citing paper needs |
 | 2 | Items | 1 per item | Every term and number in a figure, table or equation defined |
 | 2b | Charts | 1 per kind of plot | Why this shape, how to read it, what a bad result looks like |
+| 2c | Deepen | 1 per major concept | The tree read the other way up: what is still unexplained inside each branch |
 | 3 | Edges | 1 per lens | Relationships between concepts, items and results |
 | 4 | Themes | 2 | Concepts into themes, edges into edge-themes |
 | 5 | Pages | 1 per page | A page for every theme, edge-theme and major concept |
 | 6 | Narrative | 1, then a fan-out per round | The root story, then recursive expansion until branches bottom out |
 | 6e | Insights | 1 + fan-out | The second read, spined on the edges |
 | 6f | Summary | 1 | One flat page carrying the whole argument, read in one sitting |
-| 7 | Quality gate | scripted | Every reference resolves; coverage; no duplicate ids |
+| 6g | Paragraph column | 1 small call per paragraph | Which of a section's concepts each paragraph leans on, for the PDF reader |
+| 7 | Quality gate | scripted | Every reference resolves; coverage; no duplicate ids within a paper |
 
 Three scripted passes run whenever content changes — **citations** (attach a PDF page reference to
 every surface), **auto-link** (catch terms named in prose but never linked), and **bundle** (JSON
-into what the viewer loads). A fourth, **re-pace**, runs only when the voice changes rather than the
-content: it rewrites existing prose for rhythm and is checked mechanically for what it dropped.
+into what the viewer loads). A fourth, **re-pace**, runs only when the voice or the pace changes
+rather than the content: it rewrites existing prose and is checked mechanically for what it dropped.
+It is its own workflow, `repace.js`, alongside `skimmaxxer.js`.
+
+Two rows come with a caveat. **Deepen** is append-only by construction — it can add leaves under an
+existing branch and nothing else — which is what lets it run this late, after the figure agents have
+already linked terms to concept ids. And the **paragraph column** has not been run for any paper
+yet: the reader falls back to showing the section's whole concept list, which is the pool the
+ranking would be drawn from anyway. It needs only concepts and the regions ingest wrote, so it can
+be run at any point after the merge, on its own.
 
 ## Before a fan-out: what each job is worth
 
@@ -120,14 +135,16 @@ different words means that branch should not have expanded at all.
 
 Every concept a paper needs is explained on that paper's own pages. A reader who opens the paper and
 never clicks anything still learns what byte-pair encoding is. Where another paper in the project
-explains the same thing, the concept carries a plain link across — a door, not a prerequisite, and
-nothing more elaborate than that. There is no page that gathers up the connections between two
-papers.
+explains the same thing, the concept carries a plain link across — a door, not a prerequisite. One
+page per paper is allowed to look outward: a **relations page**, written by hand, saying how this
+paper sits among its neighbours. It is the only surface whose links may leave the paper, and a paper
+without one simply has no such page.
 
-Ids are global and the viewer indexes on them, so a duplicate is dropped silently rather than
-raising anything. A new paper takes clean slugs and adds a short paper suffix only where one would
-collide. Nothing is renamed retroactively, the merge checks every proposed id against the global
-set, and the gate fails on duplicates rather than letting the viewer swallow them.
+Ids are the routing keys, and the viewer indexes the paper being read first — its own concepts claim
+their ids and every other paper's bundle fills in the rest. So two papers using the same slug for
+the same idea is the design working, and it is not checked. What is checked is a duplicate *within*
+one paper: there the second concept silently never renders, which is a defect and a quiet one.
+Nothing is renamed retroactively, and a new paper takes clean slugs.
 
 Production reuse is a separate matter from what the reader sees. Before fetching a cited paper,
 check the register: if a narrow read already exists, use it, and extend it only if this run needs
@@ -139,8 +156,12 @@ something actually looks before reading.
 The gate is not polish; it is what makes the promise true rather than aspirational. Every link,
 prerequisite, edge endpoint, theme member and child pointer resolves. No cycles in the concept tree.
 Every major concept has a page, every item has a walkthrough and a term list. Every load-bearing
-edge appears in a theme and in the second read. No duplicate ids. On a re-pace, no link id and no
-number may disappear.
+edge appears in a theme and in the second read. No id used twice within one paper.
+
+Two things are checked elsewhere and are easy to file here by mistake. A re-pace is checked by its
+own save script, which reports every link id and every number that was there before and is not there
+after. And source references are written by the citations pass on every surface, with nothing
+afterwards confirming they arrived.
 
 Voice is not among them. Every writing agent is told to use plain words and given the list to
 avoid, and a word list applied afterwards catches the word rather than the writing — it once failed
@@ -152,9 +173,12 @@ ran.
 
 ## Running it
 
-The stages run in order from `pipeline/`, retargeted at a paper with one environment variable. What
-the run needs — the paper's id, its arXiv id if it has one, the floor, the pace and the depth cap —
-is settled up front and inherited from there.
+The whole run is one workflow — `.claude/workflows/skimmaxxer.js`, thirteen phases from ingest to
+the finishing scripts. The prompts live there; the deterministic work lives in `pipeline/`,
+retargeted at a paper with one environment variable. What the run needs — the paper's id, its arXiv
+id if it has one, whether it is a PDF or a web page, the floor, the pace and the depth cap — is
+settled up front and inherited from there. A cited read the run must not make can be named up front
+too, and is then treated exactly as a triage skip.
 
 The fan-outs are discovered rather than declared: the item list comes out of ingest, the cited
 papers out of the merge, and the page targets out of the themes. The size of each stage is known
@@ -169,12 +193,14 @@ section split handed to the extractors is worth a glance if the paper is unusual
 Count the agents from the paper in front of you, not from a past run. Eleven are fixed: three
 extractors and a merge, one per lens, two for themes, and one for the summary. Everything else is a
 property of this paper — one per figure, table and equation; one per borrowed mechanism the register
-does not already hold; one per major concept, theme and edge-theme; one for the root story and one
-for every chapter that earns another level; then the same shape again, smaller, for the second read.
-A re-pace adds one per prose unit on top of all of it.
+does not already hold; one per major concept twice over, once to deepen its branch and once to write
+its page; one per theme and edge-theme; one for the root story and one for every chapter that earns
+another level; then the same shape again, smaller, for the second read. A re-pace adds one per prose
+unit on top of all of it.
 
 The estimate arrives early. The item count is known after ingest and the major-concept count after
-the merge, and those two fix the size of the biggest fan-outs before any of them run. A paper that
+the merge, and those two fix the size of the biggest fan-outs before any of them run. How many
+concepts are called major is therefore the one decision that moves the bill twice. A paper that
 is short but heavy on evaluation costs more than its page count suggests; a long paper whose method
 is mostly borrowed costs less. Everything scripted is free.
 

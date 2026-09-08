@@ -1,4 +1,4 @@
-"""Stage 1c prep: one brief per major concept, for the pass that deepens it.
+"""Stage 2c prep: one brief per major concept, for the pass that deepens it.
 
 The three extractors read the paper by section, so what they produce is shaped
 like the paper: wide where it has many parallel experiments, and only as deep

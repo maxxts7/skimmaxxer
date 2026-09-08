@@ -1,4 +1,4 @@
-"""Stage 2c prep: one ranking job per paragraph of the PDF.
+"""Stage 6g prep: one ranking job per paragraph of the PDF.
 
 The reader shows, beside each paragraph, the concepts that paragraph leans on.
 Nothing has to be discovered to do that: every concept already records the

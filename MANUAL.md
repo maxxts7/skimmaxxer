@@ -36,8 +36,11 @@ Four structures, one per failure.
    every term and every number in it, plus what it establishes.
 3. **A typed relationship graph.** Explicit, explained edges between concepts, evidence and results
    — the reasoning the paper leaves implicit, turned into objects.
-4. **Two narratives over one corpus, each recursive.** One follows the paper's order; one follows
-   the graph. Each chapter opens into a smaller narrative of the same span at higher resolution.
+4. **Several reads over one corpus.** Two are recursive — one follows the paper's order, one follows
+   the graph — and each chapter opens into a smaller narrative of the same span at higher resolution.
+   A third is flat: the whole argument in one sitting. And where a reader wants the paper itself, it
+   is shown as printed with the concept column beside it, which is the same promise travelling the
+   other way.
 
 ## 3. Invariants
 
@@ -59,8 +62,8 @@ Non-negotiable. If one fails, the design has failed rather than degraded.
 
 ## 4. What a paper holds, and where each part comes from
 
-Nine kinds of object. Ids are globally unique kebab-case slugs and are the only means of reference
-— there are no positional or index-based links anywhere in the data.
+Ten kinds of object. Ids are kebab-case slugs, unique within their paper, and are the only means of
+reference — there are no positional or index-based links anywhere in the data.
 
 ### The paper and the register
 
@@ -101,10 +104,13 @@ title, a stated takeaway, and a walkthrough. Then the two lists that do the work
 symbol, axis, legend entry, row and column header, model name — with a definition and a link to a
 concept where one matches; and **every** number or family of numbers with what it means.
 
-An item from a web paper carries two more things: an anchor into the frozen copy in place of a page
-number, and `captionInferred` where the caption is the sentence that introduced the figure rather
-than the authors' own words. A plot also carries a `chartId` pointing at the page that explains its
-shape.
+An item from a web paper carries three more things: an anchor into the frozen copy in place of a page
+number, `captionInferred` where the caption is the sentence that introduced the figure rather than
+the authors' own words, and `assetCaptured` where the article draws its figure in the browser and
+stores no image file, so the picture is a still taken off the rendered page. Where the picture came
+from is a claim the figure page makes out loud — the authors' own file, a crop of the PDF, or a
+still someone captured — so it is recorded rather than assumed. A plot also carries a `chartId`
+pointing at the page that explains its shape.
 
 The title is a name, not "Figure 3"; the printed number is derived. Figures are never redrawn — the
 asset is the original crop, because fidelity beats prettiness. Equations get no crop; they are
@@ -141,6 +147,12 @@ Authored prose for a theme, an edge theme or a major concept. The body is markdo
 and math. A page never repeats what the app renders around it: not the summary above it, not the
 sub-concepts below it, not its member edges.
 
+A fourth kind exists and is written by hand rather than by the fan-out: the **relations page**, one
+per paper, saying how this paper sits among its neighbours. It is the only page whose links may
+leave the paper, which is what lets every other page be written as though its paper were the only
+one in the project. `relations_brief.py` builds its brief, and that brief is correspondingly the
+only one allowed to name another paper's concept ids.
+
 Produced by: one agent per page, stage 5 — the big fan-out.
 
 ### Narrative node
@@ -166,6 +178,19 @@ where the argument leans on it, and links out at the same density as the story, 
 of anything is one click away.
 
 Produced by: one agent, stage 6f. Its beats derive sources like a narrative chapter does.
+
+### Region, and the paragraph ranking over it
+
+Ingest keeps the geometry it used to throw away: one region per paragraph, figure and table, with
+its section, its page and its rectangle normalised to the page. That file is what lets the PDF
+reader put a concept column beside the paragraph a reader is actually on.
+
+The ranking is a separate, thin object: per region, the concepts of that region's own section, cut
+and ordered by what the paragraph leans on. It cannot invent a link, because the candidate pool is
+the section's own concepts and anything outside it is dropped when the result is filed.
+
+Produced by: ingest writes the regions; one small agent per paragraph writes the ranking, stage 6g.
+No paper carries a ranking yet, and the reader falls back to the section's whole concept list.
 
 ### Source reference
 
@@ -287,9 +312,12 @@ When a concept's real source is a cited paper — the paper says it uses someone
 the extractor flags the citation rather than guessing at the mechanism. The cited-papers stage picks
 those up.
 
-A fourth agent merges the three. It dedups overlaps, checks that every prerequisite exists, breaks
-any cycles, decides which concepts are major, and checks every proposed id against the global set so
-a collision is caught rather than silently dropped later.
+Each extractor writes its own file, and `merge_prep.py` does everything mechanical before the merge
+agent sees anything: folding two extractors' versions of the same id together, unioning section
+lists, resolving references. What reaches the agent is four questions it actually has to answer —
+which near-identical concepts are the same thing, what is named but never defined, which twelve to
+twenty are major, and which cited papers earn a narrow read. It returns decisions, not a copy of its
+input; `merge_apply.py` applies them, cuts any cycle and writes the file.
 
 **Must produce:** a single acyclic tree, every prerequisite resolving, twelve to twenty major
 concepts, and a list of citations worth chasing.
@@ -394,6 +422,41 @@ a chart from decoration into evidence a reader can judge; and where the shape co
 **They are their own theme,** placed last, because they teach how to read the evidence rather than
 what it says.
 
+### 2c. Deepen — one agent per major concept
+
+The three extractors read the paper section by section, so the tree they produce is shaped like the
+paper rather than like the recursion: wide across parallel experiments, and only as deep as one pass
+through one section happened to reach. A 41-page paper with many experimental arms came back as 220
+concepts, 105 of them at depth 1, stopping at depth 3 where earlier papers reach 5 and 6. A term the
+paper leans on for half a page arrives as a leaf whose own explanation uses three more terms nobody
+defined — which is exactly the failure the floor exists to catch.
+
+So the tree is read the other way up. One agent per major concept, given its own subtree and only
+the sections that concept came from, asked the single question: reading these sections with the
+floor in mind, what is still unexplained inside this branch? Twenty agents on the hierarchy rather
+than three on the section list.
+
+**It can only append leaves, and that is what makes it affordable rather than a restart.** By the
+time it runs, the figure agents have linked their terms to concept ids and the cited reads have hung
+deep-dive pointers off them, so rewriting or dropping an existing concept here would break both
+quietly. `deepen_apply.py` refuses an id that already exists, a parent outside the branch, a bad
+slug and an empty body, and files everything as minor — promoting a concept is the merge's call over
+the whole paper, not a branch's.
+
+**An empty answer is a real one**, and the prompt says so, because the failure mode here is padding.
+A branch with machinery behind it yields several concepts; one the paper mentions and moves on from
+yields none.
+
+**Must produce:** new leaves under existing branches, every one of them accepted by the apply script
+— and a note per branch saying what was left alone because it was already covered or below the floor.
+
+**Your check:** read a few of the added concepts against their parent. A reworded restatement of
+something already in the tree is worse than nothing, because the reader meets the same idea twice and
+cannot tell whether it is the same idea.
+
+**When it fails:** the run continues with the tree the merge produced. Nothing downstream depends on
+this pass having happened, which is the point of it being additive.
+
 ### 3. Edges — one agent per lens
 
 Four agents look at the whole set — concepts, items, results — each through one lens: what depends on
@@ -450,6 +513,17 @@ Rewrites existing prose for rhythm only, and is checked mechanically: every link
 present before must be present after. It keeps the researched content, which is the expensive part,
 and changes only how it reads.
 
+It is its own runnable workflow — `.claude/workflows/repace.js`, in three phases: dump every prose
+unit to its own file, one agent per unit, fold them back and re-run the gate. One agent per unit
+rather than one per third of the corpus, because a hundred and fifty units will not fit in three
+replies and the agent that tries loses the connection partway.
+
+One flag decides how far it reaches. By default the concept batches include every cited paper's
+concepts too, because a cross-paper link renders their explanation in place and a seam would show
+there. That is right when the whole project is being re-registered and wrong when a single paper is:
+re-pacing a cited paper's concepts leaves that paper split between two registers, its concepts in
+one and its own pages in the other. `--own` restricts the pass to this paper's concepts.
+
 ### 6c. Citations — scripted
 
 Parses where each section starts and ends and attaches page references to every surface. Concepts
@@ -497,9 +571,29 @@ much assumed machinery it leans on, enforcing none of it.
 **Your check:** read it against the story's chapter list. Every chapter should be somewhere in it,
 and nothing in it should need a chapter to make sense.
 
+### 6g. The paragraph column — one small agent per paragraph
+
+The PDF reader shows, beside each paragraph, the concepts that paragraph leans on. Nothing has to be
+discovered to do that: every concept already records the sections it came from, so the candidate pool
+for a paragraph is whatever its own section owns — one to twenty-three concepts, six at the median.
+What is left is ranking a short list against a short paragraph, which is one small call per paragraph
+rather than a read of the paper.
+
+Two properties follow, and both matter more than the saving. **It cannot invent**: a paragraph can
+only be tagged with concepts its own section owns, and `save_reading.py` drops anything outside the
+pool rather than trusting it, so the worst failure is a bad ordering. **It re-runs alone**: it reads
+`concepts.json` and the regions ingest wrote, and touches nothing upstream or downstream.
+
+It needs nothing later than the merge and could run right after it. It is numbered last because it
+serves the reader surface rather than the explainer, and because nothing else waits on it.
+
+**Not yet run for any paper.** The viewer has an honest fallback — with no ranking it shows the
+section's whole concept list, which is what the ranking would be drawn from anyway — so the reader
+works without it and gets sharper with it.
+
 ### 7. Quality gate — scripted
 
-§8 lists what it checks. Run it after every stage, not just at the end: a clean gate at each step
+§9 lists what it checks. Run it after every stage, not just at the end: a clean gate at each step
 means a failure is always in the stage you just ran.
 
 ### Then read it
@@ -526,7 +620,11 @@ These are the knobs. Everything else follows from them.
 - **Pace.** Dense or slow. Slow means one idea per sentence, unpack a term before naming it, walk
   the arithmetic rather than stating the result. It is not padding, not chatty, and never talks down:
   it unpacks the paper's machinery, never the reader's background. It costs roughly 50% more words.
-  **Decide this before the page fan-out** — see §9.
+  **Decide this before the page fan-out** — a re-pace is close to a second copy of the two biggest
+  fan-outs, as §12 counts it.
+- **Register.** Formal by default: third person, no contractions, nothing addressed to the reader.
+  It is set in the workflow's voice block rather than passed in as an argument, and the re-pace
+  stage exists to change it after the fact — at one agent per prose unit, which is a re-pace's bill.
 - **Tone.** The voice rules push output toward skepticism. That is usually right, but it is a choice
   worth making deliberately rather than discovering in the finished pages.
 - **Page granularity.** Full pages for themes and major concepts; smaller concepts fold into their
@@ -562,18 +660,47 @@ trading them away for simplicity. Never sends the reader away in order to contin
 **Insights chapter** — one insight, visible only across several relationships. Carries the raw edges
 beneath it and reports what it left unused.
 
+**Relations page** — how this paper sits among its neighbours, and the only page whose links leave
+it. Written deliberately, once, rather than by the fan-out: connections are somewhere a reader
+chooses to go, not something scattered through the prose.
+
+**Paper reader** — the PDF as printed, with the live paragraph's concepts beside it. It owes the
+reader the same promise from the other direction: a term met in the paper's own words is explained
+in the column without leaving the page. Nothing is drawn on the paper while reading; a link inside
+the column stays inside the column; a page opened there is the site's own page at the column's
+scale. READER.md holds the full account.
+
 ### Voice
 
 Voice and pace are part of the design, not decoration.
 
 - **Plain, not decorative, not authoritative.** Say what the source claims, does and shows — not
-  what is true.
+  what is true. Where the evidence is thinner than the claim, say so plainly.
+- **Formal, and formal means the grammar rather than the vocabulary.** The words stay plain and
+  short. What changes is that the prose stops speaking to the reader and stops performing for them:
+  third person throughout, no "you" and no "we"; no imperatives aimed at the reader — not "notice
+  that", not "consider"; no contractions; no rhetorical questions; no exclamations and no asides.
+  Where a sentence wants to address the reader, name the subject instead — "a reader arriving here"
+  — or say the thing without a person in it at all. Formal is not stiff: never reach for a longer
+  word or a passive where the short active sentence was already right.
+- **Quoted material is untouchable**, and this matters more than the rest. The rules above govern
+  the project's own sentences. An evaluation question, a model's answer, a prompt template, a rubric
+  or a dataset entry is printed exactly as it appears in the paper — its contractions, its second
+  person, its bad grammar and its offensiveness all stay. Quoting a model saying "I've had enough"
+  is not a contraction in the project's prose.
 - **Hedge with the source.** "Suspects", "seems to", "is an estimate" survive intact. More room
   means a clearer hedge, never a softer or firmer one.
 - **Write in the source's moment.** No hindsight about what the field later did with it.
 - **Define before use, and link the first mention only.** One link per concept per surface;
   repeating it is noise.
-- **Short sentences. Concrete examples over abstract restatements.**
+- **A banned list, carried in the prompts rather than checked at the end:** novel, remarkably,
+  elegant, powerful, seminal, groundbreaking, revolutionary, cutting-edge, crucial, delve, leverage
+  as a verb, it's worth noting, importantly, unlock, harness.
+
+Pace is the separate parameter and it is set per run. **Slow** is one idea per sentence, a
+compressed term unpacked the first time it does real work, arithmetic walked rather than stated, and
+a paragraph break every two to four sentences — never padding, never chattiness, never talking down.
+**Dense** is the other setting: every sentence carries new information and nothing is restated.
 
 ### Navigation
 
@@ -584,8 +711,9 @@ Three moves, and they must feel distinct.
 | **Zoom in** | Same span, more resolution | A chapter opens its child narrative |
 | **Zoom out** | Back up the tree | Breadcrumb, and an explicit way back out |
 | **Step sideways** | Same depth, different object | A link into a concept, item or theme |
-| **Switch read** | Same material, different order | Between the two narratives |
+| **Switch read** | Same material, different order | Between the story and the second read |
 | **Compress** | Same material, no apparatus | The Summary, from the story or the sidebar |
+| **Open the paper** | The same material as printed | The reader, from the nav foot, the library card, or any source citation |
 
 Every narrative node is its own page with a breadcrumb to the root; depth is shown, not implied. The
 two narratives cross-link where they cover the same ground, computed from shared links. A hover on
@@ -600,6 +728,12 @@ any link previews the target's summary without navigating.
 - **Both themes designed**, including the system-default state.
 - **Wide content scrolls in its own container**; the body never scrolls sideways.
 - **Original crops render at fidelity**, on a stable ground whatever the page theme.
+- **A figure link in the prose renders the figure.** In the story and on concept pages, a
+  `[[fig-…]]` link leaves the sentence alone and puts the image, its printed number and its takeaway
+  under the paragraph — first mention per chapter only, capped in height so prose does not become a
+  slideshow, with two blocks of prose required between one figure and the next. An equation the
+  prose already prints is not printed a second time. Clicking one opens the whole figure page over
+  the article, with the paragraph still where it was left. FIGURES.md holds the reasoning.
 
 ---
 
@@ -612,9 +746,15 @@ never clicks anything still learns what byte-pair encoding is and what 40,000 me
 Where the paper diverges from something it borrows, it explains the divergence in its own terms too.
 
 Where another paper in the project explains the same thing, the concept carries a plain link across.
-That link is a door, not a prerequisite, and it is the whole of the connection between two papers.
-There is no page gathering up what one paper takes from another; connection is a link, not a
-structure.
+That link is a door, not a prerequisite.
+
+One page per paper is allowed to look outward. The **relations page** says how this paper sits among
+its neighbours — what it borrows, what it argues with, where the same mechanism is explained twice —
+and it is the only surface whose links may leave the paper. It is written deliberately rather than
+scattered through the prose, because a connection is somewhere a reader chooses to go. Its brief is
+correspondingly the only one allowed to name another paper's concept ids. `gpt-1` carries one; a
+paper without one simply has no such page, and the viewer hides the door rather than pointing at an
+empty room.
 
 ### Reuse is a production rule, not a reader-facing one
 
@@ -625,21 +765,33 @@ needs something the earlier scoping dropped — which is what the skipped record
 
 The reader sees none of this. They see a paper that explains what it needs.
 
+A script exists to derive the other half of that — `crosslink.py`, which writes `alsoExplainedIn`
+onto a paper's concepts wherever another paper explains the same mechanism, on three conservative
+rules: one id is another's plus a disambiguating suffix, both name the same cited paper as the
+source, or the display names normalise to the same string. Anything weaker is reported as a near
+miss rather than linked. **It has never been run**: no paper carries the field, and no workflow
+calls it. Cross-paper links today are the ones the cited-papers stage hangs off a concept by hand.
+
 ### Ids
 
-Ids are global and the viewer indexes on them, so **a duplicate id is dropped silently** — the
-second paper's concept simply never renders, with no error anywhere. That failure mode is why the
-rule is mechanical rather than a matter of care:
+Ids are the routing keys, and **the viewer indexes the paper being read first**: its own concepts,
+items and themes claim their ids, and every other paper's bundle fills in only what is left. Two
+papers naming the same idea the same slug is therefore the design working rather than a collision.
+Each explains it in its own terms, and each wins on its own pages.
 
-- A new paper takes clean slugs, and adds a short paper suffix only where one would collide.
-- Nothing is renamed retroactively.
-- The merge checks every proposed id against the global set.
-- The gate fails on duplicates rather than letting the viewer swallow them.
+- **Within one paper a duplicate id is a defect, and a silent one.** The second concept never
+  renders and nothing reports it, which is why the gate checks exactly this and why it is worth
+  checking at all.
+- **Across papers it is deliberately not checked.** Comparing between papers only reported the
+  overlap that standing alone produces. The one real consequence is worth knowing: a link into a
+  cited paper's concept whose slug this paper also uses resolves to this paper's version — which is
+  the reading a reader wants while on this paper's pages.
+- **Nothing is renamed retroactively.** A new paper takes clean slugs.
 
-A global id space is itself a coupling between papers. The properly detached fix is for the viewer
-to key concepts by paper as well as id, which would let every paper use natural slugs. That is a
-viewer change rather than a data change, and it can happen later without touching anything written
-before it.
+This section previously described a global id space, with a paper suffix wherever a slug would
+collide, a merge that checked every proposed id against every other paper, and a gate that failed on
+duplicates. None of those three exist any more: per-paper ownership plus main-paper-first indexing
+made the coupling unnecessary, and the checks were removed rather than left to report a non-problem.
 
 ### Where agents are handed link targets
 
@@ -662,15 +814,19 @@ Machine-checkable, all must pass:
 - Every link, prerequisite, edge endpoint, theme member and child pointer resolves — including
   across papers.
 - No cycle in the concept tree; every parent exists.
-- No id claimed by two papers.
+- No id claimed twice **within** a paper. Across papers is deliberately not checked, for the reason
+  in §8.
 - Every major concept has a page.
 - Every item has a walkthrough and a non-empty term list.
 - Every non-floor, parentless concept belongs to exactly one theme.
 - Every edge belongs to an edge-theme, and every load-bearing edge appears in the second read.
 - Every link in the Summary resolves. Its length, beat shape and use of floor terms are reported and
   not enforced — whether an argument survives compression is not a judgement the gate can make.
-- Every surface carries a source reference.
-- After any prose rewrite: no link id and no number has disappeared.
+
+Two checks sit outside the gate and are easy to mistake for part of it. **Source references** are
+written by the citations pass on every surface, and nothing afterwards verifies that they are there.
+**A prose rewrite is checked by `save_repace.py`**, which reports every link id and every number
+present before and missing after — the gate never sees the before.
 
 The gate cannot see material that never reached it. A paragraph lost during ingest produces a clean
 gate and an incomplete explainer, which is exactly why the crop check is manual and comes first.
@@ -702,6 +858,13 @@ tokens over 157 turns across two attempts, failed both times, and was replaced b
 does it in under a second. The tell is a prompt containing a large blob that comes back out roughly
 unchanged. It is also what keeps the disk rule true: work that only exists in a workflow's memory
 is lost when the run dies, and a run that large always dies eventually.
+
+The rule is held where it was learned and not everywhere. The stages that write their own files —
+the extractors, the figure agents, the chart explainers, the deepening branches, every narrative
+node — go through a script. Edges, themes, pages, insights and the summary are still handed back
+through a saving agent's prompt as JSON, which works because each of those fits in one reply and
+fails the day one does not. `save_edges.py`, `save_pages.py` and `save_insights.py` exist for that
+day and are currently unused.
 
 **A resume only reuses what it recognises.** Change a prompt at or before a completed stage and
 every agent after it re-runs. *Why:* editing a whole workflow file and resuming from it re-ran an
@@ -820,18 +983,23 @@ else is counted off the paper's own shape.
 | Cited papers | 1 per borrowed mechanism the register does not already hold, less any triage skips |
 | Items | 1 per figure, table and inventoried equation |
 | Charts | 1 to group the plots, then 1 per kind of plot — about 8-12 |
+| Deepen | 1 per major concept — the same 12-20, each reading only its own branch |
 | Edges | 1 per lens |
 | Themes | 2 |
 | Pages | 1 per major concept, plus 1 per theme and edge-theme |
 | Narrative | 1 for the root, then 1 per chapter that declares another level, round by round |
 | Insights | 1, then 1 per chapter that expands |
 | Summary | 1 — flat, so it never fans out |
+| Paragraph column | 1 small call per paragraph of the PDF — a separate pass, not part of a run |
 | Re-pace | 1 per prose unit — only when the pace changes |
 
 Three of those dominate, and all three scale with the paper: the page fan-out with how many concepts
 are major, the narrative with how many chapters hold distinct sub-stories, and a re-pace with the
 sum of the other two. That last row is why the pace decision is expensive to reverse — a re-pace is
 close to a second copy of the two biggest fan-outs.
+
+The major-concept count is now paid twice over, once to deepen each branch and once to write its
+page, which is worth knowing while deciding how many concepts are major.
 
 The estimate is available before the expensive part runs. Ingest fixes the item count and the merge
 fixes the major-concept count, so after stage 1 you know the size of the run. Expect the shape to
@@ -844,9 +1012,12 @@ Everything scripted is free and re-runnable. The expensive, hard-to-redo part is
 content; the cheap part is how it reads. Keeping those two separable is the whole reason re-pace
 exists as its own stage.
 
-The stages run in order from `pipeline/`, retargeted at a paper with one environment variable. What
-the run needs — the paper's id, its arXiv id if it has one, the floor, the pace and the depth cap —
-is settled up front and inherited from there.
+A run is one workflow — `.claude/workflows/skimmaxxer.js`, thirteen phases from ingest to the
+finishing scripts, with every prompt in it. The deterministic work runs from `pipeline/`, retargeted
+at a paper with one environment variable. What the run needs — the paper's id, its arXiv id if it
+has one, whether it is a PDF or a web page, the floor, the pace, the lenses and the depth cap — is
+settled up front and inherited from there. A cited read the run must not make can be named up front
+as well, and is then handled exactly as a triage skip.
 
 The fan-outs are discovered rather than declared. The item list comes out of ingest, the cited
 papers out of the merge, and the page targets out of the themes, so the size of a stage is known
@@ -861,9 +1032,12 @@ split handed to the extractors is worth a glance if the paper is unusually struc
 - `papers/<id>/` — one paper's world: the PDF, its assets, its data, the cited papers this run
   accessed, and optional per-paper overrides for equations, headings and crops.
 - `register.json` — every paper ever touched, main or cited, and what was extracted from it.
-- `viewer/` — the static app: a library page listing every paper, and one reader shell that serves
-  any of them. It loads every bundle, so a cross-paper link renders in place instead of sending the
-  reader to another document.
+- `viewer/` — the static app, four entry points over one renderer: a landing page saying what this
+  is, a library listing every paper, the explainer shell that serves any of them, and the PDF reader
+  with its concept column. The shell loads every bundle, so a cross-paper link renders in place
+  instead of sending the reader to another document.
+- `.claude/workflows/` — the runnable workflows. `skimmaxxer.js` is the whole run, phase by phase;
+  `repace.js` is the re-pace. A stage's prompts live there, not in `pipeline/`.
 - `netlify/` — the only server-side code: readers can ask for a paper, and the asks are readable on
   an admin page behind a password set in the site's environment variables. Nothing is built at deploy
   time; the root redirects into the viewer.

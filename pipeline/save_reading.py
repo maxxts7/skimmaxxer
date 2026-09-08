@@ -1,4 +1,4 @@
-"""Save stage-2c paragraph rankings -> data/reading.json.
+"""Save stage-6g paragraph rankings -> data/reading.json.
 
 usage: python pipeline/save_reading.py <workflow-task-output.json>
 

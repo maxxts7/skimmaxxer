@@ -628,8 +628,6 @@ It adds one concept per chart kind under "reading-the-evidence" and tags every p
 Report the summary it prints, including any figure it lists as having no chart explainer.`,
   { type: 'object', required: ['ok', 'note'], properties: { ok: { type: 'boolean' }, note: { type: 'string' } } })
 
-/* -------------------------------------------------------------- 5. edges */
-
 /* ------------------------------------------------------------- 2c. deepen */
 /* The extractors read the paper section by section, so the tree they produce
    is shaped like the paper rather than like the recursion: wide across
@@ -720,6 +718,8 @@ const deepenApplied = await sh('deepen:apply', 'Deepen',
   `1. Run:  ${PY} pipeline/deepen_apply.py    and report its output verbatim as "out", especially anything it refused.
 2. Run:  ${PY} pipeline/node_index.py`, OUT_SCHEMA)
 log(`deepen applied: ${((deepenApplied && deepenApplied.out) || 'FAILED').split('\n').filter(Boolean).slice(0, 3).join(' | ')}`)
+
+/* -------------------------------------------------------------- 5. edges */
 
 phase('Edges')
 

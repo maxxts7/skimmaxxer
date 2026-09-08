@@ -1,4 +1,4 @@
-"""Stage 1b apply: the merge's decisions, applied to the extractors' concepts.
+"""Stage 1 apply: the merge's decisions, applied to the extractors' concepts.
 
 The merge agent returns judgements, not a copy of its input: which ids are the
 same thing, which twelve to twenty are major, what to add for anything named

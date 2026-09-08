@@ -1,4 +1,4 @@
-"""Stage 1b prep: turn three extractors' concept sets into one merge brief.
+"""Stage 1 prep: turn three extractors' concept sets into one merge brief.
 
 The merge used to be handed every concept in full and asked to hand them all
 back. On a large paper that is thousands of lines of retyping, and it fails
