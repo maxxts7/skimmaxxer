@@ -2253,7 +2253,7 @@ function paintSwitch(route) {
     ? '<span class="sw-half is-on" aria-current="page">' + label + "</span>"
     : '<a class="sw-half" href="#/">' + label + "</a>");
   box.innerHTML = '<div class="switcher" role="group" aria-label="How to read this paper">' +
-    half(!onPaper, "Story") + half(onPaper, "Paper") + "</div>";
+    half(!onPaper, "Interactive Wiki") + half(onPaper, "Annotated Paper") + "</div>";
   refreshSwitch();
 }
 
