@@ -193,7 +193,33 @@ const hasReader = (paperId) => ((PAPERS[paperId] || {}).regions || []).length > 
    two places only: which file the reader opens, and whether "where this came
    from" is a page number or an anchor into the copy. */
 const readerKind = (paperId) => ((PAPERS[paperId] || {}).readerKind === "web" ? "web" : "pdf");
+
+/* Where the paper itself comes from. Wherever the host that published it will
+   serve it to a reader's browser, that is where the reader gets it, and this
+   site holds no copy at all - the bytes go from arXiv to whoever is reading,
+   and never through here. arXiv asks tools built on its full text to link back
+   for downloads, so this is also what they ask for.
+     What makes it possible is one header. pdf.js has to read the bytes, not
+   just point at them, and that needs access-control-allow-origin from the
+   host; arXiv and OpenAI's CDN both send it, so the reader works against their
+   copy exactly as it did against ours. transformer-circuits.pub and metr.org
+   do not, so those three stay on the copy here - listed by what they can do,
+   not by who they are, because the day one of them sends the header this stops
+   being a special case. */
+const STREAMABLE = /^https?:\/\/(arxiv\.org|cdn\.openai\.com)\//;
+function streamUrl(paperId) {
+  const src = ((REG[paperId] || {}).source || "").trim();
+  if (!STREAMABLE.test(src)) return null;
+  /* An abstract page is where a paper is cited from; the file beside it is
+     what the reader opens. A version suffix is dropped so a citation follows
+     the paper rather than the revision it was read at. */
+  const abs = /^https?:\/\/arxiv\.org\/abs\/(.+?)(?:v\d+)?$/.exec(src);
+  if (abs) return "https://arxiv.org/pdf/" + abs[1];
+  return /\.pdf$/i.test(src) ? src : null;
+}
+
 const paperFile = (paperId) =>
+  streamUrl(paperId) ||
   "../papers/" + paperId + "/" + (readerKind(paperId) === "web" ? "paper.html" : "paper.pdf");
 function pdfHref(paperId, at) {
   if (hasReader(paperId)) {
