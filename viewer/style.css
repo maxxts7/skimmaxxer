@@ -288,6 +288,46 @@ body {
     -webkit-text-fill-color: transparent;
   }
 }
+/* Story or paper: the two readings of the same paper, and the only thing in
+   the rail that says what else exists rather than acting on what is open. So
+   both names stay on screen and the one you are in is the raised chip, rather
+   than a button naming a destination you have to read to know there are two.
+
+   The accent stays off the chip on purpose. In this palette it means the way
+   forward, and the way forward from here is always the other half - so it is
+   the half you can press that takes the colour, under the pointer. */
+.rail-switch { display: flex; align-items: center; flex: 0 0 auto; }
+.rail-switch:empty { display: none; }
+
+.switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.sw-half {
+  display: inline-block;
+  padding: 5px 15px;
+  font: 600 13px var(--sans);
+  line-height: 1.25;
+  color: var(--ink-faint);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 999px;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.sw-half.is-on {
+  color: var(--ink);
+  background: var(--bg-raise);
+  box-shadow: var(--shadow-sm);
+}
+a.sw-half { cursor: pointer; }
+a.sw-half:hover { color: var(--accent-text); background: var(--accent-soft); }
+a.sw-half:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* The reader's controls, when a paper is open as printed. Empty on every other
    page, and takes no room then. */
 .rail-tools {
@@ -1152,17 +1192,6 @@ body.reader-mode #sidebar,
 body.reader-mode #menu-btn { display: none; }
 body.reader-mode .content { max-width: none; margin: 0; padding: 0; }
 
-.reader-back {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 600 14px var(--sans);
-  color: var(--ink-soft);
-  text-decoration: none;
-}
-.reader-back:hover { color: var(--accent-text); }
 .reader-count { flex: 0 0 auto; font: 500 12.5px var(--sans); color: var(--ink-faint); white-space: nowrap; }
 
 .zoom-ctl { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
@@ -1510,6 +1539,28 @@ body.reader-mode .beside .content { max-width: none; padding: 0; }
   .col-body { padding: 20px 0 40px; }
 }
 
+/* Narrower still, and off the paper: the menu, the mark, the switch and the
+   toggle no longer fit on one line, so the switch takes a line of its own -
+   the same answer the reader already gives its controls one breakpoint up. The
+   rail grows, and the sidebar hanging below it is told the new height rather
+   than left to overlap. */
+@media (max-width: 520px) {
+  /* 10 + 34 + 8 + 34 + 10, and a pixel over rather than under: the sidebar
+     hangs from this number, and starting a hair low shows a hairline where
+     starting a hair high hides a row of it behind the rail. */
+  body.reading:not(.reader-mode) { --rail-h: 98px; }
+  body.reading:not(.reader-mode) .rail {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--rail-h);
+    padding-top: 10px;
+    padding-bottom: 10px;
+    row-gap: 8px;
+  }
+  body.reading:not(.reader-mode) #theme-toggle { order: 3; }
+  body.reading:not(.reader-mode) .rail-switch { order: 4; flex-basis: 100%; }
+}
+
 /* The summary's door in the rail is a section label like THE STORY, built in
    buildNav; nothing extra to draw here. */
 
@@ -1655,6 +1706,137 @@ body.figpop-open { overflow: hidden; }
   .figpop-body { padding: 24px 18px 36px; }
 }
 
+/* ---------- a figure held up close ---------- */
+/* The panel on a figure page is the button that opens it, so it keeps every
+   line of the panel it already was and adds only what says it can be pressed:
+   the cursor, a ring on focus, and a corner mark that is always there. Always,
+   because a mark that appears on hover is a mark a touch screen never shows. */
+.figure-wrap.figure-closeup {
+  position: relative;
+  display: block;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: zoom-in;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.figure-closeup:hover { border-color: var(--accent-ring); box-shadow: var(--shadow); }
+.figure-closeup:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.figure-closeup-mark {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  /* The plate under it is white in either theme, so the mark is coloured for
+     white rather than off the palette. */
+  border: 1px solid rgba(11, 14, 20, 0.16);
+  border-radius: 50%;
+  background: #ffffff;
+  color: #48515a;
+  font: 13px/1 var(--sans);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.figure-closeup:hover .figure-closeup-mark { color: #1e40af; border-color: #1d4ed8; }
+.col-body .figure-closeup-mark { top: 6px; right: 6px; }
+
+/* On its own page the figure is the subject rather than an illustration inside
+   a column of prose, so the plate steps out of the column and takes the width
+   the window gives it - the same width for every figure, instead of each one
+   arriving at whatever size it happened to be cropped at. A crop off a PDF runs
+   from 640 pixels to 1,800, and drawn at its own size that is what the reader
+   saw: two figures on the same paper, one twice the other, for a reason that
+   has nothing to do with either.
+
+   Height is a page measure too. A portrait figure stops at four fifths of the
+   window and gives back the width it does not need, so the plate is always
+   the size of the picture and the picture is always the size of the page. */
+body:not(.reader-mode) #content .figure-closeup {
+  /* The sidebar's 290 and a gutter either side of the plate. */
+  --fig-w: min(1000px, calc(100vw - 371px));
+  --fig-h: 82vh;
+  width: fit-content;
+  max-width: none;
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
+/* Whichever limit binds first. --fig-ar is the picture's own width over its
+   height, written on the plate by figRatio() once the file has arrived; until
+   then the fallback is large enough that only the width counts. */
+body:not(.reader-mode) #content .figure-closeup img {
+  width: min(var(--fig-w), calc(var(--fig-h) * var(--fig-ar, 99)));
+  max-width: none;
+  max-height: var(--fig-h);
+}
+@media (max-width: 900px) {
+  /* The sidebar is off the page here and there is no room to step out of the
+     column, so the plate lands on the prose's own gutter: the window, less
+     that gutter both sides, the plate's padding and hairline, and room for a
+     scrollbar on the machines that keep one. Off the window rather than the
+     column, because a plate that shrinks to its picture cannot be measured as
+     a percentage of itself. */
+  body:not(.reader-mode) #content .figure-closeup { --fig-w: calc(100vw - 96px); }
+}
+
+/* A solid ground rather than the figure popup's dimmed one, and no panel on it:
+   the picture is the whole content here, and anything drawn around it is another
+   edge competing with the one the crop already has. Solid also because a wash
+   this large, laid over an article of seventeen thousand pixels, is a
+   composite the browser does not always draw - and a backdrop that sometimes
+   arrives is worse than one that is simply opaque. */
+.closeup { position: fixed; inset: 0; z-index: 80; background: #0b0e14; }
+.closeup-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  /* The browser's own pan and pinch would fight the picture's. */
+  touch-action: none;
+}
+.closeup-stage.is-movable { cursor: grab; }
+.closeup-stage.is-movable:active { cursor: grabbing; }
+#closeup-img {
+  max-width: 92vw;
+  max-height: 84vh;
+  /* Crops are drawn for white paper, and a few carry transparency. */
+  background: #f4f5f7;
+  border-radius: var(--r-sm);
+  transform-origin: center center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* The ground is dark in either theme, so the controls on it are lit off the
+   picture rather than off the page's palette. */
+.closeup-tools {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  gap: 6px;
+  padding: 6px;
+  /* Solid, because at any zoom past the fit the picture is under it, and a
+     white plate on a white figure is a control the reader cannot find. */
+  background: #141922;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+.closeup-tools button { background: transparent; border-color: rgba(255, 255, 255, 0.3); color: #e9edf3; }
+.closeup-close { background: #141922; border-color: rgba(255, 255, 255, 0.3); color: #e9edf3; }
+.closeup-tools button:hover:not(:disabled),
+.closeup-close:hover { color: #ffffff; border-color: #ffffff; }
+.closeup-tools #closeup-reset { width: auto; min-width: 54px; padding: 0 10px; font: 500 12px var(--sans); color: #b9c2ce; }
+.closeup-close { position: absolute; top: 14px; right: 16px; }
+body.closeup-open { overflow: hidden; }
+@media (max-width: 720px) {
+  #closeup-img { max-width: 96vw; max-height: 78vh; }
+  .closeup-tools { bottom: 16px; }
+}
+
 /* ---------- thumbnails where a figure is named ---------- */
 /* The figures index and "Where you can see it" both named a figure and showed
    no picture. Both lead with the crop now. */
@@ -1753,9 +1935,11 @@ body.figpop-open { overflow: hidden; }
 .reading .site-foot a { color: var(--ink-soft); }
 /* The paper as printed is the one page where the notice matters most, so it
    stays. The pane runs the width of the window rather than the article column,
-   and the notice follows it - left-aligned against the pane's own gutter,
-   because centred in the window it would read as unrelated to the paper. */
+   and the notice follows it - centred on the same 42rem so it stays readable,
+   but with the pane's own gutter rather than the article's. */
 body.reader-mode .site-foot {
+  /* left-aligned, not centred: the paper sits against the pane's left gutter,
+     and a notice centred in the window would read as unrelated to it */
   max-width: calc(42rem + 2 * clamp(10px, 2.5vw, 36px));
   margin: 0;
   padding: 22px clamp(10px, 2.5vw, 36px) 64px;

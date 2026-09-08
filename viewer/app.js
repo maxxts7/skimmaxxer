@@ -60,7 +60,22 @@ function figImg(pid, asset, alt, lazy) {
     ' decoding="async" alt="' + esc(alt || "") + '">';
 }
 
+/* On its own page the plate is as wide as the page allows, and a tall figure
+   has to give that width back rather than be squashed. A browser will not do
+   that for a picture whose width is set, so the picture's own proportions are
+   handed to the sheet as a number and the width becomes whichever of the two
+   limits - the width of the page or the height of the window - binds first. */
+function figRatio(img) {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return;
+  const plate = img.closest && img.closest(".figure-closeup");
+  if (plate) plate.style.setProperty("--fig-ar", (img.naturalWidth / img.naturalHeight).toFixed(4));
+}
+
 /* Load failures do not bubble, so this listens on the way down. */
+document.addEventListener("load", (ev) => {
+  if (ev.target && ev.target.tagName === "IMG") figRatio(ev.target);
+}, true);
+
 document.addEventListener("error", (ev) => {
   const img = ev.target;
   if (!img || img.tagName !== "IMG" || img.dataset.retried) return;
@@ -324,7 +339,9 @@ function deepestUnder(id, seen) {
 
 function chapterSection(c, i, node) {
   const num = c.number || String(i + 1);
-  let h = '<section class="chapter" id="ch-' + esc(c.id) + '">';
+  /* data-at is what the switch reads: the place in the paper this chapter
+     opens on, so pressing Paper from here lands where you were reading. */
+  let h = '<section class="chapter" id="ch-' + esc(c.id) + '"' + atAttr(c.sources) + ">";
   h += '<h2><span class="chapter-num">' + esc(num) + "</span>" + esc(c.title) + "</h2>";
   h += md(c.body, "narrative:" + node.id + ":" + c.id);
   h += sourceCite(c.sources, { small: true, label: "Paper" });
@@ -452,7 +469,7 @@ function vSummary() {
     (mainPaper().narrative ? 'The fuller telling is <a href="#/">The story</a>.' : "") + "</p>";
   h += sourceCite(sm.sources);
   beats.forEach((b, i) => {
-    h += '<section class="chapter beat" id="b-' + esc(b.id) + '">';
+    h += '<section class="chapter beat" id="b-' + esc(b.id) + '"' + atAttr(b.sources) + ">";
     h += '<h2><span class="chapter-num">' + (i + 1) + "</span>" + esc(b.heading) + "</h2>";
     h += md(b.body, "summary:" + b.id);
     h += sourceCite(b.sources, { small: true, label: "Paper" });
@@ -579,7 +596,16 @@ function vFigure(id) {
   let h = '<p class="eyebrow">' + kindName + (it.number ? " " + it.number : "") + "</p>";
   h += "<h1>" + esc(it.title || (it.caption ? it.caption.split(/[:.]/)[0] : it.id)) + "</h1>";
   if (it.asset) {
-    h += '<div class="figure-wrap">' + figImg(t.paperId, it.asset, it.caption || it.id, false) + "</div>";
+    /* The picture itself opens it up close. A crop off the PDF is around 1,100
+       pixels wide and the column prints it at 700, so a tick label or a cell of
+       a table is already smaller here than it was on the page it came from -
+       and the reader who wants it bigger has nowhere to go but the PDF. It is a
+       button rather than a div with a handler, so the keyboard gets there too,
+       and it carries a corner mark because a picture that does something has to
+       look like it does something. */
+    h += '<button type="button" class="figure-wrap figure-closeup" data-closeup="' + esc(id) +
+      '" aria-label="Open this picture up close"><span class="figure-closeup-mark" aria-hidden="true">⤢</span>' +
+      figImg(t.paperId, it.asset, it.caption || it.id, false) + "</button>";
     h += '<p class="fig-note">' + (it.page
       ? 'Cropped as-is from <a href="' + esc(pdfHref(t.paperId, it.page)) + '"' + pdfAttrs(t.paperId) +
         ">page " + esc(it.page) + "</a> of the PDF."
@@ -871,6 +897,193 @@ function setupFigPop() {
   });
 }
 
+/* ---------- a figure held up close ---------- */
+/* The figure page explains the picture; this is for looking at it. It opens
+   from the picture on that page - wherever that page is drawn, on the site, in
+   the popup over the article, or in the column beside the paper - and holds
+   nothing but the crop.
+
+   Fit is 100%: what a reader means by "the whole thing" is the whole thing on
+   their screen, not the pixel count of a crop they never see. From there it
+   goes to 4x. The detail runs out well before that - these crops carry about
+   half again what the column shows - and past that point the browser is
+   smoothing rather than revealing, which is still the difference between a
+   number you can read and one you cannot. The full-resolution original is the
+   PDF, and the line under the picture already says which page it is on.
+
+   Wheel, pinch, drag, double-click, +/-/0 and the arrow keys all do what they
+   do everywhere else. The buttons are there because none of that announces
+   itself, and they are the reader's zoom control from the rail, unchanged. */
+
+const CU = { scale: 1, x: 0, y: 0, pts: new Map(), pinch: null, moved: 0, opener: null };
+const CU_MIN = 1, CU_MAX = 4, CU_STEP = 1.4;
+
+const cuOpen = () => { const w = el("closeup"); return !!w && !w.hidden; };
+
+function openCloseup(id) {
+  const t = INDEX[id];
+  if (!t || t.kind !== "item" || !t.obj.asset) return;
+  const wrap = el("closeup"), img = el("closeup-img");
+  if (!wrap || !img) return;
+  const src = assetSrc(t.paperId, t.obj.asset);
+  if (img.getAttribute("src") !== src) img.setAttribute("src", src);
+  img.alt = t.obj.caption || t.obj.id;
+  wrap.hidden = false;
+  document.body.classList.add("closeup-open");
+  CU.scale = CU_MIN; CU.x = 0; CU.y = 0; CU.pts.clear(); CU.pinch = null;
+  cuApply();
+  const c = wrap.querySelector(".closeup-close");
+  if (c) c.focus();
+}
+
+function closeCloseup() {
+  const wrap = el("closeup");
+  if (!wrap || wrap.hidden) return;
+  wrap.hidden = true;
+  document.body.classList.remove("closeup-open");
+  CU.pts.clear(); CU.pinch = null;
+  /* Back to the picture it was opened from, so a keyboard has not lost its
+     place - unless the page under it has been rebuilt since. */
+  if (CU.opener && document.contains(CU.opener)) CU.opener.focus();
+  CU.opener = null;
+}
+
+/* The picture cannot be dragged off the edge of the window: at any scale it may
+   move by however much of it hangs outside the stage, and no further. Below the
+   point where it overflows at all, it stays centred. */
+function cuApply() {
+  const stage = el("closeup-stage"), img = el("closeup-img");
+  if (!stage || !img) return;
+  const w = img.offsetWidth * CU.scale, h = img.offsetHeight * CU.scale;
+  const mx = Math.max(0, (w - stage.clientWidth) / 2), my = Math.max(0, (h - stage.clientHeight) / 2);
+  CU.x = Math.min(mx, Math.max(-mx, CU.x));
+  CU.y = Math.min(my, Math.max(-my, CU.y));
+  img.style.transform = "translate(" + CU.x.toFixed(1) + "px," + CU.y.toFixed(1) + "px) scale(" + CU.scale.toFixed(3) + ")";
+  stage.classList.toggle("is-movable", mx > 0.5 || my > 0.5);
+  const pct = el("closeup-pct");
+  if (pct) pct.textContent = Math.round(CU.scale * 100) + "%";
+  const zin = el("closeup-in"), zout = el("closeup-out");
+  if (zin) zin.disabled = CU.scale >= CU_MAX - 0.001;
+  if (zout) zout.disabled = CU.scale <= CU_MIN + 0.001;
+}
+
+/* Zoom about a point, so whatever is under the pointer stays under it - the
+   one thing that separates zooming into a picture from magnifying its middle
+   and hunting for the part you wanted. Given no point, it works off the centre. */
+function cuZoom(to, px, py) {
+  const stage = el("closeup-stage");
+  if (!stage) return;
+  const r = stage.getBoundingClientRect();
+  const ux = (px == null ? r.left + r.width / 2 : px) - r.left - r.width / 2;
+  const uy = (py == null ? r.top + r.height / 2 : py) - r.top - r.height / 2;
+  const s = Math.min(CU_MAX, Math.max(CU_MIN, to));
+  CU.x = ux - (ux - CU.x) * (s / CU.scale);
+  CU.y = uy - (uy - CU.y) * (s / CU.scale);
+  CU.scale = s;
+  if (s <= CU_MIN + 0.001) { CU.x = 0; CU.y = 0; }
+  cuApply();
+}
+
+/* Two fingers: how far apart they are and where their middle is. */
+function cuPinch() {
+  const p = [...CU.pts.values()];
+  return { dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y),
+           mx: (p[0].x + p[1].x) / 2, my: (p[0].y + p[1].y) / 2 };
+}
+
+function setupCloseup() {
+  const wrap = el("closeup");
+  if (!wrap) return;
+  const stage = el("closeup-stage"), img = el("closeup-img");
+
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest && ev.target.closest("[data-closeup]");
+    if (!b) return;
+    ev.preventDefault();
+    CU.opener = b;
+    openCloseup(b.getAttribute("data-closeup"));
+  });
+
+  wrap.addEventListener("click", (ev) => {
+    /* A drag that ends over the backdrop is not a click on the backdrop. */
+    if (Date.now() - CU.moved < 250) return;
+    if (ev.target === stage || ev.target.closest("[data-cu-close]")) { closeCloseup(); return; }
+    if (ev.target.closest("#closeup-in")) cuZoom(CU.scale * CU_STEP);
+    else if (ev.target.closest("#closeup-out")) cuZoom(CU.scale / CU_STEP);
+    else if (ev.target.closest("#closeup-reset")) cuZoom(CU_MIN);
+  });
+
+  stage.addEventListener("dblclick", (ev) => {
+    cuZoom(CU.scale > CU_MIN + 0.01 ? CU_MIN : 2, ev.clientX, ev.clientY);
+  });
+
+  /* A trackpad pinch arrives as a wheel with ctrl held, and a mouse wheel that
+     reports in lines rather than pixels needs a line to be worth something. */
+  stage.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    const px = ev.deltaMode === 1 ? ev.deltaY * 16 : ev.deltaMode === 2 ? ev.deltaY * stage.clientHeight : ev.deltaY;
+    cuZoom(CU.scale * Math.exp(-px * (ev.ctrlKey ? 0.01 : 0.0022)), ev.clientX, ev.clientY);
+  }, { passive: false });
+
+  stage.addEventListener("pointerdown", (ev) => {
+    if (ev.button) return;
+    try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* a pointer already gone */ }
+    CU.pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (CU.pts.size === 2) CU.pinch = cuPinch();
+  });
+
+  stage.addEventListener("pointermove", (ev) => {
+    const p = CU.pts.get(ev.pointerId);
+    if (!p) return;
+    const dx = ev.clientX - p.x, dy = ev.clientY - p.y;
+    p.x = ev.clientX; p.y = ev.clientY;
+    if (CU.pts.size >= 2) {
+      const now = cuPinch();
+      if (CU.pinch && CU.pinch.dist > 0) {
+        /* The middle of the two fingers carries the picture with it, and the
+           distance between them scales it about that same middle. */
+        CU.x += now.mx - CU.pinch.mx;
+        CU.y += now.my - CU.pinch.my;
+        cuZoom(CU.scale * (now.dist / CU.pinch.dist), now.mx, now.my);
+      }
+      CU.pinch = now;
+      CU.moved = Date.now();
+      return;
+    }
+    if (CU.scale <= CU_MIN + 0.001) return;
+    CU.x += dx; CU.y += dy;
+    if (Math.abs(dx) + Math.abs(dy) > 2) CU.moved = Date.now();
+    cuApply();
+  });
+
+  const lift = (ev) => { CU.pts.delete(ev.pointerId); if (CU.pts.size < 2) CU.pinch = null; };
+  stage.addEventListener("pointerup", lift);
+  stage.addEventListener("pointercancel", lift);
+
+  /* Caught on the way down and stopped there: Escape belongs to the thing on
+     top, and underneath it are a figure popup and a reading column that would
+     otherwise close at the same keystroke. Same for +/-, which the reader is
+     using for the size of the paper. */
+  document.addEventListener("keydown", (ev) => {
+    if (!cuOpen()) return;
+    const step = { "+": 1, "=": 1, "-": -1, _: -1 }[ev.key];
+    if (ev.key === "Escape") { ev.stopPropagation(); closeCloseup(); }
+    else if (step) { ev.stopPropagation(); cuZoom(CU.scale * (step > 0 ? CU_STEP : 1 / CU_STEP)); }
+    else if (ev.key === "0") { ev.stopPropagation(); cuZoom(CU_MIN); }
+    else if (/^Arrow/.test(ev.key)) {
+      const d = { ArrowLeft: [80, 0], ArrowRight: [-80, 0], ArrowUp: [0, 80], ArrowDown: [0, -80] }[ev.key];
+      ev.stopPropagation(); ev.preventDefault();
+      CU.x += d[0]; CU.y += d[1];
+      cuApply();
+    }
+  }, true);
+
+  /* The fit is measured off the window, so it is remeasured when the window
+     changes - and off the picture, which on a first open is not there yet. */
+  img.addEventListener("load", () => { if (cuOpen()) cuApply(); });
+  window.addEventListener("resize", () => { if (cuOpen()) cuApply(); });
+}
+
 /* ---------- the reader ---------- */
 /* The paper as printed, with the concepts of the block you are on beside it.
    Ingest keeps where every block sits, as fractions of its page, so the
@@ -886,7 +1099,10 @@ function setupFigPop() {
 const PDFJS = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/";
 const ZOOMS = [0.75, 1, 1.25, 1.5, 2];
 const ZOOM_KEY = "skim-reader-zoom";
-const RD = { onScroll: null, onResize: null, onMove: null, live: null, pinned: null,
+/* The three ways a reader takes over the scroll themselves. */
+const GESTURES = ["wheel", "touchstart", "keydown"];
+const RD = { onScroll: null, onResize: null, onMove: null, onGesture: null,
+             live: null, pinned: null, moved: false,
              byId: {}, doc: null, wraps: [], stack: [], zoom: 1, pdfjs: null,
              kind: "pdf", frame: null, fdoc: null, index: null };
 
@@ -992,7 +1208,7 @@ function liveBlockId() {
   });
   return best ? best.getAttribute("data-rgn") : null;
 }
-/* Paragraph id -> ordered concept ids. Absent until stage 2c has run, and the
+/* Paragraph id -> ordered concept ids. Absent until stage 6g has run, and the
    column falls back to the section's own concepts, unordered, until it has. */
 function readingMap() {
   const out = {};
@@ -1095,7 +1311,7 @@ function columnList(g) {
   const ranked = RD.reading[g.id];
   const chosen = (ranked && ranked.length ? ranked : (g.kind === "heading" ? pool.map((c) => c.id) : []))
     .map((id) => pool.find((c) => c.id === id)).filter(Boolean);
-  /* Before stage 2c there is no ranking, so show the section's concepts rather
+  /* Before stage 6g there is no ranking, so show the section's concepts rather
      than an empty column - it is the honest fallback, and it is what the
      ranking will be drawn from anyway. */
   const list = chosen.length ? chosen : (ranked ? [] : pool);
@@ -1140,6 +1356,9 @@ function paintColumn() {
   if (!box) return;
   const top = RD.stack[RD.stack.length - 1];
   box.innerHTML = top ? columnPage(top) : columnList(RD.byId[RD.pinned || RD.live]);
+  /* Pinning a block moves where the switch would send you back to, and pinning
+     is the other way that block changes. */
+  refreshSwitch();
   /* A page opened in the column is the site's page at the column's scale, so it
      gets its figures too - except the one it is about, which is already the
      thing at the top of it. */
@@ -1371,8 +1590,10 @@ async function drawPage(entry) {
 function readerTeardown() {
   if (RD.onScroll) window.removeEventListener("scroll", RD.onScroll, { capture: true });
   if (RD.onResize) window.removeEventListener("resize", RD.onResize);
-  RD.onScroll = RD.onResize = RD.onMove = null;
+  if (RD.onGesture) GESTURES.forEach((e) => window.removeEventListener(e, RD.onGesture));
+  RD.onScroll = RD.onResize = RD.onMove = RD.onGesture = null;
   RD.live = RD.pinned = null;
+  RD.moved = false;
   RD.byId = {};
   RD.wraps = [];
   RD.stack = [];
@@ -1400,13 +1621,12 @@ function vReader(startAt) {
     "</aside></div>";
 }
 
-/* The reader's few controls - the way back, find, where you are, zoom - sit
-   in the site rail between the mark and the theme toggle, so the paper gets
-   the same head every other page has rather than a second bar under it. */
+/* The reader's few controls - find, where you are, zoom - sit in the site rail
+   after the switch, so the paper gets the same head every other page has
+   rather than a second bar under it. The way back is not among them: the
+   switch is right beside them and does it. */
 function readerTools() {
-  const meta = REG[MAIN_ID] || {};
-  return '<a class="reader-back" href="#/">&larr; ' + esc(meta.title || MAIN_ID) + "</a>" +
-    '<span class="find-wrap">' +
+  return '<span class="find-wrap">' +
     '<input id="find" type="search" placeholder="Find in the paper…" autocomplete="off" spellcheck="false">' +
     '<div class="find-results" id="find-results" hidden></div></span>' +
     '<span class="reader-count" id="reader-count"></span>' +
@@ -1672,12 +1892,24 @@ async function mountReader() {
     if (id === RD.live) { paintCount(); return; }
     RD.live = id;
     paintCount();
+    refreshSwitch();
     if (!RD.stack.length) paintColumn();
   }
   RD.onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(follow); } };
   window.addEventListener("scroll", RD.onScroll, { capture: true, passive: true });
   RD.onResize = () => { applyZoom(); buildBlockIndex(); if (RD.onScroll) RD.onScroll(); };
   window.addEventListener("resize", RD.onResize);
+
+  /* The moment you take the paper over. Until then the switch answers with
+     whatever sent you here; after it, with wherever you have got to. On a web
+     paper the article is inside a frame that never scrolls itself, so a wheel
+     over it scrolls this window but fires in there - both documents have to be
+     asked, and the frame is our own copy, so it can be. */
+  RD.onGesture = () => { RD.moved = true; refreshSwitch(); };
+  GESTURES.forEach((e) => {
+    window.addEventListener(e, RD.onGesture, { passive: true });
+    if (RD.fdoc) RD.fdoc.addEventListener(e, RD.onGesture, { passive: true });
+  });
 
   const input = el("find");
   if (input) {
@@ -1696,6 +1928,7 @@ async function mountReader() {
     const jump = () => {
       const t = RD.kind === "web" ? blockNode(RD.startAt) : el("pdf-p" + (parseInt(RD.startAt, 10) || 1));
       if (t) t.scrollIntoView(RD.kind === "web" ? { block: "start" } : undefined);
+      refreshSwitch();
     };
     jump();
     if (RD.kind === "web") {
@@ -1800,11 +2033,234 @@ function vRelations() {
   return h;
 }
 
+/* Everything up to the second "#": which page of the site, without the anchor
+   naming a place inside it. */
+function routeOf(hash) {
+  const full = decodeURIComponent(hash || "#/");
+  const cut = full.indexOf("#", 1);
+  return cut > 0 ? full.slice(0, cut) : full;
+}
+
+/* ---------- the switch ---------- */
+/* Two ways to read the same paper, and until now four doors between them: a
+   link in the nav foot, a second one on the library card, the page citations,
+   and a back link out of the reader. One control instead, in the rail on every
+   page of a paper, so the retelling and the paper as printed are always one
+   click apart and neither is something you have to know about to find.
+
+   Both halves keep your place, and neither guesses to do it. A chapter already
+   names the sections of the paper it draws on; every region of the paper
+   already names the section it sits in. The switch reads those two facts in
+   opposite directions. */
+
+/* Where a section of the paper starts. A PDF answers with a page number, a
+   paper published on the web with the id of the section's first block - which
+   is what each of those readers opens at. Built once from the same regions the
+   reader itself follows, so the two can never disagree. */
+let SEC_AT = null;
+/* And the same ids in the order the paper prints them. Section ids like "3"
+   and "5" are integers as far as an object is concerned, and a plain object
+   hands those back first and in its own order - so the reading order has to be
+   kept beside the map rather than taken from it. */
+const SEC_ORDER = [];
+function sectionAt(sid) {
+  if (!SEC_AT) {
+    SEC_AT = {};
+    const web = readerKind(MAIN_ID) === "web";
+    regionsOf().forEach((g) => {
+      if (!g.sectionId || SEC_AT[g.sectionId]) return;
+      SEC_AT[g.sectionId] = web ? g.id : g.page;
+      SEC_ORDER.push(g.sectionId);
+    });
+  }
+  return SEC_AT[sid] || null;
+}
+
+/* What a piece of the site is about, as a place in the paper.
+
+   Not the first section it cites: a chapter's citations run in paper order and
+   almost every chapter leans on the abstract and the introduction, so first
+   would answer page 1 for eight chapters out of nine. What a chapter is about
+   is written instead in how precisely it cites. A chapter that names §3.2.1 is
+   telling you it is about §3.2.1; one that names §3 is telling you much less.
+   So: the most specific citations it makes, and among those the page most of
+   them land on - the run of the paper it actually dwells in. Ties go to the
+   earlier page, because a chapter is better opened at its start.
+
+   On the nine chapters of 1706.03762 that gives page 4 for the chapter about
+   one operation, 5 for the one about three wirings of it, 7 for training and 8
+   for results. It is bluntest on the chapters that cite nothing below a
+   top-level section - the one that frames the problem, the one that closes it -
+   where the most it can say is which part of the paper they live in.
+
+   It is blunter still where a chapter's citations are exhaustive rather than
+   chosen. global-workspace lists up to fifty-four sections under one chapter,
+   four levels deep and reaching into the appendix, and the deepest of those is
+   as likely to be a footnote as the subject; several of its chapters land on
+   the same passage. Nothing here can fix that - a list that says everything a
+   chapter touches cannot also say what it is about - and the round trip does
+   not depend on it, because a switch pressed from a chapter remembers that
+   chapter rather than working it out again on the way back. */
+function atOfSources(src) {
+  if (!src || (src.paperId && src.paperId !== MAIN_ID)) return null;
+  const secs = (src.sections || []).filter((s) => s && s.id);
+  if (secs.length) {
+    const dots = (s) => String(s.id).split(".").length;
+    const deepest = Math.max.apply(null, secs.map(dots));
+    const pick = secs.filter((s) => dots(s) === deepest);
+    const tally = {};
+    let best = null;
+    pick.forEach((s) => {
+      const at = s.anchor || sectionAt(s.id) || s.start;
+      if (at == null) return;
+      tally[at] = (tally[at] || 0) + 1;
+      if (!best || tally[at] > tally[best]) best = at;
+    });
+    if (best != null) return best;
+  }
+  return (src.pages || [])[0] || null;
+}
+function atAttr(src) {
+  const at = atOfSources(src);
+  return at ? ' data-at="' + esc(String(at)) + '"' : "";
+}
+
+/* Which piece you are looking at. A page holding many chapters is marked one
+   per chapter and answers with the one under the top of the window; a page
+   about a single thing carries no marks and answers with its own citation,
+   whatever the scroll. */
+function markNow() {
+  const marks = document.querySelectorAll("#content [data-at]");
+  if (!marks.length) return null;
+  const rail = document.querySelector(".rail");
+  const line = (rail ? rail.getBoundingClientRect().bottom : 0) + 24;
+  let best = marks[0];
+  marks.forEach((n) => { if (n.getBoundingClientRect().top <= line) best = n; });
+  return best;
+}
+
+function atNow() {
+  const mark = markNow();
+  if (mark) return mark.getAttribute("data-at");
+  /* Any link into this paper's own reader will do - a chapter's citation, the
+     "cropped from page 3" under a figure. Anchored to the start of the href so
+     a citation into another paper's reader, which carries its own shell in
+     front of the route, is not mistaken for one into this one. */
+  const cite = document.querySelector('#content a[href^="#/pdf/"]');
+  const m = cite && /^#\/pdf\/([^#?]+)/.exec(cite.getAttribute("href"));
+  if (m) return decodeURIComponent(m[1]);
+  /* A concept prints no citation - it is used across a paper rather than
+     stated in one place - but it does name the sections it is used in, and the
+     first of those is where the reader would meet it. */
+  const c = /^#\/concept\/([^#]+)$/.exec(decodeURIComponent(location.hash || ""));
+  const obj = c && INDEX[c[1]] && INDEX[c[1]].obj;
+  const sid = obj && (obj.sectionIds || [])[0];
+  return sid ? sectionAt(sid) : null;
+}
+
+/* Coming back the other way: the chapter of the story that covers the passage
+   you were on. One of the story's own numbered chapters, opened where it sits
+   on the front page - someone who presses this wants the thread again, not to
+   be dropped five levels down a branch they have never seen. Where several
+   cover the same section the most focused one wins, which is the one that drew
+   on the fewest; a subsection nobody named is answered by its parent. */
+function chapterForSection(sid) {
+  const chs = ((mainPaper().narrative || {}).chapters) || [];
+  let key = String(sid || "");
+  while (key) {
+    let best = null, fewest = Infinity;
+    chs.forEach((c) => {
+      const secs = ((c.sources || {}).sections) || [];
+      if (secs.some((s) => s.id === key) && secs.length < fewest) { fewest = secs.length; best = c; }
+    });
+    if (best) return best;
+    const cut = key.lastIndexOf(".");
+    if (cut < 0) return null;
+    key = key.slice(0, cut);
+  }
+  return null;
+}
+
+/* Have you moved since the paper opened where something sent you?
+
+   Asked of your hands rather than of the scroll position. A paper published as
+   a web page is still drawing while you look at it - every figure that finishes
+   moves everything below it - so a scroll position that has changed does not
+   mean you went anywhere. A wheel, a touch or a key does. */
+const justArrived = () => !RD.pinned && !RD.moved;
+
+/* Which sections of the paper you might be standing in, best first.
+
+   Standing still on the page you arrived at, that is whatever begins on it -
+   the tail of the previous section running across the top is not what you were
+   sent for. Once you have scrolled it is the block you are on: a paragraph
+   says its section itself, and a figure crop, which knows only its page, takes
+   the running section it was printed under, the same answer the rest of the
+   reader gives for it.
+
+   More than one, because a page can start two sections and not every section
+   is one a chapter named. The caller takes the first that leads somewhere. */
+function liveSections() {
+  const out = [];
+  if (justArrived() && RD.startAt) {
+    const want = String(RD.startAt);
+    sectionAt(null);
+    SEC_ORDER.forEach((sid) => { if (String(SEC_AT[sid]) === want) out.push(sid); });
+  }
+  const g = RD.byId[RD.pinned || RD.live];
+  const own = g && (g.kind === "item" ? itemSection()[g.id] || g.sectionId : g.sectionId);
+  if (own) out.push(own);
+  return out;
+}
+
+/* The chapter the switch was last pressed from, so pressing it back returns
+   there exactly rather than working it out again. It is dropped the moment you
+   scroll the paper, because then you are somewhere else and the honest answer
+   is the chapter about wherever you have got to. */
+let CAME_FROM = null;
+
+function storyHref() {
+  if (CAME_FROM && justArrived()) return CAME_FROM;
+  const secs = liveSections();
+  for (const sid of secs) {
+    const c = chapterForSection(sid);
+    if (c) return "#/#ch-" + c.id;
+  }
+  return "#/";
+}
+
+/* The half that is a link is the one you are not on, so there is only ever one
+   href to keep current. It is rewritten on every scroll frame rather than only
+   on click, so hovering it tells the truth and opening it in a new tab lands
+   in the same place a click would. */
+function refreshSwitch() {
+  const a = document.querySelector("#rail-switch a.sw-half");
+  if (!a) return;
+  if (document.body.classList.contains("reader-mode")) { a.setAttribute("href", storyHref()); return; }
+  const at = atNow();
+  a.setAttribute("href", "#/pdf" + (at ? "/" + encodeURIComponent(at) : ""));
+}
+
+function paintSwitch(route) {
+  const box = el("rail-switch");
+  if (!box) return;
+  /* A paper ingest has not walked has no second side to switch to. */
+  if (!regionsOf().length) { box.innerHTML = ""; return; }
+  const onPaper = /^#\/pdf(\/|$)/.test(route);
+  /* Off the paper, there is nothing to come back to. */
+  if (!onPaper) CAME_FROM = null;
+  const half = (here, label) => (here
+    ? '<span class="sw-half is-on" aria-current="page">' + label + "</span>"
+    : '<a class="sw-half" href="#/">' + label + "</a>");
+  box.innerHTML = '<div class="switcher" role="group" aria-label="How to read this paper">' +
+    half(!onPaper, "Story") + half(onPaper, "Paper") + "</div>";
+  refreshSwitch();
+}
+
 function render() {
   const full = decodeURIComponent(location.hash || "#/");
-  const cut = full.indexOf("#", 1);                 // second "#" starts the anchor
-  const route = cut > 0 ? full.slice(0, cut) : full;
-  const anchor = cut > 0 ? full.slice(cut + 1) : null;
+  const route = routeOf(full);
+  const anchor = route.length < full.length ? full.slice(route.length + 1) : null;
   const content = el("content");
   readerTeardown();
   const isReader = /^#\/pdf(\/|$)/.test(route) && regionsOf().length > 0;
@@ -1814,17 +2270,23 @@ function render() {
   let html = null;
   for (const [re, fn] of ROUTES) { const m = route.match(re); if (m) { html = fn(m); break; } }
   content.innerHTML = html == null ? notFound(route) : html;
+  /* A picture already in cache fires no load event to catch. */
+  content.querySelectorAll(".figure-closeup img").forEach(figRatio);
   if (isReader && el("pdf-pane")) mountReader();
   /* Before mountMath, so an inlined equation is rendered along with the rest. */
   if (INLINE_ROUTES.test(route)) placeFigures(content);
   mountMath(content);
   closeFigPop();
+  closeCloseup();
   markActiveNav(full, route);
   paintNavContext(route);
   el("sidebar").classList.remove("open");
   const target = anchor ? document.getElementById(anchor) : null;
   if (target) target.scrollIntoView();
   else window.scrollTo(0, 0);
+  /* After the scroll, because where the switch would send you depends on where
+     the page has just landed. */
+  paintSwitch(route);
 }
 
 function markActiveNav(full, route) {
@@ -1909,8 +2371,9 @@ function buildNav() {
       themes.map((t) => navRow("#/theme/" + t.id, "", t.name)).join("") + "</ul></details>";
   }
 
+  /* The paper itself is not listed here. It is one of the two things the rail's
+     switch is for, and a foot link would be a second, quieter door to it. */
   h += '<nav class="nav-foot">';
-  if ((p.regions || []).length) h += '<a href="#/pdf">The paper</a>';
   h += '<a href="#/figures">Figures</a><a href="#/map">Concepts</a><a href="#/edges">Connections</a>';
   if (pageFor(MAIN_ID)) h += '<a href="#/relations">Relations</a>';
   h += '<a href="#/papers">Papers</a></nav>';
@@ -2024,7 +2487,37 @@ document.addEventListener("DOMContentLoaded", () => {
   SkimTheme.mount(el("theme-toggle"));
   setupPopover();
   setupFigPop();
+  setupCloseup();
+  setupSwitch();
   el("menu-btn").addEventListener("click", () => el("sidebar").classList.toggle("open"));
   window.addEventListener("hashchange", render);
   render();
 });
+
+/* Which chapter you are looking at changes as you read, so the switch is
+   re-aimed on every scroll frame - one attribute written, off a measurement of
+   however many chapters the page holds. The click recomputes first anyway, so
+   nothing depends on that frame having landed. */
+function setupSwitch() {
+  let queued = false;
+  window.addEventListener("scroll", () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; refreshSwitch(); });
+  }, { passive: true });
+
+  document.addEventListener("click", (ev) => {
+    const a = ev.target.closest && ev.target.closest("#rail-switch a.sw-half");
+    if (!a || ev.button || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    ev.preventDefault();
+    refreshSwitch();
+    const to = a.getAttribute("href");
+    /* Leaving for the paper, remember the chapter being left, so coming back is
+       exact. Only a chapter: from a concept page or the figures list there is
+       no thread to resume and the way back is worked out from the paper. */
+    const mark = /^#\/pdf/.test(to) ? markNow() : null;
+    CAME_FROM = mark && /^ch-/.test(mark.id) ? routeOf(location.hash) + "#" + mark.id : null;
+    if (to === location.hash) render();
+    else location.hash = to;
+  });
+}
