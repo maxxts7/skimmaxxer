@@ -25,6 +25,9 @@ const readHref = (pid, hash) => "read.html?p=" + encodeURIComponent(pid) + (hash
 function chaptersByDepth(pid) {
   const nar = data(pid).narrative;
   if (!nar) return [];
+  /* Counted when the story was split into levels, because the node bodies the
+     count used to come from no longer travel in the bundle. */
+  if (nar.depths) return nar.depths.map((n) => n || 0);
   const out = [(nar.chapters || []).length];
   Object.keys(nar.nodes || {}).forEach((nid) => {
     const n = nar.nodes[nid];

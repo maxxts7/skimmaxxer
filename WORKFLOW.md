@@ -68,7 +68,16 @@ every surface), **auto-link** (catch terms named in prose but never linked), and
 into what the viewer loads). Bundle finishes by running **prerender**, which rebuilds
 `viewer/papers.html` with the shelf already written into it: the library page is the same for every
 visitor and changes only when the pipeline runs, so it is generated here rather than assembled in
-the browser out of every paper's bundle. Edit `viewer/papers.template.html`, never `papers.html`. A fourth, **re-pace**, runs only when the voice or the pace changes
+the browser out of every paper's bundle. Edit `viewer/papers.template.html`, never `papers.html`.
+
+Bundle writes three kinds of file, and a reader shell loads only what it is reading. The **bundle**
+is one paper. **`links.js`** is every id in the project — its name, kind, owning paper and summary —
+so a link into another paper draws immediately and is searchable without that paper being present;
+following one fetches it. **`story-<level>.js`** holds the story's node bodies for one level of
+zoom, which are most of a paper's prose and almost none of what a reader opens; what stays in the
+bundle is `narrative.index`, enough to draw a crumb trail, a zoom card and its chapter count
+without the bodies. Opening a paper used to cost every bundle in the project; it now costs one
+bundle minus its deeper levels, plus the index. A fourth, **re-pace**, runs only when the voice or the pace changes
 rather than the content: it rewrites existing prose and is checked mechanically for what it dropped.
 It is its own workflow, `repace.js`, alongside `skimmaxxer.js`.
 

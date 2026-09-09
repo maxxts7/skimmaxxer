@@ -1034,8 +1034,10 @@ split handed to the extractors is worth a glance if the paper is unusually struc
 - `register.json` — every paper ever touched, main or cited, and what was extracted from it.
 - `viewer/` — the static app, four entry points over one renderer: a landing page saying what this
   is, a library listing every paper, the explainer shell that serves any of them, and the PDF reader
-  with its concept column. The shell loads every bundle, so a cross-paper link renders in place
-  instead of sending the reader to another document.
+  with its concept column. The shell loads the paper it is about, and `links.js` for every id in the
+  project, so a cross-paper link still renders in place instead of sending the reader to another
+  document — the paper behind it is fetched when the link is followed. The story's deeper levels are
+  fetched the same way, one level per file.
 - `.claude/workflows/` — the runnable workflows. `skimmaxxer.js` is the whole run, phase by phase;
   `repace.js` is the re-pace. A stage's prompts live there, not in `pipeline/`.
 - `netlify/` — the only server-side code: readers can ask for a paper, and the asks are readable on

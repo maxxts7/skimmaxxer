@@ -3,7 +3,10 @@
 "use strict";
 
 const REG = (window.SKIM_REGISTER && SKIM_REGISTER.papers) || {};
-const PAPERS = window.SKIM_PAPERS || {};
+/* The same object the bundles write into, not a copy of it - a paper fetched
+   later adds itself here by loading. */
+window.SKIM_PAPERS = window.SKIM_PAPERS || {};
+const PAPERS = window.SKIM_PAPERS;
 /* Which paper this shell is about. Each entry point sets window.SKIM_MAIN before
    loading this file; the fallback is only for a single-paper project, where
    picking the first full read is unambiguous. */
@@ -12,17 +15,73 @@ const MAIN_ID = (window.SKIM_MAIN && REG[window.SKIM_MAIN]) ? window.SKIM_MAIN
 const QA = { missingLinks: [] };
 
 /* ---------- index: id -> {kind, paperId, obj} ---------- */
+/* A shell used to load all thirty bundles so that a link into another paper
+   could open in place. That cost 3.4MB to read one paper of 286KB, and all of
+   it before anything could be drawn. It now loads the paper it is about, and
+   seeds every other paper's ids from links.js as stubs: the name to print, the
+   kind, the paper that owns it, and the summary, which is what search matches
+   and the hover card shows. Following such a link fetches that paper and the
+   stub becomes the real thing. */
+const LINKS = (window.SKIM_LINKS && SKIM_LINKS.ids) || {};
+const LINK_COUNTS = (window.SKIM_LINKS && SKIM_LINKS.counts) || {};
+const LINK_SHARED = (window.SKIM_LINKS && SKIM_LINKS.shared) || {};
+const KINDS = ["concept", "item", "theme"];
 const INDEX = {};
+
+Object.keys(LINKS).forEach((id) => {
+  const row = LINKS[id];
+  /* title carries the name too, so itemLabel() reads a stub the way it reads a
+     figure - it falls back on title when there is no printed number, and a
+     stub has none. */
+  INDEX[id] = { kind: KINDS[row[0]], paperId: row[1], stub: true,
+                obj: { id: id, name: row[2], title: row[2], summary: row[3] } };
+});
+
 function indexPaper(pid) {
   const p = PAPERS[pid];
   if (!p) return;
-  (p.concepts || []).forEach((c) => { if (!INDEX[c.id]) INDEX[c.id] = { kind: "concept", paperId: pid, obj: c }; });
-  (p.items || []).forEach((it) => { if (!INDEX[it.id]) INDEX[it.id] = { kind: "item", paperId: pid, obj: it }; });
-  (p.themes || []).forEach((t) => { if (!INDEX[t.id]) INDEX[t.id] = { kind: "theme", paperId: pid, obj: t }; });
+  /* The paper this shell is about owns any id it uses, exactly as it did when
+     it was indexed first. Any other paper fills in only what is still a stub
+     of its own: two papers can carry the same id, and which of them gets it is
+     settled by register order in links.js, not by what happens to load first. */
+  const put = (kind, x) => {
+    const held = INDEX[x.id];
+    if (held && pid !== MAIN_ID && !(held.stub && held.paperId === pid)) return;
+    INDEX[x.id] = { kind: kind, paperId: pid, obj: x };
+  };
+  (p.concepts || []).forEach((c) => put("concept", c));
+  (p.items || []).forEach((it) => put("item", it));
+  (p.themes || []).forEach((t) => put("theme", t));
 }
-indexPaper(MAIN_ID);
-Object.keys(PAPERS).filter((id) => id !== MAIN_ID).forEach(indexPaper);
+Object.keys(PAPERS).forEach(indexPaper);
 Object.keys(REG).forEach((pid) => { INDEX[pid] = { kind: "paper", paperId: pid, obj: REG[pid] }; });
+
+/* ---------- fetching a paper a link points into ---------- */
+const PENDING = {};
+function loadPaper(pid) {
+  if (!pid || !REG[pid] || PAPERS[pid]) return Promise.resolve();
+  if (PENDING[pid]) return PENDING[pid];
+  PENDING[pid] = new Promise((resolve) => {
+    const s = document.createElement("script");
+    s.src = "../papers/" + encodeURIComponent(pid) + "/data/js/bundle.js";
+    /* A paper that will not load is not worth blocking on: the stub still
+       names it, so the page draws with what the index already knew. */
+    s.onerror = () => { console.warn("could not load " + pid); resolve(); };
+    s.onload = () => { indexPaper(pid); resolve(); };
+    document.head.appendChild(s);
+  });
+  return PENDING[pid];
+}
+
+/* Which paper a route cannot be drawn without. Everything not named here reads
+   the main paper alone. */
+function paperForRoute(route) {
+  let m = route.match(/^#\/(?:concept|figure|theme)\/(.+)$/);
+  if (m) { const t = INDEX[decodeURIComponent(m[1])]; return t && t.stub ? t.paperId : null; }
+  m = route.match(/^#\/paper\/(.+)$/);
+  if (m) { const pid = decodeURIComponent(m[1]); return PAPERS[pid] ? null : pid; }
+  return null;
+}
 
 const mainPaper = () => PAPERS[MAIN_ID] || {};
 const conceptsOf = (pid) => (PAPERS[pid] && PAPERS[pid].concepts) || [];
@@ -335,6 +394,27 @@ function rootNodeOf(key) {
 }
 function rootNode() { return rootNodeOf("main"); }
 
+/* ---------- the story, one level of zoom at a time ---------- */
+/* The node bodies are most of a paper's prose and almost none of what a reader
+   opens, so they travel in their own file per level rather than in the bundle.
+   What the bundle keeps is narrative.index: level, parent, title, number,
+   chapter count and how many levels open below. That is enough to draw every
+   page that only *mentions* a node - the crumb trail, the zoom card, the note
+   about how far down it goes - so a level is fetched only when it is opened. */
+window.SKIM_STORY = window.SKIM_STORY || {};
+const STORY = window.SKIM_STORY;
+const storyBodies = () => STORY[MAIN_ID] || {};
+const storyIndex = () => (narData("main") || {}).index || {};
+
+/* A node named by the index but not yet fetched: enough to link to and to
+   describe, with no chapters in it because the chapters are the part that has
+   not arrived. Anything that renders a node's prose goes through the router,
+   which fetches the level first. */
+function lightNode(id, e) {
+  return { id: id, narKey: "main", light: true, depth: e.d, parentId: e.p,
+           title: e.t, number: e.n, chapterCount: e.c, chapters: [] };
+}
+
 function narNode(id) {
   if (!id) return null;
   for (const spec of NARS) {
@@ -344,9 +424,39 @@ function narNode(id) {
       return Object.assign({ narKey: spec.key }, nar.nodes[id]);
     }
   }
-  return null;
+  const body = storyBodies()[id];
+  if (body) return Object.assign({ narKey: "main" }, body);
+  const e = storyIndex()[id];
+  return e ? lightNode(id, e) : null;
+}
+
+/* Fetch the level a node sits on, if this shell has not got it yet. */
+const STORY_PENDING = {};
+function loadStoryLevel(depth) {
+  if (!depth || STORY_PENDING[depth]) return STORY_PENDING[depth] || Promise.resolve();
+  STORY_PENDING[depth] = new Promise((resolve) => {
+    const s = document.createElement("script");
+    s.src = "../papers/" + encodeURIComponent(MAIN_ID) + "/data/js/story-" + depth + ".js";
+    s.onerror = () => { console.warn("could not load story level " + depth); resolve(); };
+    s.onload = resolve;
+    document.head.appendChild(s);
+  });
+  return STORY_PENDING[depth];
+}
+
+/* Which level a route needs before it can be drawn. */
+function storyLevelForRoute(route) {
+  const m = route.match(/^#\/n\/([^#]+)$/);
+  if (!m) return 0;
+  const id = decodeURIComponent(m[1]);
+  if (storyBodies()[id]) return 0;
+  const e = storyIndex()[id];
+  return e ? e.d : 0;
 }
 const narKeyOf = (node) => node.narKey || "main";
+/* A fetched node counts its own chapters; one still described by the index
+   carries the count instead. */
+const nChapters = (node) => (node.chapters && node.chapters.length) || node.chapterCount || 0;
 
 function narPath(node) {
   const out = [];
@@ -368,6 +478,12 @@ function narCrumb(node) {
 
 function deepestUnder(id, seen) {
   // how many further levels of zoom exist below this node
+  /* Counted when the story was split, because walking down to find out would
+     mean fetching every level below - which is the reading this defers. The
+     root is not in the index, and insights are not split at all, so both still
+     walk; everything they walk is already here. */
+  const e = storyIndex()[id];
+  if (e) return e.b || 0;
   const n = narNode(id);
   if (!n || (seen || 0) > 6) return 0;
   let best = 0;
@@ -398,7 +514,9 @@ function chapterSection(c, i, node) {
     h += '<a class="zoom" data-depth="' + (child.depth || 1) + '" href="#/n/' + esc(c.childId) + '">' +
       '<span class="zoom-label">Zoom into this chapter</span>' +
       '<span class="zoom-title">' + esc(child.title) + "</span>" +
-      '<span class="zoom-sub">' + child.chapters.length + " chapter" + (child.chapters.length === 1 ? "" : "s") +
+      /* chapterCount for a node whose level has not been fetched: the card says
+         how much is behind it, and that is the whole point of the card. */
+      '<span class="zoom-sub">' + nChapters(child) + " chapter" + (nChapters(child) === 1 ? "" : "s") +
       (below ? " · " + below + " level" + (below === 1 ? "" : "s") + " deeper still" : "") + "</span></a>";
   }
   h += "</section>";
@@ -555,7 +673,10 @@ function vConcept(id) {
   else if (c.explanation) h += md(c.explanation, "concept:" + id);
 
   if (c.citedFrom) {
-    const rp = Object.keys(REG).find((pid) => pid !== MAIN_ID && (conceptsOf(pid) || []).some((x) => x.id === id));
+    /* The narrow read of the cited paper carries this same concept id. Which
+       papers share an id is recorded in links.js, so this no longer needs
+       every bundle in memory to find out. */
+    const rp = (LINK_SHARED[id] || []).find((pid) => pid !== MAIN_ID);
     h += '<div class="callout"><p class="eyebrow">From a cited paper</p><p>This concept comes from ' + esc(c.citedFrom.refText || c.citedFrom.citationKey) + ". " + esc(c.citedFrom.whyNeeded || "") +
       (rp ? ' See <a href="#/paper/' + esc(rp) + '">what was read from it</a>.' : "") + "</p></div>";
   }
@@ -844,7 +965,9 @@ function vPapers() {
   let h = '<p class="eyebrow">The register</p><h1>Papers</h1><p class="lede">Every paper this project has touched. Cited papers are read narrowly — only the concepts this paper needed.</p>';
   Object.keys(REG).forEach((pid) => {
     const r = REG[pid];
-    const n = conceptsOf(pid).length;
+    /* Counted at build time, so the register lists every paper's tally without
+       this page having to hold every paper. */
+    const n = LINK_COUNTS[pid] != null ? LINK_COUNTS[pid] : conceptsOf(pid).length;
     h += '<div class="card"><a class="title" href="#/paper/' + esc(pid) + '">' + esc(r.title) + "</a> " +
       chip(null, r.status === "full" ? "full read" : "narrow read", r.status === "full" ? "major" : "floor") +
       '<p class="sub">' + esc(r.authors || "") + (n ? " · " + n + " concepts extracted" : "") + "</p></div>";
@@ -896,7 +1019,10 @@ function openFigPop(id) {
   const t = INDEX[id];
   if (!t || t.kind !== "item") return;
   const wrap = el("figpop"), box = el("figpop-body");
-  if (!wrap || !box) { location.hash = "#/figure/" + id; return; }
+  /* A figure in another paper is a stub until that paper is fetched, and the
+     fetch belongs to the router - so send it there rather than open a card
+     over the article with nothing in it. */
+  if (!wrap || !box || t.stub) { location.hash = "#/figure/" + id; return; }
   box.innerHTML = vFigure(id) +
     '<p class="col-out"><a class="col-out-link" href="#/figure/' + esc(id) + '">Open this on the full site →</a></p>';
   mountMath(box);
@@ -2332,7 +2458,25 @@ function paintSwitch(route) {
   refreshSwitch();
 }
 
+/* Draw the route, fetching the paper it points into first if this shell has
+   not got it yet. Only a link out of this paper ever waits, and only the first
+   time - by the second the bundle is in the browser's cache and in PAPERS. */
+let RENDER_SEQ = 0;
 function render() {
+  const route = routeOf(decodeURIComponent(location.hash || "#/"));
+  const paper = paperForRoute(route);
+  const level = storyLevelForRoute(route);
+  if (!paper && !level) return draw();
+  const seq = ++RENDER_SEQ;
+  document.body.classList.add("loading-paper");
+  Promise.all([paper ? loadPaper(paper) : null, level ? loadStoryLevel(level) : null]).then(() => {
+    document.body.classList.remove("loading-paper");
+    /* Somebody who kept clicking while it arrived is somewhere else now. */
+    if (seq === RENDER_SEQ) draw();
+  });
+}
+
+function draw() {
   const full = decodeURIComponent(location.hash || "#/");
   const route = routeOf(full);
   const anchor = route.length < full.length ? full.slice(route.length + 1) : null;
@@ -2598,13 +2742,23 @@ window.SKIM_QA = function () {
   };
   (p.pages || []).forEach((pg) => scan(pg.body, "page:" + pg.id));
   ((p.narrative && p.narrative.chapters) || []).forEach((c) => scan(c.body, "narrative:" + c.id));
-  Object.keys((p.narrative && p.narrative.nodes) || {}).forEach((nid) => {
-    const n = p.narrative.nodes[nid];
+  /* The node bodies live in one file per level now, and a shell holds only the
+     levels it has opened. So the gate reads whichever are here and says so,
+     rather than reporting the rest as missing - and a child is checked against
+     the index, which names every node whether or not its level is loaded. */
+  const bodies = storyBodies(), sIndex = storyIndex();
+  report.storyLevelsLoaded = Object.keys(STORY_PENDING).map(Number).sort();
+  report.storyNodesScanned = Object.keys(bodies).length + "/" + Object.keys(sIndex).length;
+  Object.keys(bodies).forEach((nid) => {
+    const n = bodies[nid];
     scan(n.intro, "narrative:" + nid);
     (n.chapters || []).forEach((c) => {
       scan(c.body, "narrative:" + nid + ":" + c.id);
-      if (c.childId && !p.narrative.nodes[c.childId]) report.missingLinks.push({ id: c.childId, where: "child:" + nid });
+      if (c.childId && !sIndex[c.childId]) report.missingLinks.push({ id: c.childId, where: "child:" + nid });
     });
+  });
+  ((p.narrative && p.narrative.chapters) || []).forEach((c) => {
+    if (c.childId && !sIndex[c.childId]) report.missingLinks.push({ id: c.childId, where: "child:root" });
   });
   if (p.summary) {
     scan(p.summary.lede, "summary:lede");
