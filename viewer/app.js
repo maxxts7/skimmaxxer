@@ -665,10 +665,15 @@ function vConcept(id) {
       (pageFor(MAIN_ID) ? ' <a href="#/relations">Back to how the two relate →</a>' : '') +
       "</p></div>";
   }
-  h += "<h1>" + esc(c.name) + "</h1>" + conceptChips(c);
-  h += sourceCite(c.sources);
-  const pg = pageFor(id);
+  /* The summary belongs to the name: it is the one line saying what this page
+     is, so it sits directly under the name and above everything else. What
+     follows it - the chips, the sections of the paper it came from - is what
+     the concept is filed under, which is worth reading once you know what you
+     are looking at and not before. */
+  h += "<h1>" + esc(c.name) + "</h1>";
   h += '<p class="lede">' + md(c.summary, "concept:" + id).replace(/^<p>|<\/p>$/g, "") + "</p>";
+  h += conceptChips(c) + sourceCite(c.sources);
+  const pg = pageFor(id);
   if (pg) h += md(pg.body, "page:" + id);
   else if (c.explanation) h += md(c.explanation, "concept:" + id);
 
@@ -732,8 +737,8 @@ function vTheme(id) {
   const th = t.obj;
   const isEdge = th.kind === "edge-theme";
   let h = '<p class="eyebrow">' + (isEdge ? "Edge theme" : "Theme") + "</p><h1>" + esc(th.name) + "</h1>";
-  h += sourceCite(th.sources);
   if (th.summary) h += '<p class="lede">' + md(th.summary, "theme:" + id).replace(/^<p>|<\/p>$/g, "") + "</p>";
+  h += sourceCite(th.sources);
   const pg = pageFor(id);
   if (pg) h += md(pg.body, "page:" + id);
   if (isEdge) {
