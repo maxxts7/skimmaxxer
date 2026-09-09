@@ -274,6 +274,18 @@ function sourceCite(src, opts) {
 }
 
 /* ---------- shared fragments ---------- */
+
+/* A summary cut to length by counting characters stops wherever the count runs
+   out, which is usually the middle of a word. Back up to the last space and
+   say out loud that there is more. */
+function clip(s, n) {
+  s = String(s || "").trim();
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n);
+  const sp = cut.lastIndexOf(" ");
+  return (sp > n * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s,;:.—-]+$/, "") + "…";
+}
+
 const chip = (href, text, cls) => (href ? '<a class="chip ' + (cls || "") + '" href="' + href + '">' + esc(text) + "</a>" : '<span class="chip ' + (cls || "") + '">' + esc(text) + "</span>");
 
 function conceptChips(c) {
@@ -558,7 +570,7 @@ function vConcept(id) {
   const kids = conceptsOf(t.paperId).filter((k) => k.parent === id);
   if (kids.length) {
     h += "<h2>Inside this concept</h2>" + kids.map((k) =>
-      '<details class="sub-concept"><summary>' + esc(k.name) + '<span class="hint">' + esc((k.summary || "").slice(0, 90)) + '</span></summary><div class="body">' +
+      '<details class="sub-concept"><summary>' + esc(k.name) + '<span class="hint">' + esc(clip(k.summary, 90)) + '</span></summary><div class="body">' +
       md(k.explanation || k.summary, "concept:" + k.id) +
       (conceptsOf(t.paperId).some((g) => g.parent === k.id) ? '<p class="small"><a href="#/concept/' + esc(k.id) + '">Open ' + esc(k.name) + " →</a></p>" : "") +
       "</div></details>").join("");
@@ -792,7 +804,7 @@ function vFigures() {
     if (!group.length) return;
     h += "<h2>" + label + "</h2><div class=\"card-grid\">" + group.map((it) =>
       '<div class="card">' + (it.asset ? '<a class="card-shot" href="#/figure/' + esc(it.id) + '">' + figImg(MAIN_ID, it.asset, "", true) + "</a>" : "") +
-      '<a class="title" href="#/figure/' + esc(it.id) + '">' + esc(it.title || (it.caption || it.id).split(":")[0]) + '</a><p class="sub">' + esc((it.takeaway || it.caption || "").slice(0, 140)) + "</p></div>").join("") + "</div>";
+      '<a class="title" href="#/figure/' + esc(it.id) + '">' + esc(it.title || (it.caption || it.id).split(":")[0]) + '</a><p class="sub">' + esc(clip(it.takeaway || it.caption, 140)) + "</p></div>").join("") + "</div>";
   });
   return h;
 }
