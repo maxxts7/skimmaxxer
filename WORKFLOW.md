@@ -65,7 +65,10 @@ matters more than it sounds like it does.
 
 Three scripted passes run whenever content changes — **citations** (attach a PDF page reference to
 every surface), **auto-link** (catch terms named in prose but never linked), and **bundle** (JSON
-into what the viewer loads). A fourth, **re-pace**, runs only when the voice or the pace changes
+into what the viewer loads). Bundle finishes by running **prerender**, which rebuilds
+`viewer/papers.html` with the shelf already written into it: the library page is the same for every
+visitor and changes only when the pipeline runs, so it is generated here rather than assembled in
+the browser out of every paper's bundle. Edit `viewer/papers.template.html`, never `papers.html`. A fourth, **re-pace**, runs only when the voice or the pace changes
 rather than the content: it rewrites existing prose and is checked mechanically for what it dropped.
 It is its own workflow, `repace.js`, alongside `skimmaxxer.js`.
 

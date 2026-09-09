@@ -171,7 +171,8 @@ const applied = await sh('repace:apply', 'Apply',
 3. Run:  ${PY} pipeline/autolink.py --write
 4. Run:  ${PY} pipeline/attach_sources.py
 5. Run:  ${PY} pipeline/bundle.py
-6. Run:  ${PY} pipeline/qa.py
+6. Run:  node pipeline/prerender.mjs     (rebuild viewer/papers.html - the library is generated, not hand-written)
+7. Run:  ${PY} pipeline/qa.py
 Append the gate output to "out". If the gate is not clean, say exactly what failed.`, OUT_SCHEMA)
 
 return {

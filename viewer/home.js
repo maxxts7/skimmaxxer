@@ -1,6 +1,13 @@
 /* Skimmaxxer library. Every paper the project has touched, and the way the
    concepts inside each one are grouped. Reads the same generated bundles the
-   reader does: window.SKIM_REGISTER (register.js) + window.SKIM_PAPERS[id]. */
+   reader does: window.SKIM_REGISTER (register.js) + window.SKIM_PAPERS[id].
+
+   render() no longer runs in the browser. The shelf is the same for everyone
+   and changes only when the pipeline runs, so pipeline/prerender.mjs calls
+   render() at build time and writes the cards into papers.html; the page
+   arrives with them in it and this file only wires them up. render() stays
+   here, and stays the only place the markup is written, so the generator and
+   the reader cannot drift apart. */
 "use strict";
 
 const REG = (window.SKIM_REGISTER && SKIM_REGISTER.papers) || {};
@@ -585,10 +592,9 @@ function render() {
     'not the argument.</p>' +
     "</footer>";
 
+  /* Markup only. Wiring belongs to whoever called this, because the prerendered
+     page has markup without ever calling it and must still be wired once. */
   el("home").innerHTML = h;
-  wireTabs(el("home"));
-  wireAsk(el("home"));
-  mountMath(el("home"));
 }
 
 /* A handful of concept names carry inline math from the paper. */
@@ -603,6 +609,14 @@ function mountMath(root) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  render();
+  /* Prerendered pages come with the shelf already in them and only need
+     wiring. Drawing it here is the fallback for a papers.html that was opened
+     before the generator ran over it - and the path prerender.mjs itself
+     takes, where #home starts empty and the bundles are loaded by hand. */
+  const home = el("home");
+  if (!home.firstElementChild) render();
+  wireTabs(home);
+  wireAsk(home);
+  mountMath(home);
   SkimTheme.mount(el("theme-toggle"));
 });

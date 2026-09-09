@@ -977,7 +977,7 @@ else is counted off the paper's own shape.
 
 | Stage | Agents |
 |---|---|
-| Ingest, citations, auto-link, bundle, gate | none — scripted |
+| Ingest, citations, auto-link, bundle, prerender, gate | none — scripted |
 | Concepts | 4 — three extractors and a merge |
 | Triage | 1 before each guarded fan-out — cited reads, pages, and each narrative round |
 | Cited papers | 1 per borrowed mechanism the register does not already hold, less any triage skips |

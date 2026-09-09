@@ -3,9 +3,18 @@
 register.json            -> register.js          (window.SKIM_REGISTER = ...)
 papers/<id>/data/*.json  -> papers/<id>/data/js/bundle.js  (window.SKIM_PAPERS[id] = ...)
 papers/<id>/refs.json    -> included in the bundle
+
+Then hands off to pipeline/prerender.mjs, which reads what was just written and
+rebuilds viewer/papers.html with the shelf in it. That page is generated, not
+hand-written, and it is generated from these files - so it is rebuilt here
+rather than left for whoever remembers, which would show as a library quietly
+missing the paper that was just added.
 """
 import json
 import os
+import shutil
+import subprocess
+import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PARTS = ["concepts", "items", "edges", "themes", "pages", "narrative", "insights", "summary", "reading"]
@@ -57,6 +66,23 @@ def main():
         print(f"bundled {pid}: " + ", ".join(
             f"{k}={len(v) if isinstance(v, list) else ('yes' if v else 'no')}"
             for k, v in data.items() if k != "refs"))
+
+    prerender()
+
+
+def prerender():
+    """Rebuild viewer/papers.html from what was just bundled."""
+    node = shutil.which("node")
+    if not node:
+        print("! node not found - viewer/papers.html NOT rebuilt. "
+              "Run `node pipeline/prerender.mjs` before committing.")
+        return
+    script = os.path.join(ROOT, "pipeline", "prerender.mjs")
+    sys.stdout.flush()   # else our buffered lines land after the child's
+    try:
+        subprocess.run([node, script], cwd=ROOT, check=True)
+    except subprocess.CalledProcessError as e:
+        raise SystemExit(f"prerender failed ({e.returncode}); viewer/papers.html is stale")
 
 
 if __name__ == "__main__":

@@ -1272,7 +1272,8 @@ const done = await sh('finish', 'Finish',
 4.  ${PY} pipeline/autolink.py --write
 5.  ${PY} pipeline/attach_sources.py      (re-derive: the bodies changed)
 6.  ${PY} pipeline/bundle.py
-7.  ${PY} pipeline/qa.py
+7.  node pipeline/prerender.mjs          (rebuild viewer/papers.html - the library is generated, not hand-written)
+8.  ${PY} pipeline/qa.py
 
 If the gate is not clean, say exactly what failed - do not paper over it.
 
