@@ -907,6 +907,43 @@ function openFigPop(id) {
   if (c) c.focus();
 }
 
+/* ---------- which read to open ---------- */
+/* The rail's ? holds the four readings up together, which is the shape the
+   question actually has: a reader is choosing between them, not asking about
+   one. The card itself is in read.html - it is prose about the site and the
+   same on every paper, so nothing here builds it. */
+function openHelp() {
+  const wrap = el("helppop");
+  if (!wrap) return;
+  wrap.hidden = false;
+  document.body.classList.add("helppop-open");
+  const body = wrap.querySelector(".helppop-body");
+  if (body) body.scrollTop = 0;
+  const c = wrap.querySelector(".figpop-close");
+  if (c) c.focus();
+}
+
+/* Focus goes back to the button that opened it, or a keyboard is left standing
+   at the top of the document with the card gone. */
+function closeHelp() {
+  const wrap = el("helppop");
+  if (!wrap || wrap.hidden) return;
+  wrap.hidden = true;
+  document.body.classList.remove("helppop-open");
+  const btn = el("help-btn");
+  if (btn) btn.focus();
+}
+
+function setupHelp() {
+  const btn = el("help-btn");
+  if (!btn) return;
+  btn.addEventListener("click", openHelp);
+  document.addEventListener("click", (ev) => {
+    if (ev.target.closest && ev.target.closest("[data-help-close]")) closeHelp();
+  });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeHelp(); });
+}
+
 function closeFigPop() {
   const wrap = el("figpop");
   if (!wrap || wrap.hidden) return;
@@ -2361,6 +2398,26 @@ function navRow(href, num, title, cls) {
     '<span class="t">' + esc(title) + "</span></a></li>";
 }
 
+/* The heading of a fold carries two controls rather than one. The name is the
+   door into that reading, so a click anywhere along the row follows it; the
+   chevron at the end is the only thing that opens the drawer. A section with
+   nowhere of its own to go - themes have no page - has no door, and there the
+   whole row opens the fold. Wired in wireFolds, which has to call off the
+   summary's own habit of toggling wherever it is clicked. */
+function foldHead(name, href, count, tip) {
+  /* The card hangs off the name and not off the whole row, so it is the name
+     that has to be pointed at. What the tip says is what that reading is like,
+     which is an answer to the name; over the count or the chevron it would be
+     answering a question nobody asked. */
+  const t = ' data-tip="' + esc(tip) + '"';
+  return '<summary tabindex="-1">' +
+    (href ? '<a class="fold-name"' + t + ' href="' + esc(href) + '">' + esc(name) + "</a>"
+          : '<span class="fold-name"' + t + ">" + esc(name) + "</span>") +
+    '<span class="count">' + count + "</span>" +
+    '<button class="fold-toggle" type="button" aria-expanded="false" aria-label="Expand ' +
+    esc(name) + '"></button></summary>';
+}
+
 function buildNav() {
   const p = mainPaper();
   const meta = REG[MAIN_ID] || {};
@@ -2368,14 +2425,16 @@ function buildNav() {
   h += '<p class="brand"><a href="#/">' + esc(meta.title || MAIN_ID) + "</a></p>";
   h += '<input id="search" type="search" placeholder="Find a concept…" autocomplete="off"><ul id="search-results"></ul>';
 
-  /* Every section is the same fold. For the two reading sections the heading
-     is also the door: the name navigates, the rest of the heading collapses.
-     Both start open - they are the primary nav - and a fold that holds the
-     page you are on pulls itself open again in markActiveNav. */
+  /* Every section is the same fold, and every heading is the door into what it
+     holds: the name navigates, the chevron beside it opens the list. The first
+     two start open - they are the primary nav - and a fold that holds the page
+     you are on pulls itself open again in markActiveNav. */
   if (p.summary) {
     const beats = p.summary.beats || [];
-    h += '<details class="nav-fold" open><summary data-tip="The shortest read — the paper in a nutshell"><a href="#/summary">Skimmaxx it!</a>' +
-      '<span class="count">' + beats.length + "</span></summary>" + '<ul class="nav-list">';
+    h += '<details class="nav-fold" open>' +
+      foldHead("Skimmaxx it!", "#/summary", beats.length,
+        "The paper in a nutshell — a quick skim for an expert, slightly tough for a beginner") +
+      '<ul class="nav-list">';
     beats.forEach((b, i) => {
       h += navRow("#/summary#b-" + b.id, String(i + 1), b.heading);
     });
@@ -2384,8 +2443,10 @@ function buildNav() {
 
   const main = p.narrative;
   if (main) {
-    h += '<details class="nav-fold" open><summary data-tip="The longest read, with detailed explanations"><a href="#/">The story</a>' +
-      '<span class="count">' + (main.chapters || []).length + "</span></summary>" + '<ul class="nav-list">';
+    h += '<details class="nav-fold" open>' +
+      foldHead("The story", "#/", (main.chapters || []).length,
+        "The longest read, with detailed explanations — ideal for a beginner") +
+      '<ul class="nav-list">';
     (main.chapters || []).forEach((c, i) => {
       h += navRow(c.childId ? "#/n/" + c.childId : "#/#ch-" + c.id, c.number || String(i + 1), c.title);
     });
@@ -2395,8 +2456,12 @@ function buildNav() {
 
   const ins = p.insights;
   if (ins) {
-    h += '<details class="nav-fold"><summary data-tip="The main points, if you are familiar with the concepts">Insights<span class="count">' + (ins.chapters || []).length + "</span></summary>" + '<ul class="nav-list">';
-    h += navRow("#/insights", "", "The second read, whole", "sub lead");
+    /* The name is the whole read now, so the row that used to say so is gone -
+       it would be the same destination twice, marked here twice. */
+    h += '<details class="nav-fold">' +
+      foldHead("Insights", "#/insights", (ins.chapters || []).length,
+        "The main points, if you are familiar with the concepts") +
+      '<ul class="nav-list">';
     (ins.chapters || []).forEach((c, i) => {
       h += navRow(c.childId ? "#/n/" + c.childId : "#/insights#ch-" + c.id, c.number || String(i + 1), c.title);
     });
@@ -2405,7 +2470,10 @@ function buildNav() {
 
   const themes = (p.themes || []).filter((t) => t.kind === "concept-theme");
   if (themes.length) {
-    h += '<details class="nav-fold"><summary data-tip="The main ideas used in the paper">Themes<span class="count">' + themes.length + '</span></summary><ul class="nav-list">' +
+    /* No page of their own, so no door: here the name opens the fold too. */
+    h += '<details class="nav-fold">' +
+      foldHead("Themes", "", themes.length, "The main ideas used in the paper") +
+      '<ul class="nav-list">' +
       themes.map((t) => navRow("#/theme/" + t.id, "", t.name)).join("") + "</ul></details>";
   }
 
@@ -2418,6 +2486,44 @@ function buildNav() {
   el("sidebar").innerHTML = h;
 
   el("search").addEventListener("input", onSearch);
+  wireFolds();
+}
+
+/* A fold opens only from its chevron. The summary would otherwise toggle
+   wherever it is clicked, which is the one thing that must not happen when the
+   heading is also a link - a reader aiming at the name would watch the list
+   collapse instead of arriving. So the summary's own toggle is called off
+   across the whole row and put back on the chevron alone, and the rest of the
+   row stands in for the name. A click that lands on the name itself is left
+   alone: the browser already runs a link's activation instead of the
+   summary's, so nothing there needs cancelling. */
+function syncFold(d) {
+  const btn = d.querySelector(".fold-toggle");
+  if (!btn) return;
+  const name = d.querySelector(".fold-name");
+  btn.setAttribute("aria-expanded", d.open ? "true" : "false");
+  btn.setAttribute("aria-label", (d.open ? "Collapse " : "Expand ") +
+    (name ? name.textContent : ""));
+}
+
+function wireFolds() {
+  document.querySelectorAll("#sidebar details.nav-fold").forEach((d) => {
+    const sum = d.querySelector("summary");
+    const door = d.querySelector("a.fold-name");
+    sum.addEventListener("click", (ev) => {
+      if (ev.target.closest("a")) return;
+      ev.preventDefault();
+      if (door && !ev.target.closest(".fold-toggle")) {
+        location.hash = door.getAttribute("href");
+        return;
+      }
+      d.open = !d.open;
+    });
+    /* markActiveNav opens a fold on its own, so the chevron follows the
+       element rather than the click that may not have caused it. */
+    d.addEventListener("toggle", () => syncFold(d));
+    syncFold(d);
+  });
 }
 
 function onSearch(ev) {
@@ -2525,6 +2631,7 @@ document.addEventListener("DOMContentLoaded", () => {
   SkimTheme.mount(el("theme-toggle"));
   setupPopover();
   setupFigPop();
+  setupHelp();
   setupCloseup();
   setupSwitch();
   el("menu-btn").addEventListener("click", () => el("sidebar").classList.toggle("open"));

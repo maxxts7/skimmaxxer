@@ -397,6 +397,38 @@ a.sw-half:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px;
 
 /* A mark, not a word: the state is worth showing and not worth a line of the
    rail. The name lives in aria-label and the tooltip. */
+/* The rail's ? is the way in to the card that says which of the four readings
+   to open, so it sits with the theme toggle at the end of the rail: neither of
+   them acts on the page in front of you. It carries a hairline where the toggle
+   carries none - a question mark on its own is a glyph, and this has to read as
+   something you can press. */
+#help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: 600 var(--t-small)/1 var(--sans);
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+#help-btn:hover {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border-color: var(--accent-ring);
+}
+#help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* the two chips end the rail together, so the margin that pushes them there
+   belongs to the first of them and the second only keeps its distance */
+#help-btn + #theme-toggle { margin-left: 4px; }
+
 #theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -586,9 +618,15 @@ body.reading .rail { padding: 0 20px 0 18px; }
 .nav-fold > summary::-webkit-details-marker { display: none; }
 /* Pointed at, a section says what kind of read it holds: a small card under
    the heading, held back for a beat so it does not flash on pass-through.
-   The heading is capitals, so the card resets to the plain reading face. */
+   The heading is capitals, so the card resets to the plain reading face.
+
+   It hangs off the name rather than the row, and the name takes the left of
+   the row up to the count - so the card answers the half of the heading that
+   asks the question, and the count and the chevron are quiet. Positioned
+   against the summary all the same, which is what left and top read from. */
 .nav-fold > summary { position: relative; }
-.nav-fold > summary[data-tip]::before {
+.nav-fold > summary .fold-name { flex: 1 1 auto; min-width: 0; }
+.nav-fold > summary .fold-name[data-tip]::before {
   content: attr(data-tip);
   position: absolute;
   left: 9px;
@@ -609,7 +647,7 @@ body.reading .rail { padding: 0 20px 0 18px; }
   pointer-events: none;
   transition: opacity 0.15s ease;
 }
-.nav-fold > summary[data-tip]:hover::before { opacity: 1; transition-delay: 0.4s; }
+.nav-fold > summary .fold-name[data-tip]:hover::before { opacity: 1; transition-delay: 0.4s; }
 /* a closed fold says how much it is holding, so it reads as a full drawer
    rather than a dead caption - the same count chip the shelf's section heads
    carry */
@@ -622,25 +660,49 @@ body.reading .rail { padding: 0 20px 0 18px; }
   letter-spacing: 0;
   color: var(--ink-faint);
 }
-.nav-fold > summary::after {
-  content: "";
+/* The chevron is the only thing that opens the fold, so it is drawn as a
+   button and not as a mark: a chip the size of the count beside it, on the
+   surface colour so it stays raised when the row fills in under the pointer.
+   The name is the door, and it is much the larger target - which is the way
+   round it should be, since the reading is what a reader wants and the list
+   of its parts is the smaller errand. */
+.nav-fold > summary .fold-toggle {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
   margin-left: 8px;
-  border-left: 4.5px solid currentColor;
-  border-top: 3.5px solid transparent;
-  border-bottom: 3.5px solid transparent;
-  opacity: 0.55;
-  transition: transform 0.15s ease, opacity 0.12s ease;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
-/* without a count the triangle holds the rail's edge on its own */
-.nav-fold > summary:not(:has(.count))::after { margin-left: auto; }
-.nav-fold[open] > summary::after { transform: rotate(90deg); }
+.nav-fold > summary .fold-toggle::before {
+  content: "";
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s ease;
+}
+.nav-fold[open] > summary .fold-toggle::before { transform: rotate(90deg); }
+.nav-fold > summary .fold-toggle:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.nav-fold > summary .fold-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* a fold with a door has no count sitting against its edge, so the chip on its
+   own holds the rail's edge */
+.nav-fold > summary:not(:has(.count)) .fold-toggle { margin-left: auto; }
 .nav-fold > summary:hover { background: var(--accent-soft); color: var(--ink); }
-.nav-fold > summary:hover::after { opacity: 1; }
 .nav-fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* In the two reading sections the heading holds the door: the name is a link
-   and navigates on its own, everywhere else on the heading collapses. The
-   browser keeps the two apart - a click on a link inside a summary follows
-   the link without toggling the fold. The dot is the here-mark. */
+/* The heading holds the door: the name is a link and navigates, and so does
+   the rest of the row, which is only ever standing in for the name. The dot is
+   the here-mark. */
 .nav-fold > summary a {
   color: inherit;
   text-decoration: none;
@@ -1919,6 +1981,91 @@ body.figpop-open { overflow: hidden; }
 @media (max-width: 720px) {
   .figpop-panel { inset: 8vh 0 0; width: 100%; }
   .figpop-body { padding: 24px 18px 36px; }
+}
+
+/* ---------- which read to open ---------- */
+/* A card in the middle of the window rather than the sheet a figure opens in:
+   this is a page of prose that ends, and it is read once and dismissed, so it
+   is sized to itself. The scrim is the figure's, unchanged - one dimming for
+   everything that opens over the page. */
+.helppop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+/* the display above would otherwise beat the hidden attribute */
+.helppop[hidden] { display: none; }
+.helppop-panel {
+  position: relative;
+  z-index: 1;
+  width: min(620px, 100%);
+  max-height: min(84vh, 760px);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lift);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.helppop-body { overflow-y: auto; padding: 30px 34px 34px; }
+/* clear of the body's scrollbar, which runs under it whenever the card is
+   taller than the window */
+.helppop-panel .figpop-close { right: 20px; }
+.helppop-body h2 {
+  margin: 0 0 8px;
+  font: 700 var(--t-head) var(--sans);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.help-lede { margin: 0 0 4px; font: 400 var(--t-plain)/1.55 var(--sans); color: var(--ink-faint); }
+/* One reading to a block, each block headed by the name it carries in the rail
+   so the answer can be matched to the thing it is about without reading down. */
+.help-read { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line-soft); }
+.help-read h3 {
+  margin: 0 0 10px;
+  font: 600 var(--t-mid) var(--sans);
+  color: var(--ink);
+}
+/* The two lines are the same sentence twice, so they are set as one grid: the
+   labels line up down the card and the cases read as a column of their own. */
+.help-yes,
+.help-no {
+  display: grid;
+  grid-template-columns: 66px 1fr;
+  gap: 12px;
+  margin: 0 0 6px;
+  font: 400 var(--t-plain)/1.55 var(--sans);
+  color: var(--ink-soft);
+}
+.help-tag {
+  font: 600 var(--t-micro) var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-top: 2px;
+}
+.help-yes .help-tag { color: var(--green); }
+.help-no .help-tag { color: var(--red); }
+/* The one thing here that is not a case for or against: where the ground under
+   this reading runs out, and what to do when it does. */
+.help-note {
+  margin: 12px 0 0 78px;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+  font: 400 var(--t-plain)/1.55 var(--sans);
+  color: var(--ink-faint);
+}
+body.helppop-open { overflow: hidden; }
+@media (max-width: 620px) {
+  .helppop { padding: 12px; }
+  .helppop-body { padding: 26px 20px 28px; }
+  .help-yes,
+  .help-no { grid-template-columns: 1fr; gap: 2px; }
+  .help-note { margin-left: 0; }
 }
 
 /* ---------- a figure held up close ---------- */
